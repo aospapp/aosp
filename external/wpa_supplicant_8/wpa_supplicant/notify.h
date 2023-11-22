@@ -24,8 +24,13 @@ void wpas_notify_state_changed(struct wpa_supplicant *wpa_s,
 			       enum wpa_states new_state,
 			       enum wpa_states old_state);
 void wpas_notify_disconnect_reason(struct wpa_supplicant *wpa_s);
+void wpas_notify_auth_status_code(struct wpa_supplicant *wpa_s);
 void wpas_notify_assoc_status_code(struct wpa_supplicant *wpa_s);
 void wpas_notify_auth_timeout(struct wpa_supplicant *wpa_s);
+void wpas_notify_roam_time(struct wpa_supplicant *wpa_s);
+void wpas_notify_roam_complete(struct wpa_supplicant *wpa_s);
+void wpas_notify_session_length(struct wpa_supplicant *wpa_s);
+void wpas_notify_bss_tm_status(struct wpa_supplicant *wpa_s);
 void wpas_notify_network_changed(struct wpa_supplicant *wpa_s);
 void wpas_notify_ap_scan_changed(struct wpa_supplicant *wpa_s);
 void wpas_notify_bssid_changed(struct wpa_supplicant *wpa_s);
@@ -167,4 +172,16 @@ void wpas_notify_hs20_rx_subscription_remediation(struct wpa_supplicant *wpa_s,
 void wpas_notify_hs20_rx_deauth_imminent_notice(struct wpa_supplicant *wpa_s,
 						u8 code, u16 reauth_delay,
 						const char *url);
+void wpas_notify_dpp_config_received(struct wpa_supplicant *wpa_s,
+	    struct wpa_ssid *ssid);
+void wpas_notify_dpp_config_sent(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_auth_success(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_resp_pending(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_not_compatible(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_missing_auth(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_configuration_failure(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_timeout(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_auth_failure(struct wpa_supplicant *wpa_s);
+void wpas_notify_dpp_failure(struct wpa_supplicant *wpa_s);
+
 #endif /* NOTIFY_H */

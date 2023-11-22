@@ -36,6 +36,7 @@ cc_defaults {
         "-Wno-switch",
         "-Wno-absolute-value",
         "-Wno-non-literal-null-conversion",
+        "-Wno-unused-value",
         "-Wno-unused-variable",
         "-Wno-unused-parameter",
         "-Wno-empty-body",
@@ -95,6 +96,15 @@ cc_test {
     static_libs: ["libcap-ng"],
 }
 
+// Cpu-hotplug test
+sh_test {
+    name: "kselftest_cpu-hotplug_cpu-on-off-test",
+    sub_dir: "linux-kselftest/cpu-hotplug",
+    src: "tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
 // Efivarfs test
 cc_test {
     name: "kselftest_efivarfs_tests",
@@ -106,6 +116,14 @@ cc_test {
     defaults: ["kselftest_defaults"],
 }
 
+sh_test {
+    name: "kselftest_efivarfs_efivarfs",
+    sub_dir: "linux-kselftest/efivarfs",
+    src: "tools/testing/selftests/efivarfs/efivarfs.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
 // Exec test
 cc_test {
     name: "kselftest_exec_test",
@@ -114,6 +132,104 @@ cc_test {
         "tools/testing/selftests/exec/execveat.c",
     ],
     defaults: ["kselftest_defaults"],
+}
+
+sh_test {
+    name: "kselftest_exec_execveat.sh",
+    sub_dir: "linux-kselftest/exec",
+    src: "tools/testing/selftests/exec/execveat.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+// Firmware test
+sh_test {
+    name: "kselftest_firmware_fw_fallback",
+    sub_dir: "linux-kselftest/firmware",
+    src: "tools/testing/selftests/firmware/fw_fallback.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_firmware_fw_filesystem",
+    sub_dir: "linux-kselftest/firmware",
+    src: "tools/testing/selftests/firmware/fw_filesystem.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+// Ftrace test
+sh_test {
+    name: "kselftest_ftrace_ftracetest",
+    sub_dir: "linux-kselftest/ftrace",
+    src: "tools/testing/selftests/ftrace/ftracetest",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_functions",
+    sub_dir: "linux-kselftest/ftrace/test.d",
+    src: "tools/testing/selftests/ftrace/test.d/functions",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_00basic_basic2",
+    sub_dir: "linux-kselftest/ftrace/test.d/00basic",
+    src: "tools/testing/selftests/ftrace/test.d/00basic/basic2.tc",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_00basic_basic4",
+    sub_dir: "linux-kselftest/ftrace/test.d/00basic",
+    src: "tools/testing/selftests/ftrace/test.d/00basic/basic4.tc",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_00basic_basic1",
+    sub_dir: "linux-kselftest/ftrace/test.d/00basic",
+    src: "tools/testing/selftests/ftrace/test.d/00basic/basic1.tc",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_00basic_basic3",
+    sub_dir: "linux-kselftest/ftrace/test.d/00basic",
+    src: "tools/testing/selftests/ftrace/test.d/00basic/basic3.tc",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_template",
+    sub_dir: "linux-kselftest/ftrace/test.d",
+    src: "tools/testing/selftests/ftrace/test.d/template",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_instances_instance",
+    sub_dir: "linux-kselftest/ftrace/test.d/instances",
+    src: "tools/testing/selftests/ftrace/test.d/instances/instance.tc",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_ftrace_test.d_instances_instance-event",
+    sub_dir: "linux-kselftest/ftrace/test.d/instances",
+    src: "tools/testing/selftests/ftrace/test.d/instances/instance-event.tc",
+    filename_from_src: true,
+    compile_multilib: "both",
 }
 
 // Futex test
@@ -140,6 +256,14 @@ cc_test {
     defaults: ["kselftest_defaults"],
 }
 
+sh_test {
+    name: "kselftest_futex_functional_run.sh",
+    sub_dir: "linux-kselftest/futex/functional",
+    src: "tools/testing/selftests/futex/functional/run.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
 // intel_pstate test
 cc_test {
     name: "kselftest_intel_pstate_tests",
@@ -155,12 +279,37 @@ cc_test {
     // TODO: test_data: intel_pstate/run.sh
 }
 
+sh_test {
+    name: "kselftest_intel_pstate_run.sh",
+    sub_dir: "linux-kselftest/intel_pstate",
+    src: "tools/testing/selftests/intel_pstate/run.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
 // Kcmp test
 cc_test {
     name: "kselftest_kcmp_tests",
     relative_install_path: "linux-kselftest/kcmp",
     srcs: ["tools/testing/selftests/kcmp/kcmp_test.c"],
     defaults: ["kselftest_defaults"],
+}
+
+// Lib test
+sh_test {
+    name: "kselftest_lib_printf",
+    sub_dir: "linux-kselftest/lib",
+    src: "tools/testing/selftests/lib/printf.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_lib_bitmap",
+    sub_dir: "linux-kselftest/lib",
+    src: "tools/testing/selftests/lib/bitmap.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
 }
 
 // media_tests test
@@ -181,6 +330,15 @@ cc_test {
     relative_install_path: "linux-kselftest/membarrier",
     srcs: ["tools/testing/selftests/membarrier/membarrier_test.c"],
     defaults: ["kselftest_defaults"],
+}
+
+// Memory-hotplug test
+sh_test {
+    name: "kselftest_memory-hotplug_mem-on-off-test",
+    sub_dir: "linux-kselftest/memory-hotplug",
+    src: "tools/testing/selftests/memory-hotplug/mem-on-off-test.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
 }
 
 // Mount test
@@ -206,11 +364,60 @@ cc_test {
     // TODO: test_data: net/test_bpf.sh
 }
 
+sh_test {
+    name: "kselftest_net_test_bpf",
+    sub_dir: "linux-kselftest/net",
+    src: "tools/testing/selftests/net/test_bpf.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+// Pstore test
+sh_test {
+    name: "kselftest_pstore_pstore_tests",
+    sub_dir: "linux-kselftest/pstore",
+    src: "tools/testing/selftests/pstore/pstore_tests",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_pstore_pstore_post_reboot_tests",
+    sub_dir: "linux-kselftest/pstore",
+    src: "tools/testing/selftests/pstore/pstore_post_reboot_tests",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_pstore_common_tests",
+    sub_dir: "linux-kselftest/pstore",
+    src: "tools/testing/selftests/pstore/common_tests",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_pstore_pstore_crash_test",
+    sub_dir: "linux-kselftest/pstore",
+    src: "tools/testing/selftests/pstore/pstore_crash_test",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
 // Ptrace test
 cc_test {
     name: "kselftest_ptrace_tests",
     relative_install_path: "linux-kselftest/ptrace",
     srcs: ["tools/testing/selftests/ptrace/peeksiginfo.c"],
+    defaults: ["kselftest_defaults"],
+}
+
+// rtc test
+cc_test {
+    name: "kselftest_rtc_tests",
+    relative_install_path: "linux-kselftest/rtc",
+    srcs: ["tools/testing/selftests/rtc/rtctest.c"],
     defaults: ["kselftest_defaults"],
 }
 
@@ -239,6 +446,23 @@ cc_test {
     defaults: ["kselftest_defaults"],
 }
 
+sh_test {
+    name: "kselftest_splice_default_file_splice_read.sh",
+    sub_dir: "linux-kselftest/splice",
+    src: "tools/testing/selftests/splice/default_file_splice_read.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+// Static keys test
+sh_test {
+    name: "kselftest_static_keys_test_static_keys",
+    sub_dir: "linux-kselftest/static_keys",
+    src: "tools/testing/selftests/static_keys/test_static_keys.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
 // Timer test
 cc_test {
     name: "kselftest_timer_tests",
@@ -256,8 +480,6 @@ cc_test {
         "tools/testing/selftests/timers/nsleep-lat.c",
         "tools/testing/selftests/timers/posix_timers.c",
         "tools/testing/selftests/timers/raw_skew.c",
-        "tools/testing/selftests/timers/rtctest.c",
-        "tools/testing/selftests/timers/rtctest_setdate.c",
         "tools/testing/selftests/timers/set-2038.c",
         "tools/testing/selftests/timers/set-tai.c",
         "tools/testing/selftests/timers/set-timer-lat.c",
@@ -271,6 +493,15 @@ cc_test {
         "-DKTEST",
     ],
     defaults: ["kselftest_defaults"],
+}
+
+// User test
+sh_test {
+    name: "kselftest_user_test_user_copy",
+    sub_dir: "linux-kselftest/user",
+    src: "tools/testing/selftests/user/test_user_copy.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
 }
 
 // vdso test
@@ -316,11 +547,19 @@ cc_test {
         arm64: {
             enabled: true,
             cflags: ["-D__aarch64__"],
-        }
-    }
+        },
+    },
 }
 
-// x86 test
+sh_test {
+    name: "kselftest_vm_run_vmtests",
+    sub_dir: "linux-kselftest/vm",
+    src: "tools/testing/selftests/vm/run_vmtests",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+// x86 tests
 cc_test {
     name: "kselftest_x86_tests",
     relative_install_path: "linux-kselftest/x86",
@@ -328,8 +567,7 @@ cc_test {
         "tools/testing/selftests/x86/single_step_syscall.c",
         "tools/testing/selftests/x86/syscall_nt.c",
         "tools/testing/selftests/x86/test_mremap_vdso.c",
-        "tools/testing/selftests/x86/check_initial_reg_state.c",
-        "tools/testing/selftests/x86/ldt_gdt.c"
+        "tools/testing/selftests/x86/ldt_gdt.c",
     ],
     arch: {
         arm: {
@@ -353,9 +591,38 @@ cc_test {
     },
     cflags: [
         "-O2",
-        "-std=gnu99",
         "-pthread",
     ],
+    c_std: "gnu99",
+    static_executable: true,
+    defaults: ["kselftest_defaults"],
+}
+
+cc_test {
+    name: "kselftest_x86_check_initial_reg_state",
+    stem: "check_initial_reg_state",
+    relative_install_path: "linux-kselftest/x86",
+    srcs: [
+        "tools/testing/selftests/x86/check_initial_reg_state.c",
+    ],
+    arch: {
+        arm: {
+            enabled: false,
+        },
+        arm64: {
+            enabled: false,
+        },
+    },
+    cflags: [
+        "-O2",
+        "-pthread",
+    ],
+    c_std: "gnu99",
+    // check_initial_reg_state is special: it needs a custom entry, and it needs to be static so
+    // that its interpreter doesn't destroy its initial state.
+    ldflags: ["-Wl,-ereal_start"],
+    static_executable: true,
+    test_per_src: false,
     defaults: ["kselftest_defaults"],
 }
 
@@ -369,9 +636,9 @@ cc_test {
     ],
     cflags: [
         "-O2",
-        "-std=gnu99",
         "-pthread",
     ],
+    c_std: "gnu99",
     test_per_src: false,
     defaults: ["kselftest_defaults"],
     enabled: false,
@@ -392,9 +659,10 @@ cc_test {
     ],
     cflags: [
         "-O2",
-        "-std=gnu99",
         "-pthread",
     ],
+    c_std: "gnu99",
+    static_executable: true,
     test_per_src: false,
     defaults: ["kselftest_defaults"],
     enabled: false,
@@ -403,4 +671,37 @@ cc_test {
             enabled: true,
         },
     },
+}
+
+// zram tests
+sh_test {
+    name: "kselftest_zram_zram.sh",
+    sub_dir: "linux-kselftest/zram",
+    src: "tools/testing/selftests/zram/zram.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_zram_zram01.sh",
+    sub_dir: "linux-kselftest/zram",
+    src: "tools/testing/selftests/zram/zram01.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_zram_zram02.sh",
+    sub_dir: "linux-kselftest/zram",
+    src: "tools/testing/selftests/zram/zram02.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "kselftest_zram_zram_lib.sh",
+    sub_dir: "linux-kselftest/zram",
+    src: "tools/testing/selftests/zram/zram_lib.sh",
+    filename_from_src: true,
+    compile_multilib: "both",
 }

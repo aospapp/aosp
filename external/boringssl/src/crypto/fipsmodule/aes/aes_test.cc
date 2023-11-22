@@ -13,6 +13,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <memory>
@@ -22,9 +23,12 @@
 
 #include <openssl/aes.h>
 
+#include "internal.h"
 #include "../../internal.h"
+#include "../../test/abi_test.h"
 #include "../../test/file_test.h"
 #include "../../test/test_util.h"
+#include "../../test/wycheproof_util.h"
 
 
 static void TestRaw(FileTest *t) {
@@ -129,3 +133,163 @@ TEST(AESTest, TestVectors) {
     }
   });
 }
+
+TEST(AESTest, WycheproofKeyWrap) {
+  FileTestGTest("third_party/wycheproof_testvectors/kw_test.txt",
+                [](FileTest *t) {
+    std::string key_size;
+    ASSERT_TRUE(t->GetInstruction(&key_size, "keySize"));
+    std::vector<uint8_t> ct, key, msg;
+    ASSERT_TRUE(t->GetBytes(&ct, "ct"));
+    ASSERT_TRUE(t->GetBytes(&key, "key"));
+    ASSERT_TRUE(t->GetBytes(&msg, "msg"));
+    ASSERT_EQ(static_cast<unsigned>(atoi(key_size.c_str())), key.size() * 8);
+    WycheproofResult result;
+    ASSERT_TRUE(GetWycheproofResult(t, &result));
+
+    if (result != WycheproofResult::kInvalid) {
+      ASSERT_GE(ct.size(), 8u);
+
+      AES_KEY aes;
+      ASSERT_EQ(0, AES_set_decrypt_key(key.data(), 8 * key.size(), &aes));
+      std::vector<uint8_t> out(ct.size() - 8);
+      int len = AES_unwrap_key(&aes, nullptr, out.data(), ct.data(), ct.size());
+      ASSERT_EQ(static_cast<int>(out.size()), len);
+      EXPECT_EQ(Bytes(msg), Bytes(out));
+
+      out.resize(msg.size() + 8);
+      ASSERT_EQ(0, AES_set_encrypt_key(key.data(), 8 * key.size(), &aes));
+      len = AES_wrap_key(&aes, nullptr, out.data(), msg.data(), msg.size());
+      ASSERT_EQ(static_cast<int>(out.size()), len);
+      EXPECT_EQ(Bytes(ct), Bytes(out));
+    } else {
+      AES_KEY aes;
+      ASSERT_EQ(0, AES_set_decrypt_key(key.data(), 8 * key.size(), &aes));
+      std::vector<uint8_t> out(ct.size() < 8 ? 0 : ct.size() - 8);
+      int len = AES_unwrap_key(&aes, nullptr, out.data(), ct.data(), ct.size());
+      EXPECT_EQ(-1, len);
+    }
+  });
+}
+
+TEST(AESTest, WrapBadLengths) {
+  uint8_t key[128/8] = {0};
+  AES_KEY aes;
+  ASSERT_EQ(0, AES_set_encrypt_key(key, 128, &aes));
+
+  // Input lengths to |AES_wrap_key| must be a multiple of 8 and at least 16.
+  static const size_t kLengths[] = {0, 1,  2,  3,  4,  5,  6,  7, 8,
+                                    9, 10, 11, 12, 13, 14, 15, 20};
+  for (size_t len : kLengths) {
+    SCOPED_TRACE(len);
+    std::vector<uint8_t> in(len);
+    std::vector<uint8_t> out(len + 8);
+    EXPECT_EQ(-1,
+              AES_wrap_key(&aes, nullptr, out.data(), in.data(), in.size()));
+  }
+}
+
+#if defined(SUPPORTS_ABI_TEST)
+TEST(AESTest, ABI) {
+  for (int bits : {128, 192, 256}) {
+    SCOPED_TRACE(bits);
+    const uint8_t kKey[256/8] = {0};
+    AES_KEY key;
+    uint8_t block[AES_BLOCK_SIZE];
+    uint8_t buf[AES_BLOCK_SIZE * 64] = {0};
+    std::vector<int> block_counts;
+    if (bits == 128) {
+      block_counts = {0, 1, 2, 3, 4, 8, 16, 31};
+    } else {
+      // Unwind tests are very slow. Assume that the various input sizes do not
+      // differ significantly by round count for ABI purposes.
+      block_counts = {0, 1, 8};
+    }
+
+    CHECK_ABI(aes_nohw_set_encrypt_key, kKey, bits, &key);
+    CHECK_ABI(aes_nohw_encrypt, block, block, &key);
+#if defined(AES_NOHW_CBC)
+    for (size_t blocks : block_counts) {
+      SCOPED_TRACE(blocks);
+      CHECK_ABI(aes_nohw_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                block, AES_ENCRYPT);
+    }
+#endif
+
+    CHECK_ABI(aes_nohw_set_decrypt_key, kKey, bits, &key);
+    CHECK_ABI(aes_nohw_decrypt, block, block, &key);
+#if defined(AES_NOHW_CBC)
+    for (size_t blocks : block_counts) {
+      SCOPED_TRACE(blocks);
+      CHECK_ABI(aes_nohw_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                block, AES_DECRYPT);
+    }
+#endif
+
+    if (bsaes_capable()) {
+      aes_nohw_set_encrypt_key(kKey, bits, &key);
+      for (size_t blocks : block_counts) {
+        SCOPED_TRACE(blocks);
+        if (blocks != 0) {
+          CHECK_ABI(bsaes_ctr32_encrypt_blocks, buf, buf, blocks, &key, block);
+        }
+      }
+
+      aes_nohw_set_decrypt_key(kKey, bits, &key);
+      for (size_t blocks : block_counts) {
+        SCOPED_TRACE(blocks);
+        CHECK_ABI(bsaes_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  block, AES_DECRYPT);
+      }
+    }
+
+    if (vpaes_capable()) {
+      CHECK_ABI(vpaes_set_encrypt_key, kKey, bits, &key);
+      CHECK_ABI(vpaes_encrypt, block, block, &key);
+      for (size_t blocks : block_counts) {
+        SCOPED_TRACE(blocks);
+        CHECK_ABI(vpaes_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  block, AES_ENCRYPT);
+#if defined(VPAES_CTR32)
+        CHECK_ABI(vpaes_ctr32_encrypt_blocks, buf, buf, blocks, &key, block);
+#endif
+      }
+
+      CHECK_ABI(vpaes_set_decrypt_key, kKey, bits, &key);
+      CHECK_ABI(vpaes_decrypt, block, block, &key);
+      for (size_t blocks : block_counts) {
+        SCOPED_TRACE(blocks);
+        CHECK_ABI(vpaes_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  block, AES_DECRYPT);
+      }
+    }
+
+    if (hwaes_capable()) {
+      CHECK_ABI(aes_hw_set_encrypt_key, kKey, bits, &key);
+      CHECK_ABI(aes_hw_encrypt, block, block, &key);
+      for (size_t blocks : block_counts) {
+        SCOPED_TRACE(blocks);
+        CHECK_ABI(aes_hw_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  block, AES_ENCRYPT);
+        CHECK_ABI(aes_hw_ctr32_encrypt_blocks, buf, buf, blocks, &key, block);
+#if defined(HWAES_ECB)
+        CHECK_ABI(aes_hw_ecb_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  AES_ENCRYPT);
+#endif
+      }
+
+      CHECK_ABI(aes_hw_set_decrypt_key, kKey, bits, &key);
+      CHECK_ABI(aes_hw_decrypt, block, block, &key);
+      for (size_t blocks : block_counts) {
+        SCOPED_TRACE(blocks);
+        CHECK_ABI(aes_hw_cbc_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  block, AES_DECRYPT);
+#if defined(HWAES_ECB)
+        CHECK_ABI(aes_hw_ecb_encrypt, buf, buf, AES_BLOCK_SIZE * blocks, &key,
+                  AES_DECRYPT);
+#endif
+      }
+    }
+  }
+}
+#endif  // SUPPORTS_ABI_TEST

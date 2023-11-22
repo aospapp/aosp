@@ -262,6 +262,54 @@ enum nugget_ap_uart_passthru_cfg {
  * @errors             APP_ERROR_BOGUS_ARGS
  */
 
+#define NUGGET_PARAM_RDD_CFG 0x000e
+/*
+ * Set / Get Board ID
+ *
+ * This sets or gets the Board ID of the device.
+ *
+ * @param args         <none>  OR   nugget_app_board_id
+ * @param arg_len      0       OR   sizeof nugget_app_board_id
+ * @param reply        struct nugget_app_board_id
+ * @param reply_len    sizeof struct nugget_app_board_id
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+struct nugget_app_board_id {
+  uint32_t type;
+  uint32_t flag;
+  uint32_t inv;                         /* must equal ~type when setting */
+} __packed;
+#define NUGGET_PARAM_BOARD_ID 0x000f
+
+/*
+ * Enable/Disable the RDD SuzyQable Deteaction
+ *
+ * This always returns the current state of the RDD SuezyQable detection
+ * feature.
+ *
+ * The AP can request that the RDD SuezyQable detection to be disabled (0) or
+ * enabled (1).
+ *
+ * @param args         0     OR   1
+ * @param arg_len      0     OR   1 byte
+ * @param reply        0     OR   1 current state
+ * @param reply_len    1 byte
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+
+#define NUGGET_PARAM_GET_EVENT_RECORD 0x0010
+/*
+ * This retrieves one pending event_record (defined in citadel_events.h).
+ * If none are pending, it returns nothing.
+ *
+ * @param args         <none>
+ * @param arg_len      0
+ * @param reply        struct event_record
+ * @param reply_len    sizeof struct event_record  OR  0
+ */
+
 /****************************************************************************/
 /* Test related commands */
 
@@ -273,6 +321,21 @@ enum nugget_ap_uart_passthru_cfg {
  * @param arg_len      0
  * @param reply        uint32_t cycles
  * @param reply_len    sizeof(uint32_t)
+ */
+
+#define NUGGET_PARAM_SELFTEST 0x0101
+/*
+ * Run an intentionally vaguely specified internal test.
+ *
+ * This accepts arbitrary args and returns arbitrary results, as defined by the
+ * Citadel firmware. To allow changes to Nugget OS without requiring
+ * simultaneous changes to the AP, calling this with no args will run a default
+ * set of tests and return a null-terminated string with the result.
+ *
+ * @param args         zero or more null-terminated strings, concatenated
+ * @param arg_len      number of bytes in args
+ * @param reply        null-terminated string (usually)
+ * @param reply_len    number of bytes in reply (including trailing '\0')
  */
 
 /****************************************************************************/
@@ -294,6 +357,8 @@ struct nugget_app_low_power_stats {
   uint64_t deep_sleep_count;
   uint64_t time_at_last_deep_sleep;
   uint64_t time_spent_in_deep_sleep;
+  uint64_t time_at_ap_reset;
+  uint64_t time_at_ap_bootloader_done;
 } __packed;
 
 #define NUGGET_PARAM_GET_LOW_POWER_STATS 0x200
@@ -312,10 +377,7 @@ struct nugget_app_low_power_stats {
 /* UNIMPLEMENTED */
 
 /****************************************************************************/
-/* These are bringup / debug functions only.
- *
- * TODO(b/65067435): Remove all of these.
- */
+/* These are bringup / debug functions only. */
 
 #define NUGGET_PARAM_READ32 0xF000
 /*
@@ -346,6 +408,16 @@ struct nugget_app_write32 {
  * @param arg_len      sizeof(struct nugget_app_write32)
  * @param reply        <none>
  * @param reply_len    0
+ */
+
+#define NUGGET_PARAM_CONSOLE 0xF002
+/*
+ * Send optional command, return recent console output
+ *
+ * @param args         command, if any
+ * @param arg_len      sizeof(command)
+ * @param reply        recent console output
+ * @param reply_len    len(recent console output)
  */
 
 #ifdef __cplusplus

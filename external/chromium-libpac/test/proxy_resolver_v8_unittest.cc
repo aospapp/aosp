@@ -11,9 +11,9 @@
 
 #include "android_runtime/AndroidRuntime.h"
 #include "proxy_test_script.h"
+#include "proxy_resolver_v8_wrapper.h"
 #include "proxy_resolver_v8.h"
 
-using namespace android;
 namespace net {
 namespace {
 
@@ -49,20 +49,14 @@ class MockJSBindings : public ProxyResolverJSBindings, public ProxyErrorListener
     return !dns_resolve_ex_result.empty();
   }
 
-  virtual void AlertMessage(String16 message) {
-    String8 m8(message);
-    std::string mstd(m8.string());
-
-    ALOGD("PAC-alert: %s\n", mstd.c_str());  // Helpful when debugging.
-    alerts.push_back(mstd);
+  virtual void AlertMessage(const std::string& message) {
+    ALOGD("PAC-alert: %s\n", message.c_str());  // Helpful when debugging.
+    alerts.push_back(message);
   }
 
-  virtual void ErrorMessage(const String16 message) {
-    String8 m8(message);
-    std::string mstd(m8.string());
-
-    ALOGD("PAC-error: %s\n", mstd.c_str());  // Helpful when debugging.
-    errors.push_back(mstd);
+  virtual void ErrorMessage(const std::string& message) {
+    ALOGD("PAC-error: %s\n", message.c_str());  // Helpful when debugging.
+    errors.push_back(message);
   }
 
   virtual void Shutdown() {}
@@ -100,12 +94,12 @@ class ProxyResolverV8WithMockBindings : public ProxyResolverV8 {
 };
 
 // Doesn't really matter what these values are for many of the tests.
-const String16 kQueryUrl("http://www.google.com");
-const String16 kQueryHost("www.google.com");
-String16 kResults;
+const std::u16string kQueryUrl(u"http://www.google.com");
+const std::u16string kQueryHost(u"www.google.com");
+std::u16string kResults;
 
-String16 currentPac;
-#define SCRIPT(x) (currentPac = String16(x))
+std::u16string currentPac;
+#define SCRIPT(x) (currentPac = std::u16string(x))
 
 void addString(std::vector<std::string>* list, std::string str) {
   if (str.compare(0, 6, "DIRECT") == 0) {
@@ -117,9 +111,21 @@ void addString(std::vector<std::string>* list, std::string str) {
   }
 }
 
-std::vector<std::string> string16ToProxyList(String16 response) {
+std::unique_ptr<ProxyResolverV8Handle, void(*)(ProxyResolverV8Handle*)> newProxyResolverV8Handle() {
+  return std::unique_ptr<ProxyResolverV8Handle, void(*)(ProxyResolverV8Handle*)>(
+          ProxyResolverV8Handle_new(), &ProxyResolverV8Handle_delete);
+}
+
+std::unique_ptr<char16_t, decltype(&free)> getProxyForURL(ProxyResolverV8Handle* handle,
+                                                         const char16_t* spec,
+                                                         const char16_t* host) {
+  return std::unique_ptr<char16_t, decltype(&free)>(
+      ProxyResolverV8Handle_GetProxyForURL(handle, spec, host), &free);
+}
+
+std::vector<std::string> string16ToProxyList(const std::u16string& response) {
     std::vector<std::string> ret;
-    String8 response8(response);
+    android::String8 response8(response.data());
     std::string rstr(response8.string());
     if (rstr.find(';') == std::string::npos) {
         addString(&ret, rstr);
@@ -163,6 +169,21 @@ TEST(ProxyResolverV8Test, Direct) {
   EXPECT_EQ(0U, resolver.mock_js_bindings()->errors.size());
 }
 
+TEST(ProxyResolverV8Test, Direct_C_API) {
+  auto handle = newProxyResolverV8Handle();
+  int result = ProxyResolverV8Handle_SetPacScript(handle.get(), DIRECT_JS);
+  EXPECT_EQ(OK, result);
+
+  std::unique_ptr<char16_t, decltype(&free)> result_list = getProxyForURL(
+      handle.get(), kQueryUrl.data(), kQueryHost.data());
+
+  ASSERT_NE(nullptr, result_list.get());
+  kResults = result_list.get();
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(proxies.size(), 1U);
+  EXPECT_EQ("DIRECT",proxies[0]);
+}
+
 TEST(ProxyResolverV8Test, ReturnEmptyString) {
   ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
   int result = resolver.SetPacScript(SCRIPT(RETURN_EMPTY_STRING_JS));
@@ -187,8 +208,8 @@ TEST(ProxyResolverV8Test, Basic) {
   // arguments into a pseudo-host. The purpose of this test is to verify that
   // the correct arguments are being passed to FindProxyForURL().
   {
-    String16 queryUrl("http://query.com/path");
-    String16 queryHost("query.com");
+    std::u16string queryUrl(u"http://query.com/path");
+    std::u16string queryHost(u"query.com");
     result = resolver.GetProxyForURL(queryUrl, queryHost, &kResults);
     EXPECT_EQ(OK, result);
     std::vector<std::string> proxies = string16ToProxyList(kResults);
@@ -196,8 +217,8 @@ TEST(ProxyResolverV8Test, Basic) {
     EXPECT_EQ("http.query.com.path.query.com", proxies[0]);
   }
   {
-    String16 queryUrl("ftp://query.com:90/path");
-    String16 queryHost("query.com");
+    std::u16string queryUrl(u"ftp://query.com:90/path");
+    std::u16string queryHost(u"query.com");
     int result = resolver.GetProxyForURL(queryUrl, queryHost, &kResults);
 
     EXPECT_EQ(OK, result);
@@ -219,16 +240,33 @@ TEST(ProxyResolverV8Test, Basic) {
   resolver.PurgeMemory();
 }
 
+TEST(ProxyResolverV8Test, Basic_C_API) {
+  auto handle = newProxyResolverV8Handle();
+  int result = ProxyResolverV8Handle_SetPacScript(handle.get(), PASSTHROUGH_JS);
+  EXPECT_EQ(OK, result);
+
+  // The "FindProxyForURL" of this PAC script simply concatenates all of the
+  // arguments into a pseudo-host. The purpose of this test is to verify that
+  // the correct arguments are being passed to FindProxyForURL().
+  std::unique_ptr<char16_t, decltype(&free)> result_list = getProxyForURL(
+      handle.get(), u"http://query.com/path", u"query.com");
+  ASSERT_NE(nullptr, result_list.get());
+  kResults = result_list.get();
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(1U, proxies.size());
+  EXPECT_EQ("http.query.com.path.query.com", proxies[0]);
+}
+
 TEST(ProxyResolverV8Test, BadReturnType) {
   // These are the files of PAC scripts which each return a non-string
   // types for FindProxyForURL(). They should all fail with
   // ERR_PAC_SCRIPT_FAILED.
-  static const String16 files[] = {
-      String16(RETURN_UNDEFINED_JS),
-      String16(RETURN_INTEGER_JS),
-      String16(RETURN_FUNCTION_JS),
-      String16(RETURN_OBJECT_JS),
-      String16(RETURN_NULL_JS)
+  static const std::u16string files[] = {
+      std::u16string(RETURN_UNDEFINED_JS),
+      std::u16string(RETURN_INTEGER_JS),
+      std::u16string(RETURN_FUNCTION_JS),
+      std::u16string(RETURN_OBJECT_JS),
+      std::u16string(RETURN_NULL_JS)
   };
 
   for (size_t i = 0; i < 5; ++i) {
@@ -273,10 +311,20 @@ TEST(ProxyResolverV8Test, ParseError) {
   EXPECT_EQ(0U, bindings->alerts.size());
 
   // We get one error during compilation.
-  ASSERT_EQ(1U, bindings->errors.size());
+  ASSERT_EQ(2U, bindings->errors.size());
 
   EXPECT_EQ("Uncaught SyntaxError: Unexpected end of input",
             bindings->errors[0]);
+  EXPECT_EQ("Context is null.", bindings->errors[1]);
+}
+
+TEST(ProxyResolverV8Test, ParseError_C_API) {
+  auto handle = newProxyResolverV8Handle();
+  int result = ProxyResolverV8Handle_SetPacScript(handle.get(), MISSING_CLOSE_BRACE_JS);
+  EXPECT_EQ(ERR_PAC_SCRIPT_FAILED, result);
+  std::unique_ptr<char16_t, decltype(&free)> result_list = getProxyForURL(
+      handle.get(), u"http://query.com/path", u"query.com");
+  EXPECT_EQ(nullptr, result_list.get());
 }
 
 // Run a PAC script several times, which has side-effects.
@@ -366,6 +414,9 @@ TEST(ProxyResolverV8Test, NoSetPacScript) {
   // Resolve should fail, as we are not yet initialized with a script.
   int result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
   EXPECT_EQ(ERR_FAILED, result);
+  EXPECT_EQ(0U, resolver.mock_js_bindings()->alerts.size());
+  EXPECT_EQ(1U, resolver.mock_js_bindings()->errors.size());
+  EXPECT_EQ("Context is null.", resolver.mock_js_bindings()->errors[0]);
 
   // Initialize it.
   result = resolver.SetPacScript(SCRIPT(DIRECT_JS));
@@ -382,6 +433,10 @@ TEST(ProxyResolverV8Test, NoSetPacScript) {
   result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
   EXPECT_EQ(ERR_FAILED, result);
 
+  EXPECT_EQ(0U, resolver.mock_js_bindings()->alerts.size());
+  EXPECT_EQ(2U, resolver.mock_js_bindings()->errors.size());
+  EXPECT_EQ("Context is null.", resolver.mock_js_bindings()->errors[1]);
+
   // Load a good script once more.
   result = resolver.SetPacScript(SCRIPT(DIRECT_JS));
   EXPECT_EQ(OK, result);
@@ -389,7 +444,7 @@ TEST(ProxyResolverV8Test, NoSetPacScript) {
   EXPECT_EQ(OK, result);
 
   EXPECT_EQ(0U, resolver.mock_js_bindings()->alerts.size());
-  EXPECT_EQ(0U, resolver.mock_js_bindings()->errors.size());
+  EXPECT_EQ(2U, resolver.mock_js_bindings()->errors.size());
 }
 
 // Test marshalling/un-marshalling of values between C++/V8.
@@ -522,7 +577,7 @@ TEST(ProxyResolverV8Test, DNSResolutionFailure) {
 TEST(ProxyResolverV8Test, DNSResolutionOfInternationDomainName) {
     return;
   ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
-  int result = resolver.SetPacScript(String16(INTERNATIONAL_DOMAIN_NAMES_JS));
+  int result = resolver.SetPacScript(SCRIPT(INTERNATIONAL_DOMAIN_NAMES_JS));
   EXPECT_EQ(OK, result);
 
   // Execute FindProxyForURL().
@@ -542,6 +597,50 @@ TEST(ProxyResolverV8Test, DNSResolutionOfInternationDomainName) {
 
   ASSERT_EQ(1u, bindings->dns_resolves_ex.size());
   EXPECT_EQ("xn--bcher-kva.ch", bindings->dns_resolves_ex[0]);
+}
+
+TEST(ProxyResolverV8Test, StringPrototype) {
+  ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
+  int result = resolver.SetPacScript(SCRIPT(STRING_FUNCTIONS_JS));
+  EXPECT_EQ(OK, result);
+
+  result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
+
+  EXPECT_EQ(OK, result);
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(proxies.size(), 1U);
+  EXPECT_EQ("DIRECT",proxies[0]);
+
+  EXPECT_EQ(0U, resolver.mock_js_bindings()->alerts.size());
+  EXPECT_EQ(0U, resolver.mock_js_bindings()->errors.size());
+}
+
+TEST(ProxyResolverV8Test, GetterChangesElementKind) {
+  ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
+  int result = resolver.SetPacScript(SCRIPT(CHANGE_ELEMENT_KIND_JS));
+  EXPECT_EQ(OK, result);
+
+  // Execute FindProxyForURL().
+  result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
+
+  EXPECT_EQ(OK, result);
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(1U, proxies.size());
+  EXPECT_EQ("DIRECT", proxies[0]);
+}
+
+TEST(ProxyResolverV8Test, B_132073833) {
+  ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
+  int result = resolver.SetPacScript(SCRIPT(B_132073833_JS));
+  EXPECT_EQ(OK, result);
+
+  // Execute FindProxyForURL().
+  result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
+
+  EXPECT_EQ(OK, result);
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(1U, proxies.size());
+  EXPECT_EQ("DIRECT", proxies[0]);
 }
 
 }  // namespace

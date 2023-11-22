@@ -7,8 +7,8 @@ package android.icu.number;
  * A class that defines the simple notation style to be used when formatting numbers in NumberFormatter.
  *
  * <p>
- * This class exposes no public functionality. To create a SimpleNotation, use one of the factory methods in
- * {@link Notation}.
+ * This class exposes no public functionality. To create a SimpleNotation, use one of the factory methods
+ * in {@link Notation}.
  *
  * @see NumberFormatter
  * @hide Only a subset of ICU is exposed in Android

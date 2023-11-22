@@ -21,16 +21,16 @@ import android.net.TrafficStats;
 import android.os.Build;
 import android.os.Process;
 import android.os.SystemClock;
-
+import androidx.annotation.VisibleForTesting;
 import java.util.concurrent.BlockingQueue;
 
 /**
  * Provides a thread for performing network dispatch from a queue of requests.
  *
- * Requests added to the specified queue are processed from the network via a
- * specified {@link Network} interface. Responses are committed to cache, if
- * eligible, using a specified {@link Cache} interface. Valid responses and
- * errors are posted back to the caller via a {@link ResponseDelivery}.
+ * <p>Requests added to the specified queue are processed from the network via a specified {@link
+ * Network} interface. Responses are committed to cache, if eligible, using a specified {@link
+ * Cache} interface. Valid responses and errors are posted back to the caller via a {@link
+ * ResponseDelivery}.
  */
 public class NetworkDispatcher extends Thread {
 
@@ -46,16 +46,19 @@ public class NetworkDispatcher extends Thread {
     private volatile boolean mQuit = false;
 
     /**
-     * Creates a new network dispatcher thread.  You must call {@link #start()}
-     * in order to begin processing.
+     * Creates a new network dispatcher thread. You must call {@link #start()} in order to begin
+     * processing.
      *
      * @param queue Queue of incoming requests for triage
      * @param network Network interface to use for performing requests
      * @param cache Cache interface to use for writing responses to cache
      * @param delivery Delivery interface to use for posting responses
      */
-    public NetworkDispatcher(BlockingQueue<Request<?>> queue,
-            Network network, Cache cache, ResponseDelivery delivery) {
+    public NetworkDispatcher(
+            BlockingQueue<Request<?>> queue,
+            Network network,
+            Cache cache,
+            ResponseDelivery delivery) {
         mQueue = queue;
         mNetwork = network;
         mCache = cache;
@@ -63,8 +66,8 @@ public class NetworkDispatcher extends Thread {
     }
 
     /**
-     * Forces this dispatcher to quit immediately.  If any requests are still in
-     * the queue, they are not guaranteed to be processed.
+     * Forces this dispatcher to quit immediately. If any requests are still in the queue, they are
+     * not guaranteed to be processed.
      */
     public void quit() {
         mQuit = true;
@@ -88,8 +91,12 @@ public class NetworkDispatcher extends Thread {
             } catch (InterruptedException e) {
                 // We may have been interrupted because it was time to quit.
                 if (mQuit) {
+                    Thread.currentThread().interrupt();
                     return;
                 }
+                VolleyLog.e(
+                        "Ignoring spurious interrupt of NetworkDispatcher thread; "
+                                + "use quit() to terminate it");
             }
         }
     }
@@ -99,10 +106,15 @@ public class NetworkDispatcher extends Thread {
     // of time. Update consumer-proguard-rules.pro when modifying this. See also
     // https://github.com/google/volley/issues/114
     private void processRequest() throws InterruptedException {
-        long startTimeMs = SystemClock.elapsedRealtime();
         // Take a request from the queue.
         Request<?> request = mQueue.take();
+        processRequest(request);
+    }
 
+    @VisibleForTesting
+    void processRequest(Request<?> request) {
+        long startTimeMs = SystemClock.elapsedRealtime();
+        request.sendEvent(RequestQueue.RequestEvent.REQUEST_NETWORK_DISPATCH_STARTED);
         try {
             request.addMarker("network-queue-take");
 
@@ -153,6 +165,8 @@ public class NetworkDispatcher extends Thread {
             volleyError.setNetworkTimeMs(SystemClock.elapsedRealtime() - startTimeMs);
             mDelivery.postError(request, volleyError);
             request.notifyListenerResponseNotUsable();
+        } finally {
+            request.sendEvent(RequestQueue.RequestEvent.REQUEST_NETWORK_DISPATCH_FINISHED);
         }
     }
 

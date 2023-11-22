@@ -71,10 +71,6 @@ class platform_BootLockbox(test.test):
 
     def run_once(self):
         self._ensure_tpm_ready()
-        if cryptohome.get_login_status()['boot_lockbox_finalized']:
-            raise error.TestFailRetry('Test needs to run on an unfinalized '
-                                      'boot lockbox - reboot and retry.')
-
         if not self._sign_lockbox():
             raise error.TestFail('Boot lockbox could not be signed.')
 

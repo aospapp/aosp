@@ -26,10 +26,6 @@
  *    Rob Clark <rob@ti.com>
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <linux/stddef.h>
 #include <linux/types.h>
@@ -418,7 +414,7 @@ int omap_bo_dmabuf(struct omap_bo *bo)
 	if (bo->fd < 0) {
 		struct drm_prime_handle req = {
 				.handle = bo->handle,
-				.flags = DRM_CLOEXEC,
+				.flags = DRM_CLOEXEC | DRM_RDWR,
 		};
 		int ret;
 

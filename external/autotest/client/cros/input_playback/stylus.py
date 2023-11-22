@@ -103,3 +103,11 @@ class Stylus(object):
             os.remove(_STYLUS_PROPERTY)
         if os.path.exists(_CLICK_EVENTS):
             os.remove(_CLICK_EVENTS)
+
+    def __enter__(self):
+        """Allow usage in 'with' statements."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Release resources on completion of a 'with' statement."""
+        self.close()

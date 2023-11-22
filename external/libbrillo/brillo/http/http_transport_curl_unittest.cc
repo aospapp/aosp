@@ -78,6 +78,36 @@ TEST_F(HttpCurlTransportTest, RequestGet) {
   connection.reset();
 }
 
+TEST_F(HttpCurlTransportTest, RequestGetWithProxy) {
+  EXPECT_CALL(*curl_api_,
+              EasySetOptStr(handle_, CURLOPT_URL, "http://foo.bar/get"))
+      .WillOnce(Return(CURLE_OK));
+  EXPECT_CALL(*curl_api_,
+              EasySetOptStr(handle_, CURLOPT_USERAGENT, "User Agent"))
+      .WillOnce(Return(CURLE_OK));
+  EXPECT_CALL(*curl_api_,
+              EasySetOptStr(handle_, CURLOPT_REFERER, "http://foo.bar/baz"))
+      .WillOnce(Return(CURLE_OK));
+  EXPECT_CALL(*curl_api_,
+              EasySetOptStr(handle_, CURLOPT_PROXY, "http://proxy.server"))
+      .WillOnce(Return(CURLE_OK));
+  EXPECT_CALL(*curl_api_, EasySetOptInt(handle_, CURLOPT_HTTPGET, 1))
+      .WillOnce(Return(CURLE_OK));
+  std::shared_ptr<Transport> proxy_transport =
+      std::make_shared<Transport>(curl_api_, "http://proxy.server");
+
+  auto connection = proxy_transport->CreateConnection("http://foo.bar/get",
+                                                      request_type::kGet,
+                                                      {},
+                                                      "User Agent",
+                                                      "http://foo.bar/baz",
+                                                      nullptr);
+  EXPECT_NE(nullptr, connection.get());
+
+  EXPECT_CALL(*curl_api_, EasyCleanup(handle_)).Times(1);
+  connection.reset();
+}
+
 TEST_F(HttpCurlTransportTest, RequestHead) {
   EXPECT_CALL(*curl_api_,
               EasySetOptStr(handle_, CURLOPT_URL, "http://foo.bar/head"))
@@ -205,14 +235,13 @@ TEST_F(HttpCurlTransportAsyncTest, StartAsyncTransfer) {
 
   // Success/error callback needed to report the result of an async operation.
   int success_call_count = 0;
-  auto success_callback = [](int* success_call_count,
-                             base::RunLoop* run_loop,
-                             RequestID /* request_id */,
-                             std::unique_ptr<http::Response> /* resp */) {
+  auto success_callback = base::Bind([](
+      int* success_call_count, const base::Closure& quit_closure,
+      RequestID /* request_id */, std::unique_ptr<http::Response> /* resp */) {
     base::MessageLoop::current()->task_runner()->PostTask(
-        FROM_HERE, run_loop->QuitClosure());
+        FROM_HERE, quit_closure);
     (*success_call_count)++;
-  };
+  }, &success_call_count, run_loop.QuitClosure());
 
   auto error_callback = [](RequestID /* request_id */,
                            const Error* /* error */) {
@@ -236,13 +265,9 @@ TEST_F(HttpCurlTransportAsyncTest, StartAsyncTransfer) {
   EXPECT_CALL(*curl_api_, MultiAddHandle(multi_handle_, handle_))
       .WillOnce(Return(CURLM_OK));
 
-  EXPECT_EQ(1,
-            transport_->StartAsyncTransfer(
-                connection.get(),
-                base::Bind(success_callback,
-                           base::Unretained(&success_call_count),
-                           base::Unretained(&run_loop)),
-                base::Bind(error_callback)));
+  EXPECT_EQ(1, transport_->StartAsyncTransfer(connection.get(),
+                                              success_callback,
+                                              base::Bind(error_callback)));
   EXPECT_EQ(0, success_call_count);
 
   timer_callback(multi_handle_, 1, transport_.get());

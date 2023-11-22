@@ -101,6 +101,9 @@ public abstract class DocInfo {
   }
 
   public String getSince() {
+    if (Doclava.METALAVA_API_SINCE) {
+      mSince = comment().getApiSince();
+    }
     return mSince;
   }
 
@@ -129,11 +132,19 @@ public abstract class DocInfo {
   }
 
   public String getDeprecatedSince() {
-    return mDeprecatedSince;
+    if (Doclava.METALAVA_API_SINCE) {
+        return comment().getDeprecatedSince();
+    } else {
+        return mDeprecatedSince;
+    }
   }
 
   public boolean isDeprecated() {
-    return mDeprecatedSince != null ? true : false;
+    if (Doclava.METALAVA_API_SINCE) {
+      return comment().isDeprecated();
+    } else {
+      return mDeprecatedSince != null ? true : false;
+    }
   }
 
   public final void addFederatedReference(FederatedSite source) {

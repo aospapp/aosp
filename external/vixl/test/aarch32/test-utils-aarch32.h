@@ -30,9 +30,7 @@
 #include "../test-pool-manager.h"
 #include "../test-runner.h"
 #include "aarch32/constants-aarch32.h"
-#pragma clang optimize off
 #include "aarch32/instructions-aarch32.h"
-#pragma clang optimize on
 #include "aarch32/macro-assembler-aarch32.h"
 
 namespace vixl {

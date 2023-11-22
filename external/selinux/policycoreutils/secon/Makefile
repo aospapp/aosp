@@ -1,9 +1,8 @@
 # secon tool - command-line context
-PREFIX ?= $(DESTDIR)/usr
-INCLUDEDIR ?= $(PREFIX)/include
+LINGUAS ?= ru
+PREFIX ?= /usr
 BINDIR ?= $(PREFIX)/bin
 MANDIR ?= $(PREFIX)/share/man
-LIBDIR ?= $(PREFIX)/lib
 
 WARNS=-Werror -W -Wall -Wundef -Wshadow -Wpointer-arith -Wbad-function-cast -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Wno-format-zero-length -Wformat-nonliteral -Wformat-security -Wfloat-equal
 VERSION = $(shell cat ../VERSION)
@@ -18,13 +17,19 @@ secon: secon.o
 install-nogui: install
 
 install: all
-	install -m 755 secon $(BINDIR);
+	install -m 755 secon $(DESTDIR)$(BINDIR);
 
-	test -d $(MANDIR)/man1 || install -m 755 -d $(MANDIR)/man1
-	install -m 644 secon.1 $(MANDIR)/man1
+	test -d $(DESTDIR)$(MANDIR)/man1 || install -m 755 -d $(DESTDIR)$(MANDIR)/man1
+	install -m 644 secon.1 $(DESTDIR)$(MANDIR)/man1
+	for lang in $(LINGUAS) ; do \
+		if [ -e $${lang} ] ; then \
+			test -d $(DESTDIR)$(MANDIR)/$${lang}/man1 || install -m 755 -d $(DESTDIR)$(MANDIR)/$${lang}/man1 ; \
+			install -m 644 $${lang}/*.1 $(DESTDIR)$(MANDIR)/$${lang}/man1/ ; \
+		fi ; \
+	done
 
 relabel:
-	/sbin/restorecon $(BINDIR)/secon
+	/sbin/restorecon $(DESTDIR)$(BINDIR)/secon
 
 clean:
 	rm -f *.o core* secon *~ *.bak

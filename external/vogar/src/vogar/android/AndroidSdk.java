@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
+
 import vogar.Classpath;
 import vogar.Dexer;
 import vogar.HostFileCache;
@@ -132,10 +133,10 @@ public class AndroidSdk {
             }
         } else if ("bin".equals(buildToolDirString)) {
             log.verbose("Using android source build mode to find dependencies.");
-            String tmpJarPath = "prebuilts/sdk/current/android.jar";
+            String tmpJarPath = "prebuilts/sdk/current/public/android.jar";
             String androidBuildTop = System.getenv("ANDROID_BUILD_TOP");
             if (!com.google.common.base.Strings.isNullOrEmpty(androidBuildTop)) {
-                tmpJarPath = androidBuildTop + "/prebuilts/sdk/current/android.jar";
+                tmpJarPath = androidBuildTop + "/prebuilts/sdk/current/public/android.jar";
             } else {
                 log.warn("Assuming current directory is android build tree root.");
             }
@@ -387,7 +388,14 @@ public class AndroidSdk {
                 if (entry.getName().endsWith(".class")) {
                     continue;
                 }
+
+                // Skip directories as they can cause duplicates.
+                if (entry.isDirectory()) {
+                    continue;
+                }
+
                 outputJar.putNextEntry(entry);
+
                 int length;
                 while ((length = inputJar.read(buffer)) >= 0) {
                     if (length > 0) {

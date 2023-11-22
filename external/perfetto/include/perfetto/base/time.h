@@ -31,6 +31,10 @@
 #include <mach/thread_act.h>
 #endif
 
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WASM)
+#include <emscripten/emscripten.h>
+#endif
+
 namespace perfetto {
 namespace base {
 
@@ -42,25 +46,19 @@ inline TimeNanos FromPosixTimespec(const struct timespec& ts) {
   return TimeNanos(ts.tv_sec * 1000000000LL + ts.tv_nsec);
 }
 
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
+void SleepMicroseconds(unsigned interval_us);
 
-constexpr clockid_t kWallTimeClockSource = CLOCK_MONOTONIC;
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 
-inline TimeNanos GetTimeInternalNs(clockid_t clk_id) {
-  struct timespec ts = {};
-  PERFETTO_CHECK(clock_gettime(clk_id, &ts) == 0);
-  return FromPosixTimespec(ts);
+TimeNanos GetWallTimeNs();
+TimeNanos GetThreadCPUTimeNs();
+
+// TODO: Clock that counts time during suspend is not implemented on Windows.
+inline TimeNanos GetBootTimeNs() {
+  return GetWallTimeNs();
 }
 
-inline TimeNanos GetWallTimeNs() {
-  return GetTimeInternalNs(kWallTimeClockSource);
-}
-
-inline TimeNanos GetThreadCPUTimeNs() {
-  return GetTimeInternalNs(CLOCK_THREAD_CPUTIME_ID);
-}
-
-#else  // !PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
+#elif PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
 
 inline TimeNanos GetWallTimeNs() {
   auto init_time_factor = []() -> uint64_t {
@@ -73,6 +71,11 @@ inline TimeNanos GetWallTimeNs() {
   return TimeNanos(mach_absolute_time() * monotonic_timebase_factor);
 }
 
+// TODO: Clock that counts time during suspend is not implemented on Mac.
+inline TimeNanos GetBootTimeNs() {
+  return GetWallTimeNs();
+}
+
 inline TimeNanos GetThreadCPUTimeNs() {
   mach_port_t this_thread = mach_thread_self();
   mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
@@ -83,7 +86,7 @@ inline TimeNanos GetThreadCPUTimeNs() {
   mach_port_deallocate(mach_task_self(), this_thread);
 
   if (kr != KERN_SUCCESS) {
-    PERFETTO_DCHECK(false);
+    PERFETTO_DFATAL("Failed to get CPU time.");
     return TimeNanos(0);
   }
   return TimeNanos(info.user_time.seconds * 1000000000LL +
@@ -92,7 +95,52 @@ inline TimeNanos GetThreadCPUTimeNs() {
                    info.system_time.microseconds * 1000LL);
 }
 
-#endif  // !PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
+#elif PERFETTO_BUILDFLAG(PERFETTO_OS_WASM)
+
+inline TimeNanos GetWallTimeNs() {
+  return TimeNanos(static_cast<uint64_t>(emscripten_get_now()) * 1000000);
+}
+
+inline TimeNanos GetThreadCPUTimeNs() {
+  return TimeNanos(0);
+}
+
+// TODO: Clock that counts time during suspend is not implemented on WASM.
+inline TimeNanos GetBootTimeNs() {
+  return GetWallTimeNs();
+}
+
+#else
+
+constexpr clockid_t kWallTimeClockSource = CLOCK_MONOTONIC;
+
+inline TimeNanos GetTimeInternalNs(clockid_t clk_id) {
+  struct timespec ts = {};
+  PERFETTO_CHECK(clock_gettime(clk_id, &ts) == 0);
+  return FromPosixTimespec(ts);
+}
+
+// Return ns from boot. Conversely to GetWallTimeNs, this clock counts also time
+// during suspend (when supported).
+inline TimeNanos GetBootTimeNs() {
+  // Determine if CLOCK_BOOTTIME is available on the first call.
+  static const clockid_t kBootTimeClockSource = [] {
+    struct timespec ts = {};
+    int res = clock_gettime(CLOCK_BOOTTIME, &ts);
+    return res == 0 ? CLOCK_BOOTTIME : kWallTimeClockSource;
+  }();
+  return GetTimeInternalNs(kBootTimeClockSource);
+}
+
+inline TimeNanos GetWallTimeNs() {
+  return GetTimeInternalNs(kWallTimeClockSource);
+}
+
+inline TimeNanos GetThreadCPUTimeNs() {
+  return GetTimeInternalNs(CLOCK_THREAD_CPUTIME_ID);
+}
+
+#endif
 
 inline TimeMillis GetWallTimeMs() {
   return std::chrono::duration_cast<TimeMillis>(GetWallTimeNs());

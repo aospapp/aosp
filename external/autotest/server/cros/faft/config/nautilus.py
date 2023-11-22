@@ -10,8 +10,8 @@ class Values(object):
     ec_capability = ['battery', 'charging',
                      'keyboard', 'lid', 'x86' ]
     firmware_screen = 15
-    wp_voltage = 'pp3300'
     spi_voltage = 'pp3300'
     servo_prog_state_delay = 10
     delay_reboot_to_ping = 40
     dark_resume_capable = True
+    smm_store = False

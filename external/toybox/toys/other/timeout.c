@@ -4,32 +4,32 @@
  *
  * No standard
 
-USE_TIMEOUT(NEWTOY(timeout, "<2^vk:s: ", TOYFLAG_BIN))
+USE_TIMEOUT(NEWTOY(timeout, "<2^(foreground)(preserve-status)vk:s(signal):", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_ARGFAIL(125)))
 
 config TIMEOUT
   bool "timeout"
   default y
-  depends on TOYBOX_FLOAT
   help
-    usage: timeout [-k LENGTH] [-s SIGNAL] LENGTH COMMAND...
+    usage: timeout [-k DURATION] [-s SIGNAL] DURATION COMMAND...
 
     Run command line as a child process, sending child a signal if the
     command doesn't exit soon enough.
 
-    Length can be a decimal fraction. An optional suffix can be "m"
+    DURATION can be a decimal fraction. An optional suffix can be "m"
     (minutes), "h" (hours), "d" (days), or "s" (seconds, the default).
 
     -s	Send specified signal (default TERM)
     -k	Send KILL signal if child still running this long after first signal
     -v	Verbose
+    --foreground       Don't create new process group
+    --preserve-status  Exit with the child's exit status
 */
 
 #define FOR_timeout
 #include "toys.h"
 
 GLOBALS(
-  char *s_signal;
-  char *k_timeout;
+  char *s, *k;
 
   int nextsig;
   pid_t pid;
@@ -39,12 +39,13 @@ GLOBALS(
 
 static void handler(int i)
 {
-  if (toys.optflags & FLAG_v)
+  if (FLAG(v))
     fprintf(stderr, "timeout pid %d signal %d\n", TT.pid, TT.nextsig);
+
   kill(TT.pid, TT.nextsig);
-  
-  if (TT.k_timeout) {
-    TT.k_timeout = 0;
+
+  if (TT.k) {
+    TT.k = 0;
     TT.nextsig = SIGKILL;
     xsignal(SIGALRM, handler);
     TT.itv.it_value = TT.ktv;
@@ -52,21 +53,40 @@ static void handler(int i)
   }
 }
 
+// timeval inexplicably makes up a new type for microseconds, despite timespec's
+// nanoseconds field (needing to store 1000* the range) using "long". Bravo.
+void xparsetimeval(char *s, struct timeval *tv)
+{
+  long ll;
+
+  tv->tv_sec = xparsetime(s, 6, &ll);
+  tv->tv_usec = ll;
+}
+
 void timeout_main(void)
 {
-  // Parse early to get any errors out of the way.
-  TT.itv.it_value.tv_sec = xparsetime(*toys.optargs, 1000000, &TT.itv.it_value.tv_usec);
+  toys.exitval = 125;
 
-  if (TT.k_timeout)
-    TT.ktv.tv_sec = xparsetime(TT.k_timeout, 1000000, &TT.ktv.tv_usec);
+  // Parse early to get any errors out of the way.
+  xparsetimeval(*toys.optargs, &TT.itv.it_value);
+  if (TT.k) xparsetimeval(TT.k, &TT.ktv);
+
   TT.nextsig = SIGTERM;
-  if (TT.s_signal && -1 == (TT.nextsig = sig_to_num(TT.s_signal)))
-    error_exit("bad -s: '%s'", TT.s_signal);
+  if (TT.s && -1 == (TT.nextsig = sig_to_num(TT.s)))
+    error_exit("bad -s: '%s'", TT.s);
+
+  if (!FLAG(foreground)) setpgid(0, 0);
 
   if (!(TT.pid = XVFORK())) xexec(toys.optargs+1);
   else {
+    int status;
+
     xsignal(SIGALRM, handler);
     setitimer(ITIMER_REAL, &TT.itv, (void *)toybuf);
-    toys.exitval = xwaitpid(TT.pid);
+
+    while (-1 == waitpid(TT.pid, &status, 0) && errno == EINTR);
+    if (WIFEXITED(status)) toys.exitval = WEXITSTATUS(status);
+    else if (WTERMSIG(status)==SIGKILL) toys.exitval = 137;
+    else toys.exitval = FLAG(preserve_status) ? 128+WTERMSIG(status) : 124;
   }
 }

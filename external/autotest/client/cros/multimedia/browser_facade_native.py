@@ -45,6 +45,28 @@ class BrowserFacadeNative(object):
         return self._resource.start_default_chrome(restart, extra_browser_args)
 
 
+    def set_http_server_directories(self, directories):
+        """Starts an HTTP server.
+
+        @param directories: Directories to start serving.
+
+        @return True on success. False otherwise.
+
+        """
+        return self._resource.set_http_server_directories(directories)
+
+
+    def http_server_url_of(self, fullpath):
+        """Converts a path to a URL.
+
+        @param fullpath: String containing the full path to the content.
+
+        @return the URL for the provided path.
+
+        """
+        return self._resource.http_server_url_of(fullpath)
+
+
     def new_tab(self, url):
         """Opens a new tab and loads URL.
 

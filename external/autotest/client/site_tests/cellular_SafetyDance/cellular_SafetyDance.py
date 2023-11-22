@@ -125,7 +125,7 @@ class cellular_SafetyDance(test.test):
     def run_once(self, test_env, ops=30, seed=None):
         self.test_env = test_env
         with test_env, shill_context.ServiceAutoConnectContext(
-                test_env.shill.find_cellular_service_object, False):
+                test_env.shill.wait_for_cellular_service_object, False):
             self._run_once_internal(ops, seed)
 
             # Enable device to restore autoconnect settings.

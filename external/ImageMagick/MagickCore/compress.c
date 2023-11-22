@@ -17,13 +17,13 @@
 %                              May  1993                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -270,8 +270,8 @@ MagickExport void Ascii85Initialize(Image *image)
     image->ascii85=(Ascii85Info *) AcquireMagickMemory(sizeof(*image->ascii85));
   if (image->ascii85 == (Ascii85Info *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(image->ascii85,0,sizeof(*image->ascii85));
-  image->ascii85->line_break=MaxLineExtent << 1;
+  (void) memset(image->ascii85,0,sizeof(*image->ascii85));
+  image->ascii85->line_break=(ssize_t) MaxLineExtent << 1;
   image->ascii85->offset=0;
 }
 
@@ -449,6 +449,8 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image,
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if (image->blob == (BlobInfo *) NULL)
+    ThrowBinaryException(BlobError,"UnableToOpenBlob",image->filename);
   mb_hash=(HuffmanTable **) AcquireQuantumMemory(HashSize,sizeof(*mb_hash));
   mw_hash=(HuffmanTable **) AcquireQuantumMemory(HashSize,sizeof(*mw_hash));
   scanline=(unsigned char *) AcquireQuantumMemory((size_t) image->columns,
@@ -456,8 +458,16 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image,
   if ((mb_hash == (HuffmanTable **) NULL) ||
       (mw_hash == (HuffmanTable **) NULL) ||
       (scanline == (unsigned char *) NULL))
-    ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
-      image->filename);
+    {
+      if (mb_hash != (HuffmanTable **) NULL)
+        mb_hash=(HuffmanTable **) RelinquishMagickMemory(mb_hash);
+      if (mw_hash != (HuffmanTable **) NULL)
+        mw_hash=(HuffmanTable **) RelinquishMagickMemory(mw_hash);
+      if (scanline != (unsigned char *) NULL)
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline);
+      ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
+        image->filename);
+    }
   /*
     Initialize Huffman tables.
   */
@@ -497,7 +507,7 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image,
     /*
       Initialize scanline to white.
     */
-    ResetMagickMemory(scanline,0,sizeof(*scanline)*image->columns);
+    memset(scanline,0,sizeof(*scanline)*image->columns);
     /*
       Decode Huffman encoded scanline.
     */
@@ -615,7 +625,8 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image,
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
       break;
-    proceed=SetImageProgress(image,LoadImageTag,y,image->rows);
+    proceed=SetImageProgress(image,LoadImageTag,(MagickOffsetType) y,
+      image->rows);
     if (proceed == MagickFalse)
       break;
     y++;
@@ -749,7 +760,7 @@ RestoreMSCWarning \
   if (scanline == (unsigned char *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       inject_image->filename);
-  (void) ResetMagickMemory(scanline,0,width*sizeof(*scanline));
+  (void) memset(scanline,0,width*sizeof(*scanline));
   huffman_image=CloneImage(inject_image,0,0,MagickTrue,exception);
   if (huffman_image == (Image *) NULL)
     {
@@ -841,8 +852,8 @@ RestoreMSCWarning \
     q=scanline;
     if (GetPreviousImageInList(huffman_image) == (Image *) NULL)
       {
-        proceed=SetImageProgress(huffman_image,LoadImageTag,y,
-          huffman_image->rows);
+        proceed=SetImageProgress(huffman_image,LoadImageTag,
+          (MagickOffsetType) y,huffman_image->rows);
         if (proceed == MagickFalse)
           break;
       }
@@ -915,9 +926,9 @@ MagickExport MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
     number_bits+=code_width; \
     while (number_bits >= 8) \
     { \
-        (void) WriteBlobByte(image,(unsigned char) (accumulator >> 24)); \
-        accumulator=accumulator << 8; \
-        number_bits-=8; \
+      (void) WriteBlobByte(image,(unsigned char) (accumulator >> 24)); \
+      accumulator=accumulator << 8; \
+      number_bits-=8; \
     } \
 }
 
@@ -957,7 +968,8 @@ MagickExport MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
   assert(exception->signature == MagickCoreSignature);
   table=(TableType *) AcquireQuantumMemory(1UL << 12,sizeof(*table));
   if (table == (TableType *) NULL)
-    return(MagickFalse);
+    ThrowBinaryException(ResourceLimitWarning,"MemoryAllocationFailed",
+      image->filename);
   /*
     Initialize variables.
   */
@@ -969,7 +981,7 @@ MagickExport MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
   for (index=0; index < 256; index++)
   {
     table[index].prefix=(-1);
-    table[index].suffix=(short) index;
+    table[index].suffix=(ssize_t) index;
     table[index].next=(-1);
   }
   next_index=LZWEod+1;
@@ -997,7 +1009,7 @@ MagickExport MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
         */
         OutputCode(last_code);
         table[next_index].prefix=(ssize_t) last_code;
-        table[next_index].suffix=(short) pixels[i];
+        table[next_index].suffix=(ssize_t) pixels[i];
         table[next_index].next=table[last_code].next;
         table[last_code].next=(ssize_t) next_index;
         next_index++;
@@ -1279,6 +1291,8 @@ MagickExport MagickBooleanType ZLIBEncodeImage(Image *image,
   const size_t magick_unused(length),unsigned char *magick_unused(pixels),
   ExceptionInfo *exception)
 {
+  magick_unreferenced(length);
+  magick_unreferenced(pixels);
   assert(image != (Image *) NULL);
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)

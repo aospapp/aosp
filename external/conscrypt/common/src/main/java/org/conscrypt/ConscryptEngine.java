@@ -109,10 +109,11 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
             new SSLEngineResult(CLOSED, NEED_WRAP, 0, 0);
     private static final SSLEngineResult CLOSED_NOT_HANDSHAKING =
             new SSLEngineResult(CLOSED, NOT_HANDSHAKING, 0, 0);
-    private static final ByteBuffer EMPTY = ByteBuffer.allocateDirect(0);
+
+    private static BufferAllocator defaultBufferAllocator = null;
 
     private final SSLParametersImpl sslParameters;
-    private BufferAllocator bufferAllocator;
+    private BufferAllocator bufferAllocator = defaultBufferAllocator;
 
     /**
      * A lazy-created direct buffer used as a bridge between heap buffers provided by the
@@ -144,7 +145,7 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
     /**
      * Set during startHandshake.
      */
-    private final ActiveSession activeSession;
+    private ActiveSession activeSession;
 
     /**
      * A snapshot of the active session when the engine was closed.
@@ -183,7 +184,6 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
         peerInfoProvider = PeerInfoProvider.nullProvider();
         this.ssl = newSsl(sslParameters, this);
         this.networkBio = ssl.newBio();
-        activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
     }
 
     ConscryptEngine(String host, int port, SSLParametersImpl sslParameters) {
@@ -191,7 +191,6 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
         this.peerInfoProvider = PeerInfoProvider.forHostAndPort(host, port);
         this.ssl = newSsl(sslParameters, this);
         this.networkBio = ssl.newBio();
-        activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
     }
 
     ConscryptEngine(SSLParametersImpl sslParameters, PeerInfoProvider peerInfoProvider) {
@@ -199,7 +198,6 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
         this.peerInfoProvider = checkNotNull(peerInfoProvider, "peerInfoProvider");
         this.ssl = newSsl(sslParameters, this);
         this.networkBio = ssl.newBio();
-        activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
     }
 
     private static NativeSsl newSsl(SSLParametersImpl sslParameters, ConscryptEngine engine) {
@@ -208,6 +206,22 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
         } catch (SSLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Configures the default {@link BufferAllocator} to be used by all future
+     * {@link SSLEngine} and {@link ConscryptEngineSocket} instances from this provider.
+     */
+    static void setDefaultBufferAllocator(BufferAllocator bufferAllocator) {
+        defaultBufferAllocator = bufferAllocator;
+    }
+
+    /**
+     * Returns the default {@link BufferAllocator}, which may be {@code null} if no default
+     * has been explicitly set.
+     */
+    static BufferAllocator getDefaultBufferAllocator() {
+        return defaultBufferAllocator;
     }
 
     @Override
@@ -351,7 +365,8 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
 
     /**
      * This method enables Server Name Indication (SNI) and overrides the {@link PeerInfoProvider}
-     * supplied during engine creation.
+     * supplied during engine creation.  If the hostname is not a valid SNI hostname, the SNI
+     * extension will be omitted from the handshake.
      */
     @Override
     void setHostname(String hostname) {
@@ -446,10 +461,15 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
             if (state == STATE_CLOSED || state == STATE_CLOSED_INBOUND) {
                 return;
             }
-            if (isOutboundDone()) {
-                transitionTo(STATE_CLOSED);
+            if (isHandshakeStarted()) {
+                if (isOutboundDone()) {
+                    closeAndFreeResources();
+                } else {
+                    transitionTo(STATE_CLOSED_INBOUND);
+                }
             } else {
-                transitionTo(STATE_CLOSED_INBOUND);
+                // Never started the handshake. Just close now.
+                closeAndFreeResources();
             }
         }
     }
@@ -874,7 +894,7 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
                     // If the capacity of all destination buffers is 0 we need to trigger a SSL_read
                     // anyway to ensure everything is flushed in the BIO pair and so we can detect
                     // it in the pendingInboundCleartextBytes() call.
-                    readPlaintextData(EMPTY);
+                    ssl.forceRead();
                 }
             } catch (SSLException e) {
                 if (pendingOutboundEncryptedBytes() > 0) {
@@ -1494,7 +1514,7 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
                                 // to read more data [1]. It is also possible that event loop will
                                 // detect the socket
                                 // has been closed. [1]
-                                // https://www.openssl.org/docs/manmaster/ssl/SSL_write.html
+                                // https://www.openssl.org/docs/manmaster/man3/SSL_write.html
                                 pendingNetResult = readPendingBytesFromBIO(
                                         dst, bytesConsumed, bytesProduced, handshakeStatus);
                                 return pendingNetResult != null
@@ -1520,7 +1540,7 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
                                 // data this condition
                                 // is undefined and we assume their is a fatal error with the
                                 // openssl engine and close.
-                                // [1] https://www.openssl.org/docs/manmaster/ssl/SSL_write.html
+                                // [1] https://www.openssl.org/docs/manmaster/man3/SSL_write.html
                                 pendingNetResult = readPendingBytesFromBIO(
                                         dst, bytesConsumed, bytesProduced, handshakeStatus);
                                 return pendingNetResult != null ? pendingNetResult
@@ -1643,9 +1663,10 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
     }
 
     @Override
-    public void clientCertificateRequested(byte[] keyTypeBytes, byte[][] asn1DerEncodedPrincipals)
+    public void clientCertificateRequested(byte[] keyTypeBytes, int[] signatureAlgs,
+            byte[][] asn1DerEncodedPrincipals)
             throws CertificateEncodingException, SSLException {
-        ssl.chooseClientCertificate(keyTypeBytes, asn1DerEncodedPrincipals);
+        ssl.chooseClientCertificate(keyTypeBytes, signatureAlgs, asn1DerEncodedPrincipals);
     }
 
     private void sendSSLShutdown() {
@@ -1744,6 +1765,16 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
         return ssl.getTlsUnique();
     }
 
+    @Override
+    byte[] exportKeyingMaterial(String label, byte[] context, int length) throws SSLException {
+        synchronized (ssl) {
+            if (state < STATE_HANDSHAKE_COMPLETED || state == STATE_CLOSED) {
+                return null;
+            }
+        }
+        return ssl.exportKeyingMaterial(label, context, length);
+    }
+
     void setApplicationProtocolSelector(ApplicationProtocolSelectorAdapter adapter) {
         sslParameters.setApplicationProtocolSelector(adapter);
     }
@@ -1790,10 +1821,11 @@ final class ConscryptEngine extends AbstractConscryptEngine implements NativeCry
         switch (newState) {
             case STATE_HANDSHAKE_STARTED: {
                 handshakeFinished = false;
+                activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
                 break;
             }
             case STATE_CLOSED: {
-                if (!ssl.isClosed() && state >= STATE_HANDSHAKE_STARTED && state < STATE_CLOSED ) {
+                if (!ssl.isClosed() && state >= STATE_HANDSHAKE_STARTED && state < STATE_CLOSED) {
                     closedSession = new SessionSnapshot(activeSession);
                 }
                 break;

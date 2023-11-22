@@ -1,143 +1,148 @@
-
+// SPDX-License-Identifier: GPL-2.0
 /*
+ *  Copyright (c) International Business Machines  Corp., 2002
  *
- *   Copyright (c) International Business Machines  Corp., 2002
- *
- *   This program is free software;  you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY;  without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- *   the GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program;  if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/*
- * NAME
- * 	sigpending02.c
+ * AUTHORS
+ *	Paul Larson
+ *	Matthias Maennich
  *
  * DESCRIPTION
- * 	Test to see the the proper errors are returned by sigpending
- *$
- * ALGORITHM
- * 	test 1:
- * 	Call sigpending(sigset_t*=-1), it should return -1 with errno EFAULT
+ *	Test to assert basic functionality of sigpending. All the tests can also be
+ *	compiled to use the rt_sigpending syscall instead. To simplify the
+ *	documentation, only sigpending() is usually mentioned below.
  *
- * USAGE:  <for command-line>
- *         -c n    Run n copies concurrently
- *         -e      Turn on errno logging
- *         -f      Turn off functional testing
- *         -h      Show this help screen
- *         -i n    Execute test n times
- *         -I x    Execute test for x seconds
- *         -p      Pause for SIGUSR1 before starting
- *         -P x    Pause for x seconds between iterations
- *         -t      Turn on syscall timing
+ *	Test 1:
+ *		Suppress handling SIGUSR1 and SIGUSR1, raise them and assert their
+ *		signal pending.
  *
- * HISTORY
- *	02/2002 Written by Paul Larson
- *
- * RESTRICTIONS
- * 	None
+ *	Test 2:
+ *		Call sigpending(sigset_t*=-1), it should return -1 with errno EFAULT
  */
-#include <sys/types.h>
-#include <fcntl.h>
-#include <sys/stat.h>
+
 #include <errno.h>
-#include <string.h>
 #include <signal.h>
-#include "test.h"
+#include <sys/types.h>
 
-void setup();
-void help();
-void cleanup();
+#include "tst_test.h"
+#include "ltp_signal.h"
+#include "lapi/syscalls.h"
 
-char *TCID = "sigpending02";
-int TST_TOTAL = 1;
+#if defined(TEST_SIGPENDING)
+#define tested_sigpending(sigset) TEST(tst_syscall(__NR_sigpending, sigset))
+#elif defined(TEST_RT_SIGPENDING)
+#define tested_sigpending(sigset)                                              \
+	TEST(tst_syscall(__NR_rt_sigpending, sigset, SIGSETSIZE))
+#else
+#error Neither TEST_SIGPENDING nor TEST_RT_SIGPENDING is defined!
+#endif
 
-/***********************************************************************
- * Main
- ***********************************************************************/
-int main(int ac, char **av)
+static int sighandler_counter;
+static void sighandler(int signum LTP_ATTRIBUTE_UNUSED)
 {
-	int lc;
-	sigset_t *sigset;
+	++sighandler_counter;
+}
 
-	tst_parse_opts(ac, av, NULL, NULL);
+static void test_sigpending(void)
+{
+	int SIGMAX = MIN(sizeof(sigset_t) * 8, (size_t)_NSIG);
 
-    /***************************************************************
-     * perform global setup for test
-     ***************************************************************/
-	setup();
+	int i; /* loop index */
 
+	/* set up signal mask and handler */
+	sigset_t only_SIGUSR, old_mask;
+	sighandler_t old_sighandler1, old_sighandler2;
+	sigemptyset(&only_SIGUSR);
+	sigaddset(&only_SIGUSR, SIGUSR1);
+	sigaddset(&only_SIGUSR, SIGUSR2);
+	if (sigprocmask(SIG_SETMASK, &only_SIGUSR, &old_mask))
+		tst_brk(TBROK, "sigprocmask failed");
+	old_sighandler1 = SAFE_SIGNAL(SIGUSR1, sighandler);
+	old_sighandler2 = SAFE_SIGNAL(SIGUSR2, sighandler);
+
+	/* Initially no signal should be pending */
+	sigset_t pending;
+	sigemptyset(&pending);
+	tested_sigpending(&pending);
+
+	for (i = 1; i < SIGMAX; ++i)
+		if (sigismember(&pending, i))
+			tst_brk(TFAIL,
+				"initialization failed: no signal should be pending by now");
+
+	/* raise a signal */
+	if (raise(SIGUSR1))
+		tst_brk(TBROK, "raising SIGUSR1 failed");
+	if (sighandler_counter > 0)
+		tst_brk(TFAIL,
+			"signal handler is not (yet) supposed to be called");
+
+	/* now we should have exactly one pending signal (SIGUSR1) */
+	sigemptyset(&pending);
+	tested_sigpending(&pending);
+	for (i = 1; i < SIGMAX; ++i)
+		if ((i == SIGUSR1) != sigismember(&pending, i))
+			tst_brk(TFAIL, "only SIGUSR1 should be pending by now");
+
+	/* raise another signal */
+	if (raise(SIGUSR2))
+		tst_brk(TBROK, "raising SIGUSR2 failed");
+	if (sighandler_counter > 0)
+		tst_brk(TFAIL,
+			"signal handler is not (yet) supposed to be called");
+
+	/* now we should have exactly two pending signals (SIGUSR1, SIGUSR2) */
+	sigemptyset(&pending);
+	tested_sigpending(&pending);
+	for (i = 1; i < SIGMAX; ++i)
+		if ((i == SIGUSR1 || i == SIGUSR2) != sigismember(&pending, i))
+			tst_brk(TFAIL,
+				"only SIGUSR1, SIGUSR2 should be pending by now");
+
+	tst_res(TPASS, "basic sigpending test successful");
+
+	/* reinstate old mask */
+	if (sigprocmask(SIG_SETMASK, &old_mask, NULL))
+		tst_brk(TBROK, "sigprocmask failed");
+
+	/* at this time the signal handler has been called, once for each signal */
+	if (sighandler_counter != 2)
+		tst_brk(TFAIL,
+			"signal handler has not been called for each signal");
+
+	/* reinstate the original signal handlers */
+	SAFE_SIGNAL(SIGUSR1, old_sighandler1);
+	SAFE_SIGNAL(SIGUSR2, old_sighandler2);
+}
+
+static void test_efault_on_invalid_sigset(void)
+{
 	/* set sigset to point to an invalid location */
-	sigset = (sigset_t *) - 1;
+	sigset_t *sigset = tst_get_bad_addr(NULL);
 
-    /***************************************************************
-     * check looping state
-     ***************************************************************/
-	/* TEST_LOOPING() is a macro that will make sure the test continues
-	 * looping according to the standard command line args.
-	 */
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
+	tested_sigpending(sigset);
 
-		tst_count = 0;
-
-		TEST(sigpending(sigset));
-
-		/* check return code */
-		if (TEST_RETURN == -1) {
-			if (TEST_ERRNO != EFAULT)
-				tst_brkm(TFAIL, cleanup,
-					 "sigpending() Failed with wrong "
-					 "errno, expected errno=%d, got errno=%d : %s",
-					 EFAULT, TEST_ERRNO,
-					 strerror(TEST_ERRNO));
-			else
-				tst_resm(TPASS,
-					 "expected failure - errno = %d : %s",
-					 TEST_ERRNO, strerror(TEST_ERRNO));
+	/* check return code */
+	if (TST_RET == -1) {
+		if (TST_ERR != EFAULT) {
+			tst_res(TFAIL | TTERRNO,
+				"syscall failed with wrong errno, expected errno=%d, got %d",
+				EFAULT, TST_ERR);
 		} else {
-			tst_brkm(TFAIL, cleanup,
-				 "sigpending() Failed, expected "
-				 "return value=-1, got %ld", TEST_RETURN);
+			tst_res(TPASS | TTERRNO, "expected failure");
 		}
+	} else {
+		tst_res(TFAIL,
+			"syscall failed, expected return value=-1, got %ld",
+			TST_RET);
 	}
-
-    /***************************************************************
-     * cleanup and exit
-     ***************************************************************/
-	cleanup();
-	tst_exit();
-
 }
 
-/***************************************************************
- * help
- ***************************************************************/
-void help(void)
+static void run(void)
 {
-	printf("test\n");
+	test_sigpending();
+	test_efault_on_invalid_sigset();
 }
 
-/***************************************************************
- * setup() - performs all ONE TIME setup for this test.
- ***************************************************************/
-void setup(void)
-{
-	TEST_PAUSE;
-}
-
-/***************************************************************
- * cleanup() - performs all ONE TIME cleanup for this test at
- *		completion or premature exit.
- ***************************************************************/
-void cleanup(void)
-{
-}
+static struct tst_test test = {
+	.test_all = run
+};

@@ -48,3 +48,12 @@ class Keyboard(object):
         """Clean up the files/handles created in the class."""
         if self.keyboard:
             self.keyboard.close()
+            self.keyboard = None
+
+    def __enter__(self):
+        """Allow usage in 'with' statements."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Release resources on completion of a 'with' statement."""
+        self.close()

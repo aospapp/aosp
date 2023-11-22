@@ -62,6 +62,9 @@ static struct tcase {
 	{MADV_DONTDUMP,    "MADV_DONTDUMP",    &sfile}, /* since Linux 3.4 */
 	{MADV_DODUMP,      "MADV_DODUMP",      &sfile}, /* since Linux 3.4 */
 	{MADV_FREE,        "MADV_FREE",        &amem},  /* since Linux 4.5 */
+	{MADV_WIPEONFORK,  "MADV_WIPEONFORK",  &amem},  /* since Linux 4.14 */
+	{MADV_KEEPONFORK,  "MADV_KEEPONFORK",  &amem},  /* since Linux 4.14 */
+
 };
 
 static void setup(void)
@@ -105,13 +108,13 @@ static void verify_madvise(unsigned int i)
 
 	TEST(madvise(*(tc->addr), st.st_size, tc->advice));
 
-	if (TEST_RETURN == -1) {
-		if (TEST_ERRNO == EINVAL) {
+	if (TST_RET == -1) {
+		if (TST_ERR == EINVAL) {
 			tst_res(TCONF, "%s is not supported", tc->name);
 		} else {
 			tst_res(TFAIL, "madvise test for %s failed with "
 					"return = %ld, errno = %d : %s",
-					tc->name, TEST_RETURN, TEST_ERRNO,
+					tc->name, TST_RET, TST_ERR,
 					tst_strerrno(TFAIL | TTERRNO));
 		}
 	} else {

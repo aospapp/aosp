@@ -5,8 +5,11 @@
 import dbus
 import logging
 
+from autotest_lib.client.bin import utils
+
 
 DBUS_INTERFACE_OBJECT_MANAGER = 'org.freedesktop.DBus.ObjectManager'
+DBUS_ERROR_SERVICEUNKNOWN = 'org.freedesktop.DBus.Error.ServiceUnknown'
 
 
 def dbus2primitive(value):
@@ -83,3 +86,32 @@ def get_objects_with_interface(service_name, object_manager_path,
     objects = dict(objects)
     logging.debug('Filtered objects: %r', objects)
     return objects
+
+def get_dbus_object(bus, service_name, object_manager_path, timeout=None):
+    """Keeps trying to get the a DBus object until a timeout expires.
+    Useful if a test should wait for a system daemon to start up.
+
+    @param bus: dbus.Bus object.
+    @param service_name: string service to look up (e.g. 'org.chromium.peerd').
+    @param object_manager_path: string DBus path of object manager on remote
+            service (e.g. '/org/chromium/peerd')
+    @param timeout: maximum time in seconds to wait for the bus object.
+    @return The DBus object or None if the timeout expired.
+
+    """
+
+    def try_get_object():
+        try:
+            return bus.get_object(service_name, object_manager_path)
+        except dbus.exceptions.DBusException as e:
+            # Only handle DBUS_ERROR_SERVICEUNKNOWN, which is thrown when the
+            # service is not running yet. Otherwise, rethrow.
+            if e.get_dbus_name() == DBUS_ERROR_SERVICEUNKNOWN:
+                return None
+            raise
+
+    return utils.poll_for_condition(
+            condition=try_get_object,
+            desc='Get bus object "%s" / "%s"' % (service_name,
+                                                 object_manager_path),
+            timeout=timeout or 0)

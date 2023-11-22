@@ -2,7 +2,7 @@
 // access flags 0x21
 // signature <V:Ltest/Test$Inner;>Ljava/lang/Object;Ljava/util/List<TV;>;
 // declaration: test/Test<V extends test.Test$Inner> implements java.util.List<V>
-public class test/Test implements java/util/List  {
+public class test/Test implements java/util/List {
 
   // access flags 0xC
   protected static INNERCLASS test/Test$Inner test/Test Inner

@@ -1,6 +1,8 @@
 #!/usr/bin/env python2
 
-# Copyright 2012 Google Inc. All Rights Reserved.
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 """Tests for bisecting tool."""
 
 from __future__ import print_function
@@ -283,7 +285,7 @@ class BisectingUtilsTest(unittest.TestCase):
         prune=True,
         file_args=True,
         iterations=1)
-    bss.DoSearch()
+    bss.DoSearchBadItems()
     self.assertFalse(bss.found_items)
 
   def test_no_prune(self):
@@ -295,7 +297,25 @@ class BisectingUtilsTest(unittest.TestCase):
         test_setup_script='./test_setup.py',
         prune=False,
         file_args=True)
-    bss.DoSearch()
+    bss.DoSearchBadItems()
+    self.assertEquals(len(bss.found_items), 1)
+
+    bad_objs = common.ReadObjectsFile()
+    found_obj = int(bss.found_items.pop())
+    self.assertEquals(bad_objs[found_obj], 1)
+
+  def test_pass_bisect(self):
+    bss = binary_search_state.MockBinarySearchState(
+        get_initial_items='./gen_init_list.py',
+        switch_to_good='./switch_to_good.py',
+        switch_to_bad='./switch_to_bad.py',
+        pass_bisect='./generate_cmd.py',
+        test_script='./is_good.py',
+        test_setup_script='./test_setup.py',
+        prune=False,
+        file_args=True)
+    # TODO: Need to design unit tests for pass level bisection
+    bss.DoSearchBadItems()
     self.assertEquals(len(bss.found_items), 1)
 
     bad_objs = common.ReadObjectsFile()

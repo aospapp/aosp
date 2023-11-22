@@ -93,6 +93,8 @@ read_symtab_exec (DisasmCtx_t *ctx)
 	xndxdata = elf_getdata (elf_getscn (ctx->elf, xndxscnidx), NULL);
 
       /* Iterate over all symbols.  Add all defined symbols.  */
+      if (shdr->sh_entsize == 0)
+	continue;
       int nsyms = shdr->sh_size / shdr->sh_entsize;
       for (int cnt = 1; cnt < nsyms; ++cnt)
 	{
@@ -173,7 +175,7 @@ disasm_cb (DisasmCtx_t *ctx, const uint8_t **startp, const uint8_t *end,
       getsym = default_elf_getsym;
     }
 
-  return ctx->ebl->disasm (startp, end, addr, fmt, outcb, getsym, outcbarg,
-			   symcbarg);
+  return ctx->ebl->disasm (ctx->ebl, startp, end, addr, fmt, outcb,
+			   getsym, outcbarg, symcbarg);
 }
 INTDEF (disasm_cb)

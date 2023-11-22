@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import datetime
 import logging
+import time
 
 from lucifer import autotest
 from lucifer import jobx
@@ -30,19 +31,21 @@ class EventHandler(object):
     finishes.
     """
 
-    def __init__(self, metrics, job, autoserv_exit):
+    def __init__(self, metrics, job, autoserv_exit, results_dir):
         """Initialize instance.
 
         @param metrics: Metrics instance
         @param job: frontend.afe.models.Job instance to own
         @param hqes: list of HostQueueEntry instances for the job
         @param autoserv_exit: autoserv exit status
+        @param results_dir: Job results directory
         """
         self.completed = False
         self._metrics = metrics
         self._job = job
         # TODO(crbug.com/748234): autoserv not implemented yet.
         self._autoserv_exit = autoserv_exit
+        self._results_dir = results_dir
 
     def __call__(self, event, msg):
         logger.debug('Received event %r with message %r', event.name, msg)
@@ -52,15 +55,75 @@ class EventHandler(object):
         except AttributeError:
             raise NotImplementedError('%s is not implemented for handling %s',
                                       method_name, event.name)
-        handler(msg)
+        _retry_db_errors(lambda: handler(msg))
 
     def _handle_starting(self, msg):
         # TODO(crbug.com/748234): No event update needed yet.
         pass
 
-    def _handle_gathering(self, msg):
-        # TODO(crbug.com/794779): monitor_db leaves HQEs in GATHERING
-        pass
+    def _handle_running(self, _msg):
+        models = autotest.load('frontend.afe.models')
+        self._job.hostqueueentry_set.all().update(
+                status=models.HostQueueEntry.Status.RUNNING,
+                started_on=datetime.datetime.now())
+
+    def _handle_gathering(self, _msg):
+        models = autotest.load('frontend.afe.models')
+        self._job.hostqueueentry_set.all().update(
+                status=models.HostQueueEntry.Status.GATHERING)
+
+    def _handle_parsing(self, _msg):
+        models = autotest.load('frontend.afe.models')
+        self._job.hostqueueentry_set.all().update(
+                status=models.HostQueueEntry.Status.PARSING)
+
+    def _handle_aborted(self, _msg):
+        for hqe in self._job.hostqueueentry_set.all().prefetch_related('host'):
+            _mark_hqe_aborted(hqe)
+        jobx.write_aborted_keyvals_and_status(self._job, self._results_dir)
+
+    def _handle_completed(self, _msg):
+        self._mark_job_complete()
+        self.completed = True
+
+    def _handle_test_passed(self, msg):
+        if msg == 'autoserv':
+            self._autoserv_exit = 0
+
+    def _handle_test_failed(self, msg):
+        if msg == 'autoserv':
+            self._autoserv_exit = 1
+
+    def _handle_host_running(self, msg):
+        models = autotest.load('frontend.afe.models')
+        host = models.Host.objects.get(hostname=msg)
+        host.status = models.Host.Status.RUNNING
+        host.dirty = 1
+        host.save(update_fields=['status', 'dirty'])
+        self._metrics.send_host_status(host)
+
+    def _handle_host_ready(self, msg):
+        models = autotest.load('frontend.afe.models')
+        host = models.Host.objects.get(hostname=msg)
+        host.status = models.Host.Status.READY
+        host.save(update_fields=['status'])
+        self._metrics.send_host_status(host)
+
+    def _handle_host_needs_cleanup(self, msg):
+        models = autotest.load('frontend.afe.models')
+        host = models.Host.objects.get(hostname=msg)
+        models.SpecialTask.objects.create(
+                host_id=host.id,
+                task=models.SpecialTask.Task.CLEANUP,
+                requested_by=models.User.objects.get(login=self._job.owner))
+
+    def _handle_host_needs_reset(self, msg):
+        models = autotest.load('frontend.afe.models')
+        host = models.Host.objects.get(hostname=msg)
+        models.SpecialTask.objects.create(
+                host_id=host.id,
+                task=models.SpecialTask.Task.RESET,
+                requested_by=models.User.objects.get(login=self._job.owner))
 
     def _handle_x_tests_done(self, msg):
         """Taken from GatherLogsTask.epilog."""
@@ -87,45 +150,6 @@ class EventHandler(object):
         for entry in hqes:
             self._handle_host_needs_reset(entry.host.hostname)
 
-    def _handle_parsing(self, _msg):
-        models = autotest.load('frontend.afe.models')
-        self._job.hostqueueentry_set.all().update(
-                status=models.HostQueueEntry.Status.PARSING)
-
-    def _handle_completed(self, _msg):
-        models = autotest.load('frontend.afe.models')
-        final_status = self._final_status()
-        for hqe in self._job.hostqueueentry_set.all():
-            self._set_completed_status(hqe, final_status)
-        if final_status is not models.HostQueueEntry.Status.ABORTED:
-            _stop_prejob_hqes(self._job)
-        if self._job.shard_id is not None:
-            # If shard_id is None, the job will be synced back to the master
-            self._job.shard_id = None
-            self._job.save()
-        self.completed = True
-
-    def _handle_host_ready(self, msg):
-        models = autotest.load('frontend.afe.models')
-        (models.Host.objects.filter(hostname=msg)
-         .update(status=models.Host.Status.READY))
-
-    def _handle_host_needs_cleanup(self, msg):
-        models = autotest.load('frontend.afe.models')
-        host = models.Host.objects.get(hostname=msg)
-        models.SpecialTask.objects.create(
-                host_id=host.id,
-                task=models.SpecialTask.Task.CLEANUP,
-                requested_by=models.User.objects.get(login=self._job.owner))
-
-    def _handle_host_needs_reset(self, msg):
-        models = autotest.load('frontend.afe.models')
-        host = models.Host.objects.get(hostname=msg)
-        models.SpecialTask.objects.create(
-                host_id=host.id,
-                task=models.SpecialTask.Task.RESET,
-                requested_by=models.User.objects.get(login=self._job.owner))
-
     def _should_reboot_duts(self, autoserv_exit, failures, reset_after_failure):
         models = autotest.load('frontend.afe.models')
         reboot_after = self._job.reboot_after
@@ -142,6 +166,34 @@ class EventHandler(object):
             return True
         else:
             return failures > 0 and not reset_after_failure
+
+    def _mark_job_complete(self):
+        """Perform Autotest operations needed for job completion."""
+        final_status = self._final_status()
+        self._mark_hqes_complete(final_status)
+        self._stop_job_if_necessary(final_status)
+        self._release_job_if_sharded()
+
+    def _mark_hqes_complete(self, final_status):
+        """Perform Autotest HQE operations needed for job completion."""
+        for hqe in self._job.hostqueueentry_set.all():
+            self._set_completed_status(hqe, final_status)
+
+    def _stop_job_if_necessary(self, final_status):
+        """Equivalent to scheduler.modes.Job.stop_if_necessary().
+
+        The name isn't informative, but this will stop pre-job tasks as
+        necessary.
+        """
+        models = autotest.load('frontend.afe.models')
+        if final_status is not models.HostQueueEntry.Status.ABORTED:
+            _stop_prejob_hqes(self._job)
+
+    def _release_job_if_sharded(self):
+        if self._job.shard_id is not None:
+            # If shard_id is None, the job will be synced back to the master
+            self._job.shard_id = None
+            self._job.save(update_fields=['shard_id'])
 
     def _final_status(self):
         models = autotest.load('frontend.afe.models')
@@ -163,7 +215,7 @@ class EventHandler(object):
         hqe.complete = True
         if hqe.started_on:
             hqe.finished_on = datetime.datetime.now()
-        hqe.save()
+        hqe.save(update_fields=['status', 'active', 'complete', 'finished_on'])
         self._metrics.send_hqe_completion(hqe)
         self._metrics.send_hqe_duration(hqe)
 
@@ -180,6 +232,27 @@ class Metrics(object):
         self._reset_after_failure_metric = metrics.Counter(
                 'chromeos/autotest/scheduler/postjob_tasks/'
                 'reset_after_failure')
+        self._host_status_metric = metrics.Boolean(
+                'chromeos/autotest/dut_status', reset_after=True)
+
+    def send_host_status(self, host):
+        """Send ts_mon metrics for host status.
+
+        @param host: frontend.afe.models.Host instance
+        """
+        labellib = autotest.load('utils.labellib')
+        labels = labellib.LabelsMapping.from_host(host)
+        fields = {
+                'dut_host_name': host.hostname,
+                'board': labels['board'],
+                'model': labels['model'],
+        }
+        # As each device switches state, indicate that it is not in any
+        # other state.  This allows Monarch queries to avoid double counting
+        # when additional points are added by the Window Align operation.
+        for s in host.Status.names:
+            fields['status'] = s
+            self._host_status_metric.set(s == host.status, fields=fields)
 
     def send_hqe_completion(self, hqe):
         """Send ts_mon metrics for HQE completion."""
@@ -220,6 +293,28 @@ class Metrics(object):
                         'num_tests_failed': failures > 0})
 
 
+def _mark_hqe_aborted(hqe):
+    """Perform Autotest operations needed for HQE abortion.
+
+    This also operates on the HQE's host, so prefetch it when possible.
+
+    This logic is from scheduler_models.HostQueueEntry.abort().
+    """
+    models = autotest.load('frontend.afe.models')
+    transaction = autotest.deps_load('django.db.transaction')
+    Status = models.HostQueueEntry.Status
+    with transaction.commit_on_success():
+        if hqe.status in (Status.GATHERING, Status.PARSING):
+            return
+        if hqe.status in (Status.STARTING, Status.PENDING, Status.RUNNING):
+            if hqe.host is None:
+                return
+            hqe.host.status = models.Host.Status.READY
+            hqe.host.save(update_fields=['status'])
+        hqe.status = Status.ABORTED
+        hqe.save(update_fields=['status'])
+
+
 def _stop_prejob_hqes(job):
     """Stop pending HQEs for a job (for synch_count)."""
     models = autotest.load('frontend.afe.models')
@@ -232,9 +327,9 @@ def _stop_prejob_hqes(job):
     for hqe in entries_to_stop:
         if hqe.status == HQEStatus.PENDING:
             hqe.host.status = HostStatus.READY
-            hqe.host.save()
+            hqe.host.save(update_fields=['status'])
         hqe.status = HQEStatus.STOPPED
-        hqe.save()
+        hqe.save(update_fields=['status'])
 
 
 def _get_prejob_hqes(job, include_active=True):
@@ -246,3 +341,25 @@ def _get_prejob_hqes(job, include_active=True):
         statuses = list(models.HostQueueEntry.IDLE_PRE_JOB_STATUSES)
     return models.HostQueueEntry.objects.filter(
             job=job, status__in=statuses)
+
+
+def _retry_db_errors(func):
+    """Call func, retrying multiple times if database errors are raised.
+
+    crbug.com/863504
+    """
+    django = autotest.deps_load('django')
+    MySQLdb = autotest.deps_load('MySQLdb')
+    max_retries = 10
+    # n ... 0 means n + 1 tries, or 1 try plus n retries
+    for i in xrange(max_retries, -1, -1):
+        try:
+            func()
+        except (django.db.utils.DatabaseError, MySQLdb.OperationalError) as e:
+            if i == 0:
+                raise
+            logger.debug('Got database error %s, retrying', e)
+            django.db.close_connection()
+            time.sleep(5)
+        else:
+            break

@@ -11,12 +11,16 @@ cc_defaults {
         "src/lib_json",
     ],
 
+    include_build_directory: false,
+
     export_include_dirs: ["include"],
 
     cflags: [
         "-DJSON_USE_EXCEPTION=0",
         "-Wall",
         "-Werror",
+        "-Wno-implicit-fallthrough",
+        // src/lib_json/json_reader.cpp:210  has -Wno-implicit-fallthrough
     ],
 
     target: {
@@ -26,11 +30,16 @@ cc_defaults {
     },
 }
 
-cc_library_static {
+cc_library {
     name: "libjsoncpp",
     defaults: ["libjsoncpp_defaults"],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     host_supported: true,
+    recovery_available: true,
 }
 
 cc_library_static {

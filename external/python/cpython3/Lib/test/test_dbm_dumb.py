@@ -7,7 +7,6 @@ import operator
 import os
 import stat
 import unittest
-import warnings
 import dbm.dumb as dumbdbm
 from test import support
 from functools import partial
@@ -74,6 +73,9 @@ class DumbDBMTestCase(unittest.TestCase):
         f = dumbdbm.open(_fname, 'w')
         self._dict[b'g'] = f[b'g'] = b"indented"
         self.read_helper(f)
+        # setdefault() works as in the dict interface
+        self.assertEqual(f.setdefault(b'xxx', b'foo'), b'foo')
+        self.assertEqual(f[b'xxx'], b'foo')
         f.close()
 
     def test_dumbdbm_read(self):
@@ -86,6 +88,12 @@ class DumbDBMTestCase(unittest.TestCase):
         with self.assertWarnsRegex(DeprecationWarning,
                                    'The database is opened for reading only'):
             del f[b'a']
+        # get() works as in the dict interface
+        self.assertEqual(f.get(b'b'), self._dict[b'b'])
+        self.assertEqual(f.get(b'xxx', b'foo'), b'foo')
+        self.assertIsNone(f.get(b'xxx'))
+        with self.assertRaises(KeyError):
+            f[b'xxx']
         f.close()
 
     def test_dumbdbm_keys(self):
@@ -252,6 +260,20 @@ class DumbDBMTestCase(unittest.TestCase):
                 f = dumbdbm.open(_fname, value)
             f.close()
 
+    def test_missing_index(self):
+        with dumbdbm.open(_fname, 'n') as f:
+            pass
+        os.unlink(_fname + '.dir')
+        for value in ('r', 'w'):
+            with self.assertWarnsRegex(DeprecationWarning,
+                                       "The index file is missing, the "
+                                       "semantics of the 'c' flag will "
+                                       "be used."):
+                f = dumbdbm.open(_fname, value)
+            f.close()
+            self.assertEqual(os.path.exists(_fname + '.dir'), value == 'w')
+            self.assertFalse(os.path.exists(_fname + '.bak'))
+
     def test_invalid_flag(self):
         for flag in ('x', 'rf', None):
             with self.assertWarnsRegex(DeprecationWarning,
@@ -274,6 +296,21 @@ class DumbDBMTestCase(unittest.TestCase):
             with dumbdbm.open(fname, 'r') as f:
                 self.assertEqual(sorted(f.keys()), sorted(self._dict))
                 f.close()  # don't write
+
+    @unittest.skipUnless(support.TESTFN_NONASCII,
+                         'requires OS support of non-ASCII encodings')
+    def test_nonascii_filename(self):
+        filename = support.TESTFN_NONASCII
+        for suffix in ['.dir', '.dat', '.bak']:
+            self.addCleanup(support.unlink, filename + suffix)
+        with dumbdbm.open(filename, 'c') as db:
+            db[b'key'] = b'value'
+        self.assertTrue(os.path.exists(filename + '.dat'))
+        self.assertTrue(os.path.exists(filename + '.dir'))
+        with dumbdbm.open(filename, 'r') as db:
+            self.assertEqual(list(db.keys()), [b'key'])
+            self.assertTrue(b'key' in db)
+            self.assertEqual(db[b'key'], b'value')
 
     def tearDown(self):
         _delete_files()

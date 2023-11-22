@@ -16,10 +16,9 @@
 
 package com.google.turbine.diag;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 
 /** A compilation error. */
 public class TurbineError extends Error {
@@ -29,19 +28,25 @@ public class TurbineError extends Error {
     UNEXPECTED_INPUT("unexpected input: %c"),
     UNEXPECTED_IDENTIFIER("unexpected identifier '%s'"),
     UNEXPECTED_EOF("unexpected end of input"),
+    UNTERMINATED_STRING("unterminated string literal"),
+    UNTERMINATED_CHARACTER_LITERAL("unterminated char literal"),
+    UNTERMINATED_EXPRESSION("unterminated expression, expected ';' not found"),
+    EMPTY_CHARACTER_LITERAL("empty char literal"),
     EXPECTED_TOKEN("expected token %s"),
     INVALID_LITERAL("invalid literal: %s"),
     UNEXPECTED_TYPE_PARAMETER("unexpected type parameter %s"),
     SYMBOL_NOT_FOUND("symbol not found %s"),
+    CLASS_FILE_NOT_FOUND("could not locate class file for %s"),
     TYPE_PARAMETER_QUALIFIER("type parameter used as type qualifier"),
     UNEXPECTED_TOKEN("unexpected token: %s"),
     INVALID_ANNOTATION_ARGUMENT("invalid annotation argument"),
-    CANNOT_RESOLVE("cannot resolve %s"),
+    CANNOT_RESOLVE("could not resolve %s"),
     EXPRESSION_ERROR("could not evaluate constant expression"),
     CYCLIC_HIERARCHY("cycle in class hierarchy: %s"),
     NOT_AN_ANNOTATION("%s is not an annotation"),
     NONREPEATABLE_ANNOTATION("%s is not @Repeatable"),
-    DUPLICATE_DECLARATION("duplicate declaration of %s");
+    DUPLICATE_DECLARATION("duplicate declaration of %s"),
+    BAD_MODULE_INFO("unexpected declaration found in module-info");
 
     private final String message;
 
@@ -57,38 +62,35 @@ public class TurbineError extends Error {
   /**
    * Formats a diagnostic.
    *
-   * @param source the source file
+   * @param source the current source file
+   * @param kind the error kind
+   * @param args format args
+   */
+  public static TurbineError format(SourceFile source, ErrorKind kind, Object... args) {
+    return new TurbineError(ImmutableList.of(TurbineDiagnostic.format(source, kind, args)));
+  }
+
+  /**
+   * Formats a diagnostic.
+   *
    * @param position the diagnostic position
    * @param kind the error kind
    * @param args format args
    */
   public static TurbineError format(
       SourceFile source, int position, ErrorKind kind, Object... args) {
-    String path = firstNonNull(source.path(), "<>");
-    LineMap lineMap = LineMap.create(source.source());
-    int lineNumber = lineMap.lineNumber(position);
-    int column = lineMap.column(position);
-    String message = kind.format(args);
-
-    StringBuilder sb = new StringBuilder(path).append(":");
-    sb.append(lineNumber).append(": error: ");
-    sb.append(message.trim()).append(System.lineSeparator());
-    sb.append(CharMatcher.breakingWhitespace().trimTrailingFrom(lineMap.line(position)))
-        .append(System.lineSeparator());
-    sb.append(Strings.repeat(" ", column)).append('^');
-    String diagnostic = sb.toString();
-    return new TurbineError(kind, diagnostic);
+    return new TurbineError(
+        ImmutableList.of(TurbineDiagnostic.format(source, position, kind, args)));
   }
 
-  final ErrorKind kind;
+  private final ImmutableList<TurbineDiagnostic> diagnostics;
 
-  private TurbineError(ErrorKind kind, String diagnostic) {
-    super(diagnostic);
-    this.kind = kind;
+  public TurbineError(ImmutableList<TurbineDiagnostic> diagnostics) {
+    super(diagnostics.stream().map(d -> d.diagnostic()).collect(joining("\n")));
+    this.diagnostics = diagnostics;
   }
 
-  /** The diagnostic kind. */
-  public ErrorKind kind() {
-    return kind;
+  public ImmutableList<TurbineDiagnostic> diagnostics() {
+    return diagnostics;
   }
 }

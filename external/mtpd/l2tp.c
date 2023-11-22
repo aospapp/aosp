@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
-/* A simple implementation of L2TP Access Concentrator (RFC 2661) which only
- * creates a single session. The following code only handles control packets.
- * Data packets are handled by PPPoLAC driver which can be found in Android
- * kernel tree. */
+/*
+ * Implementation of L2TP Access Concentrator (RFC 2661). The following code
+ * only handles control packets. Data packets are handled by kernel driver:
+ *  - PX_PROTO_OL2TP (upstream impl.), if it's enabled in kernel
+ *  - or PX_PROTO_OLAC (Android impl.), if upstream implementation is not
+ *    available / not enabled. It will be removed in new Android kernels.
+ */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +35,7 @@
 #include <arpa/inet.h>
 #include <linux/netdevice.h>
 #include <linux/if_pppox.h>
+#include <linux/types.h>
 #include <openssl/md5.h>
 
 #include "mtpd.h"
@@ -89,11 +94,11 @@ static char *messages[] = {
 #define ATTRIBUTE_HEADER_SIZE   6
 #define MAX_ATTRIBUTE_SIZE      1024
 
-static uint16_t local_tunnel;
-static uint16_t local_session;
+static __be16 local_tunnel;
+static __be16 local_session;
 static uint16_t local_sequence;
-static uint16_t remote_tunnel;
-static uint16_t remote_session;
+static __be16 remote_tunnel;
+static __be16 remote_session;
 static uint16_t remote_sequence;
 
 static uint16_t state;
@@ -321,7 +326,8 @@ static int l2tp_connect(char **arguments)
         local_tunnel = random();
     }
 
-    log_print(DEBUG, "Sending SCCRQ (local_tunnel = %d)", local_tunnel);
+    log_print(DEBUG, "Sending SCCRQ (local_tunnel = %u)",
+              (unsigned)ntohs(local_tunnel));
     state = SCCRQ;
     set_message(0, SCCRQ);
     add_attribute_u16(PROTOCOL_VERSION, htons(0x0100));
@@ -347,10 +353,41 @@ static int l2tp_connect(char **arguments)
     return TIMEOUT_INTERVAL;
 }
 
-static int create_pppox()
+/**
+ * Check if upstream kernel implementation of L2TP should be used.
+ *
+ * @return true If upstream L2TP should be used, which is the case if
+ *              the obsolete OLAC feature is not available.
+ */
+static bool check_ol2tp(void)
 {
-    int pppox = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OLAC);
+    int fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OLAC);
+
+    if (fd < 0) {
+        return true;
+    } else {
+        close(fd);
+        return false;
+    }
+}
+
+/**
+ * Create OLAC session.
+ *
+ * @deprecated It will be removed soon in favor of upstream OL2TP.
+ *
+ * @return PPPoX socket file descriptor
+ */
+static int create_pppox_olac(void)
+{
+    int pppox;
+
+    log_print(WARNING, "Using deprecated OLAC protocol. "
+                       "Its support will be removed soon. "
+                       "Please enable OL2TP support in your kernel");
+
     log_print(INFO, "Creating PPPoX socket");
+    pppox = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OLAC);
 
     if (pppox == -1) {
         log_print(FATAL, "Socket() %s", strerror(errno));
@@ -371,6 +408,69 @@ static int create_pppox()
     return pppox;
 }
 
+/**
+ * Create OL2TP tunnel and session.
+ *
+ * @param[out] tfd Will contain tunnel socket file descriptor
+ * @param[out] sfd Will contain session socket file descriptor
+ */
+static void create_pppox_ol2tp(int *tfd, int *sfd)
+{
+    int tunnel_fd;
+    int session_fd;
+    struct sockaddr_pppol2tp tunnel_sa;
+    struct sockaddr_pppol2tp session_sa;
+
+    log_print(INFO, "Creating PPPoX tunnel socket...");
+    tunnel_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
+    if (tunnel_fd < 0) {
+        log_print(FATAL, "Tunnel socket(): %s", strerror(errno));
+        exit(SYSTEM_ERROR);
+    }
+
+    memset(&tunnel_sa, 0, sizeof(tunnel_sa));
+    tunnel_sa.sa_family = AF_PPPOX;
+    tunnel_sa.sa_protocol = PX_PROTO_OL2TP;
+    tunnel_sa.pppol2tp.fd = the_socket; /* UDP socket */
+    tunnel_sa.pppol2tp.s_tunnel = ntohs(local_tunnel);
+    tunnel_sa.pppol2tp.s_session = 0;   /* special case: mgmt socket */
+    tunnel_sa.pppol2tp.d_tunnel = ntohs(remote_tunnel);
+    tunnel_sa.pppol2tp.d_session = 0;   /* special case: mgmt socket */
+
+    log_print(INFO, "Connecting to tunnel socket...");
+    if (connect(tunnel_fd, (struct sockaddr *)&tunnel_sa,
+                sizeof(tunnel_sa))) {
+        log_print(FATAL, "Tunnel connect(): %s", strerror(errno));
+        exit(SYSTEM_ERROR);
+    }
+
+    log_print(INFO, "Creating PPPoX session socket...");
+    session_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
+    if (session_fd < 0) {
+        log_print(FATAL, "Session socket(): %s", strerror(errno));
+        exit(SYSTEM_ERROR);
+    }
+
+    memset(&session_sa, 0, sizeof(session_sa));
+    session_sa.sa_family = AF_PPPOX;
+    session_sa.sa_protocol = PX_PROTO_OL2TP;
+    session_sa.pppol2tp.fd = the_socket;
+    session_sa.pppol2tp.s_tunnel = ntohs(local_tunnel);
+    session_sa.pppol2tp.s_session = ntohs(local_session);
+    session_sa.pppol2tp.d_tunnel = ntohs(remote_tunnel);
+    session_sa.pppol2tp.d_session = ntohs(remote_session);
+
+    log_print(INFO, "Connecting to session socket...");
+    if (connect(session_fd, (struct sockaddr *)&session_sa,
+                sizeof(session_sa))) {
+        log_print(FATAL, "Session connect(): %s", strerror(errno));
+        exit(SYSTEM_ERROR);
+    }
+
+    *tfd = tunnel_fd;
+    *sfd = session_fd;
+}
+
 static uint8_t *compute_response(uint8_t type, void *challenge, int size)
 {
     static uint8_t response[MD5_DIGEST_LENGTH];
@@ -383,18 +483,18 @@ static uint8_t *compute_response(uint8_t type, void *challenge, int size)
     return response;
 }
 
-static int verify_challenge()
+static bool verify_challenge()
 {
     if (secret) {
         uint8_t response[MD5_DIGEST_LENGTH];
         if (get_attribute_raw(CHALLENGE_RESPONSE, response, MD5_DIGEST_LENGTH)
                 != MD5_DIGEST_LENGTH) {
-            return 0;
+            return false;
         }
         return !memcmp(compute_response(SCCRP, challenge, CHALLENGE_SIZE),
                 response, MD5_DIGEST_LENGTH);
     }
-    return 1;
+    return true;
 }
 
 static void answer_challenge()
@@ -412,8 +512,8 @@ static void answer_challenge()
 static int l2tp_process()
 {
     uint16_t sequence = local_sequence;
-    uint16_t tunnel = 0;
-    uint16_t session = 0;
+    __be16 tunnel = 0;
+    __be16 session = 0;
 
     if (!recv_packet(&session)) {
         return acknowledged ? 0 : TIMEOUT_INTERVAL;
@@ -427,8 +527,8 @@ static int l2tp_process()
                 if (get_attribute_u16(ASSIGNED_TUNNEL, &tunnel) && tunnel &&
                         verify_challenge()) {
                     remote_tunnel = tunnel;
-                    log_print(DEBUG, "Received SCCRP (remote_tunnel = %d) -> "
-                            "Sending SCCCN", remote_tunnel);
+                    log_print(DEBUG, "Received SCCRP (remote_tunnel = %u) -> "
+                            "Sending SCCCN", (unsigned)ntohs(remote_tunnel));
                     state = SCCCN;
                     set_message(0, SCCCN);
                     answer_challenge();
@@ -445,8 +545,8 @@ static int l2tp_process()
             if (state == ICRQ && session == local_session) {
                 if (get_attribute_u16(ASSIGNED_SESSION, &session) && session) {
                     remote_session = session;
-                    log_print(DEBUG, "Received ICRP (remote_session = %d) -> "
-                            "Sending ICCN", remote_session);
+                    log_print(DEBUG, "Received ICRP (remote_session = %u) -> "
+                            "Sending ICCN", (unsigned)ntohs(remote_session));
                     state = ICCN;
                     set_message(remote_session, ICCN);
                     add_attribute_u32(CONNECT_SPEED, htonl(100000000));
@@ -467,8 +567,8 @@ static int l2tp_process()
 
         case CDN:
             if (session && session == local_session) {
-                log_print(DEBUG, "Received CDN (local_session = %d)",
-                        local_session);
+                log_print(DEBUG, "Received CDN (local_session = %u)",
+                        (unsigned)ntohs(local_session));
                 log_print(INFO, "Remote server hung up");
                 return -REMOTE_REQUESTED;
             }
@@ -484,7 +584,8 @@ static int l2tp_process()
                     local_session = random();
                 }
                 log_print(DEBUG, "Received %s -> Sending ICRQ (local_session = "
-                        "%d)", messages[incoming.message], local_session);
+                        "%u)", messages[incoming.message],
+                        (unsigned)ntohs(local_session));
                 log_print(INFO, "Tunnel established");
                 state = ICRQ;
                 set_message(0, ICRQ);
@@ -504,7 +605,17 @@ static int l2tp_process()
             if (state == ICCN) {
                 log_print(INFO, "Session established");
                 state = ACK;
-                start_pppd(create_pppox());
+
+                if (check_ol2tp()) {
+                    int tunnel_fd, session_fd;
+
+                    create_pppox_ol2tp(&tunnel_fd, &session_fd);
+                    start_pppd_ol2tp(tunnel_fd, session_fd,
+                                     ntohs(remote_tunnel),
+                                     ntohs(remote_session));
+                } else {
+                    start_pppd(create_pppox_olac());
+                }
             }
             return 0;
 
@@ -513,8 +624,9 @@ static int l2tp_process()
             /* Since we run pppd as a client, it does not makes sense to
              * accept ICRQ or OCRQ. Always send CDN with a proper error. */
             if (get_attribute_u16(ASSIGNED_SESSION, &session) && session) {
-                log_print(DEBUG, "Received %s (remote_session = %d) -> "
-                        "Sending CDN", messages[incoming.message], session);
+                log_print(DEBUG, "Received %s (remote_session = %u) -> "
+                        "Sending CDN", messages[incoming.message],
+                        (unsigned)ntohs(session));
                 set_message(session, CDN);
                 add_attribute_u32(RESULT_CODE, htonl(0x00020006));
                 add_attribute_u16(ASSIGNED_SESSION, 0);

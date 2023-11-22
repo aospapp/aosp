@@ -25,8 +25,8 @@ import java.io.*;
 import org.xmlpull.v1.*;
 import org.ksoap2.kobjects.isodate.*;
 
-/** 
- * Marshal class for Dates. 
+/**
+ * Marshal class for Dates.
  */
 public class MarshalDate implements Marshal {
     public static Class DATE_CLASS = new Date().getClass();
@@ -44,5 +44,4 @@ public class MarshalDate implements Marshal {
     public void register(SoapSerializationEnvelope cm) {
         cm.addMapping(cm.xsd, "dateTime", MarshalDate.DATE_CLASS, this);
     }
-
 }

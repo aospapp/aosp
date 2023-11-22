@@ -37,7 +37,7 @@ public final class JavadocUtils {
     Javadoc javadoc = node.getJavadoc();
     if (javadoc == null) {
       AST ast = node.getAST();
-      javadoc = (Javadoc) ast.createInstance(Javadoc.class);
+      javadoc = ast.newJavadoc();
       rewrite.set(node, node.getJavadocProperty(), javadoc, null /* editGroup */);
     }
     addJavadocTag(rewrite, javadoc, tagText);

@@ -5,7 +5,7 @@
 AUTHOR = 'Chrome OS Project, chromeos-video@google.com'
 NAME = 'video_VideoDecodeMemoryUsage.vp9'
 PURPOSE = 'Measure the memory usages of video playback'
-ATTRIBUTES = "suite:video"
+ATTRIBUTES = "suite:crosbolt_perf_perbuild"
 TIME = 'LONG'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = 'video'

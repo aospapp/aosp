@@ -1,3 +1,7 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Common config and logic for binary search tool
 
 This module serves two main purposes:
@@ -142,35 +146,35 @@ def _BuildArgsDict(args):
       '-i',
       '--get_initial_items',
       dest='get_initial_items',
-      help=('Script to run to get the initial objects. '
-            'If your script requires user input '
-            'the --verbose option must be used'))
+      help='Script to run to get the initial objects. '
+           'If your script requires user input '
+           'the --verbose option must be used')
   args.AddArgument(
       '-g',
       '--switch_to_good',
       dest='switch_to_good',
-      help=('Script to run to switch to good. '
-            'If your switch script requires user input '
-            'the --verbose option must be used'))
+      help='Script to run to switch to good. '
+           'If your switch script requires user input '
+           'the --verbose option must be used')
   args.AddArgument(
       '-b',
       '--switch_to_bad',
       dest='switch_to_bad',
-      help=('Script to run to switch to bad. '
-            'If your switch script requires user input '
-            'the --verbose option must be used'))
+      help='Script to run to switch to bad. '
+           'If your switch script requires user input '
+           'the --verbose option must be used')
   args.AddArgument(
       '-I',
       '--test_setup_script',
       dest='test_setup_script',
-      help=('Optional script to perform building, flashing, '
-            'and other setup before the test script runs.'))
+      help='Optional script to perform building, flashing, '
+           'and other setup before the test script runs.')
   args.AddArgument(
       '-t',
       '--test_script',
       dest='test_script',
-      help=('Script to run to test the '
-            'output after packages are built.'))
+      help='Script to run to test the '
+           'output after packages are built.')
   # No input (evals to False),
   # --prune (evals to True),
   # --prune=False,
@@ -184,8 +188,20 @@ def _BuildArgsDict(args):
       default=False,
       type=StrToBool,
       metavar='bool',
-      help=('If True, continue until all bad items are found. '
-            'Defaults to False.'))
+      help='If True, continue until all bad items are found. '
+            'Defaults to False.')
+  args.AddArgument(
+      '-P',
+      '--pass_bisect',
+      dest='pass_bisect',
+      default=None,
+      help='Script to generate another script for pass level bisect, '
+           'which contains command line options to build bad item. '
+           'This will also turn on pass/transformation level bisection. '
+           'Needs support of `-opt-bisect-limit`(pass) and '
+           '`-print-debug-counter`(transformation) from LLVM. '
+           'For now it only supports one single bad item, so to use it, '
+           'prune must be set to False.')
   # No input (evals to False),
   # --noincremental (evals to True),
   # --noincremental=False,
@@ -199,8 +215,8 @@ def _BuildArgsDict(args):
       default=False,
       type=StrToBool,
       metavar='bool',
-      help=('If True, don\'t propagate good/bad changes '
-            'incrementally. Defaults to False.'))
+      help='If True, don\'t propagate good/bad changes '
+           'incrementally. Defaults to False.')
   # No input (evals to False),
   # --file_args (evals to True),
   # --file_args=False,
@@ -214,8 +230,8 @@ def _BuildArgsDict(args):
       default=False,
       type=StrToBool,
       metavar='bool',
-      help=('Whether to use a file to pass arguments to scripts. '
-            'Defaults to False.'))
+      help='Whether to use a file to pass arguments to scripts. '
+           'Defaults to False.')
   # No input (evals to True),
   # --verify (evals to True),
   # --verify=False,
@@ -228,8 +244,8 @@ def _BuildArgsDict(args):
       default=True,
       type=StrToBool,
       metavar='bool',
-      help=('Whether to run verify iterations before searching. '
-            'Defaults to True.'))
+      help='Whether to run verify iterations before searching. '
+           'Defaults to True.')
   args.AddArgument(
       '-N',
       '--prune_iterations',
@@ -256,6 +272,6 @@ def _BuildArgsDict(args):
       '--resume',
       dest='resume',
       action='store_true',
-      help=('Resume bisection tool execution from state file.'
-            'Useful if the last bisection was terminated '
-            'before it could properly finish.'))
+      help='Resume bisection tool execution from state file.'
+           'Useful if the last bisection was terminated '
+           'before it could properly finish.')

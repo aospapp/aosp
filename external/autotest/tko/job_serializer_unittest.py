@@ -34,7 +34,7 @@ class JobSerializerUnittest(unittest.TestCase):
         tko_job = models.job('/tmp/', 'autotest', 'test', 'My Computer',
                              tko_time, tko_time, tko_time, 'root',
                              'www', 'No one', tko_time, {'1+1':2})
-        tko_job.afe_parent_job_id = '111'
+        tko_job.afe_parent_job_id = 111
         tko_job.build_version = 'R1-1.0.0'
         tko_job.suite = 'bvt'
         tko_job.board = 'alex'
@@ -165,7 +165,7 @@ class JobSerializerUnittest(unittest.TestCase):
 
     def test_afe_parent_job_id(self):
         """Test serializing afe_parent_job_id field."""
-        self.assertEqual(self.tko_job.afe_parent_job_id,
+        self.assertEqual(str(self.tko_job.afe_parent_job_id),
                         self.pb_job.afe_parent_job_id)
 
 

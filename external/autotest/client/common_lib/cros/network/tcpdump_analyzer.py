@@ -5,7 +5,6 @@
 import logging
 
 from locale import *
-from autotest_lib.client.common_lib import error
 
 PYSHARK_LOAD_TIMEOUT = 2
 FRAME_FIELD_RADIOTAP_DATARATE = 'radiotap.datarate'
@@ -15,6 +14,7 @@ FRAME_FIELD_WLAN_SOURCE_ADDR = 'wlan.sa'
 FRAME_FIELD_WLAN_MGMT_SSID = 'wlan_mgt.ssid'
 RADIOTAP_KNOWN_BAD_FCS_REJECTOR = (
     'not radiotap.flags.badfcs or radiotap.flags.badfcs==0')
+RADIOTAP_LOW_SIGNAL_REJECTOR = ('radiotap.dbm_antsignal > -85')
 WLAN_BEACON_FRAME_TYPE = '0x08'
 WLAN_BEACON_ACCEPTOR = 'wlan.fc.type_subtype==0x08'
 WLAN_PROBE_REQ_FRAME_TYPE = '0x04'
@@ -118,24 +118,39 @@ def _open_capture(pcap_path, display_filter):
     return capture
 
 
-def get_frames(local_pcap_path, display_filter, bad_fcs):
+def get_frames(local_pcap_path, display_filter, reject_bad_fcs=True,
+               reject_low_signal=False):
     """
     Get a parsed representation of the contents of a pcap file.
+    If the RF shielding in the wificell or other chambers is imperfect,
+    we'll see packets from the external environment in the packet capture
+    and tests that assert if the packet capture has certain properties
+    (i.e. only packets of a certain kind) will fail. A good way to reject
+    these packets ("leakage from the outside world") is to look at signal
+    strength. The DUT is usually either next to the AP or <5ft from the AP
+    in these chambers. A signal strength of < -85 dBm in an incoming packet
+    should imply it is leakage. The reject_low_signal option is turned off by
+    default and external packets are part of the capture by default.
+    Be careful to not turn on this option in an attenuated setup, where the
+    DUT/AP packets will also have a low signal (i.e. network_WiFi_AttenPerf).
 
     @param local_pcap_path: string path to a local pcap file on the host.
-    @param diplay_filter: string filter to apply to captured frames.
-    @param bad_fcs: string 'include' or 'discard'
+    @param display_filter: string filter to apply to captured frames.
+    @param reject_bad_fcs: bool, for frames with bad Frame Check Sequence.
+    @param reject_low_signal: bool, for packets with signal < -85 dBm. These
+                              are likely from the external environment and show
+                              up due to poor shielding in the RF chamber.
 
     @return list of Frame structs.
 
     """
-    if bad_fcs == 'include':
-        display_filter = display_filter
-    elif bad_fcs == 'discard':
+    if reject_bad_fcs is True:
         display_filter = '(%s) and (%s)' % (RADIOTAP_KNOWN_BAD_FCS_REJECTOR,
                                             display_filter)
-    else:
-        raise error.TestError('Invalid value for bad_fcs arg: %s.' % bad_fcs)
+
+    if reject_low_signal is True:
+        display_filter = '(%s) and (%s)' % (RADIOTAP_LOW_SIGNAL_REJECTOR,
+                                            display_filter)
 
     logging.debug('Capture: %s, Filter: %s', local_pcap_path, display_filter)
     capture_frames = _open_capture(local_pcap_path, display_filter)
@@ -147,8 +162,7 @@ def get_frames(local_pcap_path, display_filter, bad_fcs):
         if rate:
             rate = atof(rate)
         else:
-            logging.debug('Found bad capture frame: %s', frame)
-            continue
+            logging.debug('Capture frame missing rate: %s', frame)
 
         frametime = frame.sniff_time
 
@@ -194,12 +208,12 @@ def get_probe_ssids(local_pcap_path, probe_sender=None):
 
     """
     if probe_sender:
-        diplay_filter = '%s and wlan.addr==%s' % (
+        display_filter = '%s and wlan.addr==%s' % (
                 WLAN_PROBE_REQ_ACCEPTOR, probe_sender)
     else:
-        diplay_filter = WLAN_PROBE_REQ_ACCEPTOR
+        display_filter = WLAN_PROBE_REQ_ACCEPTOR
 
-    frames = get_frames(local_pcap_path, diplay_filter, bad_fcs='discard')
+    frames = get_frames(local_pcap_path, display_filter, reject_bad_fcs=True)
 
     return frozenset(
             [frame.ssid for frame in frames if frame.ssid is not None])

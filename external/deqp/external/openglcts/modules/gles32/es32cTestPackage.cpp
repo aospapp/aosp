@@ -23,16 +23,19 @@
  */ /*-------------------------------------------------------------------*/
 
 #include "es32cTestPackage.hpp"
-#include "es32cRobustBufferAccessBehaviorTests.hpp"
+#include "es32cCopyImageTests.hpp"
 #include "esextcTestPackage.hpp"
+#include "glcAggressiveShaderOptimizationsTests.hpp"
 #include "glcFragDepthTests.hpp"
 #include "glcInfoTests.hpp"
+#include "glcInternalformatTests.hpp"
 #include "glcSeparableProgramsTransformFeedbackTests.hpp"
 #include "glcShaderConstExprTests.hpp"
 #include "glcShaderIndexingTests.hpp"
 #include "glcShaderIntegerMixTests.hpp"
 #include "glcShaderLibrary.hpp"
 #include "glcShaderLoopTests.hpp"
+#include "glcShaderMacroTests.hpp"
 #include "glcShaderNegativeTests.hpp"
 #include "glcShaderStructTests.hpp"
 #include "glcShaderSwitchTests.hpp"
@@ -145,6 +148,7 @@ void ES32TestPackage::init(void)
 		tcu::TestCaseGroup* shadersGroup = new tcu::TestCaseGroup(getTestContext(), "shaders", "");
 		shadersGroup->addChild(new deqp::ShaderIntegerMixTests(getContext(), glu::GLSL_VERSION_320_ES));
 		shadersGroup->addChild(new deqp::ShaderNegativeTests(getContext(), glu::GLSL_VERSION_320_ES));
+		shadersGroup->addChild(new glcts::AggressiveShaderOptimizationsTests(getContext()));
 		addChild(shadersGroup);
 
 		tcu::TestCaseGroup*  coreGroup = new tcu::TestCaseGroup(getTestContext(), "core", "");
@@ -157,11 +161,11 @@ void ES32TestPackage::init(void)
 		coreGroup->addChild(new glcts::TextureBufferTests(getContext(), extParams));
 		coreGroup->addChild(new glcts::DrawBuffersIndexedTests(getContext(), extParams));
 		coreGroup->addChild(new glcts::ShaderConstExprTests(getContext()));
+		coreGroup->addChild(new glcts::ShaderMacroTests(getContext()));
 		coreGroup->addChild(new glcts::SeparableProgramsTransformFeedbackTests(getContext()));
+		coreGroup->addChild(new glcts::CopyImageTests(getContext()));
+		coreGroup->addChild(new glcts::InternalformatTests(getContext()));
 		addChild(coreGroup);
-		tcu::TestCaseGroup* robustGroup = new tcu::TestCaseGroup(getTestContext(), "robust", "");
-		robustGroup->addChild(new es32cts::RobustBufferAccessBehaviorTests(getContext()));
-		addChild(robustGroup);
 	}
 	catch (...)
 	{

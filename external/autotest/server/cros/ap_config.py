@@ -11,14 +11,10 @@ from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.site_utils.rpm_control_system import rpm_client
 from autotest_lib.server.cros.ap_configurators import ap_spec
 
+# chaos_shadow_ap_list.conf is used for testing against local APs.
 AP_CONFIG_FILES = { ap_constants.AP_TEST_TYPE_CHAOS:
-                    ('chaos_dynamic_ap_list.conf', 'chaos_shadow_ap_list.conf'),
-                    ap_constants.AP_TEST_TYPE_CLIQUE:
-                    ('clique_ap_list.conf',),
-                    ap_constants.AP_TEST_TYPE_CASEY5:
-                    ('casey_chromeos5_ap_list.conf',),
-                    ap_constants.AP_TEST_TYPE_CASEY7:
-                    ('casey_chromeos7_ap_list.conf',),}
+                    ('chaos_ap_list.conf',
+                     'chaos_shadow_ap_list.conf'),}
 
 TIMEOUT = 100
 
@@ -196,12 +192,12 @@ class AP(object):
 
     def power_off(self):
         """call rpm_client to power off AP"""
-        rpm_client.set_power(self.get_wan_host(), 'OFF')
+        rpm_client.set_power_afe(self.get_wan_host(), 'OFF')
 
 
     def power_on(self):
         """call rpm_client to power on AP"""
-        rpm_client.set_power(self.get_wan_host(), 'ON')
+        rpm_client.set_power_afe(self.get_wan_host(), 'ON')
 
         # Hard coded timer for now to wait for the AP to come alive
         # before trying to use it.  We need scanning code

@@ -13,61 +13,11 @@ from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server import utils as server_utils
 from autotest_lib.site_utils.lxc import constants
-from autotest_lib.site_utils.lxc import utils as lxc_utils
 
 try:
     from chromite.lib import metrics
 except ImportError:
     metrics = common_utils.metrics_mock
-
-
-def _get_container_info_moblab(container_path, **filters):
-    """Get a collection of container information in the given container path
-    in a Moblab.
-
-    TODO(crbug.com/457496): remove this method once python 3 can be installed
-    in Moblab and lxc-ls command can use python 3 code.
-
-    When running in Moblab, lxc-ls behaves differently from a server with python
-    3 installed:
-    1. lxc-ls returns a list of containers installed under /etc/lxc, the default
-       lxc container directory.
-    2. lxc-ls --active lists all active containers, regardless where the
-       container is located.
-    For such differences, we have to special case Moblab to make the behavior
-    close to a server with python 3 installed. That is,
-    1. List only containers in a given folder.
-    2. Assume all active containers have state of RUNNING.
-
-    @param container_path: Path to look for containers.
-    @param filters: Key value to filter the containers, e.g., name='base'
-
-    @return: A list of dictionaries that each dictionary has the information of
-             a container. The keys are defined in ATTRIBUTES.
-    """
-    info_collection = []
-    active_containers = common_utils.run('sudo lxc-ls --active').stdout.split()
-    name_filter = filters.get('name', None)
-    state_filter = filters.get('state', None)
-    if filters and set(filters.keys()) - set(['name', 'state']):
-        raise error.ContainerError('When running in Moblab, container list '
-                                   'filter only supports name and state.')
-
-    for name in os.listdir(container_path):
-        # Skip all files and folders without rootfs subfolder.
-        if (os.path.isfile(os.path.join(container_path, name)) or
-            not lxc_utils.path_exists(os.path.join(container_path, name,
-                                                   'rootfs'))):
-            continue
-        info = {'name': name,
-                'state': 'RUNNING' if name in active_containers else 'STOPPED'
-               }
-        if ((name_filter and name_filter != info['name']) or
-            (state_filter and state_filter != info['state'])):
-            continue
-
-        info_collection.append(info)
-    return info_collection
 
 
 def get_container_info(container_path, **filters):
@@ -86,9 +36,6 @@ def get_container_info(container_path, **filters):
     @return: A list of dictionaries that each dictionary has the information of
              a container. The keys are defined in ATTRIBUTES.
     """
-    if constants.IS_MOBLAB:
-        return _get_container_info_moblab(container_path, **filters)
-
     cmd = 'sudo lxc-ls -P %s -f -F %s' % (os.path.realpath(container_path),
                                           ','.join(constants.ATTRIBUTES))
     output = common_utils.run(cmd).stdout
@@ -233,7 +180,8 @@ def install_packages(packages=[], python_packages=[], force_latest=False):
         packages.extend(['python-pip', 'python-dev'])
     if packages:
         common_utils.run(
-            'sudo apt-get install %s -y --force-yes' % ' '.join(packages))
+            'sudo DEBIAN_FRONTEND=noninteractive apt-get install %s -y '
+            '--force-yes' % ' '.join(packages))
         logging.debug('Packages are installed: %s.', packages)
 
     target_setting = ''

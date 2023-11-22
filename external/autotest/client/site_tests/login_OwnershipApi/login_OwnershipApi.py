@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, tempfile
+import logging, tempfile
 from dbus.mainloop.glib import DBusGMainLoop
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import autotemp, error
 from autotest_lib.client.common_lib.cros import policy, session_manager
 from autotest_lib.client.cros import cros_ui, cryptohome, ownership
@@ -18,13 +18,10 @@ class login_OwnershipApi(test.test):
 
     _tempdir = None
 
-    def setup(self):
-        os.chdir(self.srcdir)
-        utils.make('OUT_DIR=.')
-
 
     def initialize(self):
         super(login_OwnershipApi, self).initialize()
+        policy.install_protobufs(self.autodir, self.job)
         self._bus_loop = DBusGMainLoop(set_as_default=True)
 
         # Clear existing ownership and inject known keys.
@@ -55,23 +52,18 @@ class login_OwnershipApi(test.test):
         sm = session_manager.connect(self._bus_loop)
         sm.StartSession(ownership.TESTUSER, '')
 
-        poldata = policy.build_policy_data(self.srcdir,
-                                           owner=ownership.TESTUSER,
+        poldata = policy.build_policy_data(owner=ownership.TESTUSER,
                                            guests=False,
                                            new_users=True,
                                            roaming=True,
                                            whitelist=(ownership.TESTUSER,
                                                       'a@b.c'))
 
-        policy_string = policy.generate_policy(self.srcdir,
-                                               pkey,
-                                               pubkey,
-                                               poldata)
+        policy_string = policy.generate_policy(pkey, pubkey, poldata)
         policy.push_policy_and_verify(policy_string, sm)
         retrieved_policy = policy.get_policy(sm)
         if retrieved_policy is None: raise error.TestFail('Policy not found')
-        policy.compare_policy_response(self.srcdir,
-                                       retrieved_policy,
+        policy.compare_policy_response(retrieved_policy,
                                        owner=ownership.TESTUSER,
                                        guests=False,
                                        new_users=True,
@@ -79,8 +71,7 @@ class login_OwnershipApi(test.test):
                                        whitelist=(ownership.TESTUSER, 'a@b.c'))
         try:
             # Sanity check against an incorrect policy
-            policy.compare_policy_response(self.srcdir,
-                                           retrieved_policy,
+            policy.compare_policy_response(retrieved_policy,
                                            owner=ownership.TESTUSER,
                                            guests=True,
                                            whitelist=(ownership.TESTUSER,
@@ -89,12 +80,6 @@ class login_OwnershipApi(test.test):
             pass
         else:
             raise error.TestFail('Did not detect bad policy')
-
-        try:
-            sm.StopSession('')
-        except error.TestError as e:
-            logging.error(str(e))
-            raise error.TestFail('Could not stop session for owner')
 
 
     def cleanup(self):

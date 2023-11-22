@@ -23,6 +23,8 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vktDrawBaseClass.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkTypeUtil.hpp"
 
 namespace vkt
 {
@@ -51,7 +53,7 @@ void DrawTestsBaseClass::initialize (void)
 	const ImageCreateInfo targetImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_colorAttachmentFormat, targetImageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT,
 		vk::VK_IMAGE_TILING_OPTIMAL, vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-	m_colorTargetImage						= Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator());
+	m_colorTargetImage						= Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 	const ImageViewCreateInfo colorTargetViewInfo(m_colorTargetImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, m_colorAttachmentFormat);
 	m_colorTargetView						= vk::createImageView(m_vk, device, &colorTargetViewInfo);
@@ -134,11 +136,7 @@ void DrawTestsBaseClass::initialize (void)
 	deUint8* ptr = reinterpret_cast<deUint8*>(m_vertexBuffer->getBoundMemory().getHostPtr());
 	deMemcpy(ptr, &m_data[0], static_cast<size_t>(dataSize));
 
-	vk::flushMappedMemoryRange(m_vk,
-							   device,
-							   m_vertexBuffer->getBoundMemory().getMemory(),
-							   m_vertexBuffer->getBoundMemory().getOffset(),
-							   dataSize);
+	vk::flushAlloc(m_vk, device, m_vertexBuffer->getBoundMemory());
 
 	const CmdPoolCreateInfo cmdPoolCreateInfo(queueFamilyIndex);
 	m_cmdPool	= vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
@@ -154,19 +152,8 @@ void DrawTestsBaseClass::initPipeline (const vk::VkDevice device)
 
 	const PipelineCreateInfo::ColorBlendState::Attachment vkCbAttachmentState;
 
-	vk::VkViewport viewport;
-	viewport.x				= 0;
-	viewport.y				= 0;
-	viewport.width			= static_cast<float>(WIDTH);
-	viewport.height			= static_cast<float>(HEIGHT);
-	viewport.minDepth		= 0.0f;
-	viewport.maxDepth		= 1.0f;
-
-	vk::VkRect2D scissor;
-	scissor.offset.x		= 0;
-	scissor.offset.y		= 0;
-	scissor.extent.width	= WIDTH;
-	scissor.extent.height	= HEIGHT;
+	vk::VkViewport viewport	= vk::makeViewport(WIDTH, HEIGHT);
+	vk::VkRect2D scissor	= vk::makeRect2D(WIDTH, HEIGHT);
 
 	PipelineCreateInfo pipelineCreateInfo(*m_pipelineLayout, *m_renderPass, 0, 0);
 	pipelineCreateInfo.addShader(PipelineCreateInfo::PipelineShaderStage(*vs, "main", vk::VK_SHADER_STAGE_VERTEX_BIT));
@@ -182,14 +169,14 @@ void DrawTestsBaseClass::initPipeline (const vk::VkDevice device)
 	m_pipeline = vk::createGraphicsPipeline(m_vk, device, DE_NULL, &pipelineCreateInfo);
 }
 
-void DrawTestsBaseClass::beginRenderPass (void)
+void DrawTestsBaseClass::beginRenderPass (const vk::VkSubpassContents content)
 {
 	const vk::VkClearColorValue clearColor = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-	const CmdBufferBeginInfo beginInfo;
 
-	m_vk.beginCommandBuffer(*m_cmdBuffer, &beginInfo);
+	beginCommandBuffer(m_vk, *m_cmdBuffer, 0u);
 
-	initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL);
+	initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+								  vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	const ImageSubresourceRange subresourceRange(vk::VK_IMAGE_ASPECT_COLOR_BIT);
 	m_vk.cmdClearColorImage(*m_cmdBuffer, m_colorTargetImage->object(),
@@ -207,10 +194,8 @@ void DrawTestsBaseClass::beginRenderPass (void)
 		vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
-	const vk::VkRect2D renderArea = { { 0, 0 }, { WIDTH, HEIGHT } };
-	const RenderPassBeginInfo renderPassBegin(*m_renderPass, *m_framebuffer, renderArea);
-
-	m_vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+	const vk::VkRect2D renderArea = vk::makeRect2D(WIDTH, HEIGHT);
+	vk::beginRenderPass(m_vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, renderArea, content);
 }
 
 }	// Draw

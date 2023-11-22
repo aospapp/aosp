@@ -9,7 +9,7 @@ NAME = 'network_WiFi_ReconnectInDarkResume.DisconnectAfterSuspendSameAP'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell, servo, lucidsleep'
-ATTRIBUTES = 'suite:wifi_correctness_cros_core, suite:wifi_lucidsleep'
+ATTRIBUTES = 'suite:wifi_lucidsleep'
 
 DOC = """
 This test verifies that the DUT that suspends connected, then subsequently

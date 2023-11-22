@@ -61,7 +61,7 @@ subject is processed, and what output is produced.
 <P>
 As the original fairly simple PCRE library evolved, it acquired many different
 features, and as a result, the original <b>pcretest</b> program ended up with a
-lot of options in a messy, arcane syntax, for testing all the features. The
+lot of options in a messy, arcane syntax for testing all the features. The
 move to the new PCRE2 API provided an opportunity to re-implement the test
 program as <b>pcre2test</b>, with a cleaner modifier syntax. Nevertheless, there
 are still many obscure modifiers, some of which are specifically designed for
@@ -77,32 +77,62 @@ strings that are encoded in 8-bit, 16-bit, or 32-bit code units. One, two, or
 all three of these libraries may be simultaneously installed. The
 <b>pcre2test</b> program can be used to test all the libraries. However, its own
 input and output are always in 8-bit format. When testing the 16-bit or 32-bit
-libraries, patterns and subject strings are converted to 16- or 32-bit format
-before being passed to the library functions. Results are converted back to
-8-bit code units for output.
+libraries, patterns and subject strings are converted to 16-bit or 32-bit
+format before being passed to the library functions. Results are converted back
+to 8-bit code units for output.
 </P>
 <P>
 In the rest of this document, the names of library functions and structures
 are given in generic form, for example, <b>pcre_compile()</b>. The actual
 names used in the libraries have a suffix _8, _16, or _32, as appropriate.
-</P>
+<a name="inputencoding"></a></P>
 <br><a name="SEC3" href="#TOC1">INPUT ENCODING</a><br>
 <P>
 Input to <b>pcre2test</b> is processed line by line, either by calling the C
-library's <b>fgets()</b> function, or via the <b>libreadline</b> library (see
-below). The input is processed using using C's string functions, so must not
-contain binary zeroes, even though in Unix-like environments, <b>fgets()</b>
-treats any bytes other than newline as data characters. In some Windows
-environments character 26 (hex 1A) causes an immediate end of file, and no
-further data is read.
+library's <b>fgets()</b> function, or via the <b>libreadline</b> library. In some
+Windows environments character 26 (hex 1A) causes an immediate end of file, and
+no further data is read, so this character should be avoided unless you really
+want that action.
 </P>
 <P>
-For maximum portability, therefore, it is safest to avoid non-printing
-characters in <b>pcre2test</b> input files. There is a facility for specifying
-some or all of a pattern's characters as hexadecimal pairs, thus making it
-possible to include binary zeroes in a pattern for testing purposes. Subject
-lines are processed for backslash escapes, which makes it possible to include
-any data value.
+The input is processed using using C's string functions, so must not
+contain binary zeros, even though in Unix-like environments, <b>fgets()</b>
+treats any bytes other than newline as data characters. An error is generated
+if a binary zero is encountered. By default subject lines are processed for
+backslash escapes, which makes it possible to include any data value in strings
+that are passed to the library for matching. For patterns, there is a facility
+for specifying some or all of the 8-bit input characters as hexadecimal pairs,
+which makes it possible to include binary zeros.
+</P>
+<br><b>
+Input for the 16-bit and 32-bit libraries
+</b><br>
+<P>
+When testing the 16-bit or 32-bit libraries, there is a need to be able to
+generate character code points greater than 255 in the strings that are passed
+to the library. For subject lines, backslash escapes can be used. In addition,
+when the <b>utf</b> modifier (see
+<a href="#optionmodifiers">"Setting compilation options"</a>
+below) is set, the pattern and any following subject lines are interpreted as
+UTF-8 strings and translated to UTF-16 or UTF-32 as appropriate.
+</P>
+<P>
+For non-UTF testing of wide characters, the <b>utf8_input</b> modifier can be
+used. This is mutually exclusive with <b>utf</b>, and is allowed only in 16-bit
+or 32-bit mode. It causes the pattern and following subject lines to be treated
+as UTF-8 according to the original definition (RFC 2279), which allows for
+character values up to 0x7fffffff. Each character is placed in one 16-bit or
+32-bit code unit (in the 16-bit case, values greater than 0xffff cause an error
+to occur).
+</P>
+<P>
+UTF-8 (in its original definition) is not capable of encoding values greater
+than 0x7fffffff, but such values can be handled by the 32-bit library. When
+testing this library in non-UTF mode with <b>utf8_input</b> set, if any
+character is preceded by the byte 0xff (which is an invalid byte in UTF-8)
+0x80000000 is added to the character's value. This is the only way of passing
+such code points in a pattern string. For subject strings, using an escape
+sequence is preferable.
 </P>
 <br><a name="SEC4" href="#TOC1">COMMAND LINE OPTIONS</a><br>
 <P>
@@ -124,15 +154,27 @@ the 32-bit library has been built, this is the default. If the 32-bit library
 has not been built, this option causes an error.
 </P>
 <P>
+<b>-ac</b>
+Behave as if each pattern has the <b>auto_callout</b> modifier, that is, insert
+automatic callouts into every pattern that is compiled.
+</P>
+<P>
+<b>-AC</b>
+As for <b>-ac</b>, but in addition behave as if each subject line has the
+<b>callout_extra</b> modifier, that is, show additional information from
+callouts.
+</P>
+<P>
 <b>-b</b>
-Behave as if each pattern has the <b>/fullbincode</b> modifier; the full
+Behave as if each pattern has the <b>fullbincode</b> modifier; the full
 internal binary form of the pattern is output after compilation.
 </P>
 <P>
 <b>-C</b>
 Output the version number of the PCRE2 library, and all available information
 about the optional features that are included, and then exit with zero exit
-code. All other options are ignored.
+code. All other options are ignored. If both -C and -LM are present, whichever
+is first is recognized.
 </P>
 <P>
 <b>-C</b> <i>option</i>
@@ -147,7 +189,7 @@ following options output the value and set the exit code as indicated:
   linksize   the configured internal link size (2, 3, or 4)
                exit code is set to the link size
   newline    the default newline setting:
-               CR, LF, CRLF, ANYCRLF, or ANY
+               CR, LF, CRLF, ANYCRLF, ANY, or NUL
                exit code is always 0
   bsr        the default setting for what \R matches:
                ANYCRLF or ANY
@@ -191,13 +233,25 @@ Output a brief summary these options and then exit.
 </P>
 <P>
 <b>-i</b>
-Behave as if each pattern has the <b>/info</b> modifier; information about the
+Behave as if each pattern has the <b>info</b> modifier; information about the
 compiled pattern is given after compilation.
 </P>
 <P>
 <b>-jit</b>
 Behave as if each pattern line has the <b>jit</b> modifier; after successful
 compilation, each pattern is passed to the just-in-time compiler, if available.
+</P>
+<P>
+<b>-jitverify</b>
+Behave as if each pattern line has the <b>jitverify</b> modifier; after
+successful compilation, each pattern is passed to the just-in-time compiler, if
+available, and the use of JIT is verified.
+</P>
+<P>
+<b>-LM</b>
+List modifiers: write a list of available pattern and subject modifiers to the
+standard output, then exit with zero exit code. All other options are ignored.
+If both -C and -LM are present, whichever is first is recognized.
 </P>
 <P>
 \fB-pattern\fB <i>modifier-list</i>
@@ -210,7 +264,7 @@ Do not output the version number of <b>pcre2test</b> at the start of execution.
 <P>
 <b>-S</b> <i>size</i>
 On Unix-like systems, set the size of the run-time stack to <i>size</i>
-megabytes.
+mebibytes (units of 1024*1024 bytes).
 </P>
 <P>
 <b>-subject</b> <i>modifier-list</i>
@@ -261,7 +315,8 @@ number of subject lines to be matched against that pattern. In between sets of
 test data, command lines that begin with # may appear. This file format, with
 some restrictions, can also be processed by the <b>perltest.sh</b> script that
 is distributed with PCRE2 as a means of checking that the behaviour of PCRE2
-and Perl is the same.
+and Perl is the same. For a specification of <b>perltest.sh</b>, see the
+comments near its beginning.
 </P>
 <P>
 When the input is a terminal, <b>pcre2test</b> prompts for each line of input,
@@ -326,8 +381,8 @@ when PCRE2 is compiled with either CR or CRLF as the default newline.
 </P>
 <P>
 The #newline_default command specifies a list of newline types that are
-acceptable as the default. The types must be one of CR, LF, CRLF, ANYCRLF, or
-ANY (in upper or lower case), for example:
+acceptable as the default. The types must be one of CR, LF, CRLF, ANYCRLF,
+ANY, or NUL (in upper or lower case), for example:
 <pre>
   #newline_default LF Any anyCRLF
 </pre>
@@ -341,8 +396,9 @@ of the standard test input files.
 <P>
 When the POSIX API is being tested there is no way to override the default
 newline convention, though it is possible to set the newline convention from
-within the pattern. A warning is given if the <b>posix</b> modifier is used when
-<b>#newline_default</b> would set a default for the non-POSIX API.
+within the pattern. A warning is given if the <b>posix</b> or <b>posix_nosub</b>
+modifier is used when <b>#newline_default</b> would set a default for the
+non-POSIX API.
 <pre>
   #pattern &#60;modifier-list&#62;
 </pre>
@@ -354,10 +410,11 @@ patterns. Modifiers on a pattern can change these settings.
 The appearance of this line causes all subsequent modifier settings to be
 checked for compatibility with the <b>perltest.sh</b> script, which is used to
 confirm that Perl gives the same results as PCRE2. Also, apart from comment
-lines, none of the other command lines are permitted, because they and many
-of the modifiers are specific to <b>pcre2test</b>, and should not be used in
-test files that are also processed by <b>perltest.sh</b>. The <b>#perltest</b>
-command helps detect tests that are accidentally put in the wrong file.
+lines, #pattern commands, and #subject commands that set or unset "mark", no
+command lines are permitted, because they and many of the modifiers are
+specific to <b>pcre2test</b>, and should not be used in test files that are also
+processed by <b>perltest.sh</b>. The <b>#perltest</b> command helps detect tests
+that are accidentally put in the wrong file.
 <pre>
   #pop [&#60;modifiers&#62;]
   #popcopy [&#60;modifiers&#62;]
@@ -438,8 +495,9 @@ A pattern can be followed by a modifier list (details below).
 <P>
 Before each subject line is passed to <b>pcre2_match()</b> or
 <b>pcre2_dfa_match()</b>, leading and trailing white space is removed, and the
-line is scanned for backslash escapes. The following provide a means of
-encoding non-printing characters in a visible way:
+line is scanned for backslash escapes, unless the <b>subject_literal</b>
+modifier was set for the pattern. The following provide a means of encoding
+non-printing characters in a visible way:
 <pre>
   \a         alarm (BEL, \x07)
   \b         backspace (\x08)
@@ -507,6 +565,12 @@ the very last character in the line is a backslash (and there is no modifier
 list), it is ignored. This gives a way of passing an empty line as data, since
 a real empty line terminates the data input.
 </P>
+<P>
+If the <b>subject_literal</b> modifier is set for a pattern, all subject lines
+that follow are treated as literals, with no special treatment of backslashes.
+No replication is possible, and any subject modifiers must be set as defaults
+by a <b>#subject</b> command.
+</P>
 <br><a name="SEC10" href="#TOC1">PATTERN MODIFIERS</a><br>
 <P>
 There are several types of modifier that can appear in pattern lines. Except
@@ -518,29 +582,42 @@ by a previous <b>#pattern</b> command.
 Setting compilation options
 </b><br>
 <P>
-The following modifiers set options for <b>pcre2_compile()</b>. The most common
-ones have single-letter abbreviations. See
+The following modifiers set options for <b>pcre2_compile()</b>. Most of them set
+bits in the options argument of that function, but those whose names start with
+PCRE2_EXTRA are additional options that are set in the compile context. For the
+main options, there are some single-letter abbreviations that are the same as
+Perl options. There is special handling for /x: if a second x is present,
+PCRE2_EXTENDED is converted into PCRE2_EXTENDED_MORE as in Perl. A third
+appearance adds PCRE2_EXTENDED as well, though this makes no difference to the
+way <b>pcre2_compile()</b> behaves. See
 <a href="pcre2api.html"><b>pcre2api</b></a>
-for a description of their effects.
+for a description of the effects of these options.
 <pre>
       allow_empty_class         set PCRE2_ALLOW_EMPTY_CLASS
+      allow_surrogate_escapes   set PCRE2_EXTRA_ALLOW_SURROGATE_ESCAPES
       alt_bsux                  set PCRE2_ALT_BSUX
       alt_circumflex            set PCRE2_ALT_CIRCUMFLEX
       alt_verbnames             set PCRE2_ALT_VERBNAMES
       anchored                  set PCRE2_ANCHORED
       auto_callout              set PCRE2_AUTO_CALLOUT
+      bad_escape_is_literal     set PCRE2_EXTRA_BAD_ESCAPE_IS_LITERAL
   /i  caseless                  set PCRE2_CASELESS
       dollar_endonly            set PCRE2_DOLLAR_ENDONLY
   /s  dotall                    set PCRE2_DOTALL
       dupnames                  set PCRE2_DUPNAMES
+      endanchored               set PCRE2_ENDANCHORED
   /x  extended                  set PCRE2_EXTENDED
+  /xx extended_more             set PCRE2_EXTENDED_MORE
       firstline                 set PCRE2_FIRSTLINE
+      literal                   set PCRE2_LITERAL
+      match_line                set PCRE2_EXTRA_MATCH_LINE
       match_unset_backref       set PCRE2_MATCH_UNSET_BACKREF
+      match_word                set PCRE2_EXTRA_MATCH_WORD
   /m  multiline                 set PCRE2_MULTILINE
       never_backslash_c         set PCRE2_NEVER_BACKSLASH_C
       never_ucp                 set PCRE2_NEVER_UCP
       never_utf                 set PCRE2_NEVER_UTF
-      no_auto_capture           set PCRE2_NO_AUTO_CAPTURE
+  /n  no_auto_capture           set PCRE2_NO_AUTO_CAPTURE
       no_auto_possess           set PCRE2_NO_AUTO_POSSESS
       no_dotstar_anchor         set PCRE2_NO_DOTSTAR_ANCHOR
       no_start_optimize         set PCRE2_NO_START_OPTIMIZE
@@ -553,19 +630,27 @@ for a description of their effects.
 As well as turning on the PCRE2_UTF option, the <b>utf</b> modifier causes all
 non-printing characters in output strings to be printed using the \x{hh...}
 notation. Otherwise, those less than 0x100 are output in hex without the curly
-brackets.
+brackets. Setting <b>utf</b> in 16-bit or 32-bit mode also causes pattern and
+subject strings to be translated to UTF-16 or UTF-32, respectively, before
+being passed to library functions.
 <a name="controlmodifiers"></a></P>
 <br><b>
 Setting compilation controls
 </b><br>
 <P>
 The following modifiers affect the compilation process or request information
-about the pattern:
+about the pattern. There are single-letter abbreviations for some that are
+heavily used in the test files.
 <pre>
       bsr=[anycrlf|unicode]     specify \R handling
   /B  bincode                   show binary code without lengths
       callout_info              show callout information
+      convert=&#60;options&#62;         request foreign pattern conversion
+      convert_glob_escape=c     set glob escape character
+      convert_glob_separator=c  set glob separator character
+      convert_length            set convert buffer length
       debug                     same as info,fullbincode
+      framesize                 show matching frame size
       fullbincode               show binary code with lengths
   /I  info                      show info about compiled pattern
       hex                       unquoted characters are hexadecimal
@@ -583,7 +668,10 @@ about the pattern:
       push                      push compiled pattern onto the stack
       pushcopy                  push a copy onto the stack
       stackguard=&#60;number&#62;       test the stackguard feature
+      subject_literal           treat all subject lines as literal
       tables=[0|1|2]            select internal tables
+      use_length                do not zero-terminate the pattern
+      utf8_input                treat input as UTF-8
 </pre>
 The effects of these modifiers are described in the following sections.
 </P>
@@ -593,13 +681,13 @@ Newline and \R handling
 <P>
 The <b>bsr</b> modifier specifies what \R in a pattern should match. If it is
 set to "anycrlf", \R matches CR, LF, or CRLF only. If it is set to "unicode",
-\R matches any Unicode newline sequence. The default is specified when PCRE2
-is built, with the default default being Unicode.
+\R matches any Unicode newline sequence. The default can be specified when
+PCRE2 is built; if it is not, the default is set to Unicode.
 </P>
 <P>
 The <b>newline</b> modifier specifies which characters are to be interpreted as
 newlines, both in the pattern and in subject lines. The type must be one of CR,
-LF, CRLF, ANYCRLF, or ANY (in upper or lower case).
+LF, CRLF, ANYCRLF, ANY, or NUL (in upper or lower case).
 </P>
 <br><b>
 Information about a pattern
@@ -651,6 +739,11 @@ not necessarily the last character. These lines are omitted if no starting or
 ending code units are recorded.
 </P>
 <P>
+The <b>framesize</b> modifier shows the size, in bytes, of the storage frames
+used by <b>pcre2_match()</b> for handling backtracking. The size depends on the
+number of capturing parentheses in the pattern.
+</P>
+<P>
 The <b>callout_info</b> modifier requests information about all the callouts in
 the pattern. A list of them is output at the end of any other information that
 is requested. For each callout, either its number or string is given, followed
@@ -684,13 +777,36 @@ nine characters, only two of which are specified in hexadecimal:
   /ab "literal" 32/hex
 </pre>
 Either single or double quotes may be used. There is no way of including
-the delimiter within a substring.
+the delimiter within a substring. The <b>hex</b> and <b>expand</b> modifiers are
+mutually exclusive.
+</P>
+<br><b>
+Specifying the pattern's length
+</b><br>
+<P>
+By default, patterns are passed to the compiling functions as zero-terminated
+strings but can be passed by length instead of being zero-terminated. The
+<b>use_length</b> modifier causes this to happen. Using a length happens
+automatically (whether or not <b>use_length</b> is set) when <b>hex</b> is set,
+because patterns specified in hexadecimal may contain binary zeros.
 </P>
 <P>
-By default, <b>pcre2test</b> passes patterns as zero-terminated strings to
-<b>pcre2_compile()</b>, giving the length as PCRE2_ZERO_TERMINATED. However, for
-patterns specified with the <b>hex</b> modifier, the actual length of the
-pattern is passed.
+If <b>hex</b> or <b>use_length</b> is used with the POSIX wrapper API (see
+<a href="#posixwrapper">"Using the POSIX wrapper API"</a>
+below), the REG_PEND extension is used to pass the pattern's length.
+</P>
+<br><b>
+Specifying wide characters in 16-bit and 32-bit modes
+</b><br>
+<P>
+In 16-bit and 32-bit modes, all input is automatically treated as UTF-8 and
+translated to UTF-16 or UTF-32 when the <b>utf</b> modifier is set. For testing
+the 16-bit and 32-bit libraries in non-UTF mode, the <b>utf8_input</b> modifier
+can be used. It is mutually exclusive with <b>utf</b>. Input lines are
+interpreted as UTF-8 as a means of specifying wide characters. More details are
+given in
+<a href="#inputencoding">"Input encoding"</a>
+above.
 </P>
 <br><b>
 Generating long repetitive patterns
@@ -708,7 +824,8 @@ are expanded before the pattern is passed to <b>pcre2_compile()</b>. For
 example, \[AB]{6000} is expanded to "ABAB..." 6000 times. This construction
 cannot be nested. An initial "\[" sequence is recognized only if "]{" followed
 by decimal digits and "}" is found later in the pattern. If not, the characters
-remain in the pattern unaltered.
+remain in the pattern unaltered. The <b>expand</b> and <b>hex</b> modifiers are
+mutually exclusive.
 </P>
 <P>
 If part of an expanded pattern looks like an expansion, but is really part of
@@ -737,7 +854,7 @@ modifier in "Subject Modifiers"
 for details of how these options are specified for each match attempt.
 </P>
 <P>
-JIT compilation is requested by the <b>/jit</b> pattern modifier, which may
+JIT compilation is requested by the <b>jit</b> pattern modifier, which may
 optionally be followed by an equals sign and a number in the range 0 to 7.
 The three bits that make up the number specify which of the three JIT operating
 modes are to be compiled:
@@ -746,7 +863,7 @@ modes are to be compiled:
   2  compile JIT code for soft partial matching
   4  compile JIT code for hard partial matching
 </pre>
-The possible values for the <b>/jit</b> modifier are therefore:
+The possible values for the <b>jit</b> modifier are therefore:
 <pre>
   0  disable JIT
   1  normal matching only
@@ -761,7 +878,7 @@ to <b>pcre2_match()</b> with either the PCRE2_PARTIAL_SOFT or the
 PCRE2_PARTIAL_HARD option set. Note that such a call may return a complete
 match; the options enable the possibility of a partial match, but do not
 require it. Note also that if you request JIT compilation only for partial
-matching (for example, /jit=2) but do not set the <b>partial</b> modifier on a
+matching (for example, jit=2) but do not set the <b>partial</b> modifier on a
 subject line, that match will not use JIT code because none was compiled for
 non-partial matching.
 </P>
@@ -792,14 +909,14 @@ code was actually used in the match.
 Setting a locale
 </b><br>
 <P>
-The <b>/locale</b> modifier must specify the name of a locale, for example:
+The <b>locale</b> modifier must specify the name of a locale, for example:
 <pre>
   /pattern/locale=fr_FR
 </pre>
 The given locale is set, <b>pcre2_maketables()</b> is called to build a set of
 character tables for the locale, and this is then passed to
 <b>pcre2_compile()</b> when compiling the regular expression. The same tables
-are used when matching the following subject lines. The <b>/locale</b> modifier
+are used when matching the following subject lines. The <b>locale</b> modifier
 applies only to the pattern on which it appears, but can be given in a
 <b>#pattern</b> command if a default is needed. Setting a locale and alternate
 character tables are mutually exclusive.
@@ -808,7 +925,7 @@ character tables are mutually exclusive.
 Showing pattern memory
 </b><br>
 <P>
-The <b>/memory</b> modifier causes the size in bytes of the memory used to hold
+The <b>memory</b> modifier causes the size in bytes of the memory used to hold
 the compiled pattern to be output. This does not include the size of the
 <b>pcre2_code</b> block; it is just the actual compiled data. If the pattern is
 subsequently passed to the JIT compiler, the size of the JIT compiled code is
@@ -838,12 +955,12 @@ The <b>max_pattern_length</b> modifier sets a limit, in code units, to the
 length of pattern that <b>pcre2_compile()</b> will accept. Breaching the limit
 causes a compilation error. The default is the largest number a PCRE2_SIZE
 variable can hold (essentially unlimited).
-</P>
+<a name="posixwrapper"></a></P>
 <br><b>
 Using the POSIX wrapper API
 </b><br>
 <P>
-The <b>/posix</b> and <b>posix_nosub</b> modifiers cause <b>pcre2test</b> to call
+The <b>posix</b> and <b>posix_nosub</b> modifiers cause <b>pcre2test</b> to call
 PCRE2 via the POSIX wrapper API rather than its native API. When
 <b>posix_nosub</b> is used, the POSIX option REG_NOSUB is passed to
 <b>regcomp()</b>. The POSIX wrapper supports only the 8-bit library. Note that
@@ -873,11 +990,16 @@ The <b>aftertext</b> and <b>allaftertext</b> subject modifiers work as described
 below. All other modifiers are either ignored, with a warning message, or cause
 an error.
 </P>
+<P>
+The pattern is passed to <b>regcomp()</b> as a zero-terminated string by
+default, but if the <b>use_length</b> or <b>hex</b> modifiers are set, the
+REG_PEND extension is used to pass it by length.
+</P>
 <br><b>
 Testing the stack guard feature
 </b><br>
 <P>
-The <b>/stackguard</b> modifier is used to test the use of
+The <b>stackguard</b> modifier is used to test the use of
 <b>pcre2_set_compile_recursion_guard()</b>, a function that is provided to
 enable stack availability to be checked during compilation (see the
 <a href="pcre2api.html"><b>pcre2api</b></a>
@@ -892,7 +1014,7 @@ be aborted.
 Using alternative character tables
 </b><br>
 <P>
-The value specified for the <b>/tables</b> modifier must be one of the digits 0,
+The value specified for the <b>tables</b> modifier must be one of the digits 0,
 1, or 2. It causes a specific set of built-in character tables to be passed to
 <b>pcre2_compile()</b>. This is used in the PCRE2 tests to check behaviour with
 different character tables. The digit specifies the tables as follows:
@@ -910,17 +1032,19 @@ are mutually exclusive.
 Setting certain match controls
 </b><br>
 <P>
-The following modifiers are really subject modifiers, and are described below.
-However, they may be included in a pattern's modifier list, in which case they
-are applied to every subject line that is processed with that pattern. They may
-not appear in <b>#pattern</b> commands. These modifiers do not affect the
-compilation process.
+The following modifiers are really subject modifiers, and are described under
+"Subject Modifiers" below. However, they may be included in a pattern's
+modifier list, in which case they are applied to every subject line that is
+processed with that pattern. These modifiers do not affect the compilation
+process.
 <pre>
       aftertext                  show text after match
       allaftertext               show text after captures
       allcaptures                show all captures
       allusedtext                show all consulted text
+      altglobal                  alternative global matching
   /g  global                     global matching
+      jitstack=&#60;n&#62;               set size of JIT stack
       mark                       show mark values
       replace=&#60;string&#62;           specify a replacement string
       startchar                  show starting character when relevant
@@ -933,6 +1057,15 @@ These modifiers may not appear in a <b>#pattern</b> command. If you want them as
 defaults, set them in a <b>#subject</b> command.
 </P>
 <br><b>
+Specifying literal subject lines
+</b><br>
+<P>
+If the <b>subject_literal</b> modifier is present on a pattern, all the subject
+lines that it matches are taken as literal strings, with no interpretation of
+backslashes. It is not possible to set subject modifiers on such lines, but any
+that are set as defaults by a <b>#subject</b> command are recognized.
+</P>
+<br><b>
 Saving a compiled pattern
 </b><br>
 <P>
@@ -941,7 +1074,8 @@ pushed onto a stack of compiled patterns, and <b>pcre2test</b> expects the next
 line to contain a new pattern (or a command) instead of a subject line. This
 facility is used when saving compiled patterns to a file, as described in the
 section entitled "Saving and restoring compiled patterns"
-<a href="#saverestore">below. If <b>pushcopy</b> is used instead of <b>push</b>, a copy of the compiled</a>
+<a href="#saverestore">below.</a>
+If <b>pushcopy</b> is used instead of <b>push</b>, a copy of the compiled
 pattern is stacked, leaving the original as current, ready to match the
 following input lines. This provides a way of testing the
 <b>pcre2_code_copy()</b> function.
@@ -951,6 +1085,41 @@ are ignored (for the stacked copy), with a warning message, except for
 <b>replace</b>, which causes an error. Note that <b>jitverify</b>, which is
 allowed, does not carry through to any subsequent matching that uses a stacked
 pattern.
+</P>
+<br><b>
+Testing foreign pattern conversion
+</b><br>
+<P>
+The experimental foreign pattern conversion functions in PCRE2 can be tested by
+setting the <b>convert</b> modifier. Its argument is a colon-separated list of
+options, which set the equivalent option for the <b>pcre2_pattern_convert()</b>
+function:
+<pre>
+  glob                    PCRE2_CONVERT_GLOB
+  glob_no_starstar        PCRE2_CONVERT_GLOB_NO_STARSTAR
+  glob_no_wild_separator  PCRE2_CONVERT_GLOB_NO_WILD_SEPARATOR
+  posix_basic             PCRE2_CONVERT_POSIX_BASIC
+  posix_extended          PCRE2_CONVERT_POSIX_EXTENDED
+  unset                   Unset all options
+</pre>
+The "unset" value is useful for turning off a default that has been set by a
+<b>#pattern</b> command. When one of these options is set, the input pattern is
+passed to <b>pcre2_pattern_convert()</b>. If the conversion is successful, the
+result is reflected in the output and then passed to <b>pcre2_compile()</b>. The
+normal <b>utf</b> and <b>no_utf_check</b> options, if set, cause the
+PCRE2_CONVERT_UTF and PCRE2_CONVERT_NO_UTF_CHECK options to be passed to
+<b>pcre2_pattern_convert()</b>.
+</P>
+<P>
+By default, the conversion function is allowed to allocate a buffer for its
+output. However, if the <b>convert_length</b> modifier is set to a value greater
+than zero, <b>pcre2test</b> passes a buffer of the given length. This makes it
+possible to test the length check.
+</P>
+<P>
+The <b>convert_glob_escape</b> and <b>convert_glob_separator</b> modifiers can be
+used to specify the escape and separator characters for glob processing,
+overriding the defaults, which are operating-system dependent.
 <a name="subjectmodifiers"></a></P>
 <br><a name="SEC11" href="#TOC1">SUBJECT MODIFIERS</a><br>
 <P>
@@ -967,6 +1136,7 @@ The following modifiers set options for <b>pcre2_match()</b> or
 for a description of their effects.
 <pre>
       anchored                  set PCRE2_ANCHORED
+      endanchored               set PCRE2_ENDANCHORED
       dfa_restart               set PCRE2_DFA_RESTART
       dfa_shortest              set PCRE2_DFA_SHORTEST
       no_jit                    set PCRE2_NO_JIT
@@ -982,11 +1152,26 @@ The partial matching modifiers are provided with abbreviations because they
 appear frequently in tests.
 </P>
 <P>
-If the <b>/posix</b> modifier was present on the pattern, causing the POSIX
-wrapper API to be used, the only option-setting modifiers that have any effect
-are <b>notbol</b>, <b>notempty</b>, and <b>noteol</b>, causing REG_NOTBOL,
-REG_NOTEMPTY, and REG_NOTEOL, respectively, to be passed to <b>regexec()</b>.
-The other modifiers are ignored, with a warning message.
+If the <b>posix</b> or <b>posix_nosub</b> modifier was present on the pattern,
+causing the POSIX wrapper API to be used, the only option-setting modifiers
+that have any effect are <b>notbol</b>, <b>notempty</b>, and <b>noteol</b>,
+causing REG_NOTBOL, REG_NOTEMPTY, and REG_NOTEOL, respectively, to be passed to
+<b>regexec()</b>. The other modifiers are ignored, with a warning message.
+</P>
+<P>
+There is one additional modifier that can be used with the POSIX wrapper. It is
+ignored (with a warning) if used for non-POSIX matching.
+<pre>
+      posix_startend=&#60;n&#62;[:&#60;m&#62;]
+</pre>
+This causes the subject string to be passed to <b>regexec()</b> using the
+REG_STARTEND option, which uses offsets to specify which part of the string is
+searched. If only one number is given, the end offset is passed as the end of
+the subject string. For more detail of REG_STARTEND, see the
+<a href="pcre2posix.html"><b>pcre2posix</b></a>
+documentation. If the subject string contains binary zeros (coded as escapes
+such as \x{00} because <b>pcre2test</b> does not support actual binary zeros in
+its input), you must use <b>posix_startend</b> to specify its length.
 </P>
 <br><b>
 Setting match controls
@@ -1004,23 +1189,28 @@ pattern.
       altglobal                  alternative global matching
       callout_capture            show captures at callout time
       callout_data=&#60;n&#62;           set a value to pass via callouts
+      callout_error=&#60;n&#62;[:&#60;m&#62;]    control callout error
+      callout_extra              show extra callout information
       callout_fail=&#60;n&#62;[:&#60;m&#62;]     control callout failure
+      callout_no_where           do not show position of a callout
       callout_none               do not supply a callout function
       copy=&#60;number or name&#62;      copy captured substring
+      depth_limit=&#60;n&#62;            set a depth limit
       dfa                        use <b>pcre2_dfa_match()</b>
-      find_limits                find match and recursion limits
+      find_limits                find match and depth limits
       get=&#60;number or name&#62;       extract captured substring
       getall                     extract all captured substrings
   /g  global                     global matching
+      heap_limit=&#60;n&#62;             set a limit on heap memory (Kbytes)
       jitstack=&#60;n&#62;               set size of JIT stack
       mark                       show mark values
       match_limit=&#60;n&#62;            set a match limit
-      memory                     show memory usage
+      memory                     show heap memory usage
       null_context               match with a NULL context
       offset=&#60;n&#62;                 set starting offset
       offset_limit=&#60;n&#62;           set offset limit
       ovector=&#60;n&#62;                set size of output vector
-      recursion_limit=&#60;n&#62;        set a recursion limit
+      recursion_limit=&#60;n&#62;        obsolete synonym for depth_limit
       replace=&#60;string&#62;           specify a replacement string
       startchar                  show startchar when relevant
       startoffset=&#60;n&#62;            same as offset=&#60;n&#62;
@@ -1098,29 +1288,17 @@ Testing callouts
 </b><br>
 <P>
 A callout function is supplied when <b>pcre2test</b> calls the library matching
-functions, unless <b>callout_none</b> is specified. If <b>callout_capture</b> is
-set, the current captured groups are output when a callout occurs.
-</P>
-<P>
-The <b>callout_fail</b> modifier can be given one or two numbers. If there is
-only one number, 1 is returned instead of 0 when a callout of that number is
-reached. If two numbers are given, 1 is returned when callout &#60;n&#62; is reached
-for the &#60;m&#62;th time. Note that callouts with string arguments are always given
-the number zero. See "Callouts" below for a description of the output when a
-callout it taken.
-</P>
-<P>
-The <b>callout_data</b> modifier can be given an unsigned or a negative number.
-This is set as the "user data" that is passed to the matching function, and
-passed back when the callout function is invoked. Any value other than zero is
-used as a return from <b>pcre2test</b>'s callout function.
+functions, unless <b>callout_none</b> is specified. Its behaviour can be
+controlled by various modifiers listed above whose names begin with
+<b>callout_</b>. Details are given in the section entitled "Callouts"
+<a href="#callouts">below.</a>
 </P>
 <br><b>
 Finding all matches in a string
 </b><br>
 <P>
 Searching for all possible matches within a subject can be requested by the
-<b>global</b> or <b>/altglobal</b> modifier. After finding a match, the matching
+<b>global</b> or <b>altglobal</b> modifier. After finding a match, the matching
 function is called again to search the remainder of the subject. The difference
 between <b>global</b> and <b>altglobal</b> is that the former uses the
 <i>start_offset</i> argument to <b>pcre2_match()</b> or <b>pcre2_dfa_match()</b>
@@ -1242,41 +1420,60 @@ Setting the JIT stack size
 <P>
 The <b>jitstack</b> modifier provides a way of setting the maximum stack size
 that is used by the just-in-time optimization code. It is ignored if JIT
-optimization is not being used. The value is a number of kilobytes. Providing a
-stack that is larger than the default 32K is necessary only for very
-complicated patterns.
+optimization is not being used. The value is a number of kibibytes (units of
+1024 bytes). Setting zero reverts to the default of 32KiB. Providing a stack
+that is larger than the default is necessary only for very complicated
+patterns. If <b>jitstack</b> is set non-zero on a subject line it overrides any
+value that was set on the pattern.
 </P>
 <br><b>
-Setting match and recursion limits
+Setting heap, match, and depth limits
 </b><br>
 <P>
-The <b>match_limit</b> and <b>recursion_limit</b> modifiers set the appropriate
-limits in the match context. These values are ignored when the
+The <b>heap_limit</b>, <b>match_limit</b>, and <b>depth_limit</b> modifiers set
+the appropriate limits in the match context. These values are ignored when the
 <b>find_limits</b> modifier is specified.
 </P>
 <br><b>
 Finding minimum limits
 </b><br>
 <P>
-If the <b>find_limits</b> modifier is present, <b>pcre2test</b> calls
-<b>pcre2_match()</b> several times, setting different values in the match
-context via <b>pcre2_set_match_limit()</b> and <b>pcre2_set_recursion_limit()</b>
-until it finds the minimum values for each parameter that allow
-<b>pcre2_match()</b> to complete without error.
+If the <b>find_limits</b> modifier is present on a subject line, <b>pcre2test</b>
+calls the relevant matching function several times, setting different values in
+the match context via <b>pcre2_set_heap_limit()</b>,
+<b>pcre2_set_match_limit()</b>, or <b>pcre2_set_depth_limit()</b> until it finds
+the minimum values for each parameter that allows the match to complete without
+error. If JIT is being used, only the match limit is relevant.
 </P>
 <P>
-If JIT is being used, only the match limit is relevant. If DFA matching is
-being used, neither limit is relevant, and this modifier is ignored (with a
-warning message).
+When using this modifier, the pattern should not contain any limit settings
+such as (*LIMIT_MATCH=...) within it. If such a setting is present and is
+lower than the minimum matching value, the minimum value cannot be found
+because <b>pcre2_set_match_limit()</b> etc. are only able to reduce the value of
+an in-pattern limit; they cannot increase it.
 </P>
 <P>
-The <i>match_limit</i> number is a measure of the amount of backtracking
-that takes place, and learning the minimum value can be instructive. For most
-simple matches, the number is quite small, but for patterns with very large
-numbers of matching possibilities, it can become large very quickly with
-increasing length of subject string. The <i>match_limit_recursion</i> number is
-a measure of how much stack (or, if PCRE2 is compiled with NO_RECURSE, how much
-heap) memory is needed to complete the match attempt.
+For non-DFA matching, the minimum <i>depth_limit</i> number is a measure of how
+much nested backtracking happens (that is, how deeply the pattern's tree is
+searched). In the case of DFA matching, <i>depth_limit</i> controls the depth of
+recursive calls of the internal function that is used for handling pattern
+recursion, lookaround assertions, and atomic groups.
+</P>
+<P>
+For non-DFA matching, the <i>match_limit</i> number is a measure of the amount
+of backtracking that takes place, and learning the minimum value can be
+instructive. For most simple matches, the number is quite small, but for
+patterns with very large numbers of matching possibilities, it can become large
+very quickly with increasing length of subject string. In the case of DFA
+matching, <i>match_limit</i> controls the total number of calls, both recursive
+and non-recursive, to the internal matching function, thus controlling the
+overall amount of computing resource that is used.
+</P>
+<P>
+For both kinds of matching, the <i>heap_limit</i> number, which is in kibibytes
+(units of 1024 bytes), limits the amount of heap memory used for matching. A
+value of zero disables the use of any heap memory; many simple pattern matches
+can be done without using the heap, so zero is not an unreasonable setting.
 </P>
 <br><b>
 Showing MARK names
@@ -1292,8 +1489,16 @@ is added to the non-match message.
 Showing memory usage
 </b><br>
 <P>
-The <b>memory</b> modifier causes <b>pcre2test</b> to log all memory allocation
-and freeing calls that occur during a match operation.
+The <b>memory</b> modifier causes <b>pcre2test</b> to log the sizes of all heap
+memory allocation and freeing calls that occur during a call to
+<b>pcre2_match()</b> or <b>pcre2_dfa_match()</b>. These occur only when a match
+requires a bigger vector than the default for remembering backtracking points
+(<b>pcre2_match()</b>) or for internal workspace (<b>pcre2_dfa_match()</b>). In
+many cases there will be no heap memory used and therefore no additional
+output. No heap memory is allocated during matching with JIT, so in that case
+the <b>memory</b> modifier never has any effect. For this modifier to work, the
+<b>null_context</b> modifier must not be set on both the pattern and the
+subject, though it can be set on one or the other.
 </P>
 <br><b>
 Setting a starting offset
@@ -1337,8 +1542,8 @@ Passing the subject as zero-terminated
 By default, the subject string is passed to a native API matching function with
 its correct length. In order to test the facility for passing a zero-terminated
 string, the <b>zero_terminate</b> modifier is provided. It causes the length to
-be passed as PCRE2_ZERO_TERMINATED. (When matching via the POSIX interface,
-this modifier has no effect, as there is no facility for passing a length.)
+be passed as PCRE2_ZERO_TERMINATED. When matching via the POSIX interface,
+this modifier is ignored, with a warning.
 </P>
 <P>
 When testing <b>pcre2_substitute()</b>, this modifier also has the effect of
@@ -1393,7 +1598,7 @@ code unit offset of the start of the failing character is also output. Here is
 an example of an interactive <b>pcre2test</b> run.
 <pre>
   $ pcre2test
-  PCRE2 version 9.00 2014-05-10
+  PCRE2 version 10.22 2016-07-29
 
     re&#62; /^abc(\d+)/
   data&#62; abc123
@@ -1420,7 +1625,7 @@ unset substring is shown as "&#60;unset&#62;", as for the second data line.
 If the strings contain any non-printing characters, they are output as \xhh
 escapes if the value is less than 256 and UTF mode is not set. Otherwise they
 are output as \x{hh...} escapes. See below for the definition of non-printing
-characters. If the <b>/aftertext</b> modifier is set, the output for substring
+characters. If the <b>aftertext</b> modifier is set, the output for substring
 0 is followed by the the rest of the subject string, identified by "0+" like
 this:
 <pre>
@@ -1508,28 +1713,14 @@ restart the match with additional subject data by means of the
 For further information about partial matching, see the
 <a href="pcre2partial.html"><b>pcre2partial</b></a>
 documentation.
-</P>
+<a name="callouts"></a></P>
 <br><a name="SEC16" href="#TOC1">CALLOUTS</a><br>
 <P>
 If the pattern contains any callout requests, <b>pcre2test</b>'s callout
-function is called during matching unless <b>callout_none</b> is specified.
-This works with both matching functions.
-</P>
-<P>
-The callout function in <b>pcre2test</b> returns zero (carry on matching) by
-default, but you can use a <b>callout_fail</b> modifier in a subject line (as
-described above) to change this and other parameters of the callout.
-</P>
-<P>
-Inserting callouts can be helpful when using <b>pcre2test</b> to check
-complicated regular expressions. For further information about callouts, see
-the
-<a href="pcre2callout.html"><b>pcre2callout</b></a>
-documentation.
-</P>
-<P>
-The output for callouts with numerical arguments and those with string
-arguments is slightly different.
+function is called during matching unless <b>callout_none</b> is specified. This
+works with both matching functions, and with JIT, though there are some
+differences in behaviour. The output for callouts with numerical arguments and
+those with string arguments is slightly different.
 </P>
 <br><b>
 Callouts with numerical arguments
@@ -1551,7 +1742,7 @@ callout is in a lookbehind assertion.
 </P>
 <P>
 Callouts numbered 255 are assumed to be automatic callouts, inserted as a
-result of the <b>/auto_callout</b> pattern modifier. In this case, instead of
+result of the <b>auto_callout</b> pattern modifier. In this case, instead of
 showing the callout number, the offset in the pattern, preceded by a plus, is
 output. For example:
 <pre>
@@ -1604,6 +1795,107 @@ example:
 
 </PRE>
 </P>
+<br><b>
+Callout modifiers
+</b><br>
+<P>
+The callout function in <b>pcre2test</b> returns zero (carry on matching) by
+default, but you can use a <b>callout_fail</b> modifier in a subject line to
+change this and other parameters of the callout (see below).
+</P>
+<P>
+If the <b>callout_capture</b> modifier is set, the current captured groups are
+output when a callout occurs. This is useful only for non-DFA matching, as
+<b>pcre2_dfa_match()</b> does not support capturing, so no captures are ever
+shown.
+</P>
+<P>
+The normal callout output, showing the callout number or pattern offset (as
+described above) is suppressed if the <b>callout_no_where</b> modifier is set.
+</P>
+<P>
+When using the interpretive matching function <b>pcre2_match()</b> without JIT,
+setting the <b>callout_extra</b> modifier causes additional output from
+<b>pcre2test</b>'s callout function to be generated. For the first callout in a
+match attempt at a new starting position in the subject, "New match attempt" is
+output. If there has been a backtrack since the last callout (or start of
+matching if this is the first callout), "Backtrack" is output, followed by "No
+other matching paths" if the backtrack ended the previous match attempt. For
+example:
+<pre>
+   re&#62; /(a+)b/auto_callout,no_start_optimize,no_auto_possess
+  data&#62; aac\=callout_extra
+  New match attempt
+  ---&#62;aac
+   +0 ^       (
+   +1 ^       a+
+   +3 ^ ^     )
+   +4 ^ ^     b
+  Backtrack
+  ---&#62;aac
+   +3 ^^      )
+   +4 ^^      b
+  Backtrack
+  No other matching paths
+  New match attempt
+  ---&#62;aac
+   +0  ^      (
+   +1  ^      a+
+   +3  ^^     )
+   +4  ^^     b
+  Backtrack
+  No other matching paths
+  New match attempt
+  ---&#62;aac
+   +0   ^     (
+   +1   ^     a+
+  Backtrack
+  No other matching paths
+  New match attempt
+  ---&#62;aac
+   +0    ^    (
+   +1    ^    a+
+  No match
+</pre>
+Notice that various optimizations must be turned off if you want all possible
+matching paths to be scanned. If <b>no_start_optimize</b> is not used, there is
+an immediate "no match", without any callouts, because the starting
+optimization fails to find "b" in the subject, which it knows must be present
+for any match. If <b>no_auto_possess</b> is not used, the "a+" item is turned
+into "a++", which reduces the number of backtracks.
+</P>
+<P>
+The <b>callout_extra</b> modifier has no effect if used with the DFA matching
+function, or with JIT.
+</P>
+<br><b>
+Return values from callouts
+</b><br>
+<P>
+The default return from the callout function is zero, which allows matching to
+continue. The <b>callout_fail</b> modifier can be given one or two numbers. If
+there is only one number, 1 is returned instead of 0 (causing matching to
+backtrack) when a callout of that number is reached. If two numbers (&#60;n&#62;:&#60;m&#62;)
+are given, 1 is returned when callout &#60;n&#62; is reached and there have been at
+least &#60;m&#62; callouts. The <b>callout_error</b> modifier is similar, except that
+PCRE2_ERROR_CALLOUT is returned, causing the entire matching process to be
+aborted. If both these modifiers are set for the same callout number,
+<b>callout_error</b> takes precedence. Note that callouts with string arguments
+are always given the number zero.
+</P>
+<P>
+The <b>callout_data</b> modifier can be given an unsigned or a negative number.
+This is set as the "user data" that is passed to the matching function, and
+passed back when the callout function is invoked. Any value other than zero is
+used as a return from <b>pcre2test</b>'s callout function.
+</P>
+<P>
+Inserting callouts can be helpful when using <b>pcre2test</b> to check
+complicated regular expressions. For further information about callouts, see
+the
+<a href="pcre2callout.html"><b>pcre2callout</b></a>
+documentation.
+</P>
 <br><a name="SEC17" href="#TOC1">NON-PRINTING CHARACTERS</a><br>
 <P>
 When <b>pcre2test</b> is outputting text in the compiled version of a pattern,
@@ -1613,7 +1905,7 @@ therefore shown as hex escapes.
 <P>
 When <b>pcre2test</b> is outputting text that is a matched part of a subject
 string, it behaves in the same way, unless a different locale has been set for
-the pattern (using the <b>/locale</b> modifier). In this case, the
+the pattern (using the <b>locale</b> modifier). In this case, the
 <b>isprint()</b> function is used to distinguish printing and non-printing
 characters.
 <a name="saverestore"></a></P>
@@ -1637,15 +1929,21 @@ documentation. In this section we describe the features of <b>pcre2test</b> that
 can be used to test these functions.
 </P>
 <P>
-When a pattern with <b>push</b> modifier is successfully compiled, it is pushed
-onto a stack of compiled patterns, and <b>pcre2test</b> expects the next line to
-contain a new pattern (or command) instead of a subject line. By contrast,
-the <b>pushcopy</b> modifier causes a copy of the compiled pattern to be
-stacked, leaving the original available for immediate matching. By using
-<b>push</b> and/or <b>pushcopy</b>, a number of patterns can be compiled and
-retained. These modifiers are incompatible with <b>posix</b>, and control
-modifiers that act at match time are ignored (with a message) for the stacked
-patterns. The <b>jitverify</b> modifier applies only at compile time.
+Note that "serialization" in PCRE2 does not convert compiled patterns to an
+abstract format like Java or .NET. It just makes a reloadable byte code stream.
+Hence the restrictions on reloading mentioned above.
+</P>
+<P>
+In <b>pcre2test</b>, when a pattern with <b>push</b> modifier is successfully
+compiled, it is pushed onto a stack of compiled patterns, and <b>pcre2test</b>
+expects the next line to contain a new pattern (or command) instead of a
+subject line. By contrast, the <b>pushcopy</b> modifier causes a copy of the
+compiled pattern to be stacked, leaving the original available for immediate
+matching. By using <b>push</b> and/or <b>pushcopy</b>, a number of patterns can
+be compiled and retained. These modifiers are incompatible with <b>posix</b>,
+and control modifiers that act at match time are ignored (with a message) for
+the stacked patterns. The <b>jitverify</b> modifier applies only at compile
+time.
 </P>
 <P>
 The command
@@ -1706,9 +2004,9 @@ Cambridge, England.
 </P>
 <br><a name="SEC21" href="#TOC1">REVISION</a><br>
 <P>
-Last updated: 06 July 2016
+Last updated: 21 July 2018
 <br>
-Copyright &copy; 1997-2016 University of Cambridge.
+Copyright &copy; 1997-2018 University of Cambridge.
 <br>
 <p>
 Return to the <a href="index.html">PCRE2 index page</a>.

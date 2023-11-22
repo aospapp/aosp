@@ -20,7 +20,8 @@ TST_TOTAL=2
 TST_CLEANUP="cleanup"
 
 . daemonlib.sh
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 setup()
 {
@@ -29,7 +30,7 @@ setup()
 
 	tst_tmpdir
 
-	tst_check_cmds xinetd diff ip telnet
+	tst_test_cmds xinetd diff telnet
 
 	check_addr="127.0.0.1"
 	ip a | grep -q inet6 && check_addr="$check_addr ::1"

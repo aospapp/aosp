@@ -37,10 +37,12 @@
 #include "RequestMessage.h"
 #include "AnswerMessage.h"
 #include "Socket.h"
+#include "convert.hpp"
 
 using namespace std;
 
-bool sendAndDisplayCommand(asio::ip::tcp::socket &socket, CRequestMessage &requestMessage)
+bool sendAndDisplayCommand(asio::generic::stream_protocol::socket &socket,
+                           CRequestMessage &requestMessage)
 {
     string strError;
 
@@ -72,41 +74,111 @@ bool sendAndDisplayCommand(asio::ip::tcp::socket &socket, CRequestMessage &reque
     return true;
 }
 
-// hostname port command [argument[s]]
+int usage(const std::string &command, const std::string &error)
+{
+    if (not error.empty()) {
+        cerr <<  error << endl;
+    }
+    cerr << "Usage: " << endl;
+    cerr << "Send a single command:" << endl;
+    cerr << "\t" << command
+         << " <hostname port|<protocol>://<host:port|port_name>> <command> [argument[s]]" << endl;
+
+    return 1;
+}
+
+// <hostname port|path> command [argument[s]]
 // or
-// hostname port < commands
+// <hostname port|path> < commands
 int main(int argc, char *argv[])
 {
+    int commandPos;
+
     // Enough args?
-    if (argc < 4) {
-
-        cerr << "Missing arguments" << endl;
-        cerr << "Usage: " << endl;
-        cerr << "Send a single command:" << endl;
-        cerr << "\t" << argv[0] << " hostname port command [argument[s]]" << endl;
-
-        return 1;
+    if (argc < 3) {
+        return usage(argv[0], "Missing arguments");
     }
-    using asio::ip::tcp;
     asio::io_service io_service;
-    tcp::resolver resolver(io_service);
+    asio::generic::stream_protocol::socket connectionSocket(io_service);
 
-    tcp::socket connectionSocket(io_service);
-
-    string host{argv[1]};
-    string port{argv[2]};
+    bool isInet = false;
+    string port;
+    string host;
     try {
-        asio::connect(connectionSocket, resolver.resolve(tcp::resolver::query(host, port)));
+        // backward compatibility: tcp port only refered by its value
+        uint16_t testConverter;
+        if (convertTo({argv[2]}, testConverter)) {
+            isInet = true;
+            port = argv[2];
+            host = argv[1];
+            if (argc <= 3) {
+                return usage(argv[0], "Missing arguments");
+            }
+            commandPos = 3;
+        } else {
+            commandPos = 2;
+            string endPortArg{argv[1]};
+            std::string protocol;
+
+            const std::string tcpProtocol{"tcp"};
+            const std::string unixProtocol{"unix"};
+            const std::vector<std::string> supportedProtocols{ tcpProtocol, unixProtocol };
+            const std::string protocolDelimiter{"://"};
+
+            size_t protocolDelPos = endPortArg.find(protocolDelimiter);
+            if (protocolDelPos == std::string::npos) {
+                return usage(argv[0], "Invalid socket endpoint, missing " + protocolDelimiter);
+            }
+            protocol = endPortArg.substr(0, protocolDelPos);
+
+            if (std::find(begin(supportedProtocols), end(supportedProtocols), protocol) ==
+                    end(supportedProtocols)) {
+                return usage(argv[0], "Invalid socket protocol " + protocol);
+            }
+            isInet = (endPortArg.find(tcpProtocol) != std::string::npos);
+            if (isInet) {
+                size_t portDelPos = endPortArg.find(':', protocolDelPos + protocolDelimiter.size());
+                if (portDelPos == std::string::npos) {
+                    return usage(argv[0], "Invalid tcp endpoint" + endPortArg);
+                }
+                host = endPortArg.substr(protocolDelPos + protocolDelimiter.size(),
+                                         portDelPos - (protocolDelPos + protocolDelimiter.size()));
+                port = endPortArg.substr(portDelPos + 1);
+            } else {
+                port = endPortArg.substr(protocolDelPos + protocolDelimiter.size());
+            }
+        }
+        if (isInet) {
+            asio::ip::tcp::resolver resolver(io_service);
+            asio::ip::tcp::socket tcpSocket(io_service);
+
+            asio::connect(tcpSocket, resolver.resolve(asio::ip::tcp::resolver::query(host, port)));
+            connectionSocket = std::move(tcpSocket);
+        } else {
+            asio::generic::stream_protocol::socket socket(io_service);
+            asio::generic::stream_protocol::endpoint endpoint =
+                asio::local::stream_protocol::endpoint(port);
+            socket.connect(endpoint);
+            connectionSocket = std::move(socket);
+        }
+
     } catch (const asio::system_error &e) {
-        cerr << "Connection to '" << host << ":" << port << "' failed: " << e.what() << endl;
+        string endpoint;
+
+        if (isInet) {
+            endpoint = string("tcp://") + host + ":" + port;
+        } else { /* other supported protocols */
+            endpoint = argv[1];
+        }
+        cerr << "Connection to '" << endpoint << "' failed: " << e.what() << endl;
         return 1;
     }
 
     // Create command message
-    CRequestMessage requestMessage(argv[3]);
+    CRequestMessage requestMessage(argv[commandPos]);
 
     // Add arguments
-    for (int arg = 4; arg < argc; arg++) {
+    for (int arg = commandPos + 1; arg < argc; arg++) {
 
         requestMessage.addArgument(argv[arg]);
     }

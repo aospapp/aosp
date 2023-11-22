@@ -20,6 +20,11 @@ class firmware_ECUpdateId(FirmwareTest):
         # If EC isn't write-protected, it won't do EFS. Should enable WP.
         super(firmware_ECUpdateId, self).initialize(host, cmdline_args,
                                                     ec_wp=True)
+        # Don't bother if there is no Chrome EC or if the EC is non-EFS.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
+        if not self.faft_client.ec.is_efs():
+            raise error.TestNAError("Nothing needs to be tested for non-EFS")
         # In order to test software sync, it must be enabled.
         self.clear_set_gbb_flags(vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC, 0)
         self.backup_firmware()
@@ -37,7 +42,8 @@ class firmware_ECUpdateId(FirmwareTest):
         # Do it before restore the firmware.
         super(firmware_ECUpdateId, self).cleanup()
         try:
-            self.restore_firmware()
+            if self.is_firmware_saved():
+                self.restore_firmware()
         except Exception as e:
             logging.error("Caught exception: %s", str(e))
 
@@ -100,9 +106,8 @@ class firmware_ECUpdateId(FirmwareTest):
             time.sleep(self.faft_config.software_sync_update)
 
     def run_once(self):
-        if not self.faft_client.ec.is_efs():
-            raise error.TestNAError("Nothing needs to be tested for non-EFS")
-
+        """Execute the main body of the test.
+        """
         logging.info("Check the current state and record hash.")
         self.check_state((self.active_copy_checker, 'RW'))
         original_hash = self.get_active_hash()

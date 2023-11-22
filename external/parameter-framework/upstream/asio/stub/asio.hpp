@@ -37,6 +37,10 @@
 
 #include <system_error>
 
+#include <netinet/in.h>
+
+#define ASIO_OS_DEF(x) (x)
+
 namespace asio
 {
 struct dummy_base
@@ -46,7 +50,27 @@ struct dummy_base
     {
     }
     void set_option(const dummy_base &) const {};
+    int protocol() const { return 0; }
 };
+struct endpoint_base : dummy_base
+{
+    using dummy_base::dummy_base;
+
+    dummy_base protocol() const { return {}; };
+};
+
+template <typename T>
+struct basic_socket_acceptor : dummy_base
+{
+    using dummy_base::dummy_base;
+
+    using reuse_address = dummy_base;
+    void open(const dummy_base &) const {};
+    void bind(const dummy_base &) const {};
+    void listen() const {};
+    void async_accept(const dummy_base &, const dummy_base &) const {};
+};
+
 inline bool write(const dummy_base &, const dummy_base &, const dummy_base &)
 {
     return true;
@@ -76,6 +100,10 @@ struct socket_base : dummy_base
     using linger = dummy_base;
     using enable_connection_aborted = dummy_base;
     void close() const {};
+
+    const endpoint_base &local_endpoint() const { return base; }
+
+    endpoint_base base;
 };
 
 bool write(const dummy_base &, const dummy_base &, const dummy_base &);
@@ -95,23 +123,23 @@ namespace tcp
 {
 using v6 = dummy_base;
 using no_delay = dummy_base;
+using endpoint = endpoint_base;
 using socket = socket_base;
-struct endpoint : dummy_base
-{
-    using dummy_base::dummy_base;
-
-    dummy_base protocol() const { return {}; };
-};
-struct acceptor : dummy_base
-{
-    using dummy_base::dummy_base;
-
-    using reuse_address = dummy_base;
-    void open(const dummy_base &) const {};
-    void bind(const dummy_base &) const {};
-    void listen() const {};
-    void async_accept(const dummy_base &, const dummy_base &) const {};
-};
+using acceptor = basic_socket_acceptor<void>;
 }
+}
+
+namespace generic
+{
+struct stream_protocol
+{
+    using endpoint = endpoint_base;
+    using socket = socket_base;
+};
+};
+
+namespace local
+{
+using stream_protocol = generic::stream_protocol;
 }
 }

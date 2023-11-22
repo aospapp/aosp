@@ -8,6 +8,15 @@ import os
 
 from autotest_lib.client.common_lib import utils
 
+
+def emit_event(event_name):
+    """Fails if the emit command fails.
+
+    @param service_name: name of the service.
+    """
+    utils.system('initctl emit %s' % event_name)
+
+
 def ensure_running(service_name):
     """Fails if |service_name| is not running.
 

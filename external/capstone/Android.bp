@@ -53,6 +53,10 @@ cc_defaults {
             cflags: arm_flags + arm64_flags + x86_flags,
             srcs: arm_srcs + arm64_srcs + x86_srcs,
         },
+	x86_64: {
+            cflags: arm_flags + arm64_flags + x86_flags,
+            srcs: arm_srcs + arm64_srcs + x86_srcs,
+        },
         arm64: {
             cflags: arm_flags + arm64_flags,
             srcs: arm_srcs + arm64_srcs

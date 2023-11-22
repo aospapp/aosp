@@ -160,4 +160,20 @@ testing "skip start of range" "sed -e n -e '1,2s/b/c/'" "a\nb\n" "" "a\nb\n"
 testing "bonus backslashes" \
   "sed -e 'a \l \x\' -e \"\$(echo -e 'ab\\\nc')\"" \
   "hello\nl x\nab\nc\n" "" "hello\n"
+
+# toybox saying "no }" here broke the AOSP build.
+testing "end b with }" "sed -n '/START/{:a;n;/END/q;p;ba}'" "b\nc\n" \
+  "" "a\nSTART\nb\nc\nEND\nd"
+
+testing '-z' 'sed -z "s/\n/-/g"' "a-b-c" "" "a\nb\nc"
+
+# toybox handling of empty capturing groups broke minjail. Check that we
+# correctly replace an empty capturing group with the empty string:
+testing '\n with empty capture' \
+    'sed -E "s/(ARM_)?(NR_)([a-z]*) (.*)/\1\2\3/"' "NR_read" "" "NR_read foo"
+# ...but also that we report an error for a backreference to a group that
+# isn't in the pattern:
+testing '\n too high' \
+    'sed -E "s/(.*)/\2/p" 2>/dev/null || echo OK' "OK\n" "" "foo"
+
 # -i with $ last line test

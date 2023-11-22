@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -24,6 +24,8 @@
 #ifndef _HF_SUBPROC_H_
 #define _HF_SUBPROC_H_
 
+#include <pthread.h>
+
 #include "honggfuzz.h"
 
 /* Missing WIFCONTINUED in Android */
@@ -33,16 +35,16 @@
 
 extern const char* subproc_StatusToStr(int status, char* str, size_t len);
 
-extern bool subproc_PrepareExecv(run_t* run, const char* fileName);
-
 extern bool subproc_Run(run_t* run);
 
-extern bool subproc_persistentModeRoundDone(run_t* run);
+extern bool subproc_persistentModeStateMachine(run_t* run);
 
 extern uint8_t subproc_System(run_t* run, const char* const argv[]);
 
 extern void subproc_checkTimeLimit(run_t* run);
 
 extern void subproc_checkTermination(run_t* run);
+
+bool subproc_runThread(honggfuzz_t* hfuzz, pthread_t* thread, void* (*thread_func)(void*));
 
 #endif

@@ -16,8 +16,12 @@ _BASE_DIR = '/home/chronos/user/Storage/ext/'
 _EXT_ID = 'ikfcpmgefdpheiiomgmhlmmkihchmdlj'
 _JMI_DIR = '/0*/File\ System/000/t/00/*'
 _JMI_SOURCE_DIR = _BASE_DIR + _EXT_ID + _JMI_DIR
-_USB_DIR = '/sys/bus/usb/devices'
+_PA_LOGS_PATTERN = _BASE_DIR + _EXT_ID + '/def/File\ System/primary/p/00/0*'
 
+_USB_DIR = '/sys/bus/usb/devices'
+_AUTOZOOM_IS_RUNNING_STRING = 'AutoZoom running successfully.'
+
+_LONG_TIMEOUT = 15
 
 class enterprise_CFM_AutoZoomSanity(cfm_base_test.CfmBaseTest):
     """Auto Zoom Sanity test."""
@@ -81,6 +85,17 @@ class enterprise_CFM_AutoZoomSanity(cfm_base_test.CfmBaseTest):
         return NotImplemented
 
 
+    def verify_autozoom_running_in_packaged_app_logs(self):
+        """Checks logs from the device to verify that AutoZoom is running."""
+        self.save_all_packaged_app_logs()
+        pa_log_files = glob.glob(os.path.join(self.debugdir,
+                                              'packaged_app_log*.txt'))
+        for log_file in pa_log_files:
+          with open(log_file, 'r') as fhandle:
+              if _AUTOZOOM_IS_RUNNING_STRING in fhandle.read():
+                return
+        raise error.TestFail('AutoZoom not running on device.')
+
     def get_usb_device_dirs(self):
         """Gets usb device dirs from _USB_DIR path.
 
@@ -131,7 +146,7 @@ class enterprise_CFM_AutoZoomSanity(cfm_base_test.CfmBaseTest):
         self.cfm_facade.wait_for_meetings_telemetry_commands()
         self.check_peripherals(peripheral_dict)
         self.cfm_facade.start_meeting_session()
-        time.sleep(session_length)
+        time.sleep(_LONG_TIMEOUT)
         self.cfm_facade.end_meeting_session()
-        self.verify_cfm_sent_resolution()
-        self.check_verify_callgrok_logs()
+        self.verify_autozoom_running_in_packaged_app_logs()
+

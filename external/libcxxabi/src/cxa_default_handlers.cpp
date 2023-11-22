@@ -18,6 +18,7 @@
 #include "cxa_handlers.hpp"
 #include "cxa_exception.hpp"
 #include "private_typeinfo.h"
+#include "include/atomic_support.h"
 
 #if !defined(LIBCXXABI_SILENT_TERMINATE)
 static const char* cause = "uncaught";
@@ -36,13 +37,10 @@ static void demangling_terminate_handler()
         {
             _Unwind_Exception* unwind_exception =
                 reinterpret_cast<_Unwind_Exception*>(exception_header + 1) - 1;
-            bool native_exception =
-                (unwind_exception->exception_class   & get_vendor_and_language) == 
-                                 (kOurExceptionClass & get_vendor_and_language);
-            if (native_exception)
+            if (__isOurExceptionClass(unwind_exception))
             {
                 void* thrown_object =
-                    unwind_exception->exception_class == kOurDependentExceptionClass ?
+                    __getExceptionClass(unwind_exception) == kOurDependentExceptionClass ?
                         ((__cxa_dependent_exception*)exception_header)->primaryException :
                         exception_header + 1;
                 const __shim_type_info* thrown_type =
@@ -101,10 +99,6 @@ std::terminate_handler __cxa_terminate_handler = default_terminate_handler;
 _LIBCXXABI_DATA_VIS
 std::unexpected_handler __cxa_unexpected_handler = default_unexpected_handler;
 
-// In the future these will become:
-// std::atomic<std::terminate_handler>  __cxa_terminate_handler(default_terminate_handler);
-// std::atomic<std::unexpected_handler> __cxa_unexpected_handler(default_unexpected_handler);
-
 namespace std
 {
 
@@ -113,10 +107,8 @@ set_unexpected(unexpected_handler func) _NOEXCEPT
 {
     if (func == 0)
         func = default_unexpected_handler;
-    return __atomic_exchange_n(&__cxa_unexpected_handler, func,
-                               __ATOMIC_ACQ_REL);
-//  Using of C++11 atomics this should be rewritten
-//  return __cxa_unexpected_handler.exchange(func, memory_order_acq_rel);
+    return __libcpp_atomic_exchange(&__cxa_unexpected_handler, func,
+                                    _AO_Acq_Rel);
 }
 
 terminate_handler
@@ -124,10 +116,8 @@ set_terminate(terminate_handler func) _NOEXCEPT
 {
     if (func == 0)
         func = default_terminate_handler;
-    return __atomic_exchange_n(&__cxa_terminate_handler, func,
-                               __ATOMIC_ACQ_REL);
-//  Using of C++11 atomics this should be rewritten
-//  return __cxa_terminate_handler.exchange(func, memory_order_acq_rel);
+    return __libcpp_atomic_exchange(&__cxa_terminate_handler, func,
+                                    _AO_Acq_Rel);
 }
 
 }

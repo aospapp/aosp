@@ -61,7 +61,7 @@ void process_options(int argc, char **argv)
 				errx(2, "invalid -m usage");
 			break;
 		default:
-			errx(2, "invalid option specifed");
+			errx(2, "invalid option specified");
 		}
 	}
 
@@ -81,7 +81,7 @@ void touch_memory(char *p)
 		p[i] = 0xef;
 }
 
-void mem_map()
+void mem_map(void)
 {
 	static char *p;
 
@@ -101,7 +101,7 @@ void mem_map()
 /*
  * done: retrieve instructions from the named pipe
  */
-char action()
+char action(void)
 {
 	char ch;
 	int fd;

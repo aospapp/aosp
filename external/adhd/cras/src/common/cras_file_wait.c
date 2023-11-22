@@ -18,7 +18,7 @@
 
 #define CRAS_FILE_WAIT_EVENT_MIN_SIZE sizeof(struct inotify_event)
 #define CRAS_FILE_WAIT_EVENT_SIZE (CRAS_FILE_WAIT_EVENT_MIN_SIZE + NAME_MAX + 1)
-#define CRAS_FILE_WAIT_FLAG_MOCK_RACE (1 << 31)
+#define CRAS_FILE_WAIT_FLAG_MOCK_RACE (1u << 31)
 
 struct cras_file_wait {
 	cras_file_wait_callback_t callback;

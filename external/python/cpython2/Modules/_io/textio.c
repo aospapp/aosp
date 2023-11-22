@@ -707,6 +707,8 @@ typedef struct
     PyObject *dict;
 } textio;
 
+static void
+textiowrapper_set_decoded_chars(textio *self, PyObject *chars);
 
 /* A couple of specialized cases in order to bypass the slow incremental
    encoding methods for the most popular encodings. */
@@ -907,6 +909,7 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
     else {
         PyErr_SetString(PyExc_IOError,
                         "could not determine default encoding");
+        goto error;
     }
 
     /* Check we have been asked for a real text encoding */
@@ -983,7 +986,7 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
                                                            errors);
         if (self->encoder == NULL)
             goto error;
-        /* Get the normalized named of the codec */
+        /* Get the normalized name of the codec */
         res = PyObject_GetAttrString(codec_info, "name");
         if (res == NULL) {
             if (PyErr_ExceptionMatches(PyExc_AttributeError))
@@ -1328,6 +1331,7 @@ textiowrapper_write(textio *self, PyObject *args)
         Py_DECREF(ret);
     }
 
+    textiowrapper_set_decoded_chars(self, NULL);
     Py_CLEAR(self->snapshot);
 
     if (self->decoder) {
@@ -1416,7 +1420,7 @@ textiowrapper_read_chunk(textio *self)
         /* Given this, we know there was a valid snapshot point
          * len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
          */
-        if (PyArg_Parse(state, "(OO)", &dec_buffer, &dec_flags) < 0) {
+        if (!PyArg_Parse(state, "(OO)", &dec_buffer, &dec_flags)) {
             Py_DECREF(state);
             return -1;
         }
@@ -1533,6 +1537,7 @@ textiowrapper_read(textio *self, PyObject *args)
         if (final == NULL)
             goto fail;
 
+        textiowrapper_set_decoded_chars(self, NULL);
         Py_CLEAR(self->snapshot);
         return final;
     }

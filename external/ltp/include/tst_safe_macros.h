@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015 Linux Test Project
+ * Copyright (c) 2010-2018 Linux Test Project
  * Copyright (c) 2011-2015 Cyril Hrubis <chrubis@suse.cz>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <grp.h>
 
 #include "safe_macros_fn.h"
 
@@ -46,6 +47,10 @@
 
 #define SAFE_CREAT(pathname, mode) \
 	safe_creat(__FILE__, __LINE__, NULL, (pathname), (mode))
+
+#define SAFE_CHROOT(path) \
+	safe_chroot(__FILE__, __LINE__, (path))
+int safe_chroot(const char *file, const int lineno, const char *path);
 
 #define SAFE_DIRNAME(path) \
 	safe_dirname(__FILE__, __LINE__, NULL, (path))
@@ -108,6 +113,18 @@ static inline int safe_dup(const char *file, const int lineno,
 
 #define SAFE_SETUID(uid) \
 	safe_setuid(__FILE__, __LINE__, NULL, (uid))
+
+int safe_setregid(const char *file, const int lineno,
+		  gid_t rgid, gid_t egid);
+
+#define SAFE_SETREGID(rgid, egid) \
+	safe_setregid(__FILE__, __LINE__, (rgid), (egid))
+
+int safe_setreuid(const char *file, const int lineno,
+		  uid_t ruid, uid_t euid);
+
+#define SAFE_SETREUID(ruid, euid) \
+	safe_setreuid(__FILE__, __LINE__, (ruid), (euid))
 
 #define SAFE_GETRESUID(ruid, euid, suid) \
 	safe_getresuid(__FILE__, __LINE__, NULL, (ruid), (euid), (suid))
@@ -201,18 +218,18 @@ pid_t safe_getpgid(const char *file, const int lineno, pid_t pid);
 	safe_readdir(__FILE__, __LINE__, NULL, (dirp))
 
 #define SAFE_IOCTL(fd, request, ...)                         \
-	({int ret = ioctl(fd, request, ##__VA_ARGS__);       \
-	  ret < 0 ?                                          \
+	({int tst_ret_ = ioctl(fd, request, ##__VA_ARGS__);  \
+	  tst_ret_ < 0 ?                                     \
 	   tst_brk(TBROK | TERRNO,                           \
 	            "ioctl(%i,%s,...) failed", fd, #request) \
-	 : ret;})
+	 : tst_ret_;})
 
 #define SAFE_FCNTL(fd, cmd, ...)                            \
-	({int ret = fcntl(fd, cmd, ##__VA_ARGS__);          \
-	  ret == -1 ?                                       \
+	({int tst_ret_ = fcntl(fd, cmd, ##__VA_ARGS__);     \
+	  tst_ret_ == -1 ?                                  \
 	   tst_brk(TBROK | TERRNO,                          \
 	            "fcntl(%i,%s,...) failed", fd, #cmd), 0 \
-	 : ret;})
+	 : tst_ret_;})
 
 /*
  * following functions are inline because the behaviour may depend on
@@ -397,6 +414,12 @@ static inline sighandler_t safe_signal(const char *file, const int lineno,
 #define SAFE_SIGNAL(signum, handler) \
 	safe_signal(__FILE__, __LINE__, (signum), (handler))
 
+int safe_sigaction(const char *file, const int lineno,
+                   int signum, const struct sigaction *act,
+                   struct sigaction *oldact);
+#define SAFE_SIGACTION(signum, act, oldact) \
+	safe_sigaction(__FILE__, __LINE__, (signum), (act), (oldact))
+
 #define SAFE_EXECLP(file, arg, ...) do {                   \
 	execlp((file), (arg), ##__VA_ARGS__);              \
 	tst_brk_(__FILE__, __LINE__, TBROK | TERRNO,       \
@@ -412,6 +435,25 @@ static inline sighandler_t safe_signal(const char *file, const int lineno,
 int safe_getpriority(const char *file, const int lineno, int which, id_t who);
 #define SAFE_GETPRIORITY(which, who) \
 	safe_getpriority(__FILE__, __LINE__, (which), (who))
+
+struct group *safe_getgrnam(const char *file, const int lineno,
+			    const char *name);
+#define SAFE_GETGRNAM(name) \
+	safe_getgrnam(__FILE__, __LINE__, (name))
+
+struct group *safe_getgrnam_fallback(const char *file, const int lineno,
+		const char *name, const char *fallback);
+#define SAFE_GETGRNAM_FALLBACK(name, fallback) \
+	safe_getgrnam_fallback(__FILE__, __LINE__, (name), (fallback))
+
+struct group *safe_getgrgid(const char *file, const int lineno, gid_t gid);
+#define SAFE_GETGRGID(gid) \
+	safe_getgrgid(__FILE__, __LINE__, (gid))
+
+ssize_t safe_getxattr(const char *file, const int lineno, const char *path,
+	const char *name, void *value, size_t size);
+#define SAFE_GETXATTR(path, name, value, size) \
+	safe_getxattr(__FILE__, __LINE__, (path), (name), (value), (size))
 
 int safe_setxattr(const char *file, const int lineno, const char *path,
             const char *name, const void *value, size_t size, int flags);
@@ -433,6 +475,16 @@ int safe_removexattr(const char *file, const int lineno, const char *path,
 #define SAFE_REMOVEXATTR(path, name) \
 	safe_removexattr(__FILE__, __LINE__, (path), (name))
 
+int safe_lremovexattr(const char *file, const int lineno, const char *path,
+		const char *name);
+#define SAFE_LREMOVEXATTR(path, name) \
+	safe_lremovexattr(__FILE__, __LINE__, (path), (name))
+
+int safe_fremovexattr(const char *file, const int lineno, int fd,
+		const char *name);
+#define SAFE_FREMOVEXATTR(fd, name) \
+	safe_fremovexattr(__FILE__, __LINE__, (fd), (name))
+
 int safe_fsync(const char *file, const int lineno, int fd);
 #define SAFE_FSYNC(fd) safe_fsync(__FILE__, __LINE__, (fd))
 
@@ -443,6 +495,19 @@ int safe_mknod(const char *file, const int lineno, const char *pathname,
 	mode_t mode, dev_t dev);
 #define SAFE_MKNOD(pathname, mode, dev) \
 	safe_mknod(__FILE__, __LINE__, (pathname), (mode), (dev))
+
+int safe_mlock(const char *file, const int lineno, const char *addr,
+	size_t len);
+#define SAFE_MLOCK(addr, len) safe_mlock(__FILE__, __LINE__, (addr), (len))
+
+int safe_munlock(const char *file, const int lineno, const char *addr,
+	size_t len);
+#define SAFE_MUNLOCK(addr, len) safe_munlock(__FILE__, __LINE__, (addr), (len))
+
+int safe_mincore(const char *file, const int lineno, void *start,
+	size_t length, unsigned char *vec);
+#define SAFE_MINCORE(start, length, vec) \
+	safe_mincore(__FILE__, __LINE__, (start), (length), (vec))
 
 int safe_fanotify_init(const char *file, const int lineno,
 	unsigned int flags, unsigned int event_f_flags);

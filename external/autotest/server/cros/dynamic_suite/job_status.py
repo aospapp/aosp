@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import datetime
-import logging
 import os
 import random
 import time
@@ -59,29 +58,6 @@ def is_for_infrastructure_fail(status):
                  a test.
     """
     return view_is_for_infrastructure_fail({'test_name': status.test_name})
-
-
-def _abort_jobs_if_timedout(afe, jobs, start_time, timeout_mins):
-    """
-    Abort all of the jobs in jobs if the running time has past the timeout.
-
-    @param afe: an instance of AFE as defined in server/frontend.py.
-    @param jobs: an iterable of Running frontend.Jobs
-    @param start_time: Time to compare to the current time to see if a timeout
-                       has occurred.
-    @param timeout_mins: Time in minutes to wait before aborting the jobs we
-                         are waiting on.
-
-    @returns True if we there was a timeout, False if not.
-    """
-    if datetime.datetime.utcnow() < (start_time +
-                                     datetime.timedelta(minutes=timeout_mins)):
-        return False
-    for job in jobs:
-        logging.debug('Job: %s has timed out after %s minutes. Aborting job.',
-                      job.id, timeout_mins)
-        afe.run('abort_host_queue_entries', job=job.id)
-    return True
 
 
 def _collate_aborted(current_value, entry):

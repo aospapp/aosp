@@ -74,6 +74,12 @@ struct cras_gpio_jack {
  *    edid_file - File to read the EDID from (if available, HDMI only).
  *    display_info_timer - Timer used to poll display info for HDMI jacks.
  *    display_info_retries - Number of times to retry reading display info.
+ *
+ *    mixer_output/mixer_input fields are only used to find the node for this
+ *    jack. These are not used for setting volume or mute. There should be a
+ *    1:1 map between node and jack. node->jack follows the pointer; jack->node
+ *    is done by either searching node->jack pointers or searching the node that
+ *    has the same mixer_control as the jack.
  */
 struct cras_alsa_jack {
 	unsigned is_gpio;	/* !0 -> 'gpio' valid
@@ -863,6 +869,15 @@ static int is_jack_control_in_list(const char * const *list,
 	return 0;
 }
 
+/* Check if the given name is a jack created for the connector control of a
+ * input/output terminal entity on a USB Audio Class 2.0 device. */
+static int is_jack_uac2(const char *jack_name,
+			enum CRAS_STREAM_DIRECTION direction)
+{
+	return jack_matches_regex(jack_name, direction == CRAS_STREAM_OUTPUT ?
+				  "^.* - Output Jack$" : "^.* - Input Jack$");
+}
+
 /* Looks for any JACK controls.  Monitors any found controls for changes and
  * decides to route based on plug/unlpug events. */
 static int find_jack_controls(struct cras_alsa_jack_list *jack_list)
@@ -882,7 +897,6 @@ static int find_jack_controls(struct cras_alsa_jack_list *jack_list)
 	static const char eld_control_name[] = "ELD";
 	const char * const *jack_names;
 	unsigned int num_jack_names;
-	char device_name[6];
 
 	if (!jack_list->hctl) {
 		syslog(LOG_WARNING, "Can't search hctl for jacks.");
@@ -905,7 +919,8 @@ static int find_jack_controls(struct cras_alsa_jack_list *jack_list)
 		if (iface != SND_CTL_ELEM_IFACE_CARD)
 			continue;
 		name = snd_hctl_elem_get_name(elem);
-		if (!is_jack_control_in_list(jack_names, num_jack_names, name))
+		if (!is_jack_control_in_list(jack_names, num_jack_names, name) &&
+		    !is_jack_uac2(name, jack_list->direction))
 			continue;
 		if (hctl_jack_device_index(name) != jack_list->device_index)
 			continue;
@@ -917,7 +932,6 @@ static int find_jack_controls(struct cras_alsa_jack_list *jack_list)
 		jack->jack_list = jack_list;
 		DL_APPEND(jack_list->jacks, jack);
 
-		syslog(LOG_DEBUG, "Found Jack: %s for %s", name, device_name);
 		snd_hctl_elem_set_callback(elem, hctl_jack_cb);
 		snd_hctl_elem_set_callback_private(elem, jack);
 

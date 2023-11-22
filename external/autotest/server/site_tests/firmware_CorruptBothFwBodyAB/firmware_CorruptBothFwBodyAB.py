@@ -37,7 +37,8 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
 
     def cleanup(self):
         try:
-            self.restore_firmware()
+            if self.is_firmware_saved():
+                self.restore_firmware()
         except Exception as e:
             logging.error("Caught exception: %s", str(e))
         super(firmware_CorruptBothFwBodyAB, self).cleanup()

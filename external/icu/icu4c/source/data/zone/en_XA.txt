@@ -18,6 +18,9 @@ en_XA{
         "Antarctica:DumontDUrville"{
             ec{"[Ðûɱöñţ ð’Ûŕṽîļļé one two]"}
         }
+        "Asia:Qostanay"{
+            ec{"[Ķöšţåñåý one]"}
+        }
         "Asia:Saigon"{
             ec{"[Ĥö Çĥî Ṁîñĥ Çîţý one two]"}
         }

@@ -39,6 +39,7 @@ cc_library_static {
         "-DSASR",
         "-DWAV49",
         "-Werror",
+        "-Wno-comment",
         "-Wno-unused-parameter",
     ],
 

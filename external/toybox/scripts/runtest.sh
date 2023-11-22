@@ -66,6 +66,17 @@ optional()
   SKIP=1
 }
 
+skipnot()
+{
+  if [ -z "$VERBOSE" ]
+  then
+    eval "$@" 2>/dev/null
+  else
+    eval "$@"
+  fi
+  [ $? -eq 0 ] || SKIPNOT=1
+}
+
 wrong_args()
 {
   if [ $# -ne 5 ]
@@ -79,22 +90,23 @@ wrong_args()
 
 testing()
 {
+  NAME="$CMDNAME $1"
   wrong_args "$@"
 
-  NAME="$CMDNAME $1"
   [ -z "$1" ] && NAME=$2
 
   [ -n "$DEBUG" ] && set -x
 
-  if [ -n "$SKIP" ] || ( [ -n "$SKIP_HOST" ] && [ -n "$TEST_HOST" ])
+  if [ -n "$SKIP" -o -n "$SKIP_HOST" -a -n "$TEST_HOST" -o -n "$SKIPNOT" ]
   then
     [ ! -z "$VERBOSE" ] && echo "$SHOWSKIP: $NAME"
+    unset SKIPNOT
     return 0
   fi
 
   echo -ne "$3" > expected
   echo -ne "$4" > input
-  echo -ne "$5" | ${EVAL:-eval} "$2" > actual
+  echo -ne "$5" | ${EVAL:-eval} -- "$2" > actual
   RETVAL=$?
 
   # Catch segfaults
@@ -127,7 +139,9 @@ testcmd()
 {
   wrong_args "$@"
 
-  testing "$1" "$C $2" "$3" "$4" "$5"
+  X="$1"
+  [ -z "$X" ] && X="$CMDNAME $2"
+  testing "$X" "$C $2" "$3" "$4" "$5"
 }
 
 # Recursively grab an executable and all the libraries needed to run it.
@@ -189,4 +203,3 @@ dochroot()
   umount -l tmpdir4chroot
   rmdir tmpdir4chroot
 }
-

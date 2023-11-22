@@ -456,16 +456,21 @@ class ExtendedManager(dbmodels.Manager):
             # if we don't bail early, we'll get a SQL error later
             return
 
-        base_objects_by_id = dict((base_object._get_pk_val(), base_object)
-                                  for base_object in base_objects)
-        pivot_iterator = self._get_pivot_iterator(base_objects_by_id,
-                                                  related_model)
+        # The default maximum value of a host parameter number in SQLite is 999.
+        # Exceed this will get a DatabaseError later.
+        batch_size = 900
+        for i in xrange(0, len(base_objects), batch_size):
+            base_objects_batch = base_objects[i:i + batch_size]
+            base_objects_by_id = dict((base_object._get_pk_val(), base_object)
+                                      for base_object in base_objects_batch)
+            pivot_iterator = self._get_pivot_iterator(base_objects_by_id,
+                                                      related_model)
 
-        for base_object in base_objects:
-            setattr(base_object, related_list_name, [])
+            for base_object in base_objects_batch:
+                setattr(base_object, related_list_name, [])
 
-        for base_object, related_object in pivot_iterator:
-            getattr(base_object, related_list_name).append(related_object)
+            for base_object, related_object in pivot_iterator:
+                getattr(base_object, related_list_name).append(related_object)
 
 
 class ModelWithInvalidQuerySet(dbmodels.query.QuerySet):

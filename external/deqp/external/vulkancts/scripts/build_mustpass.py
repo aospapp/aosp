@@ -79,23 +79,60 @@ VULKAN_1_1_0_PKG	= Package(module = VULKAN_MODULE, configurations = [
 		  # Master
 		  Configuration(name		= "default",
 						filters		= [include("master.txt"),
+									   exclude("waivers.txt")]),
+		   Configuration(name		= "default-no-waivers",
+						filters		= [include("master.txt")]),
+
+	 ])
+
+# 1.1.1
+
+VULKAN_1_1_1_PKG	= Package(module = VULKAN_MODULE, configurations = [
+		  # Master
+		  Configuration(name		= "default",
+						filters		= [include("master.txt"),
+									   exclude("waivers.txt")]),
+		  Configuration(name		= "default-no-waivers",
+						filters		= [include("master.txt")]),
+	 ])
+
+# 1.1.2
+
+VULKAN_1_1_2_PKG	= Package(module = VULKAN_MODULE, configurations = [
+		  # Master
+		  Configuration(name		= "default",
+						filters		= [include("master.txt"),
+									   exclude("waivers.txt")]),
+		  Configuration(name		= "default-no-waivers",
+						filters		= [include("master.txt")]),
+	 ])
+
+# 1.1.3
+
+VULKAN_1_1_3_PKG	= Package(module = VULKAN_MODULE, configurations = [
+		  # Master
+		  Configuration(name		= "default",
+						filters		= [include("master.txt"),
 									   exclude("test-issues.txt"),
 									   exclude("excluded-tests.txt"),
 									   exclude("android-tests.txt"),
 									   exclude("waivers.txt")]),
-		   Configuration(name		= "default-no-waivers",
+		  Configuration(name		= "default-no-waivers",
 						filters		= [include("master.txt"),
 									   exclude("test-issues.txt"),
 									   exclude("excluded-tests.txt"),
 									   exclude("android-tests.txt")]),
-
 	 ])
+
 
 MUSTPASS_LISTS		= [
 		  Mustpass(project = PROJECT,	version = "1.0.0",	packages = [VULKAN_1_0_0_PKG]),
 		  Mustpass(project = PROJECT,	version = "1.0.1",	packages = [VULKAN_1_0_1_PKG]),
 		  Mustpass(project = PROJECT,	version = "1.0.2",	packages = [VULKAN_1_0_2_PKG]),
 		  Mustpass(project = PROJECT,	version = "1.1.0",	packages = [VULKAN_1_1_0_PKG]),
+		  Mustpass(project = PROJECT,	version = "1.1.1",	packages = [VULKAN_1_1_1_PKG]),
+		  Mustpass(project = PROJECT,	version = "1.1.2",	packages = [VULKAN_1_1_2_PKG]),
+		  Mustpass(project = PROJECT,	version = "1.1.3",	packages = [VULKAN_1_1_3_PKG]),
 	]
 
 if __name__ == "__main__":

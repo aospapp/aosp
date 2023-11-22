@@ -1,7 +1,7 @@
-/** 
+/**
  * Copyright (c) 2006, James Seigel, Calgary, AB., Canada
  * Copyright (c) 2003,2004, Stefan Haustein, Oberhausen, Rhld., Germany
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -18,17 +18,22 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE. 
+ * IN THE SOFTWARE.
  */
 
 package org.ksoap2.transport;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.io.*;
+import java.net.MalformedURLException;
 import java.net.Proxy;
+import java.net.URL;
+
+import libcore.util.XmlObjectFactory;
 
 import org.ksoap2.*;
-import org.kxml2.io.*;
 import org.xmlpull.v1.*;
 
 /**
@@ -40,9 +45,9 @@ import org.xmlpull.v1.*;
 abstract public class Transport {
 
     /**
-     * Added to enable web service interactions on the emulator
-     * to be debugged with Fiddler2 (Windows) but provides utility
-     * for other proxy requirements.
+     * Added to enable web service interactions on the emulator to be debugged
+     * with Fiddler2 (Windows) but provides utility for other proxy
+     * requirements.
      */
     protected Proxy proxy;
     protected String url;
@@ -56,10 +61,17 @@ abstract public class Transport {
     private String xmlVersionTag = "";
 
     protected static final String CONTENT_TYPE_XML_CHARSET_UTF_8 = "text/xml;charset=utf-8";
-    protected static final String CONTENT_TYPE_SOAP_XML_CHARSET_UTF_8 = "application/soap+xml;charset=utf-8";
+    protected static final String CONTENT_TYPE_SOAP_XML_CHARSET_UTF_8 =
+            "application/soap+xml;charset=utf-8";
     protected static final String USER_AGENT = "ksoap2-android/2.6.0+";
 
     private int bufferLength = ServiceConnection.DEFAULT_BUFFER_SIZE;
+
+    private HashMap prefixes = new HashMap();
+
+    public HashMap getPrefixes() {
+        return prefixes;
+    }
 
     public Transport() {
     }
@@ -81,11 +93,14 @@ abstract public class Transport {
 
     /**
      * Construct the transport object
-     * 
-     * @param proxy Specifies the proxy server to use for 
-     * accessing the web service or <code>null</code> if a direct connection is available
-     * @param url Specifies the web service url
-     * 
+     *
+     * @param proxy
+     *            Specifies the proxy server to use for accessing the web
+     *            service or <code>null</code> if a direct connection is
+     *            available
+     * @param url
+     *            Specifies the web service url
+     *
      */
     public Transport(Proxy proxy, String url) {
         this.proxy = proxy;
@@ -110,27 +125,37 @@ abstract public class Transport {
      */
     protected void parseResponse(SoapEnvelope envelope, InputStream is)
             throws XmlPullParserException, IOException {
-        XmlPullParser xp = new KXmlParser();
+        // Android-changed: Use XmlObjectFactory instead of a specific implementation.
+        // XmlPullParser xp = new KXmlParser();
+        XmlPullParser xp = XmlObjectFactory.newXmlPullParser();
         xp.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true);
         xp.setInput(is, null);
         envelope.parse(xp);
+        /*
+         * Fix memory leak when running on android in strict mode. Issue 133
+         */
+        is.close();
     }
 
     /**
      * Serializes the request.
      */
-    protected byte[] createRequestData(SoapEnvelope envelope, String encoding) throws IOException {
-        System.out.println("createRequestData");
+    protected byte[] createRequestData(SoapEnvelope envelope, String encoding)
+            throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(bufferLength);
         byte result[] = null;
         bos.write(xmlVersionTag.getBytes());
-        System.out.println("bos.write");
-        XmlSerializer xw = new KXmlSerializer();
-        System.out.println("new KXmlSerializer");
+        // Android-changed: Use XmlObjectFactory instead of a specific implementation.
+        // XmlSerializer xw = new KXmlSerializer();
+        XmlSerializer xw = XmlObjectFactory.newXmlSerializer();
+
+        final Iterator keysIter = prefixes.keySet().iterator();
         xw.setOutput(bos, encoding);
-        System.out.println("xw.setOutput");
+        while (keysIter.hasNext()) {
+            String key = (String) keysIter.next();
+            xw.setPrefix(key, (String) prefixes.get(key));
+        }
         envelope.write(xw);
-        System.out.println("envelope.write");
         xw.flush();
         bos.write('\r');
         bos.write('\n');
@@ -138,20 +163,20 @@ abstract public class Transport {
         result = bos.toByteArray();
         xw = null;
         bos = null;
-        System.out.println("createRequestData end");
         return result;
     }
 
     /**
      * Serializes the request.
      */
-    protected byte[] createRequestData(SoapEnvelope envelope) throws IOException {
+    protected byte[] createRequestData(SoapEnvelope envelope)
+            throws IOException {
         return createRequestData(envelope, null);
     }
 
     /**
      * Set the target url.
-     * 
+     *
      * @param url
      *            the target url.
      */
@@ -159,10 +184,15 @@ abstract public class Transport {
         this.url = url;
     }
 
+    public String getUrl() {
+        return url;
+    }
+
+
     /**
      * Sets the version tag for the outgoing soap call. Example <?xml
      * version=\"1.0\" encoding=\"UTF-8\"?>
-     * 
+     *
      * @param tag
      *            the xml string to set at the top of the soap message.
      */
@@ -177,35 +207,62 @@ abstract public class Transport {
     }
 
     /**
-     * Perform a soap call with a given namespace and the given envelope providing
-     * any extra headers that the user requires such as cookies. Headers that are
-     * returned by the web service will be returned to the caller in the form of a
-     * <code>List</code> of <code>HeaderProperty</code> instances.
-     * 
-     * @param targetNamespace
+     * Perform a soap call with a given namespace and the given envelope
+     * providing any extra headers that the user requires such as cookies.
+     * Headers that are returned by the web service will be returned to the
+     * caller in the form of a <code>List</code> of <code>HeaderProperty</code>
+     * instances.
+     *
+     * @param soapAction
      *            the namespace with which to perform the call in.
      * @param envelope
      *            the envelope the contains the information for the call.
      * @param headers
-     *   <code>List</code> of <code>HeaderProperty</code> headers to send with the SOAP request.
-     * 
+     *            <code>List</code> of <code>HeaderProperty</code> headers to
+     *            send with the SOAP request.
+     *
      * @return Headers returned by the web service as a <code>List</code> of
-     * <code>HeaderProperty</code> instances.
+     *         <code>HeaderProperty</code> instances.
      */
-    abstract public List call(String targetNamespace, SoapEnvelope envelope, List headers)
-            throws IOException, XmlPullParserException;
+    abstract public List call(String soapAction, SoapEnvelope envelope,
+            List headers) throws IOException, XmlPullParserException;
+
+    /**
+     * Perform a soap call with a given namespace and the given envelope
+     * providing any extra headers that the user requires such as cookies.
+     * Headers that are returned by the web service will be returned to the
+     * caller in the form of a <code>List</code> of <code>HeaderProperty</code>
+     * instances.
+     *
+     * @param soapAction
+     *            the namespace with which to perform the call in.
+     * @param envelope
+     *            the envelope the contains the information for the call.
+     * @param headers
+     *            <code>List</code> of <code>HeaderProperty</code> headers to
+     *            send with the SOAP request.
+     * @param outputFile
+     *            a file to stream the response into rather than parsing it,
+     *            streaming happens when file is not null
+     *
+     * @return Headers returned by the web service as a <code>List</code> of
+     *         <code>HeaderProperty</code> instances.
+     */
+    abstract public List call(String soapAction, SoapEnvelope envelope,
+            List headers, File outputFile) throws IOException,
+            XmlPullParserException;
 
     /**
      * Perform a soap call with a given namespace and the given envelope.
-     * 
-     * @param targetNamespace
+     *
+     * @param soapAction
      *            the namespace with which to perform the call in.
      * @param envelope
      *            the envelope the contains the information for the call.
      */
-    public void call(String targetNamespace, SoapEnvelope envelope) throws IOException,
-            XmlPullParserException {
-        call(targetNamespace, envelope, null);
+    public void call(String soapAction, SoapEnvelope envelope)
+            throws IOException, XmlPullParserException {
+        call(soapAction, envelope, null);
     }
 
     /**
@@ -213,21 +270,31 @@ abstract public class Transport {
      *
      * @return Host name
      */
-    abstract public String getHost();
+    public String getHost() throws MalformedURLException {
+
+        return new URL(url).getHost();
+    }
 
     /**
-     * Return the port number of the host that is specified as the web service target
+     * Return the port number of the host that is specified as the web service
+     * target
      *
      * @return Port number
      */
-    abstract public int getPort();
+    public int getPort() throws MalformedURLException {
+
+        return new URL(url).getPort();
+    }
 
     /**
      * Return the path to the web service target
      *
      * @return The URL's path
      */
-    abstract public String getPath();
+    public String getPath() throws MalformedURLException {
+
+        return new URL(url).getPath();
+    }
 
     abstract public ServiceConnection getServiceConnection() throws IOException;
 }

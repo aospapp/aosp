@@ -1,5 +1,6 @@
 package org.bouncycastle.jcajce.provider.asymmetric.util;
 
+import java.io.ByteArrayOutputStream;
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -29,6 +30,7 @@ import org.bouncycastle.crypto.Wrapper;
 import org.bouncycastle.jcajce.util.BCJcaJceHelper;
 import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.Arrays;
 
 public abstract class BaseCipherSpi
     extends CipherSpi
@@ -228,6 +230,25 @@ public abstract class BaseCipherSpi
             }
 
             throw new InvalidKeyException("Unknown key type " + wrappedKeyType);
+        }
+    }
+
+    protected static final class ErasableOutputStream
+        extends ByteArrayOutputStream
+    {
+        public ErasableOutputStream()
+        {
+        }
+
+        public byte[] getBuf()
+        {
+            return buf;
+        }
+
+        public void erase()
+        {
+            Arrays.fill(this.buf, (byte)0);
+            reset();
         }
     }
 }

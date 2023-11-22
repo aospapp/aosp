@@ -54,6 +54,13 @@ class UnmuteMicrophone(Action):
     def do_execute(self, context):
         context.cfm_facade.unmute_mic()
 
+class WaitForMeetingsLandingPage(Action):
+  """
+  Wait for landing page to load after reboot.
+  """
+  def do_execute(self, context):
+    context.cfm_facade.wait_for_meetings_landing_page()
+
 class JoinMeeting(Action):
     """
     Joins a meeting.
@@ -407,3 +414,91 @@ def _wait_for_condition(condition, timeout_seconds=10):
     raise TimeoutError('Timeout after %s seconds waiting for condition %s'
                        % (timeout_seconds, condition))
 
+
+class StartPerfMetricsCollection(Action):
+    """
+    Starts collecting performance data.
+
+    Collection is performed in a background thread so this operation returns
+    immediately.
+
+    This action only collects the data, it does not upload it.
+    Use UploadPerfMetrics to upload the data to the perf dashboard.
+    """
+    def do_execute(self, context):
+        context.perf_metrics_collector.start()
+
+
+class StopPerfMetricsCollection(Action):
+    """
+    Stops collecting performance data.
+
+    This action only stops collecting the data, it does not upload it.
+    Use UploadPerfMetrics to upload the data to the perf dashboard.
+    """
+    def do_execute(self, context):
+        context.perf_metrics_collector.stop()
+
+
+class UploadPerfMetrics(Action):
+    """
+    Uploads the collected perf metrics to the perf dashboard.
+    """
+    def do_execute(self, context):
+        context.perf_metrics_collector.upload_metrics()
+
+
+class CreateMeetingWithBots(Action):
+    """
+    Creates a new meeting prepopulated with bots.
+
+    Call JoinMeetingWithBots() do join it with a CfM.
+    """
+    def __init__(self, bot_count, bots_ttl_min, muted=True):
+        """
+        Initializes.
+
+        @param bot_count Amount of bots to be in the meeting.
+        @param bots_ttl_min TTL in minutes after which the bots leave.
+        @param muted If the bots are audio muted or not.
+        """
+        super(CreateMeetingWithBots, self).__init__()
+        self._bot_count = bot_count
+        # Adds an extra 30 seconds buffer
+        self._bots_ttl_sec = bots_ttl_min * 60 + 30
+        self._muted = muted
+
+    def __repr__(self):
+        return (
+            'CreateMeetingWithBots:\n'
+            ' bot_count: %d\n'
+            ' bots_ttl_sec: %d\n'
+            ' muted: %s' % (self._bot_count, self._bots_ttl_sec, self._muted)
+        )
+
+    def do_execute(self, context):
+        if context.bots_meeting_code:
+            raise AssertionError(
+                'A meeting with bots is already running. '
+                'Repeated calls to CreateMeetingWithBots() are not supported.')
+        context.bots_meeting_code = context.bond_api.CreateConference()
+        context.bond_api.AddBotsRequest(
+            context.bots_meeting_code,
+            self._bot_count,
+            self._bots_ttl_sec);
+        mute_cmd = 'mute_audio' if self._muted else 'unmute_audio'
+        context.bond_api.ExecuteScript('@all %s' % mute_cmd,
+                                       context.bots_meeting_code)
+
+
+class JoinMeetingWithBots(Action):
+    """
+    Joins an existing meeting started via CreateMeetingWithBots().
+    """
+    def do_execute(self, context):
+        meeting_code = context.bots_meeting_code
+        if not meeting_code:
+            raise AssertionError(
+                'Meeting with bots was not started. '
+                'Did you forget to call CreateMeetingWithBots()?')
+        context.cfm_facade.join_meeting_session(context.bots_meeting_code)

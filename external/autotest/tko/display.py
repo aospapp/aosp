@@ -1,5 +1,7 @@
-import os, re, string, sys
-import frontend, reason_qualifier
+import re
+import reason_qualifier
+
+# pylint: disable=missing-docstring
 
 color_map = {
         'header'        : '#e5e5c0', # greyish yellow
@@ -332,12 +334,6 @@ text-align: left
     print '<h2>'
     print '<a href="compose_query.cgi">Functional</a>'
     print '&nbsp&nbsp&nbsp'
-    print '<a href="machine_benchmark.cgi">Performance</a>'
-    print '&nbsp&nbsp&nbsp'
-    print '<a href="http://ossipedia.ipa.go.jp/crackerjack/compare_results.html">Crackerjack</a>'
-    print '&nbsp&nbsp&nbsp'
-    print '<a href="http://autotest.kernel.org">[About Page]</a>'
-    print '</h2><p>'
 
 
 def group_name(group):

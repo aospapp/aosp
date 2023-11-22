@@ -113,7 +113,7 @@ struct bag* deletedTagBag;
 static void JNICALL
 cbTrackingObjectFree(jvmtiEnv* jvmti_env, jlong tag)
 {
-    debugMonitorEnter(deletedTagLock);
+    debugMonitorEnterNoSuspend(deletedTagLock);
     *(jlong*)bagAdd(deletedTagBag) = tag;
     debugMonitorExit(deletedTagLock);
 }

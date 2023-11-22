@@ -2,6 +2,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+try:
+    import MySQLdb as driver
+except ImportError:
+    # This module (tko) is unconditionally imported by autoserv,
+    # even in environments where MyQSLdb is unavailable. Thus, we
+    # need to cope with import failure here.
+    # See https://bugs.chromium.org/p/chromium/issues/detail?id=860166#c17 for
+    # context.
+    class UtterlyFakeDb(object):
+        """Lame fake of MySQLdb for import time needs of this file."""
+        OperationalError = object()
+
+    driver = UtterlyFakeDb
+
 import math
 import os
 import random
@@ -11,8 +25,14 @@ import time
 
 import common
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import utils
+from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.frontend import database_settings_helper
-from autotest_lib.tko import utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 def _log_error(msg):
@@ -36,6 +56,11 @@ def _format_operational_error(e):
 class MySQLTooManyRows(Exception):
     """Too many records."""
     pass
+
+
+def _connection_retry_callback():
+    """Callback method used to increment a retry metric."""
+    metrics.Counter('chromeos/autotest/tko/connection_retries').increment()
 
 
 class db_sql(object):
@@ -75,6 +100,9 @@ class db_sql(object):
 
         If parameters are supplied, these will be taken instead of the values
         in global_config.
+
+        The setting of 'host' can be a real host, or a unix socket if it starts
+        with '/'.
 
         @param host: If set, this host will be used, if not, the host will be
                      retrieved from global_config.
@@ -141,6 +169,25 @@ class db_sql(object):
         time.sleep(delay)
 
 
+    @retry.retry(driver.OperationalError, timeout_min=10,
+                 delay_sec=5, callback=_connection_retry_callback)
+    def connect(self, host, database, user, password, port):
+        """Open and return a connection to mysql database."""
+        connection_args = {
+            'db': database,
+            'user': user,
+            'passwd': password,
+            'connect_timeout': 20,
+        }
+        if port:
+            connection_args['port'] = int(port)
+
+        if host.startswith('/'):
+            return driver.connect(unix_socket=host, **connection_args)
+
+        return driver.connect(host=host, **connection_args)
+
+
     def run_with_retry(self, function, *args, **dargs):
         """Call function(*args, **dargs) until either it passes
         without an operational error, or a timeout is reached.
@@ -155,14 +202,12 @@ class db_sql(object):
         @param args: The arguments
         @param dargs: The named arguments.
         """
-        OperationalError = _get_error_class("OperationalError")
-
         success = False
         start_time = time.time()
         while not success:
             try:
                 result = function(*args, **dargs)
-            except OperationalError, e:
+            except driver.OperationalError, e:
                 _log_error("%s; retrying, don't panic yet"
                            % _format_operational_error(e))
                 stop_time = time.time()
@@ -173,7 +218,7 @@ class db_sql(object):
                     try:
                         self._random_delay()
                         self._init_db()
-                    except OperationalError, e:
+                    except driver.OperationalError, e:
                         _log_error('%s; panic now'
                                    % _format_operational_error(e))
             else:
@@ -433,56 +478,76 @@ class db_sql(object):
         self.delete('tko_jobs', where)
 
 
-    def insert_job(self, tag, job, parent_job_id=None, commit=None):
+    def insert_job(self, tag, job, commit=None):
         """Insert a tko job.
 
         @param tag: The job tag.
         @param job: The job object.
-        @param parent_job_id: The parent job id.
         @param commit: If commit the transaction .
-
-        @return The dict of data inserted into the tko_jobs table.
         """
-        job.machine_idx = self.lookup_machine(job.machine)
-        if not job.machine_idx:
-            job.machine_idx = self.insert_machine(job, commit=commit)
-        elif job.machine:
-            # Only try to update tko_machines record if machine is set. This
-            # prevents unnecessary db writes for suite jobs.
-            self.update_machine_information(job, commit=commit)
+        data = self._get_common_job_data(tag, job)
+        data.update({
+                'afe_job_id': job.afe_job_id,
+                'afe_parent_job_id': job.afe_parent_job_id,
+        })
+        if job.job_idx is not None:
+            self.update(
+                    'tko_jobs', data, {'job_idx': job.job_idx}, commit=commit)
+        else:
+            self.insert('tko_jobs', data, commit=commit)
+            job.job_idx = self.get_last_autonumber_value()
 
-        afe_job_id = utils.get_afe_job_id(tag)
 
-        data = {'tag':tag,
+    def _get_common_job_data(self, tag, job):
+        """Construct a dictionary with the common data to insert in job/task."""
+        return {
+                'tag':tag,
                 'label': job.label,
                 'username': job.user,
                 'machine_idx': job.machine_idx,
                 'queued_time': job.queued_time,
                 'started_time': job.started_time,
                 'finished_time': job.finished_time,
-                'afe_job_id': afe_job_id,
-                'afe_parent_job_id': parent_job_id,
                 'build': job.build,
                 'build_version': job.build_version,
                 'board': job.board,
-                'suite': job.suite}
-        job.afe_job_id = afe_job_id
-        if parent_job_id:
-            job.afe_parent_job_id = str(parent_job_id)
+                'suite': job.suite,
+        }
 
-        # TODO(ntang): check job.index directly.
-        is_update = hasattr(job, 'index')
-        if is_update:
-            self.update('tko_jobs', data, {'job_idx': job.index}, commit=commit)
+
+    def insert_or_update_task_reference(self, job, reference_type, commit=None):
+        """Insert an entry in the tko_task_references table.
+
+        The job should already have been inserted in tko_jobs.
+        @param job: tko.models.job object.
+        @param reference_type: The type of reference to insert.
+                One of: {'afe', 'skylab'}
+        @param commit: Whether to commit this transaction.
+        """
+        assert reference_type in {'afe', 'skylab'}
+        if reference_type == 'afe':
+            task_id = job.afe_job_id
+            parent_task_id = job.afe_parent_job_id
         else:
-            self.insert('tko_jobs', data, commit=commit)
-            job.index = self.get_last_autonumber_value()
-        self.update_job_keyvals(job, commit=commit)
-        for test in job.tests:
-            self.insert_test(job, test, commit=commit)
+            task_id = job.skylab_task_id
+            parent_task_id = job.skylab_parent_task_id
+        data = {
+                'reference_type': reference_type,
+                'tko_job_idx': job.job_idx,
+                'task_id': task_id,
+                'parent_task_id': parent_task_id,
+        }
 
-        data['job_idx'] = job.index
-        return data
+        task_reference_id = self._lookup_task_reference(job)
+        if task_reference_id is not None:
+            self.update('tko_task_references',
+                        data,
+                        {'id': task_reference_id},
+                        commit=commit)
+            job.task_reference_id = task_reference_id
+        else:
+            self.insert('tko_task_references', data, commit=commit)
+            job.task_reference_id = self.get_last_autonumber_value()
 
 
     def update_job_keyvals(self, job, commit=None):
@@ -492,7 +557,7 @@ class db_sql(object):
         @param commit: If commit the transaction .
         """
         for key, value in job.keyval_dict.iteritems():
-            where = {'job_id': job.index, 'key': key}
+            where = {'job_id': job.job_idx, 'key': key}
             data = dict(where, value=value)
             exists = self.select('id', 'tko_job_keyvals', where=where)
 
@@ -510,7 +575,7 @@ class db_sql(object):
         @param commit: If commit the transaction .
         """
         kver = self.insert_kernel(test.kernel, commit=commit)
-        data = {'job_idx':job.index, 'test':test.testname,
+        data = {'job_idx':job.job_idx, 'test':test.testname,
                 'subdir':test.subdir, 'kernel_idx':kver,
                 'status':self.status_idx[test.status],
                 'reason':test.reason, 'machine_idx':job.machine_idx,
@@ -553,7 +618,11 @@ class db_sql(object):
         for key, value in test.attributes.iteritems():
             data = {'test_idx': test_idx, 'attribute': key,
                     'value': value}
-            self.insert('tko_test_attributes', data, commit=commit)
+            try:
+                self.insert('tko_test_attributes', data, commit=commit)
+            except:
+                _log_error('Uploading attribute %r' % (data))
+                raise
 
         if not is_update:
             for label_index in test.labels:
@@ -590,7 +659,41 @@ class db_sql(object):
         return {'hostname': hostname, 'machine_group': group, 'owner': owner}
 
 
-    def insert_machine(self, job, commit = None):
+    def insert_or_update_machine(self, job, commit=None):
+        """Insert or updates machine information for the given job.
+
+        Also updates the job object with new machine index, if any.
+
+        @param job: tko.models.job object.
+        @param commit: Whether to commit the database transaction.
+        """
+        job.machine_idx = self._lookup_machine(job.machine)
+        if not job.machine_idx:
+            job.machine_idx = self._insert_machine(job, commit=commit)
+        elif job.machine:
+            # Only try to update tko_machines record if machine is set. This
+            # prevents unnecessary db writes for suite jobs.
+            self._update_machine_information(job, commit=commit)
+
+
+    def _lookup_task_reference(self, job):
+        """Find the task_reference_id for a given job. Return None if not found.
+
+        @param job: tko.models.job object.
+        """
+        if job.job_idx is None:
+            return None
+        rows = self.select(
+                'id', 'tko_task_references', {'tko_job_idx': job.job_idx})
+        if not rows:
+            return None
+        if len(rows) > 1:
+            raise MySQLTooManyRows('Got %d tko_task_references for tko_job %d'
+                                   % (len(rows), job.job_idx))
+        return rows[0][0]
+
+
+    def _insert_machine(self, job, commit = None):
         """Inserts the job machine.
 
         @param job: The job object.
@@ -601,7 +704,7 @@ class db_sql(object):
         return self.get_last_autonumber_value()
 
 
-    def update_machine_information(self, job, commit = None):
+    def _update_machine_information(self, job, commit = None):
         """Updates the job machine information.
 
         @param job: The job object.
@@ -613,7 +716,7 @@ class db_sql(object):
                     commit=commit)
 
 
-    def lookup_machine(self, hostname):
+    def _lookup_machine(self, hostname):
         """Look up the machine information.
 
         @param hostname: The hostname as string.
@@ -736,19 +839,19 @@ class db_sql(object):
             return None
 
 
-def _get_db_type():
-    """Get the database type name to use from the global config."""
-    get_value = global_config.global_config.get_config_value_with_fallback
-    return "db_" + get_value("AUTOTEST_WEB", "global_db_type", "db_type",
-                             default="mysql")
+    def get_child_tests_by_parent_task_id(self, parent_task_id):
+        """Get the child tests by a parent task id.
 
-
-def _get_error_class(class_name):
-    """Retrieves the appropriate error class by name from the database
-    module."""
-    db_module = __import__("autotest_lib.tko." + _get_db_type(),
-                           globals(), locals(), ["driver"])
-    return getattr(db_module.driver, class_name)
+        @param parent_task_id: A string parent task id in tko_task_references.
+        @return: A list of view dicts, which has key 'test_name' and 'status'.
+        """
+        rows = self.select('tko_job_idx', 'tko_task_references',
+                           {'parent_task_id': parent_task_id})
+        tko_job_ids = [str(r[0]) for r in rows]
+        fields = ['test_name', 'status']
+        where = 'job_idx in (%s)' % ', '.join(tko_job_ids)
+        rows = self.select(', '.join(fields), 'tko_test_view_2', where)
+        return [{'test_name': r[0], 'status': r[1]} for r in rows]
 
 
 def db(*args, **dargs):
@@ -761,8 +864,4 @@ def db(*args, **dargs):
 
     @return: An db object.
     """
-    db_type = _get_db_type()
-    db_module = __import__("autotest_lib.tko." + db_type, globals(),
-                           locals(), [db_type])
-    db = getattr(db_module, db_type)(*args, **dargs)
-    return db
+    return db_sql(*args, **dargs)

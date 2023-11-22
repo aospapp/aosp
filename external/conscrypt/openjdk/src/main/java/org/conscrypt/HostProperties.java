@@ -40,7 +40,8 @@ import java.util.logging.Logger;
 /**
  * Utilities for interacting with properties of the host being run on.
  */
-public class HostProperties {
+@Internal
+class HostProperties {
     private static final Logger logger = Logger.getLogger(HostProperties.class.getName());
 
     private static final String TEMP_DIR_PROPERTY_NAME = "org.conscrypt.tmpdir";
@@ -67,7 +68,14 @@ public class HostProperties {
         NETBSD,
         SUNOS,
         WINDOWS,
-        UNKNOWN
+        UNKNOWN;
+
+        /**
+         * Returns the value to use when building filenames for this OS.
+         */
+        public String getFileComponent() {
+            return name().toLowerCase();
+        }
     }
 
     /**
@@ -75,7 +83,11 @@ public class HostProperties {
      */
     enum Architecture {
         X86_64,
-        X86_32,
+        X86_32 {
+            @Override public String getFileComponent() {
+                return "x86";
+            }
+        },
         ITANIUM_64,
         SPARC_32,
         SPARC_64,
@@ -86,7 +98,14 @@ public class HostProperties {
         PPCLE_64,
         S390_32,
         S390_64,
-        UNKNOWN
+        UNKNOWN;
+
+        /**
+         * Returns the value to use when building filenames for this architecture.
+         */
+        public String getFileComponent() {
+            return name().toLowerCase();
+        }
     }
 
     static boolean isWindows() {

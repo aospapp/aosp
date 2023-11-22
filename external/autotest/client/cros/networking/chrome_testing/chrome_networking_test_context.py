@@ -8,6 +8,9 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 
+NETWORK_TEST_EXTENSION_PATH = ('/usr/local/autotest/cros/networking/'
+                               'chrome_testing/network_test_ext')
+
 class ChromeNetworkingTestContext(object):
     """
     ChromeNetworkingTestContext handles creating a Chrome browser session and
@@ -32,8 +35,6 @@ class ChromeNetworkingTestContext(object):
 
     """
 
-    NETWORK_TEST_EXTENSION_PATH = ('/usr/local/autotest/cros/networking/'
-                                   'chrome_testing/network_test_ext')
     FIND_NETWORKS_TIMEOUT = 5
 
     # Network type strings used by chrome.networkingPrivate
@@ -48,7 +49,7 @@ class ChromeNetworkingTestContext(object):
                  gaia_login=False):
         if extensions is None:
             extensions = []
-        extensions.append(self.NETWORK_TEST_EXTENSION_PATH)
+        extensions.append(NETWORK_TEST_EXTENSION_PATH)
         self._extension_paths = extensions
         self._username = username
         self._password = password
@@ -85,14 +86,20 @@ class ChromeNetworkingTestContext(object):
             raise error.TestFail('Failed to find loaded extension "%s"' % path)
         return extension
 
-    def setup(self):
+    def setup(self, browser=None):
         """
         Initializes a ChromeOS browser session that loads the given extensions
         with private API priviliges.
 
+        @param browser: Chrome object to use, will create one if not provided.
+
         """
         logging.info('ChromeNetworkingTestContext: setup')
-        self._create_browser()
+
+        if browser is None:
+            self._create_browser()
+        else:
+            self._chrome = browser
         self.STATUS_PENDING = self.network_test_extension.EvaluateJavaScript(
                 'chromeTesting.STATUS_PENDING')
         self.STATUS_SUCCESS = self.network_test_extension.EvaluateJavaScript(
@@ -118,7 +125,7 @@ class ChromeNetworkingTestContext(object):
                 extension cannot get acquired.
 
         """
-        return self._get_extension(self.NETWORK_TEST_EXTENSION_PATH)
+        return self._get_extension(NETWORK_TEST_EXTENSION_PATH)
 
     def call_test_function_async(self, function, *args):
         """

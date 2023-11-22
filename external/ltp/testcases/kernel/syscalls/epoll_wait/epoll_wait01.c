@@ -111,14 +111,14 @@ static void verify_epollout(void)
 
 	TEST(epoll_wait(epfd, &ret_evs, 1, -1));
 
-	if (TEST_RETURN == -1) {
+	if (TST_RET == -1) {
 		tst_res(TFAIL | TTERRNO, "epoll_wait() epollout failed");
 		return;
 	}
 
-	if (TEST_RETURN != 1) {
+	if (TST_RET != 1) {
 		tst_res(TFAIL, "epoll_wait() returned %li, expected 1",
-			TEST_RETURN);
+			TST_RET);
 		return;
 	}
 
@@ -149,14 +149,14 @@ static void verify_epollin(void)
 
 	TEST(epoll_wait(epfd, &ret_evs, 1, -1));
 
-	if (TEST_RETURN == -1) {
+	if (TST_RET == -1) {
 		tst_res(TFAIL | TTERRNO, "epoll_wait() epollin failed");
 		goto end;
 	}
 
-	if (TEST_RETURN != 1) {
+	if (TST_RET != 1) {
 		tst_res(TFAIL, "epoll_wait() returned %li, expected 1",
-			TEST_RETURN);
+			TST_RET);
 		goto end;
 	}
 
@@ -193,9 +193,9 @@ static void verify_epollio(void)
 		bzero(ret_evs, sizeof(ret_evs));
 		TEST(epoll_wait(epfd, ret_evs, 2, -1));
 
-		if (TEST_RETURN <= 0) {
+		if (TST_RET <= 0) {
 			tst_res(TFAIL | TTERRNO, "epoll_wait() returned %li",
-				TEST_RETURN);
+				TST_RET);
 			goto end;
 		}
 
@@ -211,7 +211,7 @@ static void verify_epollio(void)
 			events &= ~EPOLLOUT;
 		}
 
-		if (TEST_RETURN != events_matched) {
+		if (TST_RET != events_matched) {
 			tst_res(TFAIL,
 				"epoll_wait() returned unexpected events");
 			dump_epevs(ret_evs, 2);

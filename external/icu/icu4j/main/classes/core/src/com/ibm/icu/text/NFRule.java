@@ -11,9 +11,9 @@ package com.ibm.icu.text;
 import java.text.FieldPosition;
 import java.text.ParsePosition;
 import java.util.List;
+import java.util.Objects;
 
 import com.ibm.icu.impl.PatternProps;
-import com.ibm.icu.impl.Utility;
 
 /**
  * A class representing a single rule in a RuleBasedNumberFormat.  A rule
@@ -610,6 +610,7 @@ final class NFRule {
      * @param that The rule to compare this one against
      * @return True if the two rules are functionally equivalent
      */
+    @Override
     public boolean equals(Object that) {
         if (that instanceof NFRule) {
             NFRule that2 = (NFRule)that;
@@ -618,12 +619,13 @@ final class NFRule {
                 && radix == that2.radix
                 && exponent == that2.exponent
                 && ruleText.equals(that2.ruleText)
-                && Utility.objectEquals(sub1, that2.sub1)
-                && Utility.objectEquals(sub2, that2.sub2);
+                && Objects.equals(sub1, that2.sub1)
+                && Objects.equals(sub2, that2.sub2);
         }
         return false;
     }
-    
+
+    @Override
     public int hashCode() {
         assert false : "hashCode not designed";
         return 42;
@@ -635,6 +637,7 @@ final class NFRule {
      * was created with, but it will produce the same result.
      * @return A textual description of the rule
      */
+    @Override
     public String toString() {
         StringBuilder result = new StringBuilder();
 
@@ -903,7 +906,7 @@ final class NFRule {
      * result is an integer and Double otherwise.  The result is never null.
      */
     public Number doParse(String text, ParsePosition parsePosition, boolean isFractionRule,
-                          double upperBound) {
+                          double upperBound, int nonNumericalExecutedRuleMask) {
 
         // internally we operate on a copy of the string being parsed
         // (because we're going to change it) and use our own ParsePosition
@@ -976,7 +979,7 @@ final class NFRule {
             pp.setIndex(0);
             double partialResult = matchToDelimiter(workText, start, tempBaseValue,
                                                     ruleText.substring(sub1Pos, sub2Pos), rulePatternFormat,
-                                                    pp, sub1, upperBound).doubleValue();
+                                                    pp, sub1, upperBound, nonNumericalExecutedRuleMask).doubleValue();
 
             // if we got a successful match (or were trying to match a
             // null substitution), pp is now pointing at the first unmatched
@@ -994,7 +997,7 @@ final class NFRule {
                 // a real result
                 partialResult = matchToDelimiter(workText2, 0, partialResult,
                                                  ruleText.substring(sub2Pos), rulePatternFormat, pp2, sub2,
-                                                 upperBound).doubleValue();
+                                                 upperBound, nonNumericalExecutedRuleMask).doubleValue();
 
                 // if we got a successful match on this second
                 // matchToDelimiter() call, update the high-water mark
@@ -1121,7 +1124,8 @@ final class NFRule {
      * Double.
      */
     private Number matchToDelimiter(String text, int startPos, double baseVal,
-                                    String delimiter, PluralFormat pluralFormatDelimiter, ParsePosition pp, NFSubstitution sub, double upperBound) {
+                                    String delimiter, PluralFormat pluralFormatDelimiter, ParsePosition pp, NFSubstitution sub,
+                                    double upperBound, int nonNumericalExecutedRuleMask) {
         // if "delimiter" contains real (i.e., non-ignorable) text, search
         // it for "delimiter" beginning at "start".  If that succeeds, then
         // use "sub"'s doParse() method to match the text before the
@@ -1144,7 +1148,7 @@ final class NFRule {
                 String subText = text.substring(0, dPos);
                 if (subText.length() > 0) {
                     tempResult = sub.doParse(subText, tempPP, baseVal, upperBound,
-                                             formatter.lenientParseEnabled());
+                                             formatter.lenientParseEnabled(), nonNumericalExecutedRuleMask);
 
                     // if the substitution could match all the text up to
                     // where we found "delimiter", then this function has
@@ -1192,7 +1196,7 @@ final class NFRule {
             Number result = ZERO;
             // try to match the whole string against the substitution
             Number tempResult = sub.doParse(text, tempPP, baseVal, upperBound,
-                    formatter.lenientParseEnabled());
+                    formatter.lenientParseEnabled(), nonNumericalExecutedRuleMask);
             if (tempPP.getIndex() != 0) {
                 // if there's a successful match (or it's a null
                 // substitution), update pp to point to the first

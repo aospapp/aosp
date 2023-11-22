@@ -29,9 +29,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Documented
 public @interface RpcDeprecated {
-  /** The method that replaced this one. */
-  public String value();
+    /** The method that replaced this one. */
+    String value();
 
-  /** Release of SL4A when deprecation occurred. */
-  public String release() default "r4";
+    /** Release of SL4A when deprecation occurred. */
+    String release() default "r4";
 }

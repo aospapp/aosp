@@ -36,6 +36,15 @@ namespace parameterFramework
 namespace introspectionSubsystem
 {
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 INTROSPECTION_SUBSYSTEM_EXPORT bool getParameterValue();
+
+#ifdef __cplusplus
 }
-}
+#endif
+
+} // namespace introspectionSubsystem
+} // namespace parameterFramework

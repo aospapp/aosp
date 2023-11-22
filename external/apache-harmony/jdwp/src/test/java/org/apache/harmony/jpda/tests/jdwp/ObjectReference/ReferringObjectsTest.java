@@ -36,15 +36,13 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
 
     static final String thisCommandName = "ObjectReference.ReferringObjects command";
 
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/ReferringObjectsDebuggee;";
+    static final String referreeObjSignature = getClassSignature(ReferringObjectsReferree001.class);
 
-    static final String referreeObjSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/ReferringObjectsReferree001;";
-
-    static final String referrerObjSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/ReferringObjectsReferrer001;";
+    static final String referrerObjSignature = getClassSignature(ReferringObjectsReferrer001.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.ReferringObjectsDebuggee";
+        return ReferringObjectsDebuggee.class.getName();
     }
 
     /**
@@ -96,7 +94,7 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Get the number of referrer objects in ReferringObjectsDebuggee
-        long debuggeeRefTypeID = getClassIDBySignature(debuggeeSignature);
+        long debuggeeRefTypeID = getClassIDBySignature(getDebuggeeClassSignature());
         long referringObjNumID = debuggeeWrapper.vmMirror.getFieldID(
                 debuggeeRefTypeID, "referringObjNum");
         long[] fieldIDs = new long[1];

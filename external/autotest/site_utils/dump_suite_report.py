@@ -21,6 +21,12 @@ def GetParser():
     parser = commandline.ArgumentParser(description=__doc__)
     parser.add_argument('job_ids', type=int, nargs='+',
                         help='Suite job ids to dump')
+    # As a provision suite may exit before its all provision jobs finish, the
+    # provision suite report may not contain all the provision jobs. This hack
+    # helps to dump report for all provision jobs under the given provision
+    # suite (provision-job-id). See more details in crbug.com/794346
+    parser.add_argument('--provision-job-id', type=int,
+                        help='Provision suite job id to dump report.')
     parser.add_argument('--output', '-o', type=str, action='store',
                         help='Path to write JSON file to')
     parser.add_argument('--afe', type=str, action='store',
@@ -43,12 +49,19 @@ def main(argv):
                                             server=options.afe)
         tko = frontend_wrappers.RetryingTKO(timeout_min=5, delay_sec=10)
 
+        job_ids = set(options.job_ids)
+        if options.provision_job_id:
+            job_ids.add(options.provision_job_id)
+
         # Look up and generate entries for all jobs.
         entries = []
-        for suite_job_id in options.job_ids:
+        for suite_job_id in job_ids:
+            reset_finish_time = (suite_job_id == options.provision_job_id)
+
             logging.debug('Suite job %s:' % suite_job_id)
-            suite_entries = suite_report.generate_suite_report(suite_job_id,
-                                                               afe=afe, tko=tko)
+            suite_entries = suite_report.generate_suite_report(
+                suite_job_id, afe=afe, tko=tko,
+                reset_finish_time=reset_finish_time)
             logging.debug('... generated %d entries' % len(suite_entries))
             entries.extend(suite_entries)
 

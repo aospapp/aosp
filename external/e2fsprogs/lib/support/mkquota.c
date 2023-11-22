@@ -51,10 +51,12 @@ static void print_dquot(const char *desc, struct dquot *dq)
 	if (desc)
 		fprintf(stderr, "%s: ", desc);
 	fprintf(stderr, "%u %lld:%lld:%lld %lld:%lld:%lld\n",
-		dq->dq_id, dq->dq_dqb.dqb_curspace,
-		dq->dq_dqb.dqb_bsoftlimit, dq->dq_dqb.dqb_bhardlimit,
-		dq->dq_dqb.dqb_curinodes,
-		dq->dq_dqb.dqb_isoftlimit, dq->dq_dqb.dqb_ihardlimit);
+		dq->dq_id, (long long) dq->dq_dqb.dqb_curspace,
+		(long long) dq->dq_dqb.dqb_bsoftlimit,
+		(long long) dq->dq_dqb.dqb_bhardlimit,
+		(long long) dq->dq_dqb.dqb_curinodes,
+		(long long) dq->dq_dqb.dqb_isoftlimit,
+		(long long) dq->dq_dqb.dqb_ihardlimit);
 }
 #else
 static void print_dquot(const char *desc EXT2FS_ATTR((unused)),
@@ -193,20 +195,21 @@ errcode_t quota_write_inode(quota_ctx_t qctx, unsigned int qtype_bits)
 			continue;
 
 		retval = quota_file_create(h, fs, qtype, fmt);
-		if (retval < 0) {
-			log_debug("Cannot initialize io on quotafile");
-			continue;
+		if (retval) {
+			log_debug("Cannot initialize io on quotafile: %s",
+				  error_message(retval));
+			goto out;
 		}
 
 		write_dquots(dict, h);
 		retval = quota_file_close(qctx, h);
-		if (retval < 0) {
-			log_err("Cannot finish IO on new quotafile: %s",
-				strerror(errno));
+		if (retval) {
+			log_debug("Cannot finish IO on new quotafile: %s",
+				  strerror(errno));
 			if (h->qh_qf.e2_file)
 				ext2fs_file_close(h->qh_qf.e2_file);
 			(void) quota_inode_truncate(fs, h->qh_qf.ino);
-			continue;
+			goto out;
 		}
 
 		/* Set quota inode numbers in superblock. */
@@ -246,6 +249,11 @@ static int dict_uint_cmp(const void *a, const void *b)
 		return -1;
 }
 
+static inline int project_quota_valid(quota_ctx_t qctx)
+{
+	return (EXT2_INODE_SIZE(qctx->fs->super) > EXT2_GOOD_OLD_INODE_SIZE);
+}
+
 static inline qid_t get_qid(struct ext2_inode_large *inode, enum quota_type qtype)
 {
 	unsigned int inode_size;
@@ -260,6 +268,7 @@ static inline qid_t get_qid(struct ext2_inode_large *inode, enum quota_type qtyp
 			inode->i_extra_isize;
 		if (inode_includes(inode_size, i_projid))
 			return inode_projid(*inode);
+		return 0;
 	default:
 		return 0;
 	}
@@ -296,8 +305,13 @@ errcode_t quota_init_context(quota_ctx_t *qctx, ext2_filsys fs,
 	memset(ctx, 0, sizeof(struct quota_ctx));
 	for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
 		ctx->quota_file[qtype] = NULL;
-		if (((1 << qtype) & qtype_bits) == 0)
-			continue;
+		if (qtype_bits) {
+			if (((1 << qtype) & qtype_bits) == 0)
+				continue;
+		} else {
+			if (*quota_sb_inump(fs->super, qtype) == 0)
+				continue;
+		}
 		err = ext2fs_get_mem(sizeof(dict_t), &dict);
 		if (err) {
 			log_debug("Failed to allocate dictionary");
@@ -384,6 +398,8 @@ void quota_data_add(quota_ctx_t qctx, struct ext2_inode_large *inode,
 			inode_uid(*inode),
 			inode_gid(*inode), space);
 	for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
+		if (qtype == PRJQUOTA && !project_quota_valid(qctx))
+			continue;
 		dict = qctx->quota_dict[qtype];
 		if (dict) {
 			dq = get_dq(dict, get_qid(inode, qtype));
@@ -411,6 +427,8 @@ void quota_data_sub(quota_ctx_t qctx, struct ext2_inode_large *inode,
 			inode_uid(*inode),
 			inode_gid(*inode), space);
 	for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
+		if (qtype == PRJQUOTA && !project_quota_valid(qctx))
+			continue;
 		dict = qctx->quota_dict[qtype];
 		if (dict) {
 			dq = get_dq(dict, get_qid(inode, qtype));
@@ -436,6 +454,8 @@ void quota_data_inodes(quota_ctx_t qctx, struct ext2_inode_large *inode,
 			inode_uid(*inode),
 			inode_gid(*inode), adjust);
 	for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
+		if (qtype == PRJQUOTA && !project_quota_valid(qctx))
+			continue;
 		dict = qctx->quota_dict[qtype];
 		if (dict) {
 			dq = get_dq(dict, get_qid(inode, qtype));
@@ -465,8 +485,10 @@ errcode_t quota_compute_usage(quota_ctx_t qctx)
 	}
 	inode_size = fs->super->s_inode_size;
 	inode = malloc(inode_size);
-	if (!inode)
+	if (!inode) {
+		ext2fs_close_inode_scan(scan);
 		return ENOMEM;
+	}
 	while (1) {
 		ret = ext2fs_get_next_inode_full(scan, &ino,
 						 EXT2_INODE(inode), inode_size);
@@ -497,6 +519,7 @@ struct scan_dquots_data {
 	dict_t		*quota_dict;
 	int             update_limits; /* update limits from disk */
 	int		update_usage;
+	int		check_consistency;
 	int		usage_is_inconsistent;
 };
 
@@ -513,16 +536,17 @@ static int scan_dquots_callback(struct dquot *dquot, void *cb_data)
 	print_dquot("mem", dq);
 	print_dquot("dsk", dquot);
 
-	/* Check if there is inconsistancy. */
-	if (dq->dq_dqb.dqb_curspace != dquot->dq_dqb.dqb_curspace ||
-	    dq->dq_dqb.dqb_curinodes != dquot->dq_dqb.dqb_curinodes) {
+	/* Check if there is inconsistency */
+	if (scan_data->check_consistency &&
+	    (dq->dq_dqb.dqb_curspace != dquot->dq_dqb.dqb_curspace ||
+	     dq->dq_dqb.dqb_curinodes != dquot->dq_dqb.dqb_curinodes)) {
 		scan_data->usage_is_inconsistent = 1;
-		fprintf(stderr, "[QUOTA WARNING] Usage inconsistent for ID %d:"
-			"actual (%llu, %llu) != expected (%llu, %llu)\n",
-			dq->dq_id, (long long)dq->dq_dqb.dqb_curspace,
-			(long long)dq->dq_dqb.dqb_curinodes,
-			(long long)dquot->dq_dqb.dqb_curspace,
-			(long long)dquot->dq_dqb.dqb_curinodes);
+		fprintf(stderr, "[QUOTA WARNING] Usage inconsistent for ID %u:"
+			"actual (%lld, %lld) != expected (%lld, %lld)\n",
+			dq->dq_id, (long long) dq->dq_dqb.dqb_curspace,
+			(long long) dq->dq_dqb.dqb_curinodes,
+			(long long) dquot->dq_dqb.dqb_curspace,
+			(long long) dquot->dq_dqb.dqb_curinodes);
 	}
 
 	if (scan_data->update_limits) {
@@ -544,13 +568,15 @@ static int scan_dquots_callback(struct dquot *dquot, void *cb_data)
  * Read all dquots from quota file into memory
  */
 static errcode_t quota_read_all_dquots(struct quota_handle *qh,
-                                       quota_ctx_t qctx, int update_limits)
+                                       quota_ctx_t qctx,
+				       int update_limits EXT2FS_ATTR((unused)))
 {
 	struct scan_dquots_data scan_data;
 
 	scan_data.quota_dict = qctx->quota_dict[qh->qh_type];
-	scan_data.update_limits = update_limits;
-	scan_data.update_usage = 0;
+	scan_data.check_consistency = 0;
+	scan_data.update_limits = 0;
+	scan_data.update_usage = 1;
 
 	return qh->qh_ops->scan_dquots(qh, scan_dquots_callback, &scan_data);
 }
@@ -640,6 +666,7 @@ errcode_t quota_compare_and_update(quota_ctx_t qctx, enum quota_type qtype,
 	scan_data.quota_dict = qctx->quota_dict[qtype];
 	scan_data.update_limits = 1;
 	scan_data.update_usage = 0;
+	scan_data.check_consistency = 1;
 	scan_data.usage_is_inconsistent = 0;
 	err = qh.qh_ops->scan_dquots(&qh, scan_dquots_callback, &scan_data);
 	if (err) {

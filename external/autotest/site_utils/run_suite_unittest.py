@@ -14,6 +14,7 @@ import common
 
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.site_utils import run_suite
+from autotest_lib.site_utils import run_suite_common
 from autotest_lib.site_utils import diagnosis_utils
 
 
@@ -177,7 +178,7 @@ class ResultCollectorUnittest(unittest.TestCase):
                  test_missing])
         collector = run_suite.ResultCollector(
                 'fake_server', self.afe, self.tko,
-                build=build, board='fake', suite_name=suite_name,
+                build=build, suite_name=suite_name,
                 suite_job_id=suite_job_id,
                 return_code_function=run_suite._ReturnCodeComputer())
         collector._missing_results = {
@@ -234,7 +235,7 @@ class ResultCollectorUnittest(unittest.TestCase):
                                 [good_job_id, bad_job_id, missing_job_id])
         collector = run_suite.ResultCollector(
                 'fake_server', self.afe, self.tko,
-                build, board, suite_name, suite_job_id,
+                build, suite_name, suite_job_id,
                 return_code_function=run_suite._ReturnCodeComputer())
         child_views, retry_counts, missing_results = (
                 collector._fetch_test_views_of_child_jobs())
@@ -284,7 +285,7 @@ class ResultCollectorUnittest(unittest.TestCase):
 
         collector = run_suite.ResultCollector(
                 'fake_server', self.afe, self.tko,
-                build, board, suite_name, suite_job_id, user='chromeos-test',
+                build, suite_name, suite_job_id, user='chromeos-test',
                 return_code_function=run_suite._ReturnCodeComputer())
         collector._suite_views = [suite_job_view]
         collector._test_views = [suite_job_view, good_test, bad_test]
@@ -493,7 +494,7 @@ class ResultCollectorUnittest(unittest.TestCase):
         self._mock_afe_get_jobs(suite_job_id, child_jobs)
         collector = run_suite.ResultCollector(
                'fake_server', self.afe, self.tko,
-               'lumpy-release/R36-5788.0.0', 'lumpy', 'dummy', suite_job_id,
+               'lumpy-release/R36-5788.0.0', 'dummy', suite_job_id,
                return_code_function=run_suite._ReturnCodeComputer())
         collector.run()
         collector.output_results()
@@ -504,28 +505,28 @@ class ResultCollectorUnittest(unittest.TestCase):
         """Test it returns code INFRA_FAILURE when no tests report back."""
         collector = self._end_to_end_test_helper(include_good_test=False)
         self.assertEqual(collector.return_result.return_code,
-                         run_suite.RETURN_CODES.INFRA_FAILURE)
+                         run_suite_common.RETURN_CODES.INFRA_FAILURE)
 
 
     def testEndToEndSuitePass(self):
         """Test it returns code OK when all test pass."""
         collector = self._end_to_end_test_helper()
         self.assertEqual(collector.return_result.return_code,
-                         run_suite.RETURN_CODES.OK)
+                         run_suite_common.RETURN_CODES.OK)
 
 
     def testEndToEndSuiteWarn(self):
         """Test it returns code WARNING when there is a test that warns."""
         collector = self._end_to_end_test_helper(include_warn_test=True)
         self.assertEqual(collector.return_result.return_code,
-                         run_suite.RETURN_CODES.WARNING)
+                         run_suite_common.RETURN_CODES.WARNING)
 
 
     def testEndToEndSuiteFail(self):
         """Test it returns code ERROR when there is a test that fails."""
         collector = self._end_to_end_test_helper(include_bad_test=True)
         self.assertEqual(collector.return_result.return_code,
-                         run_suite.RETURN_CODES.ERROR)
+                         run_suite_common.RETURN_CODES.ERROR)
 
 
     def testEndToEndSuiteJobFail(self):
@@ -533,12 +534,12 @@ class ResultCollectorUnittest(unittest.TestCase):
         collector = self._end_to_end_test_helper(suite_job_status='ABORT')
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.INFRA_FAILURE)
+                run_suite_common.RETURN_CODES.INFRA_FAILURE)
 
         collector = self._end_to_end_test_helper(suite_job_status='ERROR')
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.INFRA_FAILURE)
+                run_suite_common.RETURN_CODES.INFRA_FAILURE)
 
 
     def testEndToEndRetry(self):
@@ -546,24 +547,24 @@ class ResultCollectorUnittest(unittest.TestCase):
         collector = self._end_to_end_test_helper(include_good_retry=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.WARNING)
+                run_suite_common.RETURN_CODES.WARNING)
 
         collector = self._end_to_end_test_helper(include_good_retry=True,
                 include_self_aborted_test=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.ERROR)
+                run_suite_common.RETURN_CODES.ERROR)
 
         collector = self._end_to_end_test_helper(include_good_retry=True,
                 include_bad_test=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.ERROR)
+                run_suite_common.RETURN_CODES.ERROR)
 
         collector = self._end_to_end_test_helper(include_bad_retry=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.ERROR)
+                run_suite_common.RETURN_CODES.ERROR)
 
 
     def testEndToEndSuiteTimeout(self):
@@ -572,39 +573,39 @@ class ResultCollectorUnittest(unittest.TestCase):
         collector = self._end_to_end_test_helper(include_timeout_test=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.SUITE_TIMEOUT)
+                run_suite_common.RETURN_CODES.SUITE_TIMEOUT)
 
         # a child job timed out before started, and one test failed.
         collector = self._end_to_end_test_helper(
                 include_bad_test=True, include_timeout_test=True)
         self.assertEqual(collector.return_result.return_code,
-                         run_suite.RETURN_CODES.ERROR)
+                         run_suite_common.RETURN_CODES.ERROR)
 
         # a child job timed out before started, and one test warned.
         collector = self._end_to_end_test_helper(
                 include_warn_test=True, include_timeout_test=True)
         self.assertEqual(collector.return_result.return_code,
-                         run_suite.RETURN_CODES.SUITE_TIMEOUT)
+                         run_suite_common.RETURN_CODES.SUITE_TIMEOUT)
 
         # a child job timed out before started, and one test was retried.
         collector = self._end_to_end_test_helper(include_good_retry=True,
                 include_timeout_test=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.SUITE_TIMEOUT)
+                run_suite_common.RETURN_CODES.SUITE_TIMEOUT)
 
         # a child jot was aborted because suite timed out.
         collector = self._end_to_end_test_helper(
                 include_aborted_by_suite_test=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.SUITE_TIMEOUT)
+                run_suite_common.RETURN_CODES.SUITE_TIMEOUT)
 
         # suite job timed out.
         collector = self._end_to_end_test_helper(suite_job_timed_out=True)
         self.assertEqual(
                 collector.return_result.return_code,
-                run_suite.RETURN_CODES.SUITE_TIMEOUT)
+                run_suite_common.RETURN_CODES.SUITE_TIMEOUT)
 
 
 class LogLinkUnittests(unittest.TestCase):

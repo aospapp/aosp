@@ -164,6 +164,7 @@ public class TerminalManager implements OnSharedPreferenceChangeListener {
         Intent intent = new Intent(mService, mService.getClass());
         intent.setAction(Constants.ACTION_KILL_PROCESS);
         intent.putExtra(Constants.EXTRA_PROXY_PORT, bridge.getId());
+        Log.i(String.format("Killing process from TerminalManager, %s", intent.toUri(0)));
         mService.startService(intent);
       }
     }

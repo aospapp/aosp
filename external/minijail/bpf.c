@@ -59,7 +59,7 @@ size_t bpf_load_arg(struct sock_filter *filter, int argidx)
 }
 #endif
 
-/* Size-aware equality comparison. */
+/* Size-aware comparisons. */
 size_t bpf_comp_jeq32(struct sock_filter *filter, unsigned long c,
 		      unsigned char jt, unsigned char jf)
 {
@@ -85,6 +85,77 @@ size_t bpf_comp_jeq64(struct sock_filter *filter, uint64_t c, unsigned char jt,
 	curr_block += bpf_comp_jeq32(curr_block, hi, NEXT, SKIPN(2) + jf);
 	set_bpf_stmt(curr_block++, BPF_LD + BPF_MEM, 0); /* swap in |lo| */
 	curr_block += bpf_comp_jeq32(curr_block, lo, jt, jf);
+
+	return curr_block - filter;
+}
+#endif
+
+size_t bpf_comp_jgt32(struct sock_filter *filter, unsigned long c,
+		      unsigned char jt, unsigned char jf)
+{
+	unsigned int lo = (unsigned int)(c & 0xFFFFFFFF);
+	set_bpf_jump(filter, BPF_JMP + BPF_JGT + BPF_K, lo, jt, jf);
+	return 1U;
+}
+
+size_t bpf_comp_jge32(struct sock_filter *filter, unsigned long c,
+		      unsigned char jt, unsigned char jf)
+{
+	unsigned int lo = (unsigned int)(c & 0xFFFFFFFF);
+	set_bpf_jump(filter, BPF_JMP + BPF_JGE + BPF_K, lo, jt, jf);
+	return 1U;
+}
+
+/*
+ * On 64 bits, we have to do two/three 32-bit comparisons.
+ * We jump true when the |hi| comparison is true *or* |hi| is equal and the
+ * |lo| comparison is true.
+ */
+#if defined(BITS64)
+size_t bpf_comp_jgt64(struct sock_filter *filter, uint64_t c, unsigned char jt,
+		      unsigned char jf)
+{
+	unsigned int lo = (unsigned int)(c & 0xFFFFFFFF);
+	unsigned int hi = (unsigned int)(c >> 32);
+
+	struct sock_filter *curr_block = filter;
+
+	/* bpf_load_arg leaves |hi| in A. */
+	if (hi == 0) {
+		curr_block +=
+		    bpf_comp_jgt32(curr_block, hi, SKIPN(2) + jt, NEXT);
+	} else {
+		curr_block +=
+		    bpf_comp_jgt32(curr_block, hi, SKIPN(3) + jt, NEXT);
+		curr_block +=
+		    bpf_comp_jeq32(curr_block, hi, NEXT, SKIPN(2) + jf);
+	}
+	set_bpf_stmt(curr_block++, BPF_LD + BPF_MEM, 0); /* swap in |lo| */
+	curr_block += bpf_comp_jgt32(curr_block, lo, jt, jf);
+
+	return curr_block - filter;
+}
+
+size_t bpf_comp_jge64(struct sock_filter *filter, uint64_t c, unsigned char jt,
+		      unsigned char jf)
+{
+	unsigned int lo = (unsigned int)(c & 0xFFFFFFFF);
+	unsigned int hi = (unsigned int)(c >> 32);
+
+	struct sock_filter *curr_block = filter;
+
+	/* bpf_load_arg leaves |hi| in A. */
+	if (hi == 0) {
+		curr_block +=
+		    bpf_comp_jgt32(curr_block, hi, SKIPN(2) + jt, NEXT);
+	} else {
+		curr_block +=
+		    bpf_comp_jgt32(curr_block, hi, SKIPN(3) + jt, NEXT);
+		curr_block +=
+		    bpf_comp_jeq32(curr_block, hi, NEXT, SKIPN(2) + jf);
+	}
+	set_bpf_stmt(curr_block++, BPF_LD + BPF_MEM, 0); /* swap in |lo| */
+	curr_block += bpf_comp_jge32(curr_block, lo, jt, jf);
 
 	return curr_block - filter;
 }
@@ -133,11 +204,33 @@ size_t bpf_comp_jin(struct sock_filter *filter, unsigned long mask,
 	return bpf_comp_jset(filter, negative_mask, jf, jt);
 }
 
+static size_t bpf_arg_comp_len(int op, unsigned long c attribute_unused)
+{
+	/* The comparisons that use gt/ge internally may have extra opcodes. */
+	switch (op) {
+	case LT:
+	case LE:
+	case GT:
+	case GE:
+#if defined(BITS64)
+		/*
+		 * |c| can only have a high 32-bit part when running on 64 bits.
+		 */
+		if ((c >> 32) == 0)
+			return BPF_ARG_SHORT_GT_GE_COMP_LEN + 1;
+#endif
+		return BPF_ARG_GT_GE_COMP_LEN + 1;
+	default:
+		return BPF_ARG_COMP_LEN + 1;
+	}
+}
+
 size_t bpf_arg_comp(struct sock_filter **pfilter, int op, int argidx,
 		    unsigned long c, unsigned int label_id)
 {
+	size_t filter_len = bpf_arg_comp_len(op, c);
 	struct sock_filter *filter =
-	    calloc(BPF_ARG_COMP_LEN + 1, sizeof(struct sock_filter));
+	    calloc(filter_len, sizeof(struct sock_filter));
 	struct sock_filter *curr_block = filter;
 	size_t (*comp_function)(struct sock_filter * filter, unsigned long k,
 				unsigned char jt, unsigned char jf);
@@ -155,6 +248,22 @@ size_t bpf_arg_comp(struct sock_filter **pfilter, int op, int argidx,
 	case NE:
 		comp_function = bpf_comp_jeq;
 		flip = 1;
+		break;
+	case LT:
+		comp_function = bpf_comp_jge;
+		flip = 1;
+		break;
+	case LE:
+		comp_function = bpf_comp_jgt;
+		flip = 1;
+		break;
+	case GT:
+		comp_function = bpf_comp_jgt;
+		flip = 0;
+		break;
+	case GE:
+		comp_function = bpf_comp_jge;
+		flip = 0;
 		break;
 	case SET:
 		comp_function = bpf_comp_jset;
@@ -180,25 +289,6 @@ size_t bpf_arg_comp(struct sock_filter **pfilter, int op, int argidx,
 
 	*pfilter = filter;
 	return curr_block - filter;
-}
-
-void dump_bpf_filter(struct sock_filter *filter, unsigned short len)
-{
-	int i = 0;
-
-	printf("len == %d\n", len);
-	printf("filter:\n");
-	for (i = 0; i < len; i++) {
-		printf("%d: \t{ code=%#x, jt=%u, jf=%u, k=%#x \t}\n", i,
-		       filter[i].code, filter[i].jt, filter[i].jf, filter[i].k);
-	}
-}
-
-void dump_bpf_prog(struct sock_fprog *fprog)
-{
-	struct sock_filter *filter = fprog->filter;
-	unsigned short len = fprog->len;
-	dump_bpf_filter(filter, len);
 }
 
 int bpf_resolve_jumps(struct bpf_labels *labels, struct sock_filter *filter,

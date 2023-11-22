@@ -2,10 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
-import time
-
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import site_eap_certs
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import ping_runner
@@ -37,26 +35,6 @@ class network_WiFi_PMKSACaching(wifi_cell_test_base.WiFiCellTestBase):
         return scan_results and filter(is_requested_bss, scan_results)
 
 
-    def retry(self, func, reason, timeout_seconds=TIMEOUT_SECONDS):
-        """
-        Retry a function until it returns true or we time out.
-
-        @param func: function that takes no parameters.
-        @param reason: string concise description of what the function does.
-        @param timeout_seconds: int number of seconds to wait for a True
-                response from |func|.
-
-        """
-        logging.info('Waiting for %s.', reason)
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            if func():
-                return
-            time.sleep(1)
-        else:
-            raise error.TestFail('Timed out waiting for %s.' % reason)
-
-
     def run_once(self):
         """Body of the test."""
         mode_n = hostap_config.HostapConfig.MODE_11N_PURE
@@ -84,7 +62,12 @@ class network_WiFi_PMKSACaching(wifi_cell_test_base.WiFiCellTestBase):
         self.context.configure(ap_config1, multi_interface=True)
         bssid0 = self.context.router.get_hostapd_mac(0)
         bssid1 = self.context.router.get_hostapd_mac(1)
-        self.retry(lambda: self.dut_sees_bss(bssid1), 'DUT to see second AP')
+        utils.poll_for_condition(
+                condition=lambda: self.dut_sees_bss(bssid1),
+                exception=error.TestFail(
+                        'Timed out waiting for DUT to see second AP'),
+                timeout=self.TIMEOUT_SECONDS,
+                sleep_interval=1)
         self.context.client.request_roam(bssid1)
         if not self.context.client.wait_for_roam(
                 bssid1, timeout_seconds=self.TIMEOUT_SECONDS):
@@ -96,7 +79,12 @@ class network_WiFi_PMKSACaching(wifi_cell_test_base.WiFiCellTestBase):
             raise error.TestFail('Failed to fall back to first BSS.')
 
         pinger = ping_runner.PingRunner(host=self.context.client.host)
-        self.retry(lambda: pinger.simple_ping(
-                           self.context.router.get_wifi_ip(0)),
-                   'DUT to be able to ping first BSS after fallback')
+        utils.poll_for_condition(
+                condition=lambda: pinger.simple_ping(
+                        self.context.router.get_wifi_ip(0)),
+                exception=error.TestFail(
+                        'Timed out waiting for DUT to be able to'
+                        'ping first BSS after fallback'),
+                timeout=self.TIMEOUT_SECONDS,
+                sleep_interval=1)
         self.context.router.confirm_pmksa_cache_use(instance=0)

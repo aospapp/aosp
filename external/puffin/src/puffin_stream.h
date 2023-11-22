@@ -102,7 +102,9 @@ class PuffinStream : public StreamInterface {
   // Returns the cache for the |puff_id|th puff. If it does not find it, either
   // returns the least accessed cached (if cache is full) or creates a new empty
   // buffer. It returns false if it cannot find the |puff_id|th puff cache.
-  bool GetPuffCache(int puff_id, uint64_t puff_size, SharedBufferPtr* buffer);
+  bool GetPuffCache(int puff_id,
+                    uint64_t puff_size,
+                    std::shared_ptr<Buffer>* buffer);
 
   UniqueStreamPtr stream_;
 
@@ -149,11 +151,11 @@ class PuffinStream : public StreamInterface {
   // True if the |Close()| is called.
   bool closed_;
 
-  UniqueBufferPtr deflate_buffer_;
-  SharedBufferPtr puff_buffer_;
+  std::unique_ptr<Buffer> deflate_buffer_;
+  std::shared_ptr<Buffer> puff_buffer_;
 
   // The list of puff buffer caches.
-  std::list<std::pair<int, SharedBufferPtr>> caches_;
+  std::list<std::pair<int, std::shared_ptr<Buffer>>> caches_;
   // The maximum memory (in bytes) kept for caching puff buffers by an object of
   // this class.
   size_t max_cache_size_;

@@ -124,6 +124,72 @@ class AfeStoreTest(unittest.TestCase):
         self.assertEqual(str(self.store), 'AfeStore[some-host]')
 
 
+class AfeStoreKeepPoolTest(unittest.TestCase):
+    """Test commit success cases for AfeStoreKeepPool."""
+
+    def setUp(self):
+        self.hostname = 'some-host'
+        self.mock_afe = mock.create_autospec(frontend.AFE, instance=True)
+        self.store = afe_store.AfeStoreKeepPool(
+                self.hostname, afe=self.mock_afe)
+
+    def _create_mock_host(self, labels, attributes):
+        """Create a mock frontend.Host with the given labels and attributes.
+
+        @param labels: The labels to set on the host.
+        @param attributes: The attributes to set on the host.
+        @returns: A mock object for frontend.Host.
+        """
+        mock_host = mock.create_autospec(frontend.Host, instance=True)
+        mock_host.labels = labels
+        mock_host.attributes = attributes
+        return mock_host
+
+    def test_no_pool_label(self):
+        """Tests that no pool labels are updated on commit."""
+        self.mock_afe.get_hosts.return_value = [
+                self._create_mock_host(['label1'], {})]
+        new_info = host_info.HostInfo(['label2'], {})
+        old_info = self.store._refresh_impl()
+        labels_to_remove, labels_to_add = self.store._adjust_pool(
+                old_info, new_info)
+        self.assertEqual((labels_to_remove, labels_to_add),
+                         (['label1'], ['label2']))
+
+    def test_update_pool_label(self):
+        """Tests that pool labels are updated correctly on commit."""
+        self.mock_afe.get_hosts.return_value = [
+                self._create_mock_host(['pool:XXX'], {})]
+        new_info = host_info.HostInfo(['pool:YYY'], {})
+        old_info = self.store._refresh_impl()
+        labels_to_remove, labels_to_add = self.store._adjust_pool(
+                old_info, new_info)
+        self.assertEqual((labels_to_remove, labels_to_add),
+                         (['pool:XXX'], ['pool:YYY']))
+
+    def test_add_pool_label(self):
+        """Tests that pool labels are added correctly on commit."""
+        self.mock_afe.get_hosts.return_value = [
+                self._create_mock_host(['label1'], {})]
+        new_info = host_info.HostInfo(['pool:YYY'], {})
+        old_info = self.store._refresh_impl()
+        labels_to_remove, labels_to_add = self.store._adjust_pool(
+                old_info, new_info)
+        self.assertEqual((labels_to_remove, labels_to_add),
+                         (['label1'], ['pool:YYY']))
+
+    def test_remove_pool_label(self):
+        """Tests that pool labels are not removed on commit."""
+        self.mock_afe.get_hosts.return_value = [
+                self._create_mock_host(['pool:XXX'], {})]
+        new_info = host_info.HostInfo(['label2'], {})
+        old_info = self.store._refresh_impl()
+        labels_to_remove, labels_to_add = self.store._adjust_pool(
+                old_info, new_info)
+        self.assertEqual((labels_to_remove, labels_to_add),
+                         ([], ['label2']))
+
+
 class DictDiffTest(unittest.TestCase):
     """Tests the afe_store._dict_diff private method."""
 

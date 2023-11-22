@@ -37,6 +37,7 @@
 #include <base/files/file_util.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 
 #include "fake_avb_ops.h"
@@ -91,6 +92,10 @@ AvbIOResult FakeAvbOps::read_from_partition(const char* partition,
                                             size_t num_bytes,
                                             void* buffer,
                                             size_t* out_num_read) {
+  if (hidden_partitions_.find(partition) != hidden_partitions_.end()) {
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+  }
+
   base::FilePath path =
       partition_dir_.Append(std::string(partition)).AddExtension("img");
 
@@ -152,6 +157,9 @@ AvbIOResult FakeAvbOps::get_preloaded_partition(
     size_t num_bytes,
     uint8_t** out_pointer,
     size_t* out_num_bytes_preloaded) {
+  if (hidden_partitions_.find(partition) != hidden_partitions_.end()) {
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+  }
   std::map<std::string, uint8_t*>::iterator it =
       preloaded_partitions_.find(std::string(partition));
   if (it == preloaded_partitions_.end()) {
@@ -178,6 +186,10 @@ AvbIOResult FakeAvbOps::write_to_partition(const char* partition,
                                            int64_t offset,
                                            size_t num_bytes,
                                            const void* buffer) {
+  if (hidden_partitions_.find(partition) != hidden_partitions_.end()) {
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+  }
+
   base::FilePath path =
       partition_dir_.Append(std::string(partition)).AddExtension("img");
 
@@ -288,6 +300,9 @@ AvbIOResult FakeAvbOps::get_unique_guid_for_partition(AvbOps* ops,
                                                       const char* partition,
                                                       char* guid_buf,
                                                       size_t guid_buf_size) {
+  if (hidden_partitions_.find(partition) != hidden_partitions_.end()) {
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+  }
   // This is faking it a bit but makes testing easy. It works
   // because avb_slot_verify.c doesn't check that the returned GUID
   // is wellformed.
@@ -298,13 +313,16 @@ AvbIOResult FakeAvbOps::get_unique_guid_for_partition(AvbOps* ops,
 AvbIOResult FakeAvbOps::get_size_of_partition(AvbOps* ops,
                                               const char* partition,
                                               uint64_t* out_size) {
+  if (hidden_partitions_.find(partition) != hidden_partitions_.end()) {
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+  }
+
   base::FilePath path =
       partition_dir_.Append(std::string(partition)).AddExtension("img");
 
   int64_t file_size;
   if (!base::GetFileSize(path, &file_size)) {
-    fprintf(stderr, "Error getting size of file '%s'\n", path.value().c_str());
-    return AVB_IO_RESULT_ERROR_IO;
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
   }
   *out_size = file_size;
   return AVB_IO_RESULT_OK;
@@ -360,6 +378,13 @@ AvbIOResult FakeAvbOps::read_permanent_attributes_hash(
 void FakeAvbOps::set_key_version(size_t rollback_index_location,
                                  uint64_t key_version) {
   verified_rollback_indexes_[rollback_index_location] = key_version;
+}
+
+AvbIOResult FakeAvbOps::get_random(size_t num_bytes, uint8_t* output) {
+  if (!RAND_bytes(output, num_bytes)) {
+    return AVB_IO_RESULT_ERROR_IO;
+  }
+  return AVB_IO_RESULT_OK;
 }
 
 static AvbIOResult my_ops_read_from_partition(AvbOps* ops,
@@ -493,6 +518,14 @@ static void my_ops_set_key_version(AvbAtxOps* atx_ops,
       ->set_key_version(rollback_index_location, key_version);
 }
 
+static AvbIOResult my_ops_get_random(AvbAtxOps* atx_ops,
+                                     size_t num_bytes,
+                                     uint8_t* output) {
+  return FakeAvbOps::GetInstanceFromAvbOps(atx_ops->ops)
+      ->delegate()
+      ->get_random(num_bytes, output);
+}
+
 FakeAvbOps::FakeAvbOps() {
   memset(&avb_ops_, 0, sizeof(avb_ops_));
   avb_ops_.ab_ops = &avb_ab_ops_;
@@ -519,6 +552,7 @@ FakeAvbOps::FakeAvbOps() {
   avb_atx_ops_.read_permanent_attributes_hash =
       my_ops_read_permanent_attributes_hash;
   avb_atx_ops_.set_key_version = my_ops_set_key_version;
+  avb_atx_ops_.get_random = my_ops_get_random;
 
   delegate_ = this;
 }

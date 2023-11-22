@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <linux/capability.h>
+#include <linux/filter.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -82,6 +83,14 @@
 /* Keyctl commands. */
 #define KEYCTL_JOIN_SESSION_KEYRING 1
 
+/*
+ * The userspace equivalent of MNT_USER_SETTABLE_MASK, which is the mask of all
+ * flags that can be modified by MS_REMOUNT.
+ */
+#define MS_USER_SETTABLE_MASK                                                  \
+	(MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_NOATIME | MS_NODIRATIME |       \
+	 MS_RELATIME | MS_RDONLY)
+
 struct minijail_rlimit {
 	int type;
 	rlim_t cur;
@@ -150,6 +159,7 @@ struct minijail {
 		int cgroups : 1;
 		int alt_syscall : 1;
 		int reset_signal_mask : 1;
+		int reset_signal_handlers : 1;
 		int close_open_fds : 1;
 		int new_session_keyring : 1;
 		int forward_signals : 1;
@@ -170,6 +180,7 @@ struct minijail {
 	char *uidmap;
 	char *gidmap;
 	char *hostname;
+	char *preload_path;
 	size_t filter_len;
 	struct sock_fprog *filter_prog;
 	char *alt_syscall_table;
@@ -216,6 +227,9 @@ void minijail_preenter(struct minijail *j)
 {
 	j->flags.vfs = 0;
 	j->flags.enter_vfs = 0;
+	j->flags.ns_cgroups = 0;
+	j->flags.net = 0;
+	j->flags.uts = 0;
 	j->flags.remount_proc_ro = 0;
 	j->flags.pids = 0;
 	j->flags.do_init = 0;
@@ -234,6 +248,9 @@ void minijail_preexec(struct minijail *j)
 {
 	int vfs = j->flags.vfs;
 	int enter_vfs = j->flags.enter_vfs;
+	int ns_cgroups = j->flags.ns_cgroups;
+	int net = j->flags.net;
+	int uts = j->flags.uts;
 	int remount_proc_ro = j->flags.remount_proc_ro;
 	int userns = j->flags.userns;
 	if (j->user)
@@ -242,11 +259,17 @@ void minijail_preexec(struct minijail *j)
 	if (j->suppl_gid_list)
 		free(j->suppl_gid_list);
 	j->suppl_gid_list = NULL;
+	if (j->preload_path)
+		free(j->preload_path);
+	j->preload_path = NULL;
 	free_mounts_list(j);
 	memset(&j->flags, 0, sizeof(j->flags));
 	/* Now restore anything we meant to keep. */
 	j->flags.vfs = vfs;
 	j->flags.enter_vfs = enter_vfs;
+	j->flags.ns_cgroups = ns_cgroups;
+	j->flags.net = net;
+	j->flags.uts = uts;
 	j->flags.remount_proc_ro = remount_proc_ro;
 	j->flags.userns = userns;
 	/* Note, |pids| will already have been used before this call. */
@@ -366,7 +389,11 @@ void API minijail_log_seccomp_filter_failures(struct minijail *j)
 		die("minijail_log_seccomp_filter_failures() must be called "
 		    "before minijail_parse_seccomp_filters()");
 	}
+#ifdef ALLOW_DEBUG_LOGGING
 	j->flags.seccomp_filter_logging = 1;
+#else
+	warn("non-debug build: ignoring request to enable seccomp logging");
+#endif
 }
 
 void API minijail_use_caps(struct minijail *j, uint64_t capmask)
@@ -415,6 +442,11 @@ void API minijail_reset_signal_mask(struct minijail *j)
 	j->flags.reset_signal_mask = 1;
 }
 
+void API minijail_reset_signal_handlers(struct minijail *j)
+{
+	j->flags.reset_signal_handlers = 1;
+}
+
 void API minijail_namespace_vfs(struct minijail *j)
 {
 	j->flags.vfs = 1;
@@ -422,7 +454,8 @@ void API minijail_namespace_vfs(struct minijail *j)
 
 void API minijail_namespace_enter_vfs(struct minijail *j, const char *ns_path)
 {
-	int ns_fd = open(ns_path, O_RDONLY | O_CLOEXEC);
+	/* Note: Do not use O_CLOEXEC here.  We'll close it after we use it. */
+	int ns_fd = open(ns_path, O_RDONLY);
 	if (ns_fd < 0) {
 		pdie("failed to open namespace '%s'", ns_path);
 	}
@@ -459,6 +492,13 @@ void API minijail_namespace_pids(struct minijail *j)
 	j->flags.do_init = 1;
 }
 
+void API minijail_namespace_pids_rw_proc(struct minijail *j)
+{
+	j->flags.vfs = 1;
+	j->flags.pids = 1;
+	j->flags.do_init = 1;
+}
+
 void API minijail_namespace_ipc(struct minijail *j)
 {
 	j->flags.ipc = 1;
@@ -487,7 +527,8 @@ void API minijail_namespace_net(struct minijail *j)
 
 void API minijail_namespace_enter_net(struct minijail *j, const char *ns_path)
 {
-	int ns_fd = open(ns_path, O_RDONLY | O_CLOEXEC);
+	/* Note: Do not use O_CLOEXEC here.  We'll close it after we use it. */
+	int ns_fd = open(ns_path, O_RDONLY);
 	if (ns_fd < 0) {
 		pdie("failed to open namespace '%s'", ns_path);
 	}
@@ -712,15 +753,30 @@ int API minijail_mount_with_data(struct minijail *j, const char *src,
 	m->type = strdup(type);
 	if (!m->type)
 		goto error;
+
+	if (!data || !data[0]) {
+		/*
+		 * Set up secure defaults for certain filesystems.  Adding this
+		 * fs-specific logic here kind of sucks, but considering how
+		 * people use these in practice, it's probably OK.  If they want
+		 * the kernel defaults, they can pass data="" instead of NULL.
+		 */
+		if (!strcmp(type, "tmpfs")) {
+			/* tmpfs defaults to mode=1777 and size=50%. */
+			data = "mode=0755,size=10M";
+		}
+	}
 	if (data) {
 		m->data = strdup(data);
 		if (!m->data)
 			goto error;
 		m->has_data = 1;
 	}
-	m->flags = flags;
 
-	info("mount %s -> %s type '%s'", src, dest, type);
+	/* If they don't specify any flags, default to secure ones. */
+	if (flags == 0)
+		flags = MS_NODEV | MS_NOEXEC | MS_NOSUID;
+	m->flags = flags;
 
 	/*
 	 * Force vfs namespacing so the mounts don't leak out into the
@@ -800,6 +856,16 @@ int API minijail_preserve_fd(struct minijail *j, int parent_fd, int child_fd)
 	return 0;
 }
 
+int API minijail_set_preload_path(struct minijail *j, const char *preload_path)
+{
+	if (j->preload_path)
+		return -EINVAL;
+	j->preload_path = strdup(preload_path);
+	if (!j->preload_path)
+		return -ENOMEM;
+	return 0;
+}
+
 static void clear_seccomp_options(struct minijail *j)
 {
 	j->flags.seccomp_filter = 0;
@@ -810,7 +876,7 @@ static void clear_seccomp_options(struct minijail *j)
 	j->flags.no_new_privs = 0;
 }
 
-static int seccomp_should_parse_filters(struct minijail *j)
+static int seccomp_should_use_filters(struct minijail *j)
 {
 	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, NULL) == -1) {
 		/*
@@ -858,10 +924,65 @@ static int seccomp_should_parse_filters(struct minijail *j)
 	return 1;
 }
 
+static int set_seccomp_filters_internal(struct minijail *j,
+					struct sock_fprog *filter, bool owned)
+{
+	struct sock_fprog *fprog;
+
+	if (owned) {
+		fprog = filter;
+	} else {
+		fprog = malloc(sizeof(struct sock_fprog));
+		if (!fprog)
+			return -ENOMEM;
+		fprog->len = filter->len;
+		fprog->filter = malloc(sizeof(struct sock_filter) * fprog->len);
+		if (!fprog->filter) {
+			free(fprog);
+			return -ENOMEM;
+		}
+		memcpy(fprog->filter, filter->filter,
+		       sizeof(struct sock_filter) * fprog->len);
+	}
+
+	if (j->filter_prog) {
+		free(j->filter_prog->filter);
+		free(j->filter_prog);
+	}
+
+	j->filter_len = fprog->len;
+	j->filter_prog = fprog;
+	return 0;
+}
+
+void API minijail_set_seccomp_filters(struct minijail *j,
+				      const struct sock_fprog *filter)
+{
+	if (!seccomp_should_use_filters(j))
+		return;
+
+	if (j->flags.seccomp_filter_logging) {
+		die("minijail_log_seccomp_filter_failures() is incompatible "
+		    "with minijail_set_seccomp_filters()");
+	}
+
+	/*
+	 * set_seccomp_filters_internal() can only fail with ENOMEM.
+	 * Furthermore, since we won't own the incoming filter, it will not be
+	 * modified.
+	 */
+	if (set_seccomp_filters_internal(j, (struct sock_fprog *)filter,
+					 false) < 0) {
+		die("failed to copy seccomp filter");
+	}
+}
+
 static int parse_seccomp_filters(struct minijail *j, const char *filename,
 				 FILE *policy_file)
 {
 	struct sock_fprog *fprog = malloc(sizeof(struct sock_fprog));
+	if (!fprog)
+		return -ENOMEM;
 	int use_ret_trap =
 	    j->flags.seccomp_filter_tsync || j->flags.seccomp_filter_logging;
 	int allow_logging = j->flags.seccomp_filter_logging;
@@ -872,17 +993,15 @@ static int parse_seccomp_filters(struct minijail *j, const char *filename,
 		return -1;
 	}
 
-	j->filter_len = fprog->len;
-	j->filter_prog = fprog;
-	return 0;
+	return set_seccomp_filters_internal(j, fprog, true);
 }
 
 void API minijail_parse_seccomp_filters(struct minijail *j, const char *path)
 {
-	if (!seccomp_should_parse_filters(j))
+	if (!seccomp_should_use_filters(j))
 		return;
 
-	FILE *file = fopen(path, "r");
+	FILE *file = fopen(path, "re");
 	if (!file) {
 		pdie("failed to open seccomp filter file '%s'", path);
 	}
@@ -899,7 +1018,7 @@ void API minijail_parse_seccomp_filters_from_fd(struct minijail *j, int fd)
 	char *fd_path, *path;
 	FILE *file;
 
-	if (!seccomp_should_parse_filters(j))
+	if (!seccomp_should_use_filters(j))
 		return;
 
 	file = fdopen(fd, "r");
@@ -1032,6 +1151,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 	length -= sizeof(*j);
 
 	/* Potentially stale pointers not used as signals. */
+	j->preload_path = NULL;
 	j->pid_file_path = NULL;
 	j->uidmap = NULL;
 	j->gidmap = NULL;
@@ -1169,10 +1289,8 @@ bad_cgroups:
 	for (i = 0; i < j->cgroup_count; ++i)
 		free(j->cgroups[i]);
 bad_mounts:
-	if (j->flags.seccomp_filter && j->filter_len > 0) {
+	if (j->filter_prog && j->filter_prog->filter)
 		free(j->filter_prog->filter);
-		free(j->filter_prog);
-	}
 bad_filter_prog_instrs:
 	if (j->filter_prog)
 		free(j->filter_prog);
@@ -1360,7 +1478,8 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 {
 	int ret;
 	char *dest;
-	int remount_ro = 0;
+	int remount = 0;
+	unsigned long original_mnt_flags = 0;
 
 	/* We assume |dest| has a leading "/". */
 	if (dev_path && strncmp("/dev/", m->dest, 5) == 0) {
@@ -1372,35 +1491,44 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 			return -ENOMEM;
 	}
 
-	ret = setup_mount_destination(m->src, dest, j->uid, j->gid,
-				      (m->flags & MS_BIND));
+	ret =
+	    setup_mount_destination(m->src, dest, j->uid, j->gid,
+				    (m->flags & MS_BIND), &original_mnt_flags);
 	if (ret) {
-		pwarn("creating mount target '%s' failed", dest);
+		warn("creating mount target '%s' failed", dest);
 		goto error;
 	}
 
 	/*
-	 * R/O bind mounts have to be remounted since 'bind' and 'ro'
-	 * can't both be specified in the original bind mount.
-	 * Remount R/O after the initial mount.
+	 * Bind mounts that change the 'ro' flag have to be remounted since
+	 * 'bind' and other flags can't both be specified in the same command.
+	 * Remount after the initial mount.
 	 */
-	if ((m->flags & MS_BIND) && (m->flags & MS_RDONLY)) {
-		remount_ro = 1;
-		m->flags &= ~MS_RDONLY;
+	if ((m->flags & MS_BIND) &&
+	    ((m->flags & MS_RDONLY) != (original_mnt_flags & MS_RDONLY))) {
+		remount = 1;
+		/*
+		 * Restrict the mount flags to those that are user-settable in a
+		 * MS_REMOUNT request, but excluding MS_RDONLY. The
+		 * user-requested mount flags will dictate whether the remount
+		 * will have that flag or not.
+		 */
+		original_mnt_flags &= (MS_USER_SETTABLE_MASK & ~MS_RDONLY);
 	}
 
 	ret = mount(m->src, dest, m->type, m->flags, m->data);
 	if (ret) {
-		pwarn("mount: %s -> %s", m->src, dest);
+		pwarn("bind: %s -> %s flags=%#lx", m->src, dest, m->flags);
 		goto error;
 	}
 
-	if (remount_ro) {
-		m->flags |= MS_RDONLY;
-		ret = mount(m->src, dest, NULL,
-			    m->flags | MS_REMOUNT, m->data);
+	if (remount) {
+		ret =
+		    mount(m->src, dest, NULL,
+			  m->flags | original_mnt_flags | MS_REMOUNT, m->data);
 		if (ret) {
-			pwarn("bind ro: %s -> %s", m->src, dest);
+			pwarn("bind remount: %s -> %s flags=%#lx", m->src, dest,
+			      m->flags | original_mnt_flags | MS_REMOUNT);
 			goto error;
 		}
 	}
@@ -1730,12 +1858,28 @@ static void drop_caps(const struct minijail *j, unsigned int last_valid_cap)
 		die("can't apply initial cleaned capset");
 
 	/*
-	 * Instead of dropping bounding set first, do it here in case
+	 * Instead of dropping the bounding set first, do it here in case
 	 * the caller had a more permissive bounding set which could
 	 * have been used above to raise a capability that wasn't already
 	 * present. This requires CAP_SETPCAP, so we raised/kept it above.
+	 *
+	 * However, if we're asked to skip setting *and* locking the
+	 * SECURE_NOROOT securebit, also skip dropping the bounding set.
+	 * If the caller wants to regain all capabilities when executing a
+	 * set-user-ID-root program, allow them to do so. The default behavior
+	 * (i.e. the behavior without |securebits_skip_mask| set) will still put
+	 * the jailed process tree in a capabilities-only environment.
+	 *
+	 * We check the negated skip mask for SECURE_NOROOT and
+	 * SECURE_NOROOT_LOCKED. If the bits are set in the negated mask they
+	 * will *not* be skipped in lock_securebits(), and therefore we should
+	 * drop the bounding set.
 	 */
-	drop_capbset(j->caps, last_valid_cap);
+	if (secure_noroot_set_and_locked(~j->securebits_skip_mask)) {
+		drop_capbset(j->caps, last_valid_cap);
+	} else {
+		warn("SECURE_NOROOT not set, not dropping bounding set");
+	}
 
 	/* If CAP_SETPCAP wasn't specifically requested, now we remove it. */
 	if ((j->caps & (one << CAP_SETPCAP)) == 0) {
@@ -1802,7 +1946,7 @@ static void set_seccomp_filter(const struct minijail *j)
 	 * seccomp filter.
 	 */
 	if (j->flags.seccomp_filter && running_with_asan()) {
-		warn("running with ASan, not setting seccomp filter");
+		warn("running with (HW)ASan, not setting seccomp filter");
 		return;
 	}
 
@@ -1823,7 +1967,6 @@ static void set_seccomp_filter(const struct minijail *j)
 			 */
 			if (signal(SIGSYS, SIG_DFL) == SIG_ERR)
 				pdie("failed to reset SIGSYS disposition");
-			info("reset SIGSYS disposition");
 		}
 	}
 
@@ -1848,12 +1991,12 @@ static void set_seccomp_filter(const struct minijail *j)
 
 static pid_t forward_pid = -1;
 
-static void forward_signal(__attribute__((unused)) int nr,
-			   __attribute__((unused)) siginfo_t *siginfo,
-			   __attribute__((unused)) void *void_context)
+static void forward_signal(int sig,
+			   siginfo_t *siginfo attribute_unused,
+			   void *void_context attribute_unused)
 {
 	if (forward_pid != -1) {
-		kill(forward_pid, nr);
+		kill(forward_pid, sig);
 	}
 }
 
@@ -1866,19 +2009,19 @@ static void install_signal_handlers(void)
 	act.sa_flags = SA_SIGINFO | SA_RESTART;
 
 	/* Handle all signals, except SIGCHLD. */
-	for (int nr = 1; nr < NSIG; nr++) {
+	for (int sig = 1; sig < NSIG; sig++) {
 		/*
 		 * We don't care if we get EINVAL: that just means that we
 		 * can't handle this signal, so let's skip it and continue.
 		 */
-		sigaction(nr, &act, NULL);
+		sigaction(sig, &act, NULL);
 	}
 	/* Reset SIGCHLD's handler. */
 	signal(SIGCHLD, SIG_DFL);
 
 	/* Handle real-time signals. */
-	for (int nr = SIGRTMIN; nr <= SIGRTMAX; nr++) {
-		sigaction(nr, &act, NULL);
+	for (int sig = SIGRTMIN; sig <= SIGRTMAX; sig++) {
+		sigaction(sig, &act, NULL);
 	}
 }
 
@@ -1943,8 +2086,11 @@ void API minijail_enter(const struct minijail *j)
 	 * so we don't even try. If any of our operations fail, we abort() the
 	 * entire process.
 	 */
-	if (j->flags.enter_vfs && setns(j->mountns_fd, CLONE_NEWNS))
-		pdie("setns(CLONE_NEWNS) failed");
+	if (j->flags.enter_vfs) {
+		if (setns(j->mountns_fd, CLONE_NEWNS))
+			pdie("setns(CLONE_NEWNS) failed");
+		close(j->mountns_fd);
+	}
 
 	if (j->flags.vfs) {
 		if (unshare(CLONE_NEWNS))
@@ -1977,6 +2123,7 @@ void API minijail_enter(const struct minijail *j)
 	if (j->flags.enter_net) {
 		if (setns(j->netns_fd, CLONE_NEWNET))
 			pdie("setns(CLONE_NEWNET) failed");
+		close(j->netns_fd);
 	} else if (j->flags.net) {
 		if (unshare(CLONE_NEWNET))
 			pdie("unshare(CLONE_NEWNET) failed");
@@ -2016,17 +2163,20 @@ void API minijail_enter(const struct minijail *j)
 		drop_capbset(j->cap_bset, last_valid_cap);
 	}
 
+	/*
+	 * POSIX capabilities are a bit tricky. We must set SECBIT_KEEP_CAPS
+	 * before drop_ugid() below as the latter would otherwise drop all
+	 * capabilities.
+	 */
 	if (j->flags.use_caps) {
 		/*
-		 * POSIX capabilities are a bit tricky. If we drop our
-		 * capability to change uids, our attempt to use setuid()
-		 * below will fail. Hang on to root caps across setuid(), then
-		 * lock securebits.
+		 * When using ambient capabilities, CAP_SET{GID,UID} can be
+		 * inherited across execve(2), so SECBIT_KEEP_CAPS is not
+		 * strictly needed.
 		 */
-		if (prctl(PR_SET_KEEPCAPS, 1))
-			pdie("prctl(PR_SET_KEEPCAPS) failed");
-
-		if (lock_securebits(j->securebits_skip_mask) < 0) {
+		bool require_keep_caps = !j->flags.set_ambient_caps;
+		if (lock_securebits(j->securebits_skip_mask,
+				    require_keep_caps) < 0) {
 			pdie("locking securebits failed");
 		}
 	}
@@ -2078,7 +2228,7 @@ void API minijail_enter(const struct minijail *j)
 /* TODO(wad): will visibility affect this variable? */
 static int init_exitstatus = 0;
 
-void init_term(int __attribute__ ((unused)) sig)
+void init_term(int sig attribute_unused)
 {
 	_exit(init_exitstatus);
 }
@@ -2156,25 +2306,35 @@ int API minijail_to_fd(struct minijail *j, int fd)
 	return 0;
 }
 
-int setup_preload(void)
+static int setup_preload(const struct minijail *j attribute_unused,
+			 const char *oldenv attribute_unused)
 {
 #if defined(__ANDROID__)
 	/* Don't use LDPRELOAD on Android. */
 	return 0;
 #else
-	char *oldenv = getenv(kLdPreloadEnvVar) ? : "";
-	char *newenv = malloc(strlen(oldenv) + 2 + strlen(PRELOADPATH));
-	if (!newenv)
-		return -ENOMEM;
+	const char *preload_path = j->preload_path ?: PRELOADPATH;
+	char *newenv = NULL;
+	int ret = 0;
+
+	if (!oldenv)
+		oldenv = "";
 
 	/* Only insert a separating space if we have something to separate... */
-	sprintf(newenv, "%s%s%s", oldenv, strlen(oldenv) ? " " : "",
-		PRELOADPATH);
+	if (asprintf(&newenv, "%s%s%s", oldenv, oldenv[0] != '\0' ? " " : "",
+		     preload_path) < 0) {
+		return -1;
+	}
 
-	/* setenv() makes a copy of the string we give it. */
-	setenv(kLdPreloadEnvVar, newenv, 1);
+	/*
+	 * Avoid using putenv(3), since that requires us to hold onto a
+	 * reference to that string until the environment is no longer used to
+	 * prevent a memory leak.
+	 * See https://crbug.com/930189 for more details.
+	 */
+	ret = setenv(kLdPreloadEnvVar, newenv, 1);
 	free(newenv);
-	return 0;
+	return ret;
 #endif
 }
 
@@ -2257,15 +2417,18 @@ static int redirect_fds(struct minijail *j)
 /*
  * Structure that specifies how to start a minijail.
  *
- * filename - The program to exec in the child. Required if `exec_in_child` = 1.
- * argv - Arguments for the child program. Required if `exec_in_child` = 1.
+ * filename - The program to exec in the child. Required if |exec_in_child| = 1.
+ * argv - Arguments for the child program. Required if |exec_in_child| = 1.
+ * envp - Environment for the child program. Available if |exec_in_child| = 1.
+       Currently only honored if |use_preload| = 0 and non-NULL.
  * use_preload - If true use LD_PRELOAD.
- * exec_in_child - If true, run `filename`. Otherwise, the child will return to
+ * exec_in_child - If true, run |filename|. Otherwise, the child will return to
  *     the caller.
  */
 struct minijail_run_config {
 	const char *filename;
 	char *const *argv;
+	char *const *envp;
 	int use_preload;
 	int exec_in_child;
 };
@@ -2296,6 +2459,7 @@ int API minijail_run(struct minijail *j, const char *filename,
 	struct minijail_run_config config = {
 		.filename = filename,
 		.argv = argv,
+		.envp = NULL,
 		.use_preload = true,
 		.exec_in_child = true,
 	};
@@ -2309,6 +2473,7 @@ int API minijail_run_pid(struct minijail *j, const char *filename,
 	struct minijail_run_config config = {
 		.filename = filename,
 		.argv = argv,
+		.envp = NULL,
 		.use_preload = true,
 		.exec_in_child = true,
 	};
@@ -2324,6 +2489,7 @@ int API minijail_run_pipe(struct minijail *j, const char *filename,
 	struct minijail_run_config config = {
 		.filename = filename,
 		.argv = argv,
+		.envp = NULL,
 		.use_preload = true,
 		.exec_in_child = true,
 	};
@@ -2340,6 +2506,7 @@ int API minijail_run_pid_pipes(struct minijail *j, const char *filename,
 	struct minijail_run_config config = {
 		.filename = filename,
 		.argv = argv,
+		.envp = NULL,
 		.use_preload = true,
 		.exec_in_child = true,
 	};
@@ -2358,6 +2525,7 @@ int API minijail_run_no_preload(struct minijail *j, const char *filename,
 	struct minijail_run_config config = {
 		.filename = filename,
 		.argv = argv,
+		.envp = NULL,
 		.use_preload = false,
 		.exec_in_child = true,
 	};
@@ -2376,6 +2544,30 @@ int API minijail_run_pid_pipes_no_preload(struct minijail *j,
 	struct minijail_run_config config = {
 		.filename = filename,
 		.argv = argv,
+		.envp = NULL,
+		.use_preload = false,
+		.exec_in_child = true,
+	};
+	struct minijail_run_status status = {
+		.pstdin_fd = pstdin_fd,
+		.pstdout_fd = pstdout_fd,
+		.pstderr_fd = pstderr_fd,
+		.pchild_pid = pchild_pid,
+	};
+	return minijail_run_internal(j, &config, &status);
+}
+
+int API minijail_run_env_pid_pipes_no_preload(struct minijail *j,
+					      const char *filename,
+					      char *const argv[],
+					      char *const envp[],
+					      pid_t *pchild_pid, int *pstdin_fd,
+					      int *pstdout_fd, int *pstderr_fd)
+{
+	struct minijail_run_config config = {
+		.filename = filename,
+		.argv = argv,
+		.envp = envp,
 		.use_preload = false,
 		.exec_in_child = true,
 	};
@@ -2422,6 +2614,8 @@ static int minijail_run_internal(struct minijail *j,
 			die("Minijail hooks are not supported with LD_PRELOAD");
 		if (!config->exec_in_child)
 			die("minijail_fork is not supported with LD_PRELOAD");
+		if (config->envp != NULL)
+			die("cannot pass a new environment with LD_PRELOAD");
 
 		oldenv = getenv(kLdPreloadEnvVar);
 		if (oldenv) {
@@ -2430,7 +2624,7 @@ static int minijail_run_internal(struct minijail *j,
 				return -ENOMEM;
 		}
 
-		if (setup_preload())
+		if (setup_preload(j, oldenv))
 			return -EFAULT;
 	}
 
@@ -2577,6 +2771,12 @@ static int minijail_run_internal(struct minijail *j,
 		if (j->flags.userns)
 			write_ugid_maps_or_die(j);
 
+		if (j->flags.enter_vfs)
+			close(j->mountns_fd);
+
+		if (j->flags.enter_net)
+			close(j->netns_fd);
+
 		if (sync_child)
 			parent_setup_complete(child_sync_pipe_fds);
 
@@ -2635,6 +2835,21 @@ static int minijail_run_internal(struct minijail *j,
 			pdie("sigemptyset failed");
 		if (sigprocmask(SIG_SETMASK, &signal_mask, NULL) != 0)
 			pdie("sigprocmask failed");
+	}
+
+	if (j->flags.reset_signal_handlers) {
+		int signum;
+		for (signum = 0; signum <= SIGRTMAX; signum++) {
+			/*
+			 * Ignore EINVAL since some signal numbers in the range
+			 * might not be valid.
+			 */
+			if (signal(signum, SIG_DFL) == SIG_ERR &&
+			    errno != EINVAL) {
+				pdie("failed to reset signal %d disposition",
+				     signum);
+			}
+		}
 	}
 
 	if (j->flags.close_open_fds) {
@@ -2781,6 +2996,18 @@ static int minijail_run_internal(struct minijail *j,
 		return 0;
 
 	/*
+	 * If not using LD_PRELOAD, support passing a new environment instead of
+	 * inheriting the parent's.
+	 * When not using LD_PRELOAD there is no need to modify the environment
+	 * to add Minijail-related variables, so passing a new environment is
+	 * fine.
+	 */
+	char *const *child_env = environ;
+	if (!use_preload && config->envp != NULL) {
+		child_env = config->envp;
+	}
+
+	/*
 	 * If we aren't pid-namespaced, or the jailed program asked to be init:
 	 *   calling process
 	 *   -> execve()-ing process
@@ -2789,7 +3016,7 @@ static int minijail_run_internal(struct minijail *j,
 	 *   -> init()-ing process
 	 *      -> execve()-ing process
 	 */
-	ret = execve(config->filename, config->argv, environ);
+	ret = execve(config->filename, config->argv, child_env);
 	if (ret == -1) {
 		pwarn("execve(%s) failed", config->filename);
 	}
@@ -2846,7 +3073,7 @@ void API minijail_destroy(struct minijail *j)
 {
 	size_t i;
 
-	if (j->flags.seccomp_filter && j->filter_prog) {
+	if (j->filter_prog) {
 		free(j->filter_prog->filter);
 		free(j->filter_prog);
 	}
@@ -2871,6 +3098,8 @@ void API minijail_destroy(struct minijail *j)
 		free(j->gidmap);
 	if (j->hostname)
 		free(j->hostname);
+	if (j->preload_path)
+		free(j->preload_path);
 	if (j->alt_syscall_table)
 		free(j->alt_syscall_table);
 	for (i = 0; i < j->cgroup_count; ++i)

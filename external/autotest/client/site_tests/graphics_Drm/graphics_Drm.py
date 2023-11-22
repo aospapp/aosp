@@ -45,7 +45,6 @@ class DrmTest(object):
         supported_apis = graphics_utils.GraphicsApiHelper().get_supported_apis()
         num_displays = graphics_utils.get_num_outputs_on()
         gpu_type = utils.get_gpu_family()
-        soc = utils.get_cpu_soc_family()
         kernel_version = os.uname()[2]
         if num_displays == 0 and self._opts['display_required']:
             # If a test needs a display and we don't have a display,
@@ -73,6 +72,8 @@ class DrmTest(object):
 
     def run(self):
         try:
+            # Flush log files to disk in case of hang/reboot.
+            utils.run('sync')
             # TODO(pwang): consider TEE to another file if drmtests keep
             # spewing so much output.
             cmd_result = utils.run(
@@ -106,14 +107,14 @@ class DrmTest(object):
 drm_tests = {
     test.name: test
     for test in (
-        DrmTest('atomictest', 'atomictest -t all', min_kernel_version='4.4',
+        DrmTest('atomictest', 'atomictest -a -t all', min_kernel_version='4.4',
                 timeout=300),
         DrmTest('drm_cursor_test'),
         DrmTest('linear_bo_test'),
         DrmTest('mmap_test', timeout=300),
         DrmTest('null_platform_test'),
         DrmTest('swrast_test', display_required=False),
-        DrmTest('vgem_test', display_required=False),
+        DrmTest('vgem_test'),
         DrmTest('vk_glow', vulkan_required=True),
     )
 }

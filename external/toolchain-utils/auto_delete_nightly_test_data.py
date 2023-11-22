@@ -127,33 +127,9 @@ def CleanChromeOsImageFiles(chroot_tmp, subdir_suffix, days_to_preserve,
   rv2 = 0
   ce = command_executer.GetCommandExecuter()
   minutes = 1440 * days_to_preserve
-  # Clean image tar files, which were last accessed 1 hour ago and clean image
-  # bin files that were last accessed more than specified time.
-  cmd = ('find {0}/*{1} -type f '
-         r'\( -name "chromiumos_test_image.tar"    -amin +60 -o '
-         r'   -name "chromiumos_test_image.tar.xz" -amin +60 -o '
-         r'   -name "chromiumos_test_image.bin"    -amin +{2} \) '
-         r'-exec bash -c "echo rm -f {{}}" \; '
-         r'-exec bash -c "rm -f {{}}" \;').format(chroot_tmp, subdir_suffix,
-                                                  minutes)
-
-  if dry_run:
-    print('Going to execute:\n%s' % cmd)
-  else:
-    rv2 = ce.RunCommand(cmd, print_to_console=False)
-    if rv2 == 0:
-      print('Successfully cleaned chromeos images from '
-            '"{0}/*{1}".'.format(chroot_tmp, subdir_suffix))
-    else:
-      print('Some chromeos images were not removed from '
-            '"{0}/*{1}".'.format(chroot_tmp, subdir_suffix))
-
-  rv += rv2
-
-  # Clean autotest files that were last accessed more than specified time.
+  # Clean files that were last accessed more than the specified time.
   rv2 = 0
-  cmd = (r'find {0}/*{1} -maxdepth 2 -type d '
-         r'\( -name "autotest_files" \) '
+  cmd = (r'find {0}/*{1}/* -maxdepth 1 -type d '
          r'-amin +{2} '
          r'-exec bash -c "echo rm -fr {{}}" \; '
          r'-exec bash -c "rm -fr {{}}" \;').format(chroot_tmp, subdir_suffix,
@@ -179,6 +155,9 @@ def CleanChromeOsTmpAndImages(days_to_preserve=1, dry_run=False):
                                      'chroot', 'tmp')
   # Clean files in tmp directory
   rv = CleanChromeOsTmpFiles(chromeos_chroot_tmp, days_to_preserve, dry_run)
+  # Clean image files in *-tryjob directories
+  rv += CleanChromeOsImageFiles(chromeos_chroot_tmp, '-tryjob',
+                                days_to_preserve, dry_run)
   # Clean image files in *-release directories
   rv += CleanChromeOsImageFiles(chromeos_chroot_tmp, '-release',
                                 days_to_preserve, dry_run)

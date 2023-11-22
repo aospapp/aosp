@@ -1,0 +1,43 @@
+Arm Optimized Routines
+----------------------
+
+This repository contains implementations of math library functions
+provided by Arm under MIT License (See LICENSE). Contributions
+to this project are accepted, but the terms will need negotiation (so
+relicensing and copyright assignment to the FSF is possible later).
+
+Source code layout:
+
+auxiliary/      - design tools.
+build/          - build directory (created by make).
+math/           - math library source.
+math/include/   - math library public headers.
+math/single/    - code for cpu with only single precision support.
+test/           - test related source.
+test/rtest/     - test generator (requires mpfr and mpc).
+test/testcases/ - test cases.
+
+The steps to build the library and run the tests:
+
+cp config.mk.dist config.mk
+# edit config.mk if necessary ...
+make
+make check
+
+Or building outside of the source directory:
+
+ln -s path/to/src/Makefile Makefile
+cp path/to/src/config.mk.dist config.mk
+echo 'srcdir = path/to/src' >> config.mk
+# further edits to config.mk
+make
+make check
+
+The test system requires libmpfr and libmpc.
+
+For cross build, CROSS_COMPILE should be set in config.mk and EMULATOR
+should be set for cross testing (e.g. using qemu-user or remote access
+to a target machine), see the examples in config.mk.dist.
+
+The script "remez.jl" was used to generate some of the coefficients
+(see comments in the code).

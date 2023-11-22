@@ -18,15 +18,23 @@ package com.google.turbine.bytecode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.turbine.bytecode.ClassFile.AnnotationInfo;
 import com.google.turbine.bytecode.ClassFile.AnnotationInfo.ElementValue;
-import com.google.turbine.bytecode.ClassFile.AnnotationInfo.ElementValue.ConstClassValue;
+import com.google.turbine.bytecode.ClassFile.AnnotationInfo.ElementValue.AnnotationValue;
+import com.google.turbine.bytecode.ClassFile.AnnotationInfo.ElementValue.ConstTurbineClassValue;
+import com.google.turbine.bytecode.ClassFile.AnnotationInfo.ElementValue.ConstValue;
 import com.google.turbine.bytecode.ClassFile.AnnotationInfo.ElementValue.EnumConstValue;
+import com.google.turbine.bytecode.ClassFile.MethodInfo.ParameterInfo;
+import com.google.turbine.bytecode.ClassFile.ModuleInfo;
+import com.google.turbine.bytecode.ClassFile.ModuleInfo.ExportInfo;
+import com.google.turbine.bytecode.ClassFile.ModuleInfo.OpenInfo;
+import com.google.turbine.bytecode.ClassFile.ModuleInfo.ProvideInfo;
+import com.google.turbine.bytecode.ClassFile.ModuleInfo.RequireInfo;
+import com.google.turbine.bytecode.ClassFile.ModuleInfo.UseInfo;
 import com.google.turbine.model.Const;
-import com.google.turbine.model.TurbineFlag;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** A JVMS §4 class file reader. */
@@ -68,7 +76,7 @@ public class ClassReader {
     }
     int minorVersion = reader.u2();
     int majorVersion = reader.u2();
-    if (majorVersion < 45 || majorVersion > 53) {
+    if (majorVersion < 45) {
       throw error("bad version: %d.%d", majorVersion, minorVersion);
     }
     ConstantPoolReader constantPool = ConstantPoolReader.readConstantPool(reader);
@@ -92,21 +100,26 @@ public class ClassReader {
     List<ClassFile.MethodInfo> methodinfos = readMethods(constantPool);
 
     String signature = null;
-    List<ClassFile.InnerClass> innerclasses = Collections.emptyList();
-    List<ClassFile.AnnotationInfo> annotations = Collections.emptyList();
+    List<ClassFile.InnerClass> innerclasses = ImmutableList.of();
+    ImmutableList.Builder<ClassFile.AnnotationInfo> annotations = ImmutableList.builder();
+    ClassFile.ModuleInfo module = null;
     int attributesCount = reader.u2();
     for (int j = 0; j < attributesCount; j++) {
       int attributeNameIndex = reader.u2();
       String name = constantPool.utf8(attributeNameIndex);
       switch (name) {
+        case "RuntimeInvisibleAnnotations":
         case "RuntimeVisibleAnnotations":
-          annotations = readAnnotations(constantPool, accessFlags);
+          readAnnotations(annotations, constantPool);
           break;
         case "Signature":
           signature = readSignature(constantPool);
           break;
         case "InnerClasses":
           innerclasses = readInnerClasses(constantPool, thisClass);
+          break;
+        case "Module":
+          module = readModule(constantPool);
           break;
         default:
           reader.skip(reader.u4());
@@ -122,9 +135,10 @@ public class ClassReader {
         interfaces,
         methodinfos,
         fieldinfos,
-        annotations,
+        annotations.build(),
         innerclasses,
-        ImmutableList.of());
+        ImmutableList.of(),
+        module);
   }
 
   /** Reads a JVMS 4.7.9 Signature attribute. */
@@ -164,22 +178,120 @@ public class ClassReader {
    * <p>The only annotations that affect header compilation are {@link @Retention} and
    * {@link @Target} on annotation declarations.
    */
-  private List<ClassFile.AnnotationInfo> readAnnotations(
-      ConstantPoolReader constantPool, int accessFlags) {
-    List<ClassFile.AnnotationInfo> annotations = new ArrayList<>();
-    if ((accessFlags & TurbineFlag.ACC_ANNOTATION) == 0) {
-      reader.skip(reader.u4());
-      return ImmutableList.of();
-    }
+  private void readAnnotations(
+      ImmutableList.Builder<ClassFile.AnnotationInfo> annotations,
+      ConstantPoolReader constantPool) {
     reader.u4(); // length
     int numAnnotations = reader.u2();
     for (int n = 0; n < numAnnotations; n++) {
-      ClassFile.AnnotationInfo tmp = readAnnotation(constantPool);
-      if (tmp != null) {
-        annotations.add(tmp);
+      annotations.add(readAnnotation(constantPool));
+    }
+  }
+
+  /** Processes a JVMS 4.7.18 RuntimeVisibleParameterAnnotations attribute */
+  public void readParameterAnnotations(
+      List<ImmutableList.Builder<AnnotationInfo>> annotations, ConstantPoolReader constantPool) {
+    reader.u4(); // length
+    int numParameters = reader.u1();
+    while (annotations.size() < numParameters) {
+      annotations.add(ImmutableList.builder());
+    }
+    for (int i = 0; i < numParameters; i++) {
+      int numAnnotations = reader.u2();
+      for (int n = 0; n < numAnnotations; n++) {
+        annotations.get(i).add(readAnnotation(constantPool));
       }
     }
-    return annotations;
+  }
+
+  /** Processes a JVMS 4.7.24 MethodParameters attribute. */
+  private void readMethodParameters(
+      ImmutableList.Builder<ParameterInfo> parameters, ConstantPoolReader constantPool) {
+    reader.u4(); // length
+    int numParameters = reader.u1();
+    for (int i = 0; i < numParameters; i++) {
+      String name = constantPool.utf8(reader.u2());
+      int access = reader.u2();
+      parameters.add(new ParameterInfo(name, access));
+    }
+  }
+
+  /** Processes a JVMS 4.7.25 Module attribute. */
+  private ModuleInfo readModule(ConstantPoolReader constantPool) {
+    reader.u4(); // length
+    String name = constantPool.moduleInfo(reader.u2());
+    int flags = reader.u2();
+    int versionIndex = reader.u2();
+    String version = (versionIndex != 0) ? constantPool.utf8(versionIndex) : null;
+
+    ImmutableList.Builder<ClassFile.ModuleInfo.RequireInfo> requires = ImmutableList.builder();
+    int numRequires = reader.u2();
+    for (int i = 0; i < numRequires; i++) {
+      String requiresModule = constantPool.moduleInfo(reader.u2());
+      int requiresFlags = reader.u2();
+      int requiresVersionIndex = reader.u2();
+      String requiresVersion =
+          (requiresVersionIndex != 0) ? constantPool.utf8(requiresVersionIndex) : null;
+      requires.add(new RequireInfo(requiresModule, requiresFlags, requiresVersion));
+    }
+
+    ImmutableList.Builder<ClassFile.ModuleInfo.ExportInfo> exports = ImmutableList.builder();
+    int numExports = reader.u2();
+    for (int i = 0; i < numExports; i++) {
+      String exportsModule = constantPool.packageInfo(reader.u2());
+      int exportsFlags = reader.u2();
+      int numExportsTo = reader.u2();
+      ImmutableList.Builder<String> exportsToModules = ImmutableList.builder();
+      for (int n = 0; n < numExportsTo; n++) {
+        String exportsToModule = constantPool.moduleInfo(reader.u2());
+        exportsToModules.add(exportsToModule);
+      }
+      exports.add(new ExportInfo(exportsModule, exportsFlags, exportsToModules.build()));
+    }
+
+    ImmutableList.Builder<ClassFile.ModuleInfo.OpenInfo> opens = ImmutableList.builder();
+    int numOpens = reader.u2();
+    for (int i = 0; i < numOpens; i++) {
+      String opensModule = constantPool.packageInfo(reader.u2());
+      int opensFlags = reader.u2();
+      int numOpensTo = reader.u2();
+      ImmutableList.Builder<String> opensToModules = ImmutableList.builder();
+      for (int n = 0; n < numOpensTo; n++) {
+        String opensToModule = constantPool.moduleInfo(reader.u2());
+        opensToModules.add(opensToModule);
+      }
+      opens.add(new OpenInfo(opensModule, opensFlags, opensToModules.build()));
+    }
+
+    ImmutableList.Builder<ClassFile.ModuleInfo.UseInfo> uses = ImmutableList.builder();
+    int numUses = reader.u2();
+    for (int i = 0; i < numUses; i++) {
+      String use = constantPool.classInfo(reader.u2());
+      uses.add(new UseInfo(use));
+    }
+
+    ImmutableList.Builder<ClassFile.ModuleInfo.ProvideInfo> provides = ImmutableList.builder();
+    int numProvides = reader.u2();
+    for (int i = 0; i < numProvides; i++) {
+      String typeName = constantPool.classInfo(reader.u2());
+      int numProvidesWith = reader.u2();
+      ImmutableList.Builder<String> impls = ImmutableList.builder();
+      for (int n = 0; n < numProvidesWith; n++) {
+        String impl = constantPool.classInfo(reader.u2());
+        impls.add(impl);
+      }
+      provides.add(new ProvideInfo(typeName, impls.build()));
+    }
+
+    return new ClassFile.ModuleInfo(
+        name,
+        flags,
+        version,
+        requires.build(),
+        exports.build(),
+        opens.build(),
+        uses.build(),
+        provides.build());
   }
 
   /**
@@ -189,36 +301,23 @@ public class ClassReader {
   private ClassFile.AnnotationInfo readAnnotation(ConstantPoolReader constantPool) {
     int typeIndex = reader.u2();
     String annotationType = constantPool.utf8(typeIndex);
-    boolean read;
-    switch (annotationType) {
-      case "Ljava/lang/annotation/Retention;":
-      case "Ljava/lang/annotation/Target;":
-      case "Ljava/lang/annotation/Repeatable;":
-        read = true;
-        break;
-      default:
-        read = false;
-        break;
-    }
     int numElementValuePairs = reader.u2();
-    ClassFile.AnnotationInfo result = null;
+    ImmutableMap.Builder<String, ElementValue> values = ImmutableMap.builder();
     for (int e = 0; e < numElementValuePairs; e++) {
       int elementNameIndex = reader.u2();
       String key = constantPool.utf8(elementNameIndex);
-      boolean value = read && key.equals("value");
-      ElementValue tmp = readElementValue(constantPool, value);
-      if (tmp != null) {
-        result = new ClassFile.AnnotationInfo(annotationType, true, ImmutableMap.of(key, tmp));
-      }
+      ElementValue value = readElementValue(constantPool);
+      values.put(key, value);
     }
-    return result;
+    return new ClassFile.AnnotationInfo(
+        annotationType,
+        // The runtimeVisible bit in AnnotationInfo is only used during lowering; earlier passes
+        // read the meta-annotations.
+        /* runtimeVisible= */ false,
+        values.build());
   }
 
-  /**
-   * Extracts the value of an annotation declaration meta-annotation, or else skips over the element
-   * value pair.
-   */
-  private ElementValue readElementValue(ConstantPoolReader constantPool, boolean value) {
+  private ElementValue readElementValue(ConstantPoolReader constantPool) {
     int tag = reader.u1();
     switch (tag) {
       case 'B':
@@ -230,52 +329,38 @@ public class ClassReader {
       case 'S':
       case 'Z':
       case 's':
-        reader.u2(); // constValueIndex
-        break;
+        {
+          int constValueIndex = reader.u2();
+          return new ConstValue(constantPool.constant(constValueIndex));
+        }
       case 'e':
         {
           int typeNameIndex = reader.u2();
           int constNameIndex = reader.u2();
-          if (value) {
-            String typeName = constantPool.utf8(typeNameIndex);
-            switch (typeName) {
-              case "Ljava/lang/annotation/RetentionPolicy;":
-              case "Ljava/lang/annotation/ElementType;":
-                String constName = constantPool.utf8(constNameIndex);
-                return new EnumConstValue(typeName, constName);
-              default:
-                break;
-            }
-          }
-          break;
+          String typeName = constantPool.utf8(typeNameIndex);
+          String constName = constantPool.utf8(constNameIndex);
+          return new EnumConstValue(typeName, constName);
         }
       case 'c':
-        int classInfoIndex = reader.u2();
-        String className = constantPool.utf8(classInfoIndex);
-        return new ConstClassValue(className);
+        {
+          int classInfoIndex = reader.u2();
+          String className = constantPool.utf8(classInfoIndex);
+          return new ConstTurbineClassValue(className);
+        }
       case '@':
-        readAnnotation(constantPool);
-        break;
+        return new AnnotationValue(readAnnotation(constantPool));
       case '[':
         {
           int numValues = reader.u2();
-          if (value) {
-            ImmutableList.Builder<ElementValue> elements = ImmutableList.builder();
-            for (int i = 0; i < numValues; i++) {
-              elements.add(readElementValue(constantPool, true));
-            }
-            return new ElementValue.ArrayValue(elements.build());
-          } else {
-            for (int i = 0; i < numValues; i++) {
-              readElementValue(constantPool, false);
-            }
+          ImmutableList.Builder<ElementValue> elements = ImmutableList.builder();
+          for (int i = 0; i < numValues; i++) {
+            elements.add(readElementValue(constantPool));
           }
-          break;
+          return new ElementValue.ArrayValue(elements.build());
         }
-      default:
-        throw error("bad tag value %c", tag);
+      default: // fall out
     }
-    return null;
+    throw new AssertionError(String.format("bad tag value %c", tag));
   }
 
   /** Reads JVMS 4.6 method_infos. */
@@ -291,6 +376,11 @@ public class ClassReader {
       int attributesCount = reader.u2();
       String signature = null;
       ImmutableList<String> exceptions = ImmutableList.of();
+      ImmutableList.Builder<ClassFile.AnnotationInfo> annotations = ImmutableList.builder();
+      List<ImmutableList.Builder<ClassFile.AnnotationInfo>> parameterAnnotationsBuilder =
+          new ArrayList<>();
+      ImmutableList.Builder<ParameterInfo> parameters = ImmutableList.builder();
+      ElementValue defaultValue = null;
       for (int j = 0; j < attributesCount; j++) {
         String attributeName = constantPool.utf8(reader.u2());
         switch (attributeName) {
@@ -300,10 +390,30 @@ public class ClassReader {
           case "Signature":
             signature = readSignature(constantPool);
             break;
+          case "AnnotationDefault":
+            reader.u4(); // length
+            defaultValue = readElementValue(constantPool);
+            break;
+          case "RuntimeInvisibleAnnotations":
+          case "RuntimeVisibleAnnotations":
+            readAnnotations(annotations, constantPool);
+            break;
+          case "RuntimeInvisibleParameterAnnotations":
+          case "RuntimeVisibleParameterAnnotations":
+            readParameterAnnotations(parameterAnnotationsBuilder, constantPool);
+            break;
+          case "MethodParameters":
+            readMethodParameters(parameters, constantPool);
+            break;
           default:
             reader.skip(reader.u4());
             break;
         }
+      }
+      ImmutableList.Builder<ImmutableList<AnnotationInfo>> parameterAnnotations =
+          ImmutableList.builder();
+      for (ImmutableList.Builder<AnnotationInfo> x : parameterAnnotationsBuilder) {
+        parameterAnnotations.add(x.build());
       }
       methods.add(
           new ClassFile.MethodInfo(
@@ -312,11 +422,11 @@ public class ClassReader {
               desc,
               signature,
               exceptions,
-              null,
-              ImmutableList.of(),
-              ImmutableList.of(),
-              ImmutableList.of(),
-              ImmutableList.of()));
+              defaultValue,
+              annotations.build(),
+              parameterAnnotations.build(),
+              /* typeAnnotations= */ ImmutableList.of(),
+              parameters.build()));
     }
     return methods;
   }

@@ -41,9 +41,8 @@ class MediaInfoMetricsExtractorTest(unittest.TestCase):
         self.assertEqual(metric, [(1, [9, 24]), (2, [26, 13])])
 
     def testMetricNameDoesNotExist(self):
-        self.assertRaises(
-                KeyError,
-                lambda: self.extractor.get_top_level_metric('does_not_exist'))
+        metric = self.extractor.get_top_level_metric('does_not_exist')
+        self.assertEqual([], metric)
 
     def testWildcardMediaType(self):
         metric = self.extractor.get_media_metric(

@@ -49,7 +49,7 @@ SPEAKER_MAP = {'18d1:8001':'Hangouts Meet speakermic',
                '0b0e:0412':'Jabra SPEAK 410',
                '2abf:0505':'FLX UC 500'}
 
-TOUCH_DISPLAY_LIST = ['17e9:016b']
+TOUCH_DISPLAY_LIST = ['17e9:016b','17e9:416d']
 TOUCH_CONTROLLER_LIST = ['266e:0110']
 
 DISPLAY_PANEL_MAP = {'17e9:016b':'DisplayLink',

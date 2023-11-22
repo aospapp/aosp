@@ -9,7 +9,7 @@ third_party {
   }
   url {
     type: GIT
-    value: "https://github.com/gooogle/perf_data_converter"
+    value: "https://github.com/google/perf_data_converter"
   }
   version: "e8f1389fde85a2b7e9e05afdb66bfbb794632c00"
   last_upgrade_date { year: 2018 month: 2 day: 27 }

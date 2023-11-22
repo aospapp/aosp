@@ -4,9 +4,9 @@
 
 import dbus
 import logging
-import subprocess
 import time
 
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.networking import shill_proxy
 
 
@@ -35,13 +35,13 @@ class WifiProxy(shill_proxy.ShillProxy):
                 try:
                     entry = profile.GetEntry(entry_id)
                 except dbus.exceptions.DBusException as e:
-                    logging.error('Unable to retrieve entry %s', entry_id)
+                    logging.error('Unable to retrieve entry %s:%r', entry_id, e)
                     continue
                 if entry[self.ENTRY_FIELD_TYPE] == 'wifi':
                     profile.DeleteEntry(entry_id)
 
 
-    def configure_wifi_service(self, ssid, security, security_parameters={},
+    def configure_wifi_service(self, ssid, security, security_parameters=None,
                                save_credentials=True, station_type=None,
                                hidden_network=False, guid=None,
                                autoconnect=None):
@@ -65,6 +65,10 @@ class WifiProxy(shill_proxy.ShillProxy):
         # does not refer to the 802.11x (802.11a/b/g/n) type.  It refers to a
         # shill connection mode.
         mode = self.SUPPORTED_WIFI_STATION_TYPES[station_type]
+
+        if security_parameters is None:
+            security_parameters = {}
+
         config_params = {self.SERVICE_PROPERTY_TYPE: 'wifi',
                          self.SERVICE_PROPERTY_HIDDEN: hidden_network,
                          self.SERVICE_PROPERTY_SSID: ssid,
@@ -126,7 +130,6 @@ class WifiProxy(shill_proxy.ShillProxy):
 
         """
         logging.info('Attempting to connect to %s', ssid)
-        service_proxy = None
         start_time = time.time()
         discovery_time = -1.0
         association_time = -1.0
@@ -317,7 +320,7 @@ class WifiProxy(shill_proxy.ShillProxy):
             try:
                 service_properties = self.dbus2primitive(service.GetProperties(
                         utf8_strings=True))
-            except dbus.exceptions.DBusException as e:
+            except dbus.exceptions.DBusException:
                 pass  # Probably the service disappeared before GetProperties().
             logging.debug('Considering service with properties: %r',
                           service_properties)
@@ -347,19 +350,21 @@ class WifiProxy(shill_proxy.ShillProxy):
         discovery_params = {self.SERVICE_PROPERTY_TYPE: 'wifi',
                             self.SERVICE_PROPERTY_NAME: ssid}
         start_time = time.time()
-        service_object = None
-        while time.time() - start_time < timeout_seconds:
-            service_object = self.find_matching_service(discovery_params)
-            if service_object:
-                break
+        try:
+            service_object = utils.poll_for_condition(
+                    condition=lambda: self.find_matching_service(
+                            discovery_params),
+                    timeout=timeout_seconds,
+                    sleep_interval=self.POLLING_INTERVAL_SECONDS,
+                    desc='Find a matching service to the discovery params')
 
-            time.sleep(self.POLLING_INTERVAL_SECONDS)
-        else:
+            return self.wait_for_property_in(
+                    service_object,
+                    self.SERVICE_PROPERTY_STATE,
+                    states,
+                    timeout_seconds - (time.time() - start_time))
+
+        # poll_for_condition timed out
+        except utils.TimeoutError:
             logging.error('Timed out waiting for %s states', ssid)
             return False, 'unknown', timeout_seconds
-
-        return self.wait_for_property_in(
-                service_object,
-                self.SERVICE_PROPERTY_STATE,
-                states,
-                timeout_seconds - (time.time() - start_time))

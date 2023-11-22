@@ -33,6 +33,8 @@
 #include "vkMemUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkTypeUtil.hpp"
 #include "vktTestCase.hpp"
 
 #include "tcuTestLog.hpp"
@@ -144,7 +146,7 @@ void GranularityInstance::initAttachmentDescriptions (void)
 		VK_ATTACHMENT_LOAD_OP_DONT_CARE,	// VkAttachmentLoadOp			stencilLoadOp;
 		VK_ATTACHMENT_STORE_OP_DONT_CARE,	// VkAttachmentStoreOp			stencilStoreOp;
 		VK_IMAGE_LAYOUT_UNDEFINED,			// VkImageLayout				initialLayout;
-		VK_IMAGE_LAYOUT_UNDEFINED,			// VkImageLayout				finalLayout;
+		VK_IMAGE_LAYOUT_GENERAL,			// VkImageLayout				finalLayout;
 	};
 
 	for (std::vector<AttachmentInfo>::const_iterator it = m_attachments.begin(); it != m_attachments.end(); ++it)
@@ -301,49 +303,25 @@ void GranularityInstance::initRenderPass (void)
 	// Create CommandBuffer
 	m_cmdBuffer	= allocateCommandBuffer(vk, device, *m_cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	{	// Begin CommandBuffer
-		const VkCommandBufferBeginInfo	cmdBufferBeginInfo	=
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType							sType;
-			DE_NULL,										// const void*								pNext;
-			0u,												// VkCmdBufferOptimizeFlags					flags;
-			DE_NULL,										// const VkCommandBufferInheritanceInfo*    pInheritanceInfo;
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*m_cmdBuffer, &cmdBufferBeginInfo));
-	}
+	// Begin CommandBuffer
+	beginCommandBuffer(vk, *m_cmdBuffer, 0u);
 }
 
 void GranularityInstance::beginRenderPass (void)
 {
 	const DeviceInterface&	vk	= m_context.getDeviceInterface();
 
-	const VkRect2D	renderArea	=
-	{
-		{ 0, 0 },	// VkOffset2D    offset;
-		{ 1, 1 }	// VkExtent2D	extent;
-	};
+	const VkRect2D	renderArea	= makeRect2D(1u, 1u);
 
-	const VkRenderPassBeginInfo		renderPassBeginInfo	=
-	{
-		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,	// VkStructureType		sType;
-		DE_NULL,									// const void*			pNext;
-		*m_renderPass,								// VkRenderPass			renderPass;
-		*m_frameBuffer,								// VkFramebuffer		framebuffer;
-		renderArea,									// VkRect2D				renderArea;
-		0u,											// uint32_t				clearValueCount;
-		DE_NULL										// const VkClearValue*	pClearValues;
-	};
-
-	vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vk::beginRenderPass(vk, *m_cmdBuffer, *m_renderPass, *m_frameBuffer, renderArea);
 }
 
 void GranularityInstance::endRenderPass (void)
 {
 	const DeviceInterface&	vk	= m_context.getDeviceInterface();
 
-	vk.cmdEndRenderPass(*m_cmdBuffer);
-	VK_CHECK(vk.endCommandBuffer(*m_cmdBuffer));
+	vk::endRenderPass(vk, *m_cmdBuffer);
+	endCommandBuffer(vk, *m_cmdBuffer);
 }
 
 tcu::TestStatus GranularityInstance::iterate (void)

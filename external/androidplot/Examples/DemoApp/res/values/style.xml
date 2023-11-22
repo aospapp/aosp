@@ -14,7 +14,7 @@
   ~    limitations under the License.
   -->
 
-<resources xmlns="http://schemas.android.com/apk/lib/com.androidplot.xy">
+<resources xmlns:android="http://schemas.android.com/apk/lib/com.androidplot.xy">
     <style name="sample_activity">
         <item name="android:layout_width">fill_parent</item>
         <item name="android:layout_height">fill_parent</item>

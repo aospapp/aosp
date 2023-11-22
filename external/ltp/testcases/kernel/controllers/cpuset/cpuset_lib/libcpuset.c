@@ -22,8 +22,7 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#define _XOPEN_SOURCE 500	/* need to see pread() */
-#define _BSD_SOURCE 1		/* need to see syscall() */
+#define _GNU_SOURCE	/* need to see pread() and syscall() */
 #include <unistd.h>
 
 #include <ctype.h>
@@ -231,7 +230,7 @@ static enum {
 	check_ok
 } check_state = check_notdone;
 
-static int check()
+static int check(void)
 {
 	if (check_state == check_notdone) {
 		struct stat statbuf;
@@ -576,7 +575,7 @@ static int s2nbits(const char *s)
 	return strlen(s) * 32 / 9;
 }
 
-static void update_mask_sizes()
+static void update_mask_sizes(void)
 {
 	FILE *fp = NULL;
 	char *buf = NULL;
@@ -609,7 +608,7 @@ done:
 }
 
 /* Allocate a new struct cpuset */
-struct cpuset *cpuset_alloc()
+struct cpuset *cpuset_alloc(void)
 {
 	struct cpuset *cp = NULL;
 	int nbits;
@@ -648,7 +647,7 @@ void cpuset_free(struct cpuset *cp)
 }
 
 /* Number of bits in a CPU bitmask on current system */
-int cpuset_cpus_nbits()
+int cpuset_cpus_nbits(void)
 {
 	if (cpumask_sz == 0)
 		update_mask_sizes();
@@ -656,7 +655,7 @@ int cpuset_cpus_nbits()
 }
 
 /* Number of bits in a Memory bitmask on current system */
-int cpuset_mems_nbits()
+int cpuset_mems_nbits(void)
 {
 	if (nodemask_sz == 0)
 		update_mask_sizes();
@@ -1195,7 +1194,7 @@ static struct cpunodemap {
  *	available below /sys/devices/system.
  */
 
-static void rebuild_map()
+static void rebuild_map(void)
 {
 	char buf[PATH_MAX];
 	DIR *dir1, *dir2;
@@ -1239,7 +1238,7 @@ static void rebuild_map()
  *	Reload the cpunodemap[] array from the file.
  */
 
-static void load_map()
+static void load_map(void)
 {
 	char buf[SMALL_BUFSZ];	/* buffer 1 line of mapfile */
 	FILE *mapfp;		/* File stream on mapfile */
@@ -1274,7 +1273,7 @@ static void load_map()
  *	Write cpunodemap[] out to mapfile.
  */
 
-static void store_map()
+static void store_map(void)
 {
 	char buf[PATH_MAX];
 	int fd = -1;
@@ -1320,7 +1319,7 @@ err:
  * On error, return -1 with errno set and no lock held.
  */
 
-static int get_map()
+static int get_map(void)
 {
 	time_t file_mtime;
 
@@ -1349,7 +1348,7 @@ err:
 	return -1;
 }
 
-static void put_map()
+static void put_map(void)
 {
 	funlockfile(stdin);
 }
@@ -1513,7 +1512,7 @@ err:
 	return -1;
 }
 
-static void build_distmap()
+static void build_distmap(void)
 {
 	static int tried_before = 0;
 	int ncpus = cpuset_cpus_nbits();
@@ -1627,7 +1626,7 @@ err:
 	free(dists);
 }
 
-static void build_distmap_sn()
+static void build_distmap_sn(void)
 {
 	int ncpus = cpuset_cpus_nbits();
 	int nmems = cpuset_mems_nbits();
@@ -1840,7 +1839,7 @@ err:
  * open to close, the first time called.
  */
 
-static int get_siblings()
+static int get_siblings(void)
 {
 	static int siblings;
 	char buf[32];		/* big enough for one 'siblings' line */
@@ -2230,7 +2229,7 @@ int cpuset_cpusetofpid(struct cpuset *cp, pid_t pid)
 }
 
 /* [optional] Return mountpoint of cpuset filesystem */
-const char *cpuset_mountpoint()
+const char *cpuset_mountpoint(void)
 {
 	if (check() < 0) {
 		switch (errno) {
@@ -3087,21 +3086,17 @@ static int sched_setaffinity(pid_t pid, unsigned len, unsigned long *mask)
 	return ltp_syscall(__NR_sched_setaffinity, pid, len, mask);
 }
 
-#if HAVE_DECL_MPOL_F_ADDR && HAVE_DECL_MPOL_F_NODE
 static int get_mempolicy(int *policy, unsigned long *nmask,
 			 unsigned long maxnode, void *addr, int flags)
 {
 	return ltp_syscall(__NR_get_mempolicy, policy, nmask, maxnode,
 		addr, flags);
 }
-#endif
 
-#if HAVE_DECL_MPOL_BIND || HAVE_DECL_MPOL_DEFAULT
 static int set_mempolicy(int mode, unsigned long *nmask, unsigned long maxnode)
 {
 	return ltp_syscall(__NR_set_mempolicy, mode, nmask, maxnode);
 }
-#endif
 
 struct cpuset_placement {
 	struct bitmask *cpus;
@@ -3443,12 +3438,7 @@ int cpuset_membind(int mem)
 	if ((bmp = bitmask_alloc(cpuset_mems_nbits())) == NULL)
 		return -1;
 	bitmask_setbit(bmp, mem);
-#if HAVE_DECL_MPOL_BIND
 	r = set_mempolicy(MPOL_BIND, bitmask_mask(bmp), bitmask_nbits(bmp) + 1);
-#else
-	r = -1;
-	errno = ENOSYS;
-#endif
 	bitmask_free(bmp);
 	return r;
 }
@@ -3458,13 +3448,11 @@ int cpuset_addr2node(void *addr)
 {
 	int node = -1;
 
-#if HAVE_DECL_MPOL_F_ADDR && HAVE_DECL_MPOL_F_NODE
 	if (get_mempolicy(&node, NULL, 0, addr, MPOL_F_NODE | MPOL_F_ADDR)) {
 		/* I realize this seems redundant, but I _want_ to make sure
 		 * that this value is -1. */
 		node = -1;
 	}
-#endif
 	return node;
 }
 
@@ -3683,7 +3671,7 @@ int cpuset_pin(int relcpu)
 }
 
 /* Return number CPUs in current tasks cpuset */
-int cpuset_size()
+int cpuset_size(void)
 {
 	struct cpuset_placement *plc1 = NULL, *plc2 = NULL;
 	int r;
@@ -3707,7 +3695,7 @@ int cpuset_size()
 }
 
 /* Return relative CPU number, within current cpuset, last executed on */
-int cpuset_where()
+int cpuset_where(void)
 {
 	struct cpuset_placement *plc1 = NULL, *plc2 = NULL;
 	int r;
@@ -3731,7 +3719,7 @@ int cpuset_where()
 }
 
 /* Undo cpuset_pin - let current task have the run of all CPUs in its cpuset */
-int cpuset_unpin()
+int cpuset_unpin(void)
 {
 	struct bitmask *cpus = NULL, *mems = NULL;
 	int r = -1;
@@ -3753,12 +3741,10 @@ int cpuset_unpin()
 
 	if ((mems = bitmask_alloc(cpuset_mems_nbits())) == NULL)
 		goto err;
-#if HAVE_DECL_MPOL_DEFAULT
 	if (set_mempolicy(MPOL_DEFAULT, bitmask_mask(mems),
 			  bitmask_nbits(mems) + 1) < 0)
 		goto err;
 	r = 0;
-#endif
 	/* fall into ... */
 err:
 	bitmask_free(cpus);

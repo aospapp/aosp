@@ -8,6 +8,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 This test verifies that cryptohome re-creates a user's cryptohome directory

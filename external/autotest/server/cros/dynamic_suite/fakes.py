@@ -25,7 +25,6 @@ class FakeControlData(control_data.ControlData):
             dependencies=[]
         self.dependencies = dependencies
         self.time = time
-        self.retries = 0
         self.sync_count = 1
         self.job_retries = job_retries
         self.bug_template = {}
@@ -126,3 +125,25 @@ class FakeStatus(object):
 
     def name(self):
         return self.test_name
+
+
+class FakeMultiprocessingPool(object):
+    """Fake multiprocessing pool to mock out the map method."""
+
+
+    def __init__(self, processes=None, initializer=None, initargs=(),
+                 maxtasksperchild=None):
+        pass
+
+
+    def map(self, func, iterable, chunksize=None):
+        """Use the standard map() built-in instead of Pool.map()"""
+        return map(func, iterable)
+
+
+    def close(self):
+        pass
+
+
+    def join(self):
+        pass

@@ -1,11 +1,16 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision a3ee0ed08111d44ac3cb863d9e3e81a7c28f9d90.
+ * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
  */
 #define GL_DEPTH_BUFFER_BIT												0x00000100
 #define GL_STENCIL_BUFFER_BIT											0x00000400
 #define GL_COLOR_BUFFER_BIT												0x00004000
+#define GL_DYNAMIC_STORAGE_BIT											0x0100
+#define GL_CLIENT_STORAGE_BIT											0x0200
+#define GL_SPARSE_STORAGE_BIT_ARB										0x0400
+#define GL_PER_GPU_STORAGE_BIT_NV										0x0800
+#define GL_EXTERNAL_STORAGE_BIT_NVX										0x2000
 #define GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT							0x00000001
 #define GL_CONTEXT_FLAG_DEBUG_BIT										0x00000002
 #define GL_CONTEXT_FLAG_DEBUG_BIT_KHR									0x00000002
@@ -22,9 +27,6 @@
 #define GL_MAP_UNSYNCHRONIZED_BIT										0x0020
 #define GL_MAP_PERSISTENT_BIT											0x0040
 #define GL_MAP_COHERENT_BIT												0x0080
-#define GL_DYNAMIC_STORAGE_BIT											0x0100
-#define GL_CLIENT_STORAGE_BIT											0x0200
-#define GL_SPARSE_STORAGE_BIT_ARB										0x0400
 #define GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT								0x00000001
 #define GL_ELEMENT_ARRAY_BARRIER_BIT									0x00000002
 #define GL_UNIFORM_BARRIER_BIT											0x00000004
@@ -1045,6 +1047,7 @@
 #define GL_DRAW_FRAMEBUFFER												0x8CA9
 #define GL_READ_FRAMEBUFFER_BINDING										0x8CAA
 #define GL_RENDERBUFFER_SAMPLES											0x8CAB
+#define GL_RENDERBUFFER_SAMPLES_EXT										0x8CAB
 #define GL_DEPTH_COMPONENT32F											0x8CAC
 #define GL_DEPTH32F_STENCIL8											0x8CAD
 #define GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE							0x8CD0
@@ -1113,7 +1116,9 @@
 #define GL_RENDERBUFFER_DEPTH_SIZE										0x8D54
 #define GL_RENDERBUFFER_STENCIL_SIZE									0x8D55
 #define GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE							0x8D56
+#define GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_EXT						0x8D56
 #define GL_MAX_SAMPLES													0x8D57
+#define GL_MAX_SAMPLES_EXT												0x8D57
 #define GL_HALF_FLOAT_OES												0x8D61
 #define GL_RGB565_OES													0x8D62
 #define GL_RGB565														0x8D62
@@ -1125,6 +1130,7 @@
 #define GL_PRIMITIVE_RESTART_FIXED_INDEX								0x8D69
 #define GL_ANY_SAMPLES_PASSED_CONSERVATIVE								0x8D6A
 #define GL_MAX_ELEMENT_INDEX											0x8D6B
+#define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_SAMPLES_EXT					0x8D6C
 #define GL_RGBA32UI														0x8D70
 #define GL_RGB32UI														0x8D71
 #define GL_RGBA16UI														0x8D76
@@ -1604,6 +1610,7 @@
 #define GL_HSL_COLOR_KHR												0x92AF
 #define GL_HSL_LUMINOSITY												0x92B0
 #define GL_HSL_LUMINOSITY_KHR											0x92B0
+#define GL_MULTICAST_GPUS_NV											0x92BA
 #define GL_PRIMITIVE_BOUNDING_BOX										0x92BE
 #define GL_PRIMITIVE_BOUNDING_BOX_EXT									0x92BE
 #define GL_ATOMIC_COUNTER_BUFFER										0x92C0
@@ -1779,10 +1786,15 @@
 #define GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR						0x93DC
 #define GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12							0x93DD
 #define GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR						0x93DD
+#define GL_PER_GPU_STORAGE_NV											0x9548
+#define GL_MULTICAST_PROGRAMMABLE_SAMPLE_LOCATION_NV					0x9549
 #define GL_SHADER_BINARY_FORMAT_SPIR_V									0x9551
+#define GL_SHADER_BINARY_FORMAT_SPIR_V_ARB								0x9551
 #define GL_SPIR_V_BINARY												0x9552
+#define GL_SPIR_V_BINARY_ARB											0x9552
 #define GL_SPIR_V_EXTENSIONS											0x9553
 #define GL_NUM_SPIR_V_EXTENSIONS										0x9554
+#define GL_RENDER_GPU_MASK_NV											0x9558
 #define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR					0x9630
 #define GL_MAX_VIEWS_OVR												0x9631
 #define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR			0x9632

@@ -33,6 +33,9 @@ class firmware_ECWriteProtect(FirmwareTest):
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_ECWriteProtect, self).initialize(host, cmdline_args,
                                                         ec_wp=False)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
         self.backup_firmware()
         self.switcher.setup_mode('dev' if dev_mode else 'normal')
         self.ec.send_command("chan 0")
@@ -46,6 +49,8 @@ class firmware_ECWriteProtect(FirmwareTest):
         super(firmware_ECWriteProtect, self).cleanup()
 
     def run_once(self):
+        """Execute the main body of the test.
+        """
         flags = self.faft_client.bios.get_preamble_flags('a')
         if flags & vboot.PREAMBLE_USE_RO_NORMAL == 0:
             logging.info('The firmware USE_RO_NORMAL flag is disabled.')

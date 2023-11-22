@@ -117,6 +117,7 @@ sk_sp<SkSpecialSurface> SkSpecialSurface::MakeRaster(const SkImageInfo& info,
 
 #if SK_SUPPORT_GPU
 ///////////////////////////////////////////////////////////////////////////////
+#include "GrBackendSurface.h"
 #include "GrContext.h"
 #include "SkGpuDevice.h"
 
@@ -133,7 +134,7 @@ public:
             return;
         }
 
-        fCanvas.reset(new SkCanvas(device.get()));
+        fCanvas.reset(new SkCanvas(device));
         fCanvas->clipRect(SkRect::Make(subset));
 #ifdef SK_IS_BOT
         fCanvas->clear(SK_ColorRED);  // catch any imageFilter sloppiness
@@ -164,15 +165,19 @@ private:
 };
 
 sk_sp<SkSpecialSurface> SkSpecialSurface::MakeRenderTarget(GrContext* context,
+                                                           const GrBackendFormat& format,
                                                            int width, int height,
                                                            GrPixelConfig config,
-                                                           sk_sp<SkColorSpace> colorSpace) {
+                                                           sk_sp<SkColorSpace> colorSpace,
+                                                           const SkSurfaceProps* props) {
     if (!context) {
         return nullptr;
     }
 
-    sk_sp<GrRenderTargetContext> renderTargetContext(context->makeDeferredRenderTargetContext(
-        SkBackingFit::kApprox, width, height, config, std::move(colorSpace)));
+    sk_sp<GrRenderTargetContext> renderTargetContext(
+        context->contextPriv().makeDeferredRenderTargetContext(
+                format, SkBackingFit::kApprox, width, height, config, std::move(colorSpace), 1,
+                GrMipMapped::kNo, kBottomLeft_GrSurfaceOrigin, props));
     if (!renderTargetContext) {
         return nullptr;
     }

@@ -23,13 +23,13 @@
 %                                 March 2003                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2007 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -5308,6 +5308,8 @@ int main(int argc,char **argv)
   drawing_wand=NewDrawingWand();
   (void) PushDrawingWand(drawing_wand);
   (void) DrawRotate(drawing_wand,45);
+  if (getenv("MAGICK_FONT") != 0)
+    (void) DrawSetFont(drawing_wand,getenv("MAGICK_FONT"));
   (void) DrawSetFontSize(drawing_wand,18);
   fill=NewPixelWand();
   (void) PixelSetColor(fill,"green");
@@ -5341,11 +5343,12 @@ int main(int argc,char **argv)
       primary_colors);
     if (status == MagickFalse)
       ThrowAPIException(magick_wand);
+    memset(pixels,0,sizeof(pixels));
     status=MagickExportImagePixels(magick_wand,10,10,3,3,"RGB",CharPixel,
       pixels);
     if (status == MagickFalse)
       ThrowAPIException(magick_wand);
-    for (i=0; i < 9; i++)
+    for (i=0; i < 27; i++)
       if (pixels[i] != primary_colors[i])
         {
           (void) FormatLocaleFile(stderr,

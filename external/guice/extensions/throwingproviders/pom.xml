@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.google.inject.extensions</groupId>
     <artifactId>extensions-parent</artifactId>
-    <version>4.0</version>
+    <version>4.2.0</version>
   </parent>
 
   <artifactId>guice-throwingproviders</artifactId>
@@ -23,6 +23,27 @@
           </excludes>
         </configuration>
       </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>com.google.guice.extensions.throwingproviders</Automatic-Module-Name>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.google.truth</groupId>
+      <artifactId>truth</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+    </dependency>
+  </dependencies>
 </project>

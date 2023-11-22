@@ -20,12 +20,11 @@ class network_ShillInitScripts(test.test):
     """
     version = 1
     save_directories = [ '/var/cache/shill',
-                         '/var/cache/flimflam',
                          '/run/shill',
                          '/run/state/logged-in',
                          '/run/dhcpcd',
                          '/var/lib/dhcpcd',
-                         '/home/chronos/.disable_shill' ]
+                         ]
     fake_user = 'not-a-real-user@chromium.org'
     saved_config = '/tmp/network_ShillInitScripts_saved_config.tgz'
     cryptohome_path_command = 'cryptohome-path'
@@ -132,10 +131,6 @@ class network_ShillInitScripts(test.test):
 
         # Create the fake user's user cryptohome directory.
         os.mkdir(self.user_cryptohome_dir)
-        self.flimflam_user_profile_dir = ('%s/flimflam' %
-                                          self.user_cryptohome_dir)
-        self.flimflam_user_profile = ('%s/flimflam.profile' %
-                                      self.flimflam_user_profile_dir)
         self.old_shill_user_profile_dir = ('%s/shill' %
                                            self.user_cryptohome_dir)
         self.old_shill_user_profile = ('%s/shill.profile' %
@@ -317,16 +312,6 @@ class network_ShillInitScripts(test.test):
         self.create_file_with_contents(self.old_shill_user_profile, contents)
 
 
-    def create_flimflam_user_profile(self, contents):
-        """ Create a legacy flimflam user profile with |contents|.
-
-        @param contents string contents of the flimflam user profile.
-
-        """
-        os.mkdir(self.flimflam_user_profile_dir)
-        self.create_file_with_contents(self.flimflam_user_profile, contents)
-
-
     def file_contents(self, filename):
         """ Returns the contents of |filename|.
 
@@ -364,8 +349,7 @@ class network_ShillInitScripts(test.test):
         try:
             self.run_tests([
                 self.test_start_shill,
-                self.test_start_logged_in,
-                self.test_start_port_flimflam_profile])
+                self.test_start_logged_in])
 
             # The tests above run a real instance of shill, whereas the tests
             # below rely on a mock instance of shill.  We must take care not
@@ -379,9 +363,6 @@ class network_ShillInitScripts(test.test):
                 self.test_login_old_shill_profile,
                 self.test_login_invalid_old_shill_profile,
                 self.test_login_ignore_old_shill_profile,
-                self.test_login_flimflam_profile,
-                self.test_login_ignore_flimflam_profile,
-                self.test_login_prefer_old_shill_profile,
                 self.test_login_multi_profile,
                 self.test_logout])
         finally:
@@ -409,7 +390,6 @@ class network_ShillInitScripts(test.test):
         Also ensure the push argument is not provided by default.
 
         """
-        self.touch('/home/chronos/.disable_shill')
         self.start_shill()
         self.assure_is_dir('/run/shill', 'Shill run directory')
         self.assure_is_dir('/var/lib/dhcpcd', 'dhcpcd lib directory')
@@ -418,8 +398,6 @@ class network_ShillInitScripts(test.test):
         self.assure_is_dir('/run/dhcpcd', 'dhcpcd run directory')
         self.assure_path_owner('/run/dhcpcd', 'dhcp')
         self.assure_path_group('/run/dhcpcd', 'dhcp')
-        self.assure(not os.path.exists('/home/chronos/.disable_shill'),
-                    'Shill disable file does not exist')
         self.assure('--push=~chronos/shill' not in self.get_commandline(),
                     'Shill command line does not contain push argument')
 
@@ -443,46 +421,6 @@ class network_ShillInitScripts(test.test):
         os.unlink('/run/state/logged-in')
 
 
-    def test_start_port_flimflam_profile(self):
-        """ Test that we can port a flimflam profile to a new shill profile.
-
-        Startup should move an old flimflam profile into place if a shill
-        profile does not already exist.
-
-        """
-        os.mkdir('/var/cache/flimflam')
-        flimflam_profile = '/var/cache/flimflam/default.profile'
-        self.create_file_with_contents(flimflam_profile, self.magic_header)
-        shill_profile = '/var/cache/shill/default.profile'
-        self.start_shill()
-        self.assure(not os.path.exists(flimflam_profile),
-                    'Flimflam profile no longer exists')
-        self.assure(os.path.exists(shill_profile),
-                    'Shill profile exists')
-        self.assure(self.magic_header in self.file_contents(shill_profile),
-                    'Shill default profile contains our magic header')
-
-
-    def test_start_ignore_flimflam_profile(self):
-        """ Test that we ignore a flimflam profile if a new profile exists.
-
-        Startup should ignore an old flimflam profile if a shill profile
-        already exists.
-
-        """
-        os.mkdir('/var/cache/flimflam')
-        os.mkdir('/var/cache/shill')
-        flimflam_profile = '/var/cache/flimflam/default.profile'
-        self.create_file_with_contents(flimflam_profile, self.magic_header)
-        shill_profile = '/var/cache/shill/default.profile'
-        self.touch(shill_profile)
-        self.start_shill()
-        self.assure(os.path.exists(flimflam_profile),
-                    'Flimflam profile still exists')
-        self.assure(self.magic_header not in self.file_contents(shill_profile),
-                    'Shill default profile does not contain our magic header')
-
-
     def test_login(self):
         """ Test the login process.
 
@@ -492,8 +430,6 @@ class network_ShillInitScripts(test.test):
         """
         os.mkdir('/run/shill')
         self.login()
-        self.assure(not os.path.exists(self.flimflam_user_profile),
-                    'Flimflam user profile does not exist')
         self.assure(not os.path.exists(self.old_shill_user_profile),
                     'Old shill user profile does not exist')
         self.assure(not os.path.exists(self.new_shill_user_profile),
@@ -529,8 +465,6 @@ class network_ShillInitScripts(test.test):
         """
         os.mkdir('/run/shill')
         self.login_guest()
-        self.assure(not os.path.exists(self.flimflam_user_profile),
-                    'Flimflam user profile does not exist')
         self.assure(not os.path.exists(self.old_shill_user_profile),
                     'Old shill user profile does not exist')
         self.assure(not os.path.exists(self.new_shill_user_profile),
@@ -670,77 +604,6 @@ class network_ShillInitScripts(test.test):
         self.assure(self.magic_header not in
                     self.file_contents(self.new_shill_user_profile),
                     'Shill user profile does not contain our magic header')
-        self.assure_method_calls([[ 'InsertUserProfile',
-                                    ('~chronos/shill', self.fake_user_hash) ]],
-                                 'Only InsertUserProfile is called')
-
-
-    def test_login_flimflam_profile(self):
-        """ Test logging in with an old flimflam profile.
-
-        Login script should move a flimflam user profile into place
-        if a shill one does not exist.
-
-        """
-        os.mkdir('/run/shill')
-        self.create_flimflam_user_profile(self.magic_header)
-        self.login()
-        self.assure(not os.path.exists(self.flimflam_user_profile),
-                    'Flimflam user profile no longer exists')
-        self.assure(not os.path.exists(self.flimflam_user_profile_dir),
-                    'Flimflam user profile directory no longer exists')
-        self.assure_exists(self.new_shill_user_profile,
-                           'New shill profile')
-        self.assure(self.magic_header in
-                    self.file_contents(self.new_shill_user_profile),
-                    'Shill user profile contains our magic header')
-        self.assure_method_calls([[ 'InsertUserProfile',
-                                    ('~chronos/shill', self.fake_user_hash) ]],
-                                 'Only InsertUserProfile is called')
-
-
-    def test_login_ignore_flimflam_profile(self):
-        """ Test logging in with both a flimflam profile and a new profile.
-
-        Login script should ignore an old flimflam user profile if a new
-        one exists.
-
-        """
-        os.mkdir('/run/shill')
-        self.create_flimflam_user_profile(self.magic_header)
-        self.create_new_shill_user_profile('')
-        self.login()
-        self.assure_exists(self.new_shill_user_profile,
-                           'New shill profile')
-        self.assure(self.magic_header not in
-                    self.file_contents(self.new_shill_user_profile),
-                    'Shill user profile does not contain our magic header')
-        self.assure_method_calls([[ 'InsertUserProfile',
-                                    ('~chronos/shill', self.fake_user_hash) ]],
-                                 'Only InsertUserProfile is called')
-
-
-    def test_login_prefer_old_shill_profile(self):
-        """ Test logging in with both a flimflam and old-style shill profile.
-
-        Login script should use the old shill user profile in preference
-        to a flimflam user profile if the new user profile does not
-        exist.
-
-        """
-        os.mkdir('/run/shill')
-        self.create_flimflam_user_profile('')
-        self.create_old_shill_user_profile(self.magic_header)
-        self.login()
-        self.assure(not os.path.exists(self.flimflam_user_profile),
-                    'Flimflam user profile was removed')
-        self.assure(not os.path.exists(self.old_shill_user_profile),
-                    'Old shill user profile no longer exists')
-        self.assure_exists(self.new_shill_user_profile,
-                           'New shill profile')
-        self.assure(self.magic_header in
-                    self.file_contents(self.new_shill_user_profile),
-                    'Shill user profile contains our magic header')
         self.assure_method_calls([[ 'InsertUserProfile',
                                     ('~chronos/shill', self.fake_user_hash) ]],
                                  'Only InsertUserProfile is called')

@@ -194,6 +194,41 @@ public abstract class Nat
         return c == 0 ? 0 : incAt(len, z, zOff, 1);
     }
 
+    public static int cadd(int len, int mask, int[] x, int[] y, int[] z)
+    {
+        long MASK = -(mask & 1) & M;
+        long c = 0;
+        for (int i = 0; i < len; ++i)
+        {
+            c += (x[i] & M) + (y[i] & MASK);
+            z[i] = (int)c;
+            c >>>= 32;
+        }
+        return (int)c;
+    }
+
+    public static void cmov(int len, int mask, int[] x, int xOff, int[] z, int zOff)
+    {
+        mask = -(mask & 1);
+
+        for (int i = 0; i < len; ++i)
+        {
+            int z_i = z[zOff + i], diff = z_i ^ x[xOff + i];
+            z_i ^= (diff & mask);
+            z[zOff + i] = z_i;
+        }
+
+//        final int half = 0x55555555, rest = half << (-mask);
+//
+//        for (int i = 0; i < len; ++i)
+//        {
+//            int z_i = z[zOff + i], diff = z_i ^ x[xOff + i];
+//            z_i ^= (diff & half);
+//            z_i ^= (diff & rest);
+//            z[zOff + i] = z_i;
+//        }
+    }
+
     public static int[] copy(int len, int[] x)
     {
         int[] z = new int[len];
@@ -206,6 +241,11 @@ public abstract class Nat
         System.arraycopy(x, 0, z, 0, len);
     }
 
+    public static void copy(int len, int[] x, int xOff, int[] z, int zOff)
+    {
+        System.arraycopy(x, xOff, z, zOff, len);
+    }
+
     public static int[] create(int len)
     {
         return new int[len];
@@ -214,6 +254,19 @@ public abstract class Nat
     public static long[] create64(int len)
     {
         return new long[len];
+    }
+
+    public static int csub(int len, int mask, int[] x, int[] y, int[] z)
+    {
+        long MASK = -(mask & 1) & M;
+        long c = 0;
+        for (int i = 0; i < len; ++i)
+        {
+            c += (x[i] & M) - (y[i] & MASK);
+            z[i] = (int)c;
+            c >>= 32;
+        }
+        return (int)c;
     }
 
     public static int dec(int len, int[] z)
@@ -438,6 +491,16 @@ public abstract class Nat
         for (int i = 1; i < len; ++i)
         {
             zz[zzOff + i + len] = mulWordAddTo(len, x[xOff + i], y, yOff, zz, zzOff + i);
+        }
+    }
+
+    public static void mul(int[] x, int xOff, int xLen, int[] y, int yOff, int yLen, int[] zz, int zzOff)
+    {
+        zz[zzOff + yLen] = mulWord(yLen, x[xOff], y, yOff, zz, zzOff);
+
+        for (int i = 1; i < xLen; ++i)
+        {
+            zz[zzOff + i + yLen] = mulWordAddTo(yLen, x[xOff + i], y, yOff, zz, zzOff + i);
         }
     }
 

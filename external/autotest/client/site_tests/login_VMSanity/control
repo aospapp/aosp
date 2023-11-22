@@ -1,0 +1,21 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = "Chrome OS Team"
+NAME = "login_VMSanity"
+PURPOSE = "Run vm_sanity.py."
+CRITERIA = """
+Test will fail if vm_sanity fails.
+"""
+ATTRIBUTES = "suite:bvt-inline, suite:smoke"
+TIME = "SHORT"
+TEST_CATEGORY = "Functional"
+TEST_CLASS = "login"
+TEST_TYPE = "client"
+
+DOC = """
+This test runs vm_sanity.py
+"""
+
+job.run_test('login_VMSanity')

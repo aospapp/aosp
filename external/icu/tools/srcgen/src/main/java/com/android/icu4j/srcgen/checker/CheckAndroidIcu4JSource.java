@@ -73,7 +73,7 @@ public class CheckAndroidIcu4JSource {
       reportWriter.append("Beginning of report:\n");
       CheckAndroidIcu4jSourceRules reportRules =
           new CheckAndroidIcu4jSourceRules(inputFileGenerator, publicMembersSet);
-      main.execute(reportRules, reportWriter);
+      main.setReportWriter(reportWriter).execute(reportRules);
       reportWriter.append("End of report\n");
     }
 

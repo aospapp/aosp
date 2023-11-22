@@ -3,13 +3,17 @@
  * found in the LICENSE file.
  */
 
+#define _GNU_SOURCE /* for asprintf */
 #include <getopt.h>
 #include <signal.h>
+#include <stdio.h>
 #include <syslog.h>
 
+#include "cras_apm_list.h"
 #include "cras_config.h"
 #include "cras_iodev_list.h"
 #include "cras_server.h"
+#include "cras_shm.h"
 #include "cras_system_state.h"
 #include "cras_dsp.h"
 
@@ -108,10 +112,29 @@ int main(int argc, char **argv)
 
 	/* Initialize system. */
 	cras_server_init();
-	cras_system_state_init(device_config_dir);
+        char *shm_name;
+        if (asprintf(&shm_name, "/cras-%d", getpid()) < 0)
+		exit(-1);
+	int rw_shm_fd;
+	int ro_shm_fd;
+        struct cras_server_state *exp_state = (struct cras_server_state *)
+		cras_shm_setup(shm_name,
+			       sizeof(*exp_state),
+			       &rw_shm_fd,
+			       &ro_shm_fd);
+	if (!exp_state)
+		exit(-1);
+	cras_system_state_init(device_config_dir,
+			       shm_name,
+			       rw_shm_fd,
+			       ro_shm_fd,
+			       exp_state,
+			       sizeof(*exp_state));
+        free(shm_name);
 	if (internal_ucm_suffix)
 		cras_system_state_set_internal_ucm_suffix(internal_ucm_suffix);
 	cras_dsp_init(dsp_config);
+	cras_apm_list_init(device_config_dir);
 	cras_iodev_list_init();
 
 	/* Start the server. */

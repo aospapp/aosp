@@ -9,37 +9,45 @@
 #include "glsl/GrGLSLVarying.h"
 #include "glsl/GrGLSLProgramBuilder.h"
 
-void GrGLSLVaryingHandler::addPassThroughAttribute(const GrGeometryProcessor::Attribute* input,
-                                                   const char* output) {
-    GrSLType type = GrVertexAttribTypeToSLType(input->fType);
-    GrGLSLVarying v(type);
-    this->addVarying(input->fName, &v);
-    this->writePassThroughAttribute(input, output, v);
-}
-
-void GrGLSLVaryingHandler::addFlatPassThroughAttribute(const GrGeometryProcessor::Attribute* input,
-                                                       const char* output) {
-    GrSLType type = GrVertexAttribTypeToSLType(input->fType);
-    GrGLSLVarying v(type);
-    this->addFlatVarying(input->fName, &v);
-    this->writePassThroughAttribute(input, output, v);
-}
-
-void GrGLSLVaryingHandler::writePassThroughAttribute(const GrGeometryProcessor::Attribute* input,
-                                                     const char* output, const GrGLSLVarying& v) {
+void GrGLSLVaryingHandler::addPassThroughAttribute(const GrGeometryProcessor::Attribute& input,
+                                                   const char* output,
+                                                   Interpolation interpolation) {
+    SkASSERT(input.isInitialized());
     SkASSERT(!fProgramBuilder->primitiveProcessor().willUseGeoShader());
-    fProgramBuilder->fVS.codeAppendf("%s = %s;", v.vsOut(), input->fName);
+    GrGLSLVarying v(input.gpuType());
+    this->addVarying(input.name(), &v, interpolation);
+    fProgramBuilder->fVS.codeAppendf("%s = %s;", v.vsOut(), input.name());
     fProgramBuilder->fFS.codeAppendf("%s = %s;", output, v.fsIn());
 }
 
-void GrGLSLVaryingHandler::internalAddVarying(const char* name, GrGLSLVarying* varying, bool flat) {
+static bool use_flat_interpolation(GrGLSLVaryingHandler::Interpolation interpolation,
+                                   const GrShaderCaps& shaderCaps) {
+    switch (interpolation) {
+        using Interpolation = GrGLSLVaryingHandler::Interpolation;
+        case Interpolation::kInterpolated:
+            return false;
+        case Interpolation::kCanBeFlat:
+            SkASSERT(!shaderCaps.preferFlatInterpolation() ||
+                     shaderCaps.flatInterpolationSupport());
+            return shaderCaps.preferFlatInterpolation();
+        case Interpolation::kMustBeFlat:
+            SkASSERT(shaderCaps.flatInterpolationSupport());
+            return true;
+    }
+    SK_ABORT("Invalid interpolation");
+    return false;
+}
+
+void GrGLSLVaryingHandler::addVarying(const char* name, GrGLSLVarying* varying,
+                                      Interpolation interpolation) {
+    SkASSERT(GrSLTypeIsFloatType(varying->type()) || Interpolation::kMustBeFlat == interpolation);
     bool willUseGeoShader = fProgramBuilder->primitiveProcessor().willUseGeoShader();
     VaryingInfo& v = fVaryings.push_back();
 
     SkASSERT(varying);
     SkASSERT(kVoid_GrSLType != varying->fType);
     v.fType = varying->fType;
-    v.fIsFlat = flat;
+    v.fIsFlat = use_flat_interpolation(interpolation, *fProgramBuilder->shaderCaps());
     fProgramBuilder->nameVariable(&v.fVsOut, 'v', name);
     v.fVisibility = kNone_GrShaderFlags;
     if (varying->isInVertexShader()) {
@@ -59,13 +67,11 @@ void GrGLSLVaryingHandler::internalAddVarying(const char* name, GrGLSLVarying* v
 }
 
 void GrGLSLVaryingHandler::emitAttributes(const GrGeometryProcessor& gp) {
-    int vaCount = gp.numAttribs();
-    for (int i = 0; i < vaCount; i++) {
-        const GrGeometryProcessor::Attribute& attr = gp.getAttrib(i);
-        this->addAttribute(GrShaderVar(attr.fName,
-                                       GrVertexAttribTypeToSLType(attr.fType),
-                                       GrShaderVar::kIn_TypeModifier,
-                                       GrShaderVar::kNonArray));
+    for (const auto& attr : gp.vertexAttributes()) {
+        this->addAttribute(attr.asShaderVar());
+    }
+    for (const auto& attr : gp.instanceAttributes()) {
+        this->addAttribute(attr.asShaderVar());
     }
 }
 

@@ -13,11 +13,15 @@
 # limitations under the License.
 
 import("../../../../gn/perfetto.gni")
-import("../../../../src/protozero/protozero_library.gni")
+import("../../../../gn/protozero_library.gni")
 import("all_protos.gni")
 
 proto_library("lite") {
   generate_python = false
+  if (perfetto_build_standalone) {
+    generate_descriptor =
+        "$perfetto_root_path/protos/perfetto/trace/ftrace.descriptor"
+  }
   sources = ftrace_proto_names
   proto_in_dir = "$perfetto_root_path/protos"
   proto_out_dir = "$perfetto_root_path/protos"

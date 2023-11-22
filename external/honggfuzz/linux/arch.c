@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -47,37 +47,22 @@
 #include <unistd.h>
 
 #include "fuzz.h"
-#include "libcommon/common.h"
-#include "libcommon/files.h"
-#include "libcommon/log.h"
-#include "libcommon/ns.h"
-#include "libcommon/util.h"
+#include "libhfcommon/common.h"
+#include "libhfcommon/files.h"
+#include "libhfcommon/log.h"
+#include "libhfcommon/ns.h"
+#include "libhfcommon/util.h"
 #include "linux/perf.h"
 #include "linux/trace.h"
-#include "sancov.h"
 #include "sanitizers.h"
 #include "subproc.h"
 
-static inline bool arch_shouldAttach(run_t* run) {
-    if (run->global->persistent && run->linux.attachedPid == run->pid) {
-        return false;
-    }
-    if (run->global->linux.pid > 0 && run->linux.attachedPid == run->global->linux.pid) {
-        return false;
-    }
-    return true;
-}
-
-static uint8_t arch_clone_stack[128 * 1024];
+static uint8_t arch_clone_stack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT__)));
 static __thread jmp_buf env;
 
-#if defined(__has_feature)
-#if __has_feature(address_sanitizer)
-__attribute__((no_sanitize("address"))) __attribute__((no_sanitize("memory")))
-#endif /* if __has_feature(address_sanitizer) */
-#endif /* if defined(__has_feature) */
-static int
-arch_cloneFunc(void* arg UNUSED) {
+HF_ATTR_NO_SANITIZE_ADDRESS
+HF_ATTR_NO_SANITIZE_MEMORY
+static int arch_cloneFunc(void* arg HF_ATTR_UNUSED) {
     longjmp(env, 1);
     abort();
     return 0;
@@ -100,8 +85,6 @@ static pid_t arch_clone(uintptr_t flags) {
 }
 
 pid_t arch_fork(run_t* run) {
-    run->global->linux.useClone = true;
-
     pid_t pid = run->global->linux.useClone ? arch_clone(CLONE_UNTRACED | SIGCHLD) : fork();
     if (pid == -1) {
         return pid;
@@ -150,37 +133,38 @@ bool arch_launchChild(run_t* run) {
         syscall(__NR_personality, ADDR_NO_RANDOMIZE) == -1) {
         PLOG_D("personality(ADDR_NO_RANDOMIZE) failed");
     }
+
 #define ARGS_MAX 512
     const char* args[ARGS_MAX + 2];
-    char argData[PATH_MAX] = {0};
-    int x = 0;
+    char argData[PATH_MAX];
 
-    for (x = 0; x < ARGS_MAX && run->global->exe.cmdline[x]; x++) {
-        if (!run->global->exe.fuzzStdin && !run->global->persistent &&
-            strcmp(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER) == 0) {
-            args[x] = (char*)run->fileName;
-        } else if (!run->global->exe.fuzzStdin && !run->global->persistent &&
-                   strstr(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER)) {
+    char inputFile[PATH_MAX];
+    snprintf(inputFile, sizeof(inputFile), "/dev/fd/%d", run->dynamicFileCopyFd);
+
+    int x = 0;
+    for (x = 0; x < ARGS_MAX && x < run->global->exe.argc; x++) {
+        if (run->global->exe.persistent || run->global->exe.fuzzStdin) {
+            args[x] = run->global->exe.cmdline[x];
+        } else if (!strcmp(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER)) {
+            args[x] = inputFile;
+        } else if (strstr(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER)) {
             const char* off = strstr(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER);
-            snprintf(argData, PATH_MAX, "%.*s%s", (int)(off - run->global->exe.cmdline[x]),
-                run->global->exe.cmdline[x], run->fileName);
+            snprintf(argData, sizeof(argData), "%.*s%s", (int)(off - run->global->exe.cmdline[x]),
+                run->global->exe.cmdline[x], inputFile);
             args[x] = argData;
         } else {
             args[x] = run->global->exe.cmdline[x];
         }
     }
-
     args[x++] = NULL;
 
     LOG_D("Launching '%s' on file '%s'", args[0],
-        run->global->persistent ? "PERSISTENT_MODE" : run->fileName);
+        run->global->exe.persistent ? "PERSISTENT_MODE" : inputFile);
 
-    /* alarm persists across forks, so disable it here */
+    /* alarms persist across execve(), so disable it here */
     alarm(0);
 
-    /*
-     * Wait for the ptrace to attach
-     */
+    /* Wait for the ptrace to attach now */
     if (kill(syscall(__NR_getpid), SIGSTOP) == -1) {
         LOG_F("Couldn't stop itself");
     }
@@ -196,9 +180,18 @@ bool arch_launchChild(run_t* run) {
     return false;
 }
 
+static bool arch_attachToNewPid(run_t* run) {
+    if (!arch_traceAttach(run)) {
+        LOG_W("arch_traceAttach(pid=%d) failed", run->pid);
+        return false;
+    }
+
+    return true;
+}
+
 void arch_prepareParentAfterFork(run_t* run) {
     /* Parent */
-    if (run->global->persistent) {
+    if (run->global->exe.persistent) {
         const struct f_owner_ex fown = {
             .type = F_OWNER_TID,
             .pid = syscall(__NR_gettid),
@@ -213,201 +206,136 @@ void arch_prepareParentAfterFork(run_t* run) {
             PLOG_F("fcntl(%d, F_SETFL, O_ASYNC)", run->persistentSock);
         }
     }
-}
 
-static bool arch_attachToNewPid(run_t* run, pid_t pid) {
-    if (!arch_shouldAttach(run)) {
-        return true;
+    if (!arch_perfOpen(run)) {
+        LOG_F("Couldn't open perf event for pid=%d", (int)run->pid);
     }
-    run->linux.attachedPid = pid;
-    if (!arch_traceAttach(run, pid)) {
-        LOG_W("arch_traceAttach(pid=%d) failed", pid);
-        kill(pid, SIGKILL);
-        return false;
+    if (!arch_attachToNewPid(run)) {
+        LOG_F("Couldn't attach to pid=%d", (int)run->pid);
     }
-
-    arch_perfClose(run);
-    if (arch_perfOpen(pid, run) == false) {
-        kill(pid, SIGKILL);
-        return false;
-    }
-
-    return true;
 }
 
 void arch_prepareParent(run_t* run) {
-    pid_t ptracePid = (run->global->linux.pid > 0) ? run->global->linux.pid : run->pid;
-    pid_t childPid = run->pid;
-
-    if (!arch_attachToNewPid(run, ptracePid)) {
-        LOG_E("Couldn't attach to PID=%d", (int)ptracePid);
-    }
-
-    /* A long-lived process could have already exited, and we wouldn't know */
-    if (childPid != ptracePid && kill(ptracePid, 0) == -1) {
-        if (run->global->linux.pidFile) {
-            /* If pid from file, check again for cases of auto-restart daemons that update it */
-            /*
-             * TODO: Investigate if we need to delay here, so that target process has
-             * enough time to restart. Tricky to answer since is target dependent.
-             */
-            if (files_readPidFromFile(run->global->linux.pidFile, &run->global->linux.pid) ==
-                false) {
-                LOG_F("Failed to read new PID from file - abort");
-            } else {
-                if (kill(run->global->linux.pid, 0) == -1) {
-                    PLOG_F("Liveness of PID %d read from file questioned - abort",
-                        run->global->linux.pid);
-                } else {
-                    LOG_D("Monitor PID has been updated (pid=%d)", run->global->linux.pid);
-                    ptracePid = run->global->linux.pid;
-                }
-            }
-        }
-    }
-
-    if (arch_perfEnable(run) == false) {
-        LOG_E("Couldn't enable perf counters for pid %d", ptracePid);
-    }
-    if (childPid != ptracePid) {
-        if (arch_traceWaitForPidStop(childPid) == false) {
-            LOG_F("PID: %d not in a stopped state", childPid);
-        }
-        if (kill(childPid, SIGCONT) == -1) {
-            PLOG_F("Restarting PID: %d failed", childPid);
-        }
+    if (!arch_perfEnable(run)) {
+        LOG_F("Couldn't enable perf counters for pid=%d", (int)run->pid);
     }
 }
 
 static bool arch_checkWait(run_t* run) {
-    pid_t ptracePid = (run->global->linux.pid > 0) ? run->global->linux.pid : run->pid;
-    pid_t childPid = run->pid;
-
-    /* All queued wait events must be tested */
+    /* All queued wait events must be tested when SIGCHLD was delivered */
     for (;;) {
         int status;
-        pid_t pid = waitpid(-1, &status, __WALL | __WNOTHREAD | WNOHANG);
+        pid_t pid = TEMP_FAILURE_RETRY(waitpid(-1, &status, __WALL | __WNOTHREAD | WNOHANG));
         if (pid == 0) {
             return false;
-        }
-        if (pid == -1 && errno == EINTR) {
-            continue;
         }
         if (pid == -1 && errno == ECHILD) {
             LOG_D("No more processes to track");
             return true;
         }
         if (pid == -1) {
-            PLOG_F("wait4() failed");
+            PLOG_F("waitpid() failed");
         }
 
         char statusStr[4096];
-        LOG_D("PID '%d' returned with status: %s", pid,
+        LOG_D("pid=%d returned with status: %s", pid,
             subproc_StatusToStr(status, statusStr, sizeof(statusStr)));
 
-        if (run->global->persistent && pid == run->persistentPid &&
-            (WIFEXITED(status) || WIFSIGNALED(status))) {
-            arch_traceAnalyze(run, status, pid);
-            run->persistentPid = 0;
-            if (fuzz_isTerminating() == false) {
-                LOG_W("Persistent mode: PID %d exited with status: %s", pid,
-                    subproc_StatusToStr(status, statusStr, sizeof(statusStr)));
+        arch_traceAnalyze(run, status, pid);
+
+        if (pid == run->pid && (WIFEXITED(status) || WIFSIGNALED(status))) {
+            if (run->global->exe.persistent) {
+                if (!fuzz_isTerminating()) {
+                    LOG_W("Persistent mode: pid=%d exited with status: %s", (int)run->pid,
+                        subproc_StatusToStr(status, statusStr, sizeof(statusStr)));
+                }
             }
             return true;
         }
-        if (ptracePid == childPid) {
-            arch_traceAnalyze(run, status, pid);
-            continue;
-        }
-        if (pid == childPid && (WIFEXITED(status) || WIFSIGNALED(status))) {
-            return true;
-        }
-        if (pid == childPid) {
-            continue;
-        }
-
-        arch_traceAnalyze(run, status, pid);
     }
 }
 
-__thread sigset_t sset_io_chld;
 void arch_reapChild(run_t* run) {
-    static const struct timespec ts = {
-        .tv_sec = 0L,
-        .tv_nsec = 250000000L,
-    };
     for (;;) {
-        int sig = sigtimedwait(&sset_io_chld, NULL, &ts);
-        if (sig == -1 && (errno != EAGAIN && errno != EINTR)) {
-            PLOG_F("sigtimedwait(SIGIO|SIGCHLD, 0.25s)");
-        }
-        if (sig == -1) {
-            subproc_checkTimeLimit(run);
-            subproc_checkTermination(run);
-        }
-        if (subproc_persistentModeRoundDone(run)) {
+        if (subproc_persistentModeStateMachine(run)) {
             break;
         }
+
+        subproc_checkTimeLimit(run);
+        subproc_checkTermination(run);
+
+        const struct timespec ts = {
+            .tv_sec = 0ULL,
+            .tv_nsec = (1000ULL * 1000ULL * 250ULL),
+        };
+        /* Return with SIGIO, SIGCHLD and with SIGUSR1 */
+        int sig = sigtimedwait(&run->global->exe.waitSigSet, NULL, &ts /* 0.25s */);
+        if (sig == -1 && (errno != EAGAIN && errno != EINTR)) {
+            PLOG_F("sigwaitinfo(SIGIO|SIGCHLD|SIGUSR1)");
+        }
+
         if (arch_checkWait(run)) {
+            run->pid = 0;
+            break;
+        }
+        if (run->global->socketFuzzer.enabled) {
+            // Do not wait for new events
             break;
         }
     }
-
-    if (run->global->enableSanitizers) {
-        pid_t ptracePid = (run->global->linux.pid > 0) ? run->global->linux.pid : run->pid;
+    if (run->global->sanitizer.enable) {
         char crashReport[PATH_MAX];
         snprintf(crashReport, sizeof(crashReport), "%s/%s.%d", run->global->io.workDir, kLOGPREFIX,
-            ptracePid);
+            run->pid);
         if (files_exists(crashReport)) {
             if (run->backtrace) {
                 unlink(crashReport);
             } else {
-                LOG_W(
-                    "Un-handled ASan report due to compiler-rt internal error - retry with '%s' "
-                    "(%s)",
-                    crashReport, run->fileName);
-
+                LOG_W("Un-handled ASan report due to compiler-rt internal error - retry with '%s'",
+                    crashReport);
                 /* Try to parse report file */
-                arch_traceExitAnalyze(run, ptracePid);
+                arch_traceExitAnalyze(run, run->pid);
             }
         }
     }
 
+    if (run->pid == 0) {
+        arch_perfClose(run);
+    }
     arch_perfAnalyze(run);
-    sancov_Analyze(run);
 }
 
 bool arch_archInit(honggfuzz_t* hfuzz) {
     /* Make %'d work */
-    setlocale(LC_NUMERIC, "en_US");
+    setlocale(LC_NUMERIC, "en_US.UTF-8");
 
     if (access(hfuzz->exe.cmdline[0], X_OK) == -1) {
         PLOG_E("File '%s' doesn't seem to be executable", hfuzz->exe.cmdline[0]);
         return false;
     }
-    if ((hfuzz->linux.exeFd = open(hfuzz->exe.cmdline[0], O_RDONLY | O_CLOEXEC)) == -1) {
+    if ((hfuzz->linux.exeFd =
+                TEMP_FAILURE_RETRY(open(hfuzz->exe.cmdline[0], O_RDONLY | O_CLOEXEC))) == -1) {
         PLOG_E("Cannot open the executable binary: %s)", hfuzz->exe.cmdline[0]);
         return false;
     }
 
-    const char* (*gvs)(void) = dlsym(RTLD_DEFAULT, "gnu_get_libc_version");
     for (;;) {
-        if (!gvs) {
+        __attribute__((weak)) const char* gnu_get_libc_version(void);
+        if (!gnu_get_libc_version) {
             LOG_W("Unknown libc implementation. Using clone() instead of fork()");
             break;
         }
-        const char* gversion = gvs();
+        const char* gversion = gnu_get_libc_version();
         int major, minor;
         if (sscanf(gversion, "%d.%d", &major, &minor) != 2) {
             LOG_W("Unknown glibc version:'%s'. Using clone() instead of fork()", gversion);
             break;
         }
         if ((major < 2) || (major == 2 && minor < 23)) {
-            LOG_W(
-                "Your glibc version:'%s' will most likely result in malloc()-related "
-                "deadlocks. Min. version 2.24 (Or, Ubuntu's 2.23-0ubuntu6) suggested. "
-                "See https://sourceware.org/bugzilla/show_bug.cgi?id=19431 for explanation. "
-                "Using clone() instead of fork()",
+            LOG_W("Your glibc version:'%s' will most likely result in malloc()-related "
+                  "deadlocks. Min. version 2.24 (Or, Ubuntu's 2.23-0ubuntu6) suggested. "
+                  "See https://sourceware.org/bugzilla/show_bug.cgi?id=19431 for explanation. "
+                  "Using clone() instead of fork()",
                 gversion);
             break;
         }
@@ -416,7 +344,7 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
         break;
     }
 
-    if (hfuzz->dynFileMethod != _HF_DYNFILE_NONE) {
+    if (hfuzz->feedback.dynFileMethod != _HF_DYNFILE_NONE) {
         unsigned long major = 0, minor = 0;
         char* p = NULL;
 
@@ -435,8 +363,8 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
          *  3) Intel's PT and new Intel BTS format require kernel >= 4.1
          */
         unsigned long checkMajor = 3, checkMinor = 7;
-        if ((hfuzz->dynFileMethod & _HF_DYNFILE_BTS_EDGE) ||
-            (hfuzz->dynFileMethod & _HF_DYNFILE_IPT_BLOCK)) {
+        if ((hfuzz->feedback.dynFileMethod & _HF_DYNFILE_BTS_EDGE) ||
+            (hfuzz->feedback.dynFileMethod & _HF_DYNFILE_IPT_BLOCK)) {
             checkMajor = 4;
             checkMinor = 1;
         }
@@ -460,7 +388,7 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
             return false;
         }
 
-        if (arch_perfInit(hfuzz) == false) {
+        if (!arch_perfInit(hfuzz)) {
             return false;
         }
     }
@@ -477,35 +405,6 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
     }
 #endif
 
-    /* If read PID from file enable - read current value */
-    if (hfuzz->linux.pidFile) {
-        if (files_readPidFromFile(hfuzz->linux.pidFile, &hfuzz->linux.pid) == false) {
-            LOG_E("Failed to read PID from file");
-            return false;
-        }
-    }
-
-    /* If remote pid, resolve command using procfs */
-    if (hfuzz->linux.pid > 0) {
-        char procCmd[PATH_MAX] = {0};
-        snprintf(procCmd, sizeof(procCmd), "/proc/%d/cmdline", hfuzz->linux.pid);
-
-        ssize_t sz = files_readFileToBufMax(
-            procCmd, (uint8_t*)hfuzz->linux.pidCmd, sizeof(hfuzz->linux.pidCmd) - 1);
-        if (sz < 1) {
-            LOG_E("Couldn't read '%s'", procCmd);
-            return false;
-        }
-
-        /* Make human readable */
-        for (size_t i = 0; i < ((size_t)sz - 1); i++) {
-            if (hfuzz->linux.pidCmd[i] == '\0') {
-                hfuzz->linux.pidCmd[i] = ' ';
-            }
-        }
-        hfuzz->linux.pidCmd[sz] = '\0';
-    }
-
     /* Updates the important signal array based on input args */
     arch_traceSignalsInit(hfuzz);
 
@@ -514,7 +413,7 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
      * increase number of major frames, since top 7-9 frames will be occupied
      * with sanitizer runtime library & libc symbols
      */
-    if (hfuzz->enableSanitizers && hfuzz->monitorSIGABRT) {
+    if (hfuzz->sanitizer.enable && hfuzz->cfg.monitorSIGABRT) {
         hfuzz->linux.numMajorFrames = 14;
     }
 
@@ -533,9 +432,17 @@ bool arch_archThreadInit(run_t* run) {
     run->linux.cpuBranchFd = -1;
     run->linux.cpuIptBtsFd = -1;
 
-    sigemptyset(&sset_io_chld);
-    sigaddset(&sset_io_chld, SIGIO);
-    sigaddset(&sset_io_chld, SIGCHLD);
+    if (prctl(PR_SET_CHILD_SUBREAPER, 1UL, 0UL, 0UL, 0UL) == -1) {
+        PLOG_W("prctl(PR_SET_CHILD_SUBREAPER, 1)");
+    }
+
+    sigset_t ss;
+    sigemptyset(&ss);
+    sigaddset(&ss, SIGUSR1);
+    if (pthread_sigmask(SIG_BLOCK, &ss, NULL) != 0) {
+        PLOG_W("Couldn't block SIGUSR1");
+        return false;
+    }
 
     return true;
 }

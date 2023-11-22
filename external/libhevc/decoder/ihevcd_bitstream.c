@@ -247,8 +247,8 @@ void ihevcd_bits_seek(bitstrm_t *ps_bitstrm, WORD32 numbits)
              * then subtract abs_numbits from offset and add 32 and move cur_word to nxt_word
              * and load cur_word appropriately and decrement pu4_buf
              */
-            ps_bitstrm->u4_bit_ofst -= abs_numbits;
             ps_bitstrm->u4_bit_ofst += 32;
+            ps_bitstrm->u4_bit_ofst -= abs_numbits;
             ps_bitstrm->pu4_buf--;
 
             val = *(ps_bitstrm->pu4_buf - 2);

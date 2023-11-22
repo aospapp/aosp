@@ -95,6 +95,29 @@ DEFINE_TEST(modprobe_show_alias_to_none,
 	);
 
 
+static noreturn int modprobe_show_exports(const struct test *t)
+{
+	const char *progname = ABS_TOP_BUILDDIR "/tools/modprobe";
+	const char *const args[] = {
+		progname,
+		"--show-exports", "--quiet", "/mod-loop-a.ko",
+		NULL,
+	};
+
+	test_spawn_prog(progname, args);
+	exit(EXIT_FAILURE);
+}
+DEFINE_TEST(modprobe_show_exports,
+	.description = "check if modprobe --show-depends doesn't explode with an alias to nothing",
+	.config = {
+		[TC_ROOTFS] = TESTSUITE_ROOTFS "test-modprobe/show-exports",
+	},
+	.output = {
+		.out = TESTSUITE_ROOTFS "test-modprobe/show-exports/correct.txt",
+		.regex = true,
+	});
+
+
 static noreturn int modprobe_builtin(const struct test *t)
 {
 	const char *progname = ABS_TOP_BUILDDIR "/tools/modprobe";
@@ -366,6 +389,28 @@ DEFINE_TEST(modprobe_oldkernel_force,
 	.config = {
 		[TC_UNAME_R] = "3.3.3",
 		[TC_ROOTFS] = TESTSUITE_ROOTFS "test-modprobe/oldkernel-force",
+		[TC_INIT_MODULE_RETCODES] = "",
+	},
+	.modules_loaded = "mod-simple",
+	);
+
+static noreturn int modprobe_external(const struct test *t)
+{
+	const char *progname = ABS_TOP_BUILDDIR "/tools/modprobe";
+	const char *const args[] = {
+		progname,
+		"mod-simple",
+		NULL,
+	};
+
+	test_spawn_prog(progname, args);
+	exit(EXIT_FAILURE);
+}
+DEFINE_TEST(modprobe_external,
+	.description = "check modprobe able to load external module",
+	.config = {
+		[TC_UNAME_R] = "4.4.4",
+		[TC_ROOTFS] = TESTSUITE_ROOTFS "test-modprobe/external",
 		[TC_INIT_MODULE_RETCODES] = "",
 	},
 	.modules_loaded = "mod-simple",

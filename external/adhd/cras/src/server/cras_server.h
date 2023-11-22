@@ -16,6 +16,10 @@
 #define CRAS_SERVER_PROFILE_MASK_HSP	(1 << 1)
 #define CRAS_SERVER_PROFILE_MASK_A2DP	(1 << 2)
 
+/* Reserver client id 0-15 for internal server usage. */
+#define RESERVED_CLIENT_IDS 16
+#define SERVER_STREAM_CLIENT_ID 0
+
 struct cras_client_message;
 
 /* Initialize some server setup. Mainly to add the select handler first

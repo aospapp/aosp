@@ -60,10 +60,12 @@ class ShillProxy(object):
     MANAGER_PROPERTY_ALL_SERVICES = 'ServiceCompleteList'
     MANAGER_PROPERTY_DHCPPROPERTY_HOSTNAME = 'DHCPProperty.Hostname'
     MANAGER_PROPERTY_DHCPPROPERTY_VENDORCLASS = 'DHCPProperty.VendorClass'
+    MANAGER_PROPERTY_WIFI_GLOBAL_FT_ENABLED = 'WiFi.GlobalFTEnabled'
 
     MANAGER_OPTIONAL_PROPERTY_MAP = {
         MANAGER_PROPERTY_DHCPPROPERTY_HOSTNAME: dbus.String,
-        MANAGER_PROPERTY_DHCPPROPERTY_VENDORCLASS: dbus.String
+        MANAGER_PROPERTY_DHCPPROPERTY_VENDORCLASS: dbus.String,
+        MANAGER_PROPERTY_WIFI_GLOBAL_FT_ENABLED: dbus.Boolean
     }
 
     PROFILE_PROPERTY_ENTRIES = 'Entries'
@@ -90,6 +92,7 @@ class ShillProxy(object):
     SERVICE_PROPERTY_PASSPHRASE = 'Passphrase'
     SERVICE_PROPERTY_PROFILE = 'Profile'
     SERVICE_PROPERTY_SAVE_CREDENTIALS = 'SaveCredentials'
+    SERVICE_PROPERTY_FT_ENABLED = 'WiFi.FTEnabled'
     # Unless you really care whether a network is WPA (TSN) vs. WPA-2
     # (RSN), you should use SERVICE_PROPERTY_SECURITY_CLASS.
     SERVICE_PROPERTY_SECURITY_RAW = 'Security'
@@ -97,6 +100,7 @@ class ShillProxy(object):
     SERVICE_PROPERTY_SSID = 'SSID'
     SERVICE_PROPERTY_STRENGTH = 'Strength'
     SERVICE_PROPERTY_STATE = 'State'
+    SERVICE_PROPERTY_STATIC_IP_NAMESERVERS = 'StaticIP.NameServers'
     SERVICE_PROPERTY_TYPE = 'Type'
 
     # EAP related properties.
@@ -105,6 +109,11 @@ class ShillProxy(object):
     SERVICE_PROPERTY_EAP_IDENTITY = 'EAP.Identity'
     SERVICE_PROPERTY_EAP_PASSWORD = 'EAP.Password'
     SERVICE_PROPERTY_EAP_CA_CERT_PEM = 'EAP.CACertPEM'
+    SERVICE_PROPERTY_CLIENT_CERT_ID = 'EAP.CertID'
+    SERVICE_PROPERTY_EAP_KEY_MGMT = 'EAP.KeyMgmt'
+    SERVICE_PROPERTY_EAP_PIN = 'EAP.PIN'
+    SERVICE_PROPERTY_PRIVATE_KEY_ID = 'EAP.KeyID'
+    SERVICE_PROPERTY_USE_SYSTEM_CAS = 'EAP.UseSystemCAs'
 
     # OpenVPN related properties.
     SERVICE_PROPERTY_OPENVPN_CA_CERT_PEM = 'OpenVPN.CACertPEM'
@@ -150,12 +159,19 @@ class ShillProxy(object):
         SERVICE_PROPERTY_STRENGTH: dbus.Byte,
         SERVICE_PROPERTY_STATE: dbus.String,
         SERVICE_PROPERTY_TYPE: dbus.String,
+        SERVICE_PROPERTY_FT_ENABLED: dbus.Boolean,
+        SERVICE_PROPERTY_STATIC_IP_NAMESERVERS: dbus.String,
 
         SERVICE_PROPERTY_EAP_EAP: dbus.String,
         SERVICE_PROPERTY_EAP_INNER_EAP: dbus.String,
         SERVICE_PROPERTY_EAP_IDENTITY: dbus.String,
         SERVICE_PROPERTY_EAP_PASSWORD: dbus.String,
         SERVICE_PROPERTY_EAP_CA_CERT_PEM: dbus.Array,
+        SERVICE_PROPERTY_CLIENT_CERT_ID: dbus.String,
+        SERVICE_PROPERTY_EAP_KEY_MGMT: dbus.String,
+        SERVICE_PROPERTY_EAP_PIN: dbus.String,
+        SERVICE_PROPERTY_PRIVATE_KEY_ID: dbus.String,
+        SERVICE_PROPERTY_USE_SYSTEM_CAS: dbus.Boolean,
 
         SERVICE_PROPERTY_OPENVPN_CA_CERT_PEM: dbus.Array,
         SERVICE_PROPERTY_OPENVPN_PASSWORD: dbus.String,
@@ -417,6 +433,20 @@ class ShillProxy(object):
         # Convert configuration values to dbus variant typed values.
         dbus_config = ShillProxy.service_properties_to_dbus_types(config)
         self.manager.ConfigureService(dbus_config)
+
+
+    def configure_service_for_profile(self, path, config):
+        """Configure a service in the given profile with given properties.
+
+        @param path string path of profile for which service should be
+            configured.
+        @param config dictionary of service property:value pairs.
+
+        """
+        # Convert configuration values to dbus variant typed values.
+        dbus_config = ShillProxy.service_properties_to_dbus_types(config)
+        self.manager.ConfigureServiceForProfile(dbus.ObjectPath(path),
+                                                dbus_config)
 
 
     def set_logging(self, level, scopes):

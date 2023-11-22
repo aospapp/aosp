@@ -18,6 +18,9 @@ package com.google.currysrc.api.process.ast;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.BodyDeclaration;
@@ -163,8 +166,34 @@ public final class BodyDeclarationLocators {
     if (parametersString.isEmpty()) {
       return Collections.emptyList();
     }
-    return Splitter.on(',').splitToList(parametersString);
+    return splitParameters(parametersString);
   }
+
+  /**
+   * Split parameters by ','. Support simple generics syntax.
+   * TODO: Replace the implementation by JDT parser.
+   */
+  private static List<String> splitParameters(String parametersString) {
+    List<String> result = new ArrayList<>();
+    int genericsLevel = 0;
+    int start = 0;
+    for (int p = 0; p < parametersString.length(); p++) {
+      char c = parametersString.charAt(p);
+      if (genericsLevel == 0 && c == ',') {
+        result.add(parametersString.substring(start, p));
+        start = p + 1;
+      } else if (c == '<') {
+        genericsLevel++;
+      } else if (c == '>') {
+        genericsLevel--;
+      }
+    }
+    if (start < parametersString.length()) {
+      result.add(parametersString.substring(start, parametersString.length()));
+    }
+    return result;
+  }
+
 
   private static List<String> splitInTwo(String string, String separator) {
     List<String> components = Splitter.on(separator).splitToList(string);
@@ -172,5 +201,17 @@ public final class BodyDeclarationLocators {
       throw new IllegalArgumentException("Cannot split " + string + " on " + separator);
     }
     return components;
+  }
+
+  /**
+   * Read body declarations from a file.
+   *
+   * <p>Blank lines and lines starting with a {@code #} are ignored.
+   *
+   * @param path the path to the file.
+   * @return The list of {@link BodyDeclarationLocator} instances.
+   */
+  public static List<BodyDeclarationLocator> readBodyDeclarationLocators(Path path) {
+    return createLocatorsFromStrings(TypeLocator.readLines(path));
   }
 }

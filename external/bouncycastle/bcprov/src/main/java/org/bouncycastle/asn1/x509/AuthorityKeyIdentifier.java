@@ -17,6 +17,7 @@ import org.bouncycastle.crypto.Digest;
 // Android-changed: Use Android digests
 // import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.digests.AndroidDigestFactory;
+import org.bouncycastle.util.encoders.Hex;
 
 /**
  * The AuthorityKeyIdentifier object.
@@ -230,6 +231,6 @@ public class AuthorityKeyIdentifier
 
     public String toString()
     {
-        return ("AuthorityKeyIdentifier: KeyID(" + this.keyidentifier.getOctets() + ")");
+        return ("AuthorityKeyIdentifier: KeyID(" + ((keyidentifier != null) ? Hex.toHexString(this.keyidentifier.getOctets()) : "null") + ")");
     }
 }

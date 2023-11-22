@@ -9,7 +9,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.shadow.api.Shadow;
 
-@Implements(value = TimePickerDialog.class, inheritImplementationMethods = true)
+@Implements(value = TimePickerDialog.class)
 public class ShadowTimePickerDialog extends ShadowAlertDialog {
   @RealObject
   protected TimePickerDialog realTimePickerDialog;
@@ -17,7 +17,7 @@ public class ShadowTimePickerDialog extends ShadowAlertDialog {
   private int minute;
 
   @Implementation
-  public void __constructor__(
+  protected void __constructor__(
       Context context,
       int theme,
       TimePickerDialog.OnTimeSetListener callBack,

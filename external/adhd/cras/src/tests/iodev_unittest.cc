@@ -13,6 +13,7 @@ extern "C" {
 #include "utlist.h"
 #include "cras_audio_area.h"
 #include "audio_thread_log.h"
+#include "input_data.h"
 
 // Mock software volume scalers.
 float softvol_scalers[101];
@@ -52,11 +53,13 @@ static float cras_dsp_pipeline_source_buffer[2][DSP_BUFFER_SIZE];
 static float cras_dsp_pipeline_sink_buffer[2][DSP_BUFFER_SIZE];
 static int cras_dsp_pipeline_get_delay_called;
 static int cras_dsp_pipeline_apply_called;
+static int cras_dsp_pipeline_set_sink_ext_module_called;
 static int cras_dsp_pipeline_apply_sample_count;
 static unsigned int cras_mix_mute_count;
 static unsigned int cras_dsp_num_input_channels_return;
 static unsigned int cras_dsp_num_output_channels_return;
 struct cras_dsp_context *cras_dsp_context_new_return;
+static unsigned int cras_dsp_load_dummy_pipeline_called;
 static unsigned int rate_estimator_add_frames_num_frames;
 static unsigned int rate_estimator_add_frames_called;
 static int cras_system_get_mute_return;
@@ -103,6 +106,11 @@ static unsigned int cras_scale_buffer_increment_frame;
 static float cras_scale_buffer_increment_scaler;
 static float cras_scale_buffer_increment_increment;
 static int cras_scale_buffer_increment_channel;
+static struct cras_audio_format audio_fmt;
+static int buffer_share_add_id_called;
+static int buffer_share_get_new_write_point_ret;
+static int ext_mod_configure_called;
+static struct input_data *input_data_create_ret;
 
 // Iodev callback
 int update_channel_layout(struct cras_iodev *iodev) {
@@ -144,10 +152,12 @@ void ResetStubData() {
          sizeof(cras_dsp_pipeline_sink_buffer));
   cras_dsp_pipeline_get_delay_called = 0;
   cras_dsp_pipeline_apply_called = 0;
+  cras_dsp_pipeline_set_sink_ext_module_called = 0;
   cras_dsp_pipeline_apply_sample_count = 0;
   cras_dsp_num_input_channels_return = 2;
   cras_dsp_num_output_channels_return = 2;
   cras_dsp_context_new_return = NULL;
+  cras_dsp_load_dummy_pipeline_called = 0;
   rate_estimator_add_frames_num_frames = 0;
   rate_estimator_add_frames_called = 0;
   cras_system_get_mute_return = 0;
@@ -194,6 +204,11 @@ void ResetStubData() {
   cras_scale_buffer_increment_scaler = 0;
   cras_scale_buffer_increment_increment = 0;
   cras_scale_buffer_increment_channel = 0;
+  audio_fmt.format = SND_PCM_FORMAT_S16_LE;
+  audio_fmt.frame_rate = 48000;
+  audio_fmt.num_channels = 2;
+  buffer_share_add_id_called = 0;
+  ext_mod_configure_called = 0;
 }
 
 namespace {
@@ -479,10 +494,11 @@ TEST_F(IoDevSetFormatTestSuite, UpdateChannelLayoutFail) {
   EXPECT_EQ(SND_PCM_FORMAT_S16_LE, iodev_.ext_format->format);
   EXPECT_EQ(48000, iodev_.ext_format->frame_rate);
   EXPECT_EQ(2, iodev_.ext_format->num_channels);
-  EXPECT_EQ(2, cras_audio_format_set_channel_layout_called);
   EXPECT_EQ(0, dsp_context_free_called);
-  for (i = 0; i < CRAS_CH_MAX; i++)
+  for (i = 0; i < CRAS_CH_MAX; i++) {
     EXPECT_EQ(iodev_.format->channel_layout[i], stereo_layout[i]);
+    EXPECT_EQ(iodev_.ext_format->channel_layout[i], stereo_layout[i]);
+  }
 }
 
 TEST_F(IoDevSetFormatTestSuite, UpdateChannelLayoutFail6ch) {
@@ -506,10 +522,11 @@ TEST_F(IoDevSetFormatTestSuite, UpdateChannelLayoutFail6ch) {
   EXPECT_EQ(SND_PCM_FORMAT_S16_LE, iodev_.ext_format->format);
   EXPECT_EQ(48000, iodev_.ext_format->frame_rate);
   EXPECT_EQ(6, iodev_.ext_format->num_channels);
-  EXPECT_EQ(2, cras_audio_format_set_channel_layout_called);
   EXPECT_EQ(0, dsp_context_free_called);
-  for (i = 0; i < CRAS_CH_MAX; i++)
+  for (i = 0; i < CRAS_CH_MAX; i++) {
     EXPECT_EQ(iodev_.format->channel_layout[i], default_6ch_layout[i]);
+    EXPECT_EQ(iodev_.ext_format->channel_layout[i], default_6ch_layout[i]);
+  }
 }
 
 // Put buffer tests
@@ -589,7 +606,7 @@ TEST(IoDevPutOutputBuffer, SystemMuted) {
   iodev.format = &fmt;
   iodev.put_buffer = put_buffer;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 20);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 20, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(20, cras_mix_mute_count);
   EXPECT_EQ(20, put_buffer_nframes);
@@ -651,7 +668,7 @@ TEST(IoDevPutOutputBuffer, NodeVolumeZeroShouldMute) {
   iodev.format = &fmt;
   iodev.put_buffer = put_buffer;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 20);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 20, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(20, cras_mix_mute_count);
   EXPECT_EQ(20, put_buffer_nframes);
@@ -680,7 +697,7 @@ TEST(IoDevPutOutputBuffer, SystemMutedWithRamp) {
   // Assume ramping is done.
   cras_ramp_get_current_action_ret.type = CRAS_RAMP_ACTION_NONE;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 20);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 20, NULL, nullptr);
   // Output should be muted.
   EXPECT_EQ(0, rc);
   EXPECT_EQ(20, cras_mix_mute_count);
@@ -690,7 +707,7 @@ TEST(IoDevPutOutputBuffer, SystemMutedWithRamp) {
   // Test for the case where ramping is not done yet.
   ResetStubData();
   cras_ramp_get_current_action_ret.type = CRAS_RAMP_ACTION_PARTIAL;
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 20);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 20, NULL, nullptr);
 
   // Output should not be muted.
   EXPECT_EQ(0, rc);
@@ -729,7 +746,7 @@ TEST(IoDevPutOutputBuffer, NodeVolumeZeroShouldMuteWithRamp) {
   // Assume ramping is done.
   cras_ramp_get_current_action_ret.type = CRAS_RAMP_ACTION_NONE;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 20);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 20, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(20, cras_mix_mute_count);
   EXPECT_EQ(20, put_buffer_nframes);
@@ -738,7 +755,7 @@ TEST(IoDevPutOutputBuffer, NodeVolumeZeroShouldMuteWithRamp) {
   // Test for the case where ramping is not done yet.
   ResetStubData();
   cras_ramp_get_current_action_ret.type = CRAS_RAMP_ACTION_PARTIAL;
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 20);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 20, NULL, nullptr);
 
   // Output should not be muted.
   EXPECT_EQ(0, rc);
@@ -770,7 +787,7 @@ TEST(IoDevPutOutputBuffer, NoDSP) {
   iodev.format = &fmt;
   iodev.put_buffer = put_buffer;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 22);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 22, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   EXPECT_EQ(22, put_buffer_nframes);
@@ -796,7 +813,7 @@ TEST(IoDevPutOutputBuffer, DSP) {
   cras_iodev_register_pre_dsp_hook(&iodev, pre_dsp_hook, (void *)0x1234);
   cras_iodev_register_post_dsp_hook(&iodev, post_dsp_hook, (void *)0x5678);
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 32);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 32, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   EXPECT_EQ(1, pre_dsp_hook_called);
@@ -829,7 +846,7 @@ TEST(IoDevPutOutputBuffer, SoftVol) {
   cras_system_get_volume_return = 13;
   softvol_scalers[13] = 0.435;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 53);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 53, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   EXPECT_EQ(53, put_buffer_nframes);
@@ -867,7 +884,7 @@ TEST(IoDevPutOutputBuffer, SoftVolWithRamp) {
   cras_system_get_volume_return = volume;
   softvol_scalers[volume] = volume_scaler;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   EXPECT_EQ(n_frames, put_buffer_nframes);
@@ -884,7 +901,7 @@ TEST(IoDevPutOutputBuffer, SoftVolWithRamp) {
   cras_system_get_volume_return = volume;
   softvol_scalers[volume] = volume_scaler;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   // cras_scale_buffer is not called.
@@ -932,7 +949,7 @@ TEST(IoDevPutOutputBuffer, NoSoftVolWithRamp) {
   // Assume ramping is done.
   cras_ramp_get_current_action_ret.type = CRAS_RAMP_ACTION_NONE;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   // cras_scale_buffer is not called.
@@ -946,7 +963,7 @@ TEST(IoDevPutOutputBuffer, NoSoftVolWithRamp) {
   cras_ramp_get_current_action_ret.scaler = ramp_scaler;
   cras_ramp_get_current_action_ret.increment = increment;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, n_frames, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   // cras_scale_buffer is not called.
@@ -983,7 +1000,7 @@ TEST(IoDevPutOutputBuffer, Scale32Bit) {
   iodev.format = &fmt;
   iodev.put_buffer = put_buffer;
 
-  rc = cras_iodev_put_output_buffer(&iodev, frames, 53);
+  rc = cras_iodev_put_output_buffer(&iodev, frames, 53, NULL, nullptr);
   EXPECT_EQ(0, rc);
   EXPECT_EQ(0, cras_mix_mute_count);
   EXPECT_EQ(53, put_buffer_nframes);
@@ -1227,7 +1244,7 @@ TEST(IoDev, SoftwareGain) {
   // Check that system volume changes software volume if needed.
   cras_system_get_capture_gain_ret_value = 2000;
   // system_gain + node_gain = 2000 + 400  = 2400
-  // 2400 dBm is 15.848931
+  // 2400 * 0.01 dB is 15.848931
   EXPECT_FLOAT_EQ(15.848931, cras_iodev_get_software_gain_scaler(&iodev));
   EXPECT_FLOAT_EQ(3000, cras_iodev_maximum_software_gain(&iodev));
 
@@ -1269,10 +1286,10 @@ TEST(IoDev, GetBufferInvalidFrames) {
   iodev.get_buffer = bad_get_buffer;
 
   EXPECT_EQ(-EINVAL, cras_iodev_get_output_buffer(&iodev, area, &frames));
-  EXPECT_EQ(-EINVAL, cras_iodev_get_input_buffer(&iodev, area, &frames));
+  EXPECT_EQ(-EINVAL, cras_iodev_get_input_buffer(&iodev, &frames));
 }
 
-static int open_dev(struct cras_iodev *iodev) {
+static int configure_dev(struct cras_iodev *iodev) {
   iodev->buffer_size = iodev_buffer_size;
   return 0;
 }
@@ -1281,19 +1298,42 @@ TEST(IoDev, OpenOutputDeviceNoStart) {
   struct cras_iodev iodev;
 
   memset(&iodev, 0, sizeof(iodev));
-  iodev.open_dev = open_dev;
+  iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_OUTPUT;
+  iodev.ext_format = &audio_fmt;
   ResetStubData();
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
 
   iodev_buffer_size = 1024;
-  cras_iodev_open(&iodev, 240);
+  cras_iodev_open(&iodev, 240, &audio_fmt);
   EXPECT_EQ(0, iodev.max_cb_level);
   EXPECT_EQ(240, iodev.min_cb_level);
 
   // Test that state is no stream run when there is no start ops.
   EXPECT_EQ(CRAS_IODEV_STATE_NO_STREAM_RUN, iodev.state);
+}
+
+TEST(IoDev, OpenOutputDeviceWithLowRateFmt) {
+  struct cras_iodev iodev;
+
+  memset(&iodev, 0, sizeof(iodev));
+  iodev.configure_dev = configure_dev;
+  iodev.direction = CRAS_STREAM_OUTPUT;
+  iodev.ext_format = &audio_fmt;
+  ResetStubData();
+
+  cras_audio_format low_rate_fmt = audio_fmt;
+  low_rate_fmt.frame_rate = 8000;
+  iodev.state = CRAS_IODEV_STATE_CLOSE;
+
+  iodev_buffer_size = 1024;
+  cras_iodev_open(&iodev, 40, &low_rate_fmt);
+  EXPECT_EQ(0, iodev.max_cb_level);
+
+  // Test that iodev min_cb_level should be set to
+  // 40 * 48000 / 8000 = 240
+  EXPECT_EQ(240, iodev.min_cb_level);
 }
 
 int fake_start(const struct cras_iodev *iodev) {
@@ -1304,15 +1344,16 @@ TEST(IoDev, OpenOutputDeviceWithStart) {
   struct cras_iodev iodev;
 
   memset(&iodev, 0, sizeof(iodev));
-  iodev.open_dev = open_dev;
+  iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_OUTPUT;
+  iodev.ext_format = &audio_fmt;
   ResetStubData();
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
   iodev.start = fake_start;
 
   iodev_buffer_size = 1024;
-  cras_iodev_open(&iodev, 240);
+  cras_iodev_open(&iodev, 240, &audio_fmt);
   EXPECT_EQ(0, iodev.max_cb_level);
   EXPECT_EQ(240, iodev.min_cb_level);
 
@@ -1324,14 +1365,15 @@ TEST(IoDev, OpenInputDeviceNoStart) {
   struct cras_iodev iodev;
 
   memset(&iodev, 0, sizeof(iodev));
-  iodev.open_dev = open_dev;
+  iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_INPUT;
+  iodev.ext_format = &audio_fmt;
   ResetStubData();
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
 
   iodev_buffer_size = 1024;
-  cras_iodev_open(&iodev, 240);
+  cras_iodev_open(&iodev, 240, &audio_fmt);
   EXPECT_EQ(0, iodev.max_cb_level);
   EXPECT_EQ(240, iodev.min_cb_level);
 
@@ -1343,20 +1385,43 @@ TEST(IoDev, OpenInputDeviceWithStart) {
   struct cras_iodev iodev;
 
   memset(&iodev, 0, sizeof(iodev));
-  iodev.open_dev = open_dev;
+  iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_INPUT;
+  iodev.ext_format = &audio_fmt;
   ResetStubData();
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
   iodev.start = fake_start;
 
   iodev_buffer_size = 1024;
-  cras_iodev_open(&iodev, 240);
+  cras_iodev_open(&iodev, 240, &audio_fmt);
   EXPECT_EQ(0, iodev.max_cb_level);
   EXPECT_EQ(240, iodev.min_cb_level);
 
   // Test that state is normal run even if there is start ops.
   EXPECT_EQ(CRAS_IODEV_STATE_NORMAL_RUN, iodev.state);
+}
+
+TEST(IoDev, OpenInputDeviceWithLowRateFmt) {
+  struct cras_iodev iodev;
+
+  memset(&iodev, 0, sizeof(iodev));
+  iodev.configure_dev = configure_dev;
+  iodev.direction = CRAS_STREAM_INPUT;
+  iodev.ext_format = &audio_fmt;
+  ResetStubData();
+
+  cras_audio_format low_rate_fmt = audio_fmt;
+  low_rate_fmt.frame_rate = 8000;
+  iodev.state = CRAS_IODEV_STATE_CLOSE;
+
+  iodev_buffer_size = 1024;
+  cras_iodev_open(&iodev, 40, &low_rate_fmt);
+  EXPECT_EQ(0, iodev.max_cb_level);
+
+  // Test that iodev min_cb_level should be set to
+  // 40 * 48000 / 8000 = 240
+  EXPECT_EQ(240, iodev.min_cb_level);
 }
 
 static int simple_no_stream(struct cras_iodev *dev, int enable)
@@ -1372,8 +1437,11 @@ TEST(IoDev, AddRmStream) {
   struct dev_stream stream1, stream2;
 
   memset(&iodev, 0, sizeof(iodev));
-  iodev.open_dev = open_dev;
+  memset(&rstream1, 0, sizeof(rstream1));
+  memset(&rstream2, 0, sizeof(rstream2));
+  iodev.configure_dev = configure_dev;
   iodev.no_stream = simple_no_stream;
+  iodev.ext_format = &audio_fmt;
   iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
   rstream1.cb_threshold = 800;
   stream1.stream = &rstream1;
@@ -1382,7 +1450,7 @@ TEST(IoDev, AddRmStream) {
   ResetStubData();
 
   iodev_buffer_size = 1024;
-  cras_iodev_open(&iodev, rstream1.cb_threshold);
+  cras_iodev_open(&iodev, rstream1.cb_threshold, &audio_fmt);
   EXPECT_EQ(0, iodev.max_cb_level);
   EXPECT_EQ(512, iodev.min_cb_level);
 
@@ -1390,10 +1458,12 @@ TEST(IoDev, AddRmStream) {
   cras_iodev_add_stream(&iodev, &stream1);
   EXPECT_EQ(800, iodev.max_cb_level);
   EXPECT_EQ(512, iodev.min_cb_level);
+  EXPECT_EQ(1, buffer_share_add_id_called);
 
   cras_iodev_add_stream(&iodev, &stream2);
   EXPECT_EQ(800, iodev.max_cb_level);
   EXPECT_EQ(400, iodev.min_cb_level);
+  EXPECT_EQ(2, buffer_share_add_id_called);
 
   cras_iodev_rm_stream(&iodev, &rstream1);
   EXPECT_EQ(400, iodev.max_cb_level);
@@ -1403,7 +1473,28 @@ TEST(IoDev, AddRmStream) {
   /* When all streams are removed, keep the last min_cb_level for draining. */
   cras_iodev_rm_stream(&iodev, &rstream2);
   EXPECT_EQ(0, iodev.max_cb_level);
-  EXPECT_EQ(400, iodev.min_cb_level);
+  EXPECT_EQ(512, iodev.min_cb_level);
+}
+
+TEST(IoDev, TriggerOnlyStreamNoBufferShare) {
+  struct cras_iodev iodev;
+  struct cras_rstream rstream;
+  struct dev_stream stream;
+
+  memset(&iodev, 0, sizeof(iodev));
+  memset(&rstream, 0, sizeof(rstream));
+  iodev.configure_dev = configure_dev;
+  iodev.ext_format = &audio_fmt;
+  iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
+  rstream.cb_threshold = 800;
+  rstream.flags = TRIGGER_ONLY;
+  stream.stream = &rstream;
+  ResetStubData();
+
+  cras_iodev_open(&iodev, rstream.cb_threshold, &audio_fmt);
+  /* TRIGGER_ONLY streams shall not be added to buffer_share. */
+  cras_iodev_add_stream(&iodev, &stream);
+  EXPECT_EQ(0, buffer_share_add_id_called);
 }
 
 TEST(IoDev, FillZeros) {
@@ -1503,6 +1594,8 @@ TEST(IoDev, PrepareOutputBeforeWriteSamples) {
   struct dev_stream stream1;
   struct cras_iodev_info info;
 
+  memset(&info, 0, sizeof(info));
+
   ResetStubData();
 
   rstream1.cb_threshold = min_cb_level;
@@ -1523,13 +1616,13 @@ TEST(IoDev, PrepareOutputBeforeWriteSamples) {
   iodev.direction = CRAS_STREAM_OUTPUT;
   iodev.buffer_size = BUFFER_SIZE;
   iodev.no_stream = no_stream;
-  iodev.open_dev = open_dev;
+  iodev.configure_dev = configure_dev;
   iodev.start = fake_start;
   iodev.info = info;
   iodev_buffer_size = BUFFER_SIZE;
 
   // Open device.
-  cras_iodev_open(&iodev, rstream1.cb_threshold);
+  cras_iodev_open(&iodev, rstream1.cb_threshold, &fmt);
 
   // Add one stream to device.
   cras_iodev_add_stream(&iodev, &stream1);
@@ -1825,30 +1918,51 @@ TEST(IoDev, OutputDeviceShouldWake) {
 
 TEST(IoDev, FramesToPlayInSleep) {
   struct cras_iodev iodev;
-  unsigned int min_cb_level = 240, hw_level;
+  struct cras_audio_format fmt;
+  unsigned int min_cb_level = 512, hw_level;
   unsigned int got_hw_level, got_frames;
   struct timespec hw_tstamp;
 
   memset(&iodev, 0, sizeof(iodev));
+  memset(&fmt, 0, sizeof(fmt));
   iodev.frames_queued = frames_queued;
   iodev.min_buffer_level = 0;
   iodev.direction = CRAS_STREAM_OUTPUT;
   iodev.buffer_size = BUFFER_SIZE;
   iodev.min_cb_level = min_cb_level;
+  iodev.streams = reinterpret_cast<struct dev_stream *>(0x1);
+  iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
+  iodev.format = &fmt;
+  fmt.frame_rate = 48000;
 
   ResetStubData();
 
   // Device is running. There is at least one stream for this device.
   // hw_level is greater than min_cb_level.
-  iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
   hw_level = min_cb_level + 50;
   fr_queued = hw_level;
-  iodev.streams = reinterpret_cast<struct dev_stream *>(0x1);
-
   got_frames = cras_iodev_frames_to_play_in_sleep(
                    &iodev, &got_hw_level, &hw_tstamp);
-  EXPECT_EQ(hw_level, got_hw_level);
-  EXPECT_EQ(hw_level, got_frames);
+  EXPECT_EQ(got_hw_level, hw_level);
+  EXPECT_EQ(got_frames, 514);
+
+  // Device is running. There is at least one stream for this device.
+  // hw_level is 2x greater than min_cb_level.
+  hw_level = 2 * min_cb_level + 50;
+  fr_queued = hw_level;
+  got_frames = cras_iodev_frames_to_play_in_sleep(
+                   &iodev, &got_hw_level, &hw_tstamp);
+  EXPECT_EQ(got_hw_level, hw_level);
+  EXPECT_EQ(got_frames, 1026);
+
+  // Device is running. There is at least one stream for this device.
+  // hw_level is less than min_cb_level.
+  hw_level = min_cb_level / 2;
+  fr_queued = hw_level;
+  got_frames = cras_iodev_frames_to_play_in_sleep(
+                   &iodev, &got_hw_level, &hw_tstamp);
+  EXPECT_EQ(got_hw_level, hw_level);
+  EXPECT_EQ(got_frames, 208);
 
   // Device is running. There is no stream for this device.
   // hw_level is greater than min_cb_level.
@@ -1856,8 +1970,8 @@ TEST(IoDev, FramesToPlayInSleep) {
 
   got_frames = cras_iodev_frames_to_play_in_sleep(
                    &iodev, &got_hw_level, &hw_tstamp);
-  EXPECT_EQ(hw_level, got_hw_level);
-  EXPECT_EQ(hw_level - min_cb_level, got_frames);
+  EXPECT_EQ(got_hw_level, hw_level);
+  EXPECT_EQ(got_frames, 0);
 
   // Device is running. There is no stream for this device.
   // hw_level is less than min_cb_level.
@@ -1867,8 +1981,8 @@ TEST(IoDev, FramesToPlayInSleep) {
 
   got_frames = cras_iodev_frames_to_play_in_sleep(
                    &iodev, &got_hw_level, &hw_tstamp);
-  EXPECT_EQ(hw_level, got_hw_level);
-  EXPECT_EQ(0, got_frames);
+  EXPECT_EQ(got_hw_level, hw_level);
+  EXPECT_EQ(got_frames, 0);
 }
 
 static unsigned int get_num_underruns(const struct cras_iodev *iodev) {
@@ -1892,14 +2006,15 @@ TEST(IoDev, RequestReset) {
 
   ResetStubData();
 
-  iodev.open_dev = open_dev;
+  iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_OUTPUT;
+  iodev.ext_format = &audio_fmt;
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
   iodev_buffer_size = 1024;
 
   // Open device.
-  cras_iodev_open(&iodev, 240);
+  cras_iodev_open(&iodev, 240, &audio_fmt);
 
   // The first reset request works.
   EXPECT_EQ(0, cras_iodev_reset_request(&iodev));
@@ -1910,7 +2025,7 @@ TEST(IoDev, RequestReset) {
   EXPECT_EQ(1, device_monitor_reset_device_called);
 
   // Assume device is opened again.
-  cras_iodev_open(&iodev, 240);
+  cras_iodev_open(&iodev, 240, &audio_fmt);
 
   // The reset request works.
   EXPECT_EQ(0, cras_iodev_reset_request(&iodev));
@@ -1957,6 +2072,109 @@ TEST(IoDev, HandleOutputUnderrun) {
   EXPECT_EQ(1, output_underrun_called);
 }
 
+static void ext_mod_configure(
+    struct ext_dsp_module *ext,
+    unsigned int buffer_size,
+    unsigned int num_channels,
+    unsigned int rate)
+{
+  ext_mod_configure_called++;
+}
+
+TEST(IoDev, SetExtDspMod) {
+  struct cras_iodev iodev;
+  struct cras_audio_format fmt;
+  struct ext_dsp_module ext;
+
+  ResetStubData();
+
+  memset(&iodev, 0, sizeof(iodev));
+  fmt.format = SND_PCM_FORMAT_S16_LE;
+  fmt.frame_rate = 48000;
+  fmt.num_channels = 2;
+  iodev.configure_dev = configure_dev;
+  iodev.ext_format = &fmt;
+  iodev.format = &fmt;
+  iodev.state = CRAS_IODEV_STATE_CLOSE;
+  ext.configure = ext_mod_configure;
+
+  iodev.dsp_context = reinterpret_cast<cras_dsp_context *>(0xf0f);
+  cras_dsp_get_pipeline_ret = 0x25;
+
+  cras_iodev_set_ext_dsp_module(&iodev, &ext);
+  EXPECT_EQ(0, ext_mod_configure_called);
+
+  cras_iodev_open(&iodev, 240, &fmt);
+  EXPECT_EQ(1, ext_mod_configure_called);
+  EXPECT_EQ(1, cras_dsp_get_pipeline_called);
+  EXPECT_EQ(1, cras_dsp_pipeline_set_sink_ext_module_called);
+
+  cras_iodev_set_ext_dsp_module(&iodev, NULL);
+  EXPECT_EQ(1, ext_mod_configure_called);
+
+  cras_iodev_set_ext_dsp_module(&iodev, &ext);
+  EXPECT_EQ(2, ext_mod_configure_called);
+  EXPECT_EQ(2, cras_dsp_get_pipeline_called);
+  EXPECT_EQ(2, cras_dsp_pipeline_set_sink_ext_module_called);
+
+  /* If pipeline doesn't exist, dummy pipeline should be loaded. */
+  cras_dsp_get_pipeline_ret = 0x0;
+  cras_iodev_set_ext_dsp_module(&iodev, &ext);
+  EXPECT_EQ(3, ext_mod_configure_called);
+  EXPECT_EQ(4, cras_dsp_get_pipeline_called);
+  EXPECT_EQ(1, cras_dsp_load_dummy_pipeline_called);
+  EXPECT_EQ(3, cras_dsp_pipeline_set_sink_ext_module_called);
+}
+
+TEST(IoDev, InputDspOffset) {
+  struct cras_iodev iodev;
+  struct cras_audio_format fmt;
+  struct cras_rstream rstream1;
+  struct dev_stream stream1;
+  struct input_data data;
+  unsigned int frames = 240;
+
+  ResetStubData();
+
+  rstream1.cb_threshold = 240;
+  rstream1.stream_id = 123;
+  stream1.stream = &rstream1;
+
+  memset(&iodev, 0, sizeof(iodev));
+  fmt.format = SND_PCM_FORMAT_S16_LE;
+  fmt.frame_rate = 48000;
+  fmt.num_channels = 2;
+  iodev.configure_dev = configure_dev;
+  iodev.ext_format = &fmt;
+  iodev.format = &fmt;
+  iodev.state = CRAS_IODEV_STATE_CLOSE;
+  iodev.get_buffer = get_buffer;
+  iodev.put_buffer = put_buffer;
+  iodev.direction = CRAS_STREAM_INPUT;
+  iodev.buffer_size = 480;
+
+  iodev.dsp_context = reinterpret_cast<cras_dsp_context *>(0xf0f);
+  cras_dsp_get_pipeline_ret = 0x25;
+  input_data_create_ret = &data;
+
+  cras_iodev_open(&iodev, 240, &fmt);
+
+  cras_iodev_add_stream(&iodev, &stream1);
+  cras_iodev_get_input_buffer(&iodev, &frames);
+
+  buffer_share_get_new_write_point_ret = 100;
+  cras_iodev_put_input_buffer(&iodev);
+  EXPECT_EQ(140, iodev.input_dsp_offset);
+
+  frames = 130;
+  cras_iodev_get_input_buffer(&iodev, &frames);
+  EXPECT_EQ(130, iodev.input_frames_read);
+
+  buffer_share_get_new_write_point_ret = 80;
+  cras_iodev_put_input_buffer(&iodev);
+  EXPECT_EQ(60, iodev.input_dsp_offset);
+}
+
 extern "C" {
 
 //  From libpthread.
@@ -1969,17 +2187,17 @@ int pthread_join(pthread_t thread, void **value_ptr) {
   return 0;
 }
 
-// From audio_thread
-struct cras_fmt_conv *audio_thread_get_global_remix_converter()
-{
-  return NULL;
-}
-
 // Fromt fmt_conv
 void cras_channel_remix_convert(struct cras_fmt_conv *conv,
     uint8_t *in_buf,
     size_t frames)
 {
+}
+
+size_t cras_fmt_conv_in_frames_to_out(struct cras_fmt_conv *conv,
+				      size_t in_frames)
+{
+	return in_frames;
 }
 
 // From buffer_share
@@ -1997,10 +2215,11 @@ int buffer_share_offset_update(struct buffer_share *mix, unsigned int id,
 }
 
 unsigned int buffer_share_get_new_write_point(struct buffer_share *mix) {
-  return 0;
+  return buffer_share_get_new_write_point_ret;
 }
 
 int buffer_share_add_id(struct buffer_share *mix, unsigned int id) {
+  buffer_share_add_id_called++;
   return 0;
 }
 
@@ -2037,6 +2256,11 @@ void cras_dsp_context_free(struct cras_dsp_context *ctx)
 
 void cras_dsp_load_pipeline(struct cras_dsp_context *ctx)
 {
+}
+void cras_dsp_load_dummy_pipeline(struct cras_dsp_context *ctx,
+				  unsigned int num_channels)
+{
+  cras_dsp_load_dummy_pipeline_called++;
 }
 
 void cras_dsp_set_variable_string(struct cras_dsp_context *ctx, const char *key,
@@ -2080,17 +2304,24 @@ int cras_dsp_pipeline_get_delay(struct pipeline *pipeline)
   return 0;
 }
 
-void cras_dsp_pipeline_apply(struct pipeline *pipeline,
-			     uint8_t *buf, unsigned int frames)
+int cras_dsp_pipeline_apply(struct pipeline *pipeline,
+			    uint8_t *buf, snd_pcm_format_t format,
+			    unsigned int frames)
 {
   cras_dsp_pipeline_apply_called++;
   cras_dsp_pipeline_apply_sample_count = frames;
+  return 0;
 }
 
 void cras_dsp_pipeline_add_statistic(struct pipeline *pipeline,
                                      const struct timespec *time_delta,
                                      int samples)
 {
+}
+void cras_dsp_pipeline_set_sink_ext_module(struct pipeline *pipeline,
+					   struct ext_dsp_module *ext_module)
+{
+  cras_dsp_pipeline_set_sink_ext_module_called++;
 }
 
 unsigned int cras_dsp_num_output_channels(const struct cras_dsp_context *ctx)
@@ -2304,6 +2535,45 @@ int cras_device_monitor_set_device_mute_state(struct cras_iodev *iodev)
 {
   cras_device_monitor_set_device_mute_state_called++;
   cras_device_monitor_set_device_mute_state_dev = iodev;
+  return 0;
+}
+
+static void mod_run(struct ext_dsp_module *ext,
+                    unsigned int nframes)
+{
+}
+
+static void mod_configure(struct ext_dsp_module *ext,
+                          unsigned int buffer_size,
+                          unsigned int num_channels,
+                          unsigned int rate)
+{
+}
+
+struct input_data *input_data_create(void *dev_ptr)
+{
+  if (input_data_create_ret) {
+    input_data_create_ret->ext.run = mod_run;
+    input_data_create_ret->ext.configure = mod_configure;
+  }
+  return input_data_create_ret;
+}
+
+void input_data_destroy(struct input_data **data)
+{
+}
+void input_data_set_all_streams_read(struct input_data *data,
+				     unsigned int nframes)
+{
+}
+
+int cras_audio_thread_severe_underrun()
+{
+  return 0;
+}
+
+int cras_audio_thread_underrun()
+{
   return 0;
 }
 

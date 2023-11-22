@@ -20,16 +20,15 @@ java_library_static {
 
     static_libs: [
         "dexmaker-dx-target",
-        "dexmaker-dex-target",
     ],
 
-    sdk_version: "10",
+    sdk_version: "core_current",
 }
 
 // Build Dexmaker's MockMaker, a plugin to Mockito
 java_library_static {
     name: "dexmaker-mockmaker",
-    sdk_version: "10",
+    sdk_version: "core_current",
     srcs: ["dexmaker-mockito/src/main/java/**/*.java"],
     java_resource_dirs: ["dexmaker-mockito/src/main/resources"],
     libs: [
@@ -78,11 +77,8 @@ cc_defaults {
         "libz",
     ],
 
-    // As an NDK-based library we cannot depend on libopenjdkjvmti_headers.
     include_dirs: [
         "art/openjdkjvmti/include",
-        // TODO Remove once upstream has updated to new slicer.
-        "tools/dexter/slicer/export/slicer",
     ],
 }
 
@@ -93,6 +89,15 @@ cc_library_shared {
         "dexmaker_agent_defaults",
     ],
     srcs: ["dexmaker-mockito-inline/src/main/jni/**/*.cc"],
+}
+
+// Build agent for Dexmaker's extended MockMaker
+cc_library_shared {
+    name: "libstaticjvmtiagent",
+    defaults: [
+        "dexmaker_agent_defaults",
+    ],
+    srcs: ["dexmaker-mockito-inline-extended/src/main/jni/**/*.cc"],
 }
 
 // Build agent for Dexmaker's inline tests
@@ -115,20 +120,192 @@ java_library_static {
         "mockito-api",
     ],
     required: ["libdexmakerjvmtiagent"],
+}
 
-    errorprone: {
-        javacflags: [
-            "-Xep:CollectionIncompatibleType:WARN"
-        ],
-    }
+// Build Dexmaker's extended MockMaker, a plugin to Mockito
+java_library_static {
+    name: "dexmaker-extended-mockmaker",
+    sdk_version: "current",
+    srcs: ["dexmaker-mockito-inline-extended/src/main/java/**/*.java"],
+
+    java_resource_dirs: ["dexmaker-mockito-inline/src/main/resources"],
+
+    libs: [
+        "dexmaker",
+        "mockito-api",
+        "dexmaker-inline-mockmaker",
+    ],
+    required: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent"
+    ],
+}
+
+// Provides mockito functionality for on-device tests. Does not allow stubbing of final or static
+// methods.
+java_library_static {
+    name: "mockito-target",
+    no_framework_libs: true,
+    static_libs: [
+        "mockito-target-minus-junit4",
+        "junit",
+    ],
+    sdk_version: "core_current",
+}
+
+// Same as mockito-target but does not bundle junit
+java_library_static {
+    name: "mockito-target-minus-junit4",
+    no_framework_libs: true,
+    static_libs: [
+        "mockito",
+        "dexmaker",
+        "dexmaker-mockmaker",
+        "objenesis",
+    ],
+    libs: ["junit"],
+    sdk_version: "core_current",
+
+    java_version: "1.7",
+}
+
+// Provides mockito functionality for on-device tests. Allows stubbing of final methods. Does not
+// allow stubbing of static methods.
+// Project depending on this also need to depend on the static JNI library libdexmakerjvmtiagent
+java_library_static {
+    name: "mockito-target-inline",
+    no_framework_libs: true,
+    static_libs: [
+        "mockito-target-inline-minus-junit4",
+        "junit",
+    ],
+    sdk_version: "current",
+}
+
+// Same as mockito-target-inline but does not bundle junit
+java_library_static {
+    name: "mockito-target-inline-minus-junit4",
+    no_framework_libs: true,
+    static_libs: [
+        "mockito",
+        "dexmaker",
+        "dexmaker-inline-mockmaker",
+        "objenesis",
+    ],
+    libs: ["junit"],
+    sdk_version: "current",
+
+    java_version: "1.7",
+}
+
+// Provides mockito functionality for on-device tests. Allows stubbing of final and static methods.
+// Stubbing static methods is not an official mockito API.
+// Project depending on this also need to depend on the static JNI libraries libstaticjvmtiagent and
+// libdexmakerjvmtiagent
+java_library_static {
+    name: "mockito-target-extended",
+    no_framework_libs: true,
+    static_libs: [
+        "mockito-target-extended-minus-junit4",
+        "junit",
+    ],
+    sdk_version: "current",
+}
+
+// Same as mockito-target-extended but does not bundle junit
+java_library_static {
+    name: "mockito-target-extended-minus-junit4",
+    no_framework_libs: true,
+    static_libs: [
+        "mockito",
+        "dexmaker",
+        "dexmaker-inline-mockmaker",
+        "dexmaker-extended-mockmaker",
+        "objenesis",
+    ],
+    libs: ["junit"],
+    sdk_version: "current",
+
+    java_version: "1.7",
 }
 
 java_import {
     name: "dexmaker-dx-target",
-    jars: ["lib/dalvik-dx-1.jar"],
+    jars: ["lib/dalvik-dx-9.0.0_r3.jar"],
 }
 
-java_import {
-    name: "dexmaker-dex-target",
-    jars: ["lib/libcore-dex-2.jar"],
+// dexmaker tests
+java_library_static {
+    name: "dexmaker-tests-lib",
+    sdk_version: "current",
+    srcs: ["dexmaker-tests/src/androidTest/java/**/*.java"],
+
+    libs: [
+        "androidx.test.rules",
+        "dexmaker",
+        "junit",
+    ],
+}
+
+// dexmaker-mockito tests
+java_library_static {
+    name: "dexmaker-mockmaker-tests",
+    sdk_version: "current",
+    srcs: ["dexmaker-mockito-tests/src/main/java/**/*.java"],
+
+    libs: [
+        "androidx.test.rules",
+        "dexmaker",
+        "mockito",
+        "junit",
+        "dexmaker-mockmaker",
+    ],
+}
+
+// dexmaker-mockito-inline tests
+java_library_static {
+    name: "dexmaker-inline-mockmaker-tests",
+    sdk_version: "current",
+    srcs: ["dexmaker-mockito-inline-tests/src/main/java/**/*.java"],
+
+    libs: [
+        "androidx.test.rules",
+        "dexmaker",
+        "android-support-v4",
+        "mockito",
+        "junit",
+        "dexmaker-inline-mockmaker",
+    ],
+}
+
+// dexmaker-mockito-extended tests
+java_library_static {
+    name: "dexmaker-extended-mockmaker-tests",
+    sdk_version: "current",
+    srcs: ["dexmaker-mockito-inline-extended-tests/src/main/java/**/*.java"],
+
+    libs: [
+        "androidx.test.rules",
+        "dexmaker",
+        "android-support-v4",
+        "mockito",
+        "junit",
+        "dexmaker-extended-mockmaker",
+    ],
+}
+
+/*
+ * To run the tests:
+ *   atest DexmakerTests
+ */
+
+android_test {
+    name: "DexmakerTests",
+    sdk_version: "current",
+    static_libs: [
+        "dexmaker-tests-lib",
+        "dexmaker",
+        "androidx.test.rules",
+        "junit",
+    ],
 }

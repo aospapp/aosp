@@ -5,6 +5,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "C2VDAComponent_test"
 
+#include <C2VDAAllocatorStore.h>
 #include <C2VDAComponent.h>
 
 #include <C2Buffer.h>
@@ -23,11 +24,11 @@
 #include <gtest/gtest.h>
 #include <media/DataSource.h>
 #include <media/IMediaHTTPService.h>
-#include <media/MediaExtractor.h>
 #include <media/MediaSource.h>
 #include <media/stagefright/DataSourceFactory.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
+#include <media/stagefright/MediaExtractor.h>
 #include <media/stagefright/MediaExtractorFactory.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
@@ -134,12 +135,6 @@ public:
           : C2Buffer({block->share(block->offset(), block->size(), C2Fence())}) {}
 };
 
-class C2VDADummyLinearBuffer : public C2Buffer {
-public:
-    explicit C2VDADummyLinearBuffer(const std::shared_ptr<C2LinearBlock>& block)
-          : C2Buffer({block->share(0, 0, C2Fence())}) {}
-};
-
 class Listener;
 
 class C2VDAComponentTest : public ::testing::Test {
@@ -164,10 +159,6 @@ protected:
     };
 
     std::shared_ptr<Listener> mListener;
-
-    // Allocators
-    std::shared_ptr<C2Allocator> mLinearAlloc;
-    std::shared_ptr<C2BlockPool> mLinearBlockPool;
 
     // The array of output video frame counters which will be counted in listenerThread. The array
     // length equals to iteration time of stream play.
@@ -221,12 +212,7 @@ private:
     C2VDAComponentTest* const mThis;
 };
 
-C2VDAComponentTest::C2VDAComponentTest() : mListener(new Listener(this)) {
-    std::shared_ptr<C2AllocatorStore> store = GetCodec2PlatformAllocatorStore();
-    CHECK_EQ(store->fetchAllocator(C2AllocatorStore::DEFAULT_LINEAR, &mLinearAlloc), C2_OK);
-
-    mLinearBlockPool = std::make_shared<C2BasicLinearBlockPool>(mLinearAlloc);
-}
+C2VDAComponentTest::C2VDAComponentTest() : mListener(new Listener(this)) {}
 
 void C2VDAComponentTest::onWorkDone(std::weak_ptr<C2Component> component,
                                     std::list<std::unique_ptr<C2Work>> workItems) {
@@ -436,6 +422,40 @@ TEST_P(C2VDAComponentParamTest, SimpleDecodeTest) {
     std::shared_ptr<C2Component> component(std::make_shared<C2VDAComponent>(
             mTestVideoFile->mComponentName, 0, std::make_shared<C2ReflectorHelper>()));
 
+    // Get input allocator & block pool.
+    std::shared_ptr<C2AllocatorStore> store = GetCodec2PlatformAllocatorStore();
+    std::shared_ptr<C2Allocator> inputAllocator;
+    std::shared_ptr<C2BlockPool> inputBlockPool;
+
+    CHECK_EQ(store->fetchAllocator(C2AllocatorStore::DEFAULT_LINEAR, &inputAllocator), C2_OK);
+    inputBlockPool = std::make_shared<C2BasicLinearBlockPool>(inputAllocator);
+
+    // Setup output block pool (bufferpool-backed).
+    std::vector<std::unique_ptr<C2Param>> params;
+    ASSERT_EQ(component->intf()->query_vb({}, {C2PortAllocatorsTuning::output::PARAM_TYPE},
+                                          C2_DONT_BLOCK, &params),
+              C2_OK);
+    ASSERT_EQ(params.size(), 1u);
+    C2PortAllocatorsTuning::output* outputAllocators =
+            C2PortAllocatorsTuning::output::From(params[0].get());
+    C2Allocator::id_t outputAllocatorId = outputAllocators->m.values[0];
+    ALOGV("output allocator ID = %u", outputAllocatorId);
+
+    // Check bufferpool-backed block pool is used.
+    ASSERT_EQ(outputAllocatorId, C2VDAAllocatorStore::V4L2_BUFFERPOOL);
+
+    std::shared_ptr<C2BlockPool> outputBlockPool;
+    ASSERT_EQ(CreateCodec2BlockPool(outputAllocatorId, component, &outputBlockPool), C2_OK);
+    C2BlockPool::local_id_t outputPoolId = outputBlockPool->getLocalId();
+    ALOGV("output block pool ID = %" PRIu64 "", outputPoolId);
+
+    std::unique_ptr<C2PortBlockPoolsTuning::output> poolIdsTuning =
+            C2PortBlockPoolsTuning::output::AllocUnique({outputPoolId});
+
+    std::vector<std::unique_ptr<C2SettingResult>> failures;
+    ASSERT_EQ(component->intf()->config_vb({poolIdsTuning.get()}, C2_MAY_BLOCK, &failures), C2_OK);
+
+    // Set listener and start.
     ASSERT_EQ(component->setListener_vb(mListener, C2_DONT_BLOCK), C2_OK);
     ASSERT_EQ(component->start(), C2_OK);
 
@@ -472,8 +492,11 @@ TEST_P(C2VDAComponentParamTest, SimpleDecodeTest) {
                   work->worklets.front()->output.flags,
                   work->worklets.front()->output.buffers.size());
 
+            // Don't check output buffer and flags for flushed works.
+            bool flushed = work->result == C2_NOT_FOUND;
+
             ASSERT_EQ(work->worklets.size(), 1u);
-            if (work->worklets.front()->output.buffers.size() == 1u) {
+            if (!flushed && work->worklets.front()->output.buffers.size() == 1u) {
                 std::shared_ptr<C2Buffer> output = work->worklets.front()->output.buffers[0];
                 C2ConstGraphicBlock graphicBlock = output->data().graphicBlocks().front();
 
@@ -514,8 +537,8 @@ TEST_P(C2VDAComponentParamTest, SimpleDecodeTest) {
                 mOutputFrameCounts[iteration]++;
             }
 
-            bool iteration_end =
-                    work->worklets.front()->output.flags & C2FrameData::FLAG_END_OF_STREAM;
+            bool iteration_end = !flushed && (work->worklets.front()->output.flags &
+                                              C2FrameData::FLAG_END_OF_STREAM);
 
             // input buffer should be reset in component side.
             ASSERT_EQ(work->input.buffers.size(), 1u);
@@ -574,12 +597,14 @@ TEST_P(C2VDAComponentParamTest, SimpleDecodeTest) {
             int64_t timestamp = 0u;
             MediaBufferBase* buffer = nullptr;
             sp<ABuffer> csd;
+            C2FrameData::flags_t inputFlag = static_cast<C2FrameData::flags_t>(0);
             bool queueDummyEOSWork = false;
             if (!csds.empty()) {
                 csd = std::move(csds.front());
                 csds.pop_front();
                 size = csd->size();
                 data = csd->data();
+                inputFlag = C2FrameData::FLAG_CODEC_CONFIG;
             } else {
                 if (mTestVideoFile->mData->read(&buffer) != OK) {
                     ASSERT_TRUE(buffer == nullptr);
@@ -613,25 +638,22 @@ TEST_P(C2VDAComponentParamTest, SimpleDecodeTest) {
                 }
             }
 
+            work->input.flags = inputFlag;
             work->input.ordinal.frameIndex = static_cast<uint64_t>(numWorks);
             work->input.buffers.clear();
 
             std::shared_ptr<C2LinearBlock> block;
             if (queueDummyEOSWork) {
-                work->input.flags = C2FrameData::FLAG_END_OF_STREAM;
+                // Create the dummy EOS work with no input buffer inside.
+                work->input.flags = static_cast<C2FrameData::flags_t>(
+                        work->input.flags | C2FrameData::FLAG_END_OF_STREAM);
                 work->input.ordinal.timestamp = 0;  // timestamp is invalid for dummy EOS work
-
-                // Create a dummy input buffer by allocating minimal size of buffer from block pool.
-                mLinearBlockPool->fetchLinearBlock(
-                        1, {C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE}, &block);
-                work->input.buffers.emplace_back(new C2VDADummyLinearBuffer(std::move(block)));
                 ALOGV("Input: (Dummy EOS) id: %llu", work->input.ordinal.frameIndex.peekull());
             } else {
-                work->input.flags = static_cast<C2FrameData::flags_t>(0);
                 work->input.ordinal.timestamp = static_cast<uint64_t>(timestamp);
 
                 // Allocate an input buffer with data size.
-                mLinearBlockPool->fetchLinearBlock(
+                inputBlockPool->fetchLinearBlock(
                         size, {C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE}, &block);
                 C2WriteView view = block->map().get();
                 ASSERT_EQ(view.error(), C2_OK);

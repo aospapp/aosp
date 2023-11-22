@@ -389,7 +389,10 @@ Short              & Long                       & Description \\ \hline\hline
 -d \emph{dev}      & --dev=\emph{dev}           & Adds \emph{dev} as a device to trace \\ \hline
 -k                 & --kill                     & Kill on-going trace \\ \hline
 -n \emph{num-sub}  & --num-sub=\emph{num-sub}   & Specifies number of buffers to use \\ \hline
--o \emph{file}     & --output=\emph{file}       & Prepend \emph{file} to output file name(s) \\ \hline
+-o \emph{file}     & --output=\emph{file}       & Prepend \emph{file} to output file name(s) \\
+                   &                            & \textbf{This only works when using a single device} \\
+                   &                            & \textbf{or when piping the output via \texttt{-o -}} \\
+                   &                            & \textbf{with multiple devices.} \\ \hline
 -r \emph{rel-path} & --relay=\emph{rel-path}    & Specifies debugfs mount point \\ \hline
 -V                 & --version                  & Outputs version \\ \hline
 -w \emph{seconds}  & --stopwatch=\emph{seconds} & Sets run time to the number of seconds specified \\ \hline

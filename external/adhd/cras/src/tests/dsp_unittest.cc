@@ -150,6 +150,10 @@ struct dsp_module *cras_dsp_module_load_builtin(struct plugin *plugin)
   empty_init_module(module);
   return module;
 }
+void cras_dsp_module_set_sink_ext_module(struct dsp_module *module,
+					 struct ext_dsp_module *ext_module)
+{
+}
 } // extern "C"
 
 int main(int argc, char **argv) {

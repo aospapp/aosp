@@ -12,6 +12,7 @@ responsible for serializing the job instance via protocol buffers.
 # import python libraries
 import datetime
 import time
+import logging
 
 # import autotest libraries
 from autotest_lib.tko import models
@@ -438,9 +439,8 @@ class JobSerializer(object):
         if vartype in supported_types:
             if value is None:
                 value = vartype()
-            else:
-                assert isinstance(value, vartype), (
-                'Unexpected type %s for attr %s, should be %s' %
-                (type(value), attr, vartype))
+            elif not isinstance(value, vartype):
+                logging.warning('Unexpected type %s for attr %s, should be %s',
+                                type(value), attr, vartype)
 
-            setattr(var, attr, value)
+            setattr(var, attr, vartype(value))

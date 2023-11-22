@@ -3,10 +3,10 @@
  * honggfuzz - architecture dependent code (MAC OS X)
  * -----------------------------------------
  *
- * Author: Robert Swiecki <swiecki@google.com> Felix Gröbert
- * <groebert@google.com>
+ * Authors: Robert Swiecki <swiecki@google.com>
+ *          Felix Gröbert <groebert@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -28,6 +28,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,12 +43,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "fuzz.h"
 #include "honggfuzz.h"
-#include "libcommon/common.h"
-#include "libcommon/files.h"
-#include "libcommon/log.h"
-#include "libcommon/util.h"
-#include "sancov.h"
+#include "libhfcommon/common.h"
+#include "libhfcommon/files.h"
+#include "libhfcommon/log.h"
+#include "libhfcommon/util.h"
 #include "subproc.h"
 
 #include <mach/i386/thread_status.h>
@@ -164,8 +165,8 @@ static void arch_generateReport(run_t* run, int termsig) {
         run->report, sizeof(run->report), "SIGNAL: %s (%d)\n", arch_sigs[termsig].descr, termsig);
     util_ssnprintf(
         run->report, sizeof(run->report), "EXCEPTION: %s\n", exception_to_string(run->exception));
-    util_ssnprintf(run->report, sizeof(run->report), "FAULT ADDRESS: %p\n", run->access);
-    util_ssnprintf(run->report, sizeof(run->report), "CRASH FRAME PC: %p\n", run->pc);
+    util_ssnprintf(run->report, sizeof(run->report), "FAULT ADDRESS: %" PRIx64 "\n", run->access);
+    util_ssnprintf(run->report, sizeof(run->report), "CRASH FRAME PC: %" PRIx64 "\n", run->pc);
     util_ssnprintf(run->report, sizeof(run->report), "STACK HASH: %016llx\n", run->backtrace);
     if (g_fuzzer_crash_callstack[run->pid]) {
         util_ssnprintf(
@@ -187,10 +188,6 @@ static bool arch_analyzeSignal(run_t* run, int status) {
      */
     if (WIFCONTINUED(status)) {
         return false;
-    }
-
-    if (WIFEXITED(status) || WIFSIGNALED(status)) {
-        sancov_Analyze(run);
     }
 
     /*
@@ -243,15 +240,16 @@ static bool arch_analyzeSignal(run_t* run, int status) {
     /*
      * Check if stackhash is blacklisted
      */
-    if (run->global->blacklist && (fastArray64Search(run->global->blacklist,
-                                       run->global->blacklistCnt, run->backtrace) != -1)) {
+    if (run->global->feedback.blacklist &&
+        (fastArray64Search(run->global->feedback.blacklist, run->global->feedback.blacklistCnt,
+             run->backtrace) != -1)) {
         LOG_I("Blacklisted stack hash '%" PRIx64 "', skipping", run->backtrace);
         ATOMIC_POST_INC(run->global->cnts.blCrashesCnt);
         return true;
     }
 
     /* If dry run mode, copy file with same name into workspace */
-    if (run->global->mutationsPerRun == 0U && run->global->useVerifier) {
+    if (run->global->mutate.mutationsPerRun == 0U && run->global->cfg.useVerifier) {
         snprintf(run->crashFileName, sizeof(run->crashFileName), "%s/%s", run->global->io.crashDir,
             run->origFileName);
     } else if (run->global->io.saveUnique) {
@@ -270,55 +268,59 @@ static bool arch_analyzeSignal(run_t* run, int status) {
     }
 
     if (files_exists(run->crashFileName)) {
-        LOG_I("It seems that '%s' already exists, skipping", run->crashFileName);
+        LOG_I("Crash (dup): '%s' already exists, skipping", run->crashFileName);
         // Clear filename so that verifier can understand we hit a duplicate
         memset(run->crashFileName, 0, sizeof(run->crashFileName));
         return true;
     }
 
-    if (files_writeBufToFile(run->crashFileName, run->dynamicFile, run->dynamicFileSz,
-            O_CREAT | O_EXCL | O_WRONLY) == false) {
-        LOG_E("Couldn't copy '%s' to '%s'", run->fileName, run->crashFileName);
+    if (!files_writeBufToFile(run->crashFileName, run->dynamicFile, run->dynamicFileSz,
+            O_CREAT | O_EXCL | O_WRONLY)) {
+        LOG_E("Couldn't save crash as '%s'", run->crashFileName);
         return true;
     }
 
-    LOG_I("Ok, that's interesting, saved '%s' as '%s'", run->fileName, run->crashFileName);
+    LOG_I("Crash: saved as '%s'", run->crashFileName);
 
     ATOMIC_POST_INC(run->global->cnts.uniqueCrashesCnt);
     /* If unique crash found, reset dynFile counter */
-    ATOMIC_CLEAR(run->global->dynFileIterExpire);
+    ATOMIC_CLEAR(run->global->cfg.dynFileIterExpire);
 
     arch_generateReport(run, termsig);
 
     return true;
 }
 
-pid_t arch_fork(run_t* run UNUSED) { return fork(); }
+pid_t arch_fork(run_t* run HF_ATTR_UNUSED) {
+    return fork();
+}
 
 bool arch_launchChild(run_t* run) {
 #define ARGS_MAX 512
     const char* args[ARGS_MAX + 2];
-    char argData[PATH_MAX] = {0};
-    int x;
+    char argData[PATH_MAX];
 
-    for (x = 0; x < ARGS_MAX && run->global->exe.cmdline[x]; x++) {
-        if (!run->global->exe.fuzzStdin &&
-            strcmp(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER) == 0) {
-            args[x] = run->fileName;
-        } else if (!run->global->exe.fuzzStdin &&
-                   strstr(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER)) {
+    char inputFile[PATH_MAX];
+    snprintf(inputFile, sizeof(inputFile), "/dev/fd/%d", run->dynamicFileCopyFd);
+
+    int x;
+    for (x = 0; x < ARGS_MAX && x < run->global->exe.argc; x++) {
+        if (run->global->exe.persistent || run->global->exe.fuzzStdin) {
+            args[x] = run->global->exe.cmdline[x];
+        } else if (!strcmp(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER)) {
+            args[x] = inputFile;
+        } else if (strstr(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER)) {
             const char* off = strstr(run->global->exe.cmdline[x], _HF_FILE_PLACEHOLDER);
-            snprintf(argData, PATH_MAX, "%.*s%s", (int)(off - run->global->exe.cmdline[x]),
-                run->global->exe.cmdline[x], run->fileName);
+            snprintf(argData, sizeof(argData), "%.*s%s", (int)(off - run->global->exe.cmdline[x]),
+                run->global->exe.cmdline[x], inputFile);
             args[x] = argData;
         } else {
             args[x] = run->global->exe.cmdline[x];
         }
     }
-
     args[x++] = NULL;
 
-    LOG_D("Launching '%s' on file '%s'", args[0], run->fileName);
+    LOG_D("Launching '%s'", args[0]);
 
     /*
      * Get child's bootstrap port.
@@ -354,39 +356,74 @@ bool arch_launchChild(run_t* run) {
     return false;
 }
 
-void arch_prepareParent(run_t* run UNUSED) {}
+void arch_prepareParent(run_t* run HF_ATTR_UNUSED) {
+}
 
-void arch_prepareParentAfterFork(run_t* run UNUSED) {}
+void arch_prepareParentAfterFork(run_t* run HF_ATTR_UNUSED) {
+}
 
 void arch_reapChild(run_t* run) {
-    /*
-     * First check manually if we have expired children
-     */
-    subproc_checkTimeLimit(run);
-
-    /*
-     * Now check for signals using wait4
-     */
-    int options = WUNTRACED;
-    if (run->global->timing.tmOut) {
-        options |= WNOHANG;
-    }
-
     for (;;) {
-        int status = 0;
-        while (wait4(run->pid, &status, options, NULL) != run->pid) {
-            if (run->global->timin.tmOut) {
-                subproc_checkTimeLimit(run);
-                usleep(0.20 * 1000000);
+        if (subproc_persistentModeStateMachine(run)) {
+            break;
+        }
+
+        subproc_checkTimeLimit(run);
+        subproc_checkTermination(run);
+
+        if (run->global->exe.persistent) {
+            struct pollfd pfd = {
+                .fd = run->persistentSock,
+                .events = POLLIN,
+            };
+            int r = poll(&pfd, 1, 250 /* 0.25s */);
+            if (r == 0 || (r == -1 && errno == EINTR)) {
+            }
+            if (r == -1 && errno != EINTR) {
+                PLOG_F("poll(fd=%d)", run->persistentSock);
+            }
+        } else {
+            /* Return with SIGIO, SIGCHLD and with SIGUSR1 */
+            int sig;
+            if (sigwait(&run->global->exe.waitSigSet, &sig) != 0) {
+                PLOG_F("sigwait(SIGIO|SIGCHLD|SIGUSR1)");
             }
         }
 
+        int status;
+        int ret = waitpid(run->pid, &status, WNOHANG);
+        if (ret == 0) {
+            continue;
+        }
+        if (ret == -1 && errno == EINTR) {
+            continue;
+        }
+        if (ret == -1 && errno == ECHILD) {
+            run->pid = 0;
+            break;
+        }
+        if (ret == -1) {
+            PLOG_W("waitpid(pid=%d)", run->pid);
+            continue;
+        }
+        if (ret != run->pid) {
+            continue;
+        }
+
         char strStatus[4096];
+        if (run->global->exe.persistent && (WIFEXITED(status) || WIFSIGNALED(status))) {
+            if (!fuzz_isTerminating()) {
+                LOG_W("Persistent mode: PID %d exited with status: %s", ret,
+                    subproc_StatusToStr(status, strStatus, sizeof(strStatus)));
+            }
+        }
+
         LOG_D("Process (pid %d) came back with status: %s", run->pid,
             subproc_StatusToStr(status, strStatus, sizeof(strStatus)));
 
         if (arch_analyzeSignal(run, status)) {
-            return;
+            run->pid = 0;
+            break;
         }
     }
 }
@@ -406,9 +443,8 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
         getlogin());
 
     if (files_exists(plist)) {
-        LOG_W(
-            "honggfuzz won't work if DBGShellCommands are set in "
-            "~/Library/Preferences/com.apple.DebugSymbols.plist");
+        LOG_W("honggfuzz won't work if DBGShellCommands are set in "
+              "~/Library/Preferences/com.apple.DebugSymbols.plist");
     }
 
     /*
@@ -461,10 +497,10 @@ bool arch_archInit(honggfuzz_t* hfuzz) {
     }
 
     /* Default is true for all platforms except Android */
-    arch_sigs[SIGABRT].important = hfuzz->monitorSIGABRT;
+    arch_sigs[SIGABRT].important = hfuzz->cfg.monitorSIGABRT;
 
     /* Default is false */
-    arch_sigs[SIGVTALRM].important = hfuzz->tmoutVTALRM;
+    arch_sigs[SIGVTALRM].important = hfuzz->timing.tmoutVTALRM;
 
     return true;
 }
@@ -748,4 +784,6 @@ kern_return_t catch_mach_exception_raise_state_identity(
     return KERN_SUCCESS;
 }
 
-bool arch_archThreadInit(run_t* run UNUSED) { return true; }
+bool arch_archThreadInit(run_t* run HF_ATTR_UNUSED) {
+    return true;
+}

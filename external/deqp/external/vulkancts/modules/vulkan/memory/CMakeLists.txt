@@ -15,12 +15,16 @@ set(DEQP_VK_MEMORY_SRCS
 	vktMemoryRequirementsTests.hpp
 	vktMemoryBindingTests.cpp
 	vktMemoryBindingTests.hpp
+	vktMemoryExternalMemoryHostTests.cpp
+	vktMemoryExternalMemoryHostTests.hpp
 	)
 
 set(DEQP_VK_MEMORY_LIBS
 	tcutil
 	vkutil
 	)
+
+PCH(DEQP_VK_MEMORY_SRCS ../pch.cpp)
 
 add_library(deqp-vk-memory STATIC ${DEQP_VK_MEMORY_SRCS})
 target_link_libraries(deqp-vk-memory ${DEQP_VK_MEMORY_LIBS})

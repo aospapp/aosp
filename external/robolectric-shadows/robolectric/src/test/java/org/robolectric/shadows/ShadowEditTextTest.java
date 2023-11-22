@@ -1,24 +1,24 @@
 package org.robolectric.shadows;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.robolectric.RuntimeEnvironment.application;
+import static com.google.common.truth.Truth.assertThat;
 
-import android.content.Context;
+import android.app.Application;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.widget.EditText;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.R;
 import org.robolectric.Robolectric;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowEditTextTest {
   private EditText editText;
+  private Application context;
 
   @Before
   public void setup() {
@@ -26,7 +26,8 @@ public class ShadowEditTextTest {
         .addAttribute(android.R.attr.maxLength, "5")
         .build();
 
-    editText = new EditText(application, attributeSet);
+    context = ApplicationProvider.getApplicationContext();
+    editText = new EditText(context, attributeSet);
   }
 
   @Test
@@ -48,7 +49,7 @@ public class ShadowEditTextTest {
         .addAttribute(android.R.attr.maxLength, maxLength + "")
         .build();
 
-    EditText editText = new EditText(RuntimeEnvironment.application, attrs);
+    EditText editText = new EditText(context, attrs);
     String excessiveInput = stringOfLength(maxLength * 2);
 
     editText.setText(excessiveInput);
@@ -59,7 +60,7 @@ public class ShadowEditTextTest {
   @Test
   public void givenInitializingWithAttributeSet_whenMaxLengthNotDefined_thenTextLengthShouldHaveNoRestrictions() {
     AttributeSet attrs = Robolectric.buildAttributeSet().build();
-    EditText editText = new EditText(RuntimeEnvironment.application, attrs);
+    EditText editText = new EditText(context, attrs);
     String input = anyString();
 
     editText.setText(input);
@@ -69,7 +70,7 @@ public class ShadowEditTextTest {
 
   @Test
   public void whenInitializingWithoutAttributeSet_thenTextLengthShouldHaveNoRestrictions() {
-    EditText editText = new EditText(RuntimeEnvironment.application);
+    EditText editText = new EditText(context);
     String input = anyString();
 
     editText.setText(input);
@@ -79,7 +80,7 @@ public class ShadowEditTextTest {
 
   @Test
   public void testSelectAll() {
-    EditText editText = new EditText(RuntimeEnvironment.application);
+    EditText editText = new EditText(context);
     editText.setText("foo");
 
     editText.selectAll();
@@ -90,7 +91,6 @@ public class ShadowEditTextTest {
 
   @Test
   public void shouldGetHintFromXml() {
-    Context context = RuntimeEnvironment.application;
     LayoutInflater inflater = LayoutInflater.from(context);
     EditText editText = (EditText) inflater.inflate(R.layout.edit_text, null);
     assertThat(editText.getHint().toString()).isEqualTo("Hello, Hint");

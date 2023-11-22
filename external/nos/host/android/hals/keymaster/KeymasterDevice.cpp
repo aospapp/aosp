@@ -17,6 +17,7 @@
 #include "KeymasterDevice.h"
 #include "buffer.h"
 #include "export_key.h"
+#include "certs.h"
 #include "import_key.h"
 #include "import_wrapped_key.h"
 #include "proto_utils.h"
@@ -27,10 +28,14 @@
 
 #include <keymasterV4_0/key_param_output.h>
 
+#include <openssl/sha.h>
+
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 
 #include <algorithm>
+
+#include <time.h>
 
 namespace android {
 namespace hardware {
@@ -114,6 +119,23 @@ uint32_t DateCodeToUint32(const std::string& code, bool include_day) {
     return return_value;
 }
 
+// Helper class to call a finalizer on stack unwind.
+class Finalize {
+ private:
+    std::function<void()> f_;
+
+ public:
+    Finalize(std::function<void()> f) : f_(f) {}
+    ~Finalize() { if (f_) f_(); }
+    void release() { f_ = {}; }
+};
+
+inline std::string hidlVec2String(const hidl_vec<uint8_t>& value) {
+    return std::string(
+        reinterpret_cast<const std::string::value_type*>(
+            &value[0]), value.size());
+}
+
 }  // namespace
 
 // std
@@ -121,6 +143,7 @@ using std::string;
 
 // base
 using ::android::base::GetProperty;
+using ::android::base::WaitForPropertyCreation;
 
 // libhidl
 using ::android::hardware::Void;
@@ -184,6 +207,9 @@ using ::nugget::app::keymaster::GetBootInfoResponse;
 using ::nugget::app::keymaster::ImportWrappedKeyRequest;
 namespace nosapp = ::nugget::app::keymaster;
 
+// KM internal types
+using ::nugget::app::keymaster::AttestationSelector;
+
 static ErrorCode status_to_error_code(uint32_t status)
 {
     switch (status) {
@@ -207,6 +233,20 @@ static ErrorCode status_to_error_code(uint32_t status)
         return ErrorCode::UNKNOWN_ERROR;
         break;
     }
+}
+
+static uint64_t ms_since_epoch(void)
+{
+    uint64_t seconds;
+    uint64_t milli_seconds;
+    struct timespec spec;
+
+    ::clock_gettime(CLOCK_REALTIME, &spec);
+
+    seconds = spec.tv_sec;
+    milli_seconds = spec.tv_nsec / (1000 * 1000);
+
+    return (seconds * 1000) + milli_seconds;
 }
 
 #define KM_CALL(meth, request, response) {                                    \
@@ -241,10 +281,33 @@ static ErrorCode status_to_error_code(uint32_t status)
     }                                                                         \
 }
 
+#define KM_CALLV_ABORT(meth, request, response, ...) {                        \
+    const uint32_t status = _keymaster. meth (request, &response);            \
+    const ErrorCode error_code = translate_error_code(response.error_code()); \
+    if (status != APP_SUCCESS) {                                              \
+        LOG(ERROR) << #meth << " : request failed with status: "              \
+                   << nos::StatusCodeString(status) << " aborting operation"; \
+        _hidl_cb(status_to_error_code(status), __VA_ARGS__);                  \
+        abort(request.handle().handle());                                     \
+        return Void();                                                        \
+    }                                                                         \
+    if (error_code != ErrorCode::OK) {                                        \
+        LOG(ERROR) << #meth << " : device response error code: "              \
+                   << error_code;                                             \
+        _hidl_cb(error_code, __VA_ARGS__);                                    \
+        return Void();                                                        \
+    }                                                                         \
+}
+
 // Methods from ::android::hardware::keymaster::V3_0::IKeymasterDevice follow.
 
 KeymasterDevice::KeymasterDevice(KeymasterClient& keymaster) :
         _keymaster{keymaster} {
+    // Block until all of the properties have been created
+    while (!(WaitForPropertyCreation(PROPERTY_OS_VERSION) &&
+             WaitForPropertyCreation(PROPERTY_OS_PATCHLEVEL) &&
+             WaitForPropertyCreation(PROPERTY_VENDOR_PATCHLEVEL))) {}
+
     _os_version = VersionToUint32(GetProperty(PROPERTY_OS_VERSION, ""));
     _os_patchlevel = DateCodeToUint32(GetProperty(PROPERTY_OS_PATCHLEVEL, ""),
                                      false /* include_day */);
@@ -405,6 +468,7 @@ Return<void> KeymasterDevice::generateKey(
       _hidl_cb(ErrorCode::INVALID_ARGUMENT, blob, characteristics);
       return Void();
     }
+    request.set_creation_time_ms(ms_since_epoch());
 
     // Call device.
     KM_CALLV(GenerateKey, request, response,
@@ -469,6 +533,7 @@ Return<void> KeymasterDevice::importKey(
         _hidl_cb(error, hidl_vec<uint8_t>{}, KeyCharacteristics{});
         return Void();
     }
+    request.set_creation_time_ms(ms_since_epoch());
 
     KM_CALLV(ImportKey, request, response,
              hidl_vec<uint8_t>{}, KeyCharacteristics{});
@@ -512,16 +577,61 @@ Return<void> KeymasterDevice::exportKey(
 
     KM_CALLV(ExportKey, request, response, hidl_vec<uint8_t>{});
 
-    ErrorCode error_code = translate_error_code(response.error_code());
-    if (error_code != ErrorCode::OK) {
-        _hidl_cb(error_code, hidl_vec<uint8_t>{});
-    }
-
     hidl_vec<uint8_t> der;
-    error_code = export_key_der(response, &der);
+    ErrorCode error_code = export_key_der(response, &der);
+    if (error_code != ErrorCode::OK) {
+        LOG(ERROR) << "KeymasterDevice::exportKey: DER conversion failed: "
+                   << error_code;
+        _hidl_cb(error_code, hidl_vec<uint8_t>{});
+        return Void();
+    }
 
     _hidl_cb(error_code, der);
     return Void();
+}
+
+#define ATTESTATION_APPLICATION_ID_MAX_SIZE 1024
+#define UTCTIME_STR_WITH_NUL_SIZE           14
+static size_t integer_size(uint64_t value)
+{
+        size_t octet_count = 1;
+        for (value >>= 8; value; value >>= 8) {
+                octet_count++;
+        }
+        return octet_count;
+}
+static size_t encoded_length_size(size_t length)
+{
+        if (length < 0x80) {
+                return 1;
+        }
+        return integer_size(length) + 1;
+}
+
+static uint8_t *asn1_encode_length(size_t length, const uint8_t *head, uint8_t *tail)
+{
+        if (!tail || tail < head + encoded_length_size(length)) {
+                return NULL;
+        }
+
+        if (length < 0x80) {
+                // Short length case
+                *(--tail) = length;
+        } else {
+                // Encode length
+                uint8_t length_len;
+                uint8_t *orig_tail = tail;
+                do {
+                        *(--tail) = length & 0xFF;
+                        length >>= 8;
+                } while (length);
+
+                // Encode length of length.  Assumes length < pow(128, 127).
+                // Should be good.
+                length_len = (orig_tail - tail);
+                *(--tail) = 0x80 | length_len;
+        }
+        return tail;
 }
 
 Return<void> KeymasterDevice::attestKey(
@@ -534,18 +644,104 @@ Return<void> KeymasterDevice::attestKey(
     StartAttestKeyRequest startRequest;
     StartAttestKeyResponse startResponse;
 
-    startRequest.mutable_blob()->set_blob(&keyToAttest[0], keyToAttest.size());
-
-    vector<hidl_vec<uint8_t> > chain;
-    if (hidl_params_to_pb(
-            attestParams, startRequest.mutable_params()) != ErrorCode::OK) {
-      _hidl_cb(ErrorCode::INVALID_ARGUMENT, chain);
+    // Ensure that required parameters are present.
+    tag_map_t attest_tag_map;
+    if (hidl_params_to_map(attestParams, &attest_tag_map) != ErrorCode::OK) {
+        _hidl_cb(ErrorCode::INVALID_ARGUMENT, hidl_vec<hidl_vec<uint8_t> >{});
+      return Void();
+    }
+    if (attest_tag_map.find(Tag::ATTESTATION_APPLICATION_ID) ==
+        attest_tag_map.end()) {
+        _hidl_cb(ErrorCode::ATTESTATION_APPLICATION_ID_MISSING,
+                 hidl_vec<hidl_vec<uint8_t> >{});
       return Void();
     }
 
-    // TODO:
-    // startRequest.set_attestation_app_id_len(
-    //     attestation_app_id_len(attestParams));
+    hidl_vec<uint8_t> client_id;
+    if (attest_tag_map.find(Tag::APPLICATION_ID) != attest_tag_map.end()) {
+        client_id = attest_tag_map.find(Tag::APPLICATION_ID)->second[0].blob;
+    }
+    hidl_vec<uint8_t> app_data;
+    if (attest_tag_map.find(Tag::APPLICATION_DATA) != attest_tag_map.end()) {
+        app_data = attest_tag_map.find(
+            Tag::APPLICATION_DATA)->second[0].blob;
+    }
+
+    GetKeyCharacteristicsRequest charRequest;
+    GetKeyCharacteristicsResponse charResponse;
+
+    charRequest.mutable_blob()->set_blob(&keyToAttest[0], keyToAttest.size());
+    charRequest.set_client_id(&client_id[0], client_id.size());
+    charRequest.set_app_data(&app_data[0], app_data.size());
+
+    // Call device.
+    KM_CALLV(GetKeyCharacteristics, charRequest,
+             charResponse, hidl_vec<hidl_vec<uint8_t> >{});
+
+    KeyCharacteristics characteristics;
+    pb_to_hidl_params(charResponse.characteristics().software_enforced(),
+                      &characteristics.softwareEnforced);
+    pb_to_hidl_params(charResponse.characteristics().tee_enforced(),
+                      &characteristics.hardwareEnforced);
+
+    tag_map_t char_tag_map;
+    if (hidl_params_to_map(characteristics.softwareEnforced,
+                           &attest_tag_map) != ErrorCode::OK) {
+        _hidl_cb(ErrorCode::INVALID_ARGUMENT, hidl_vec<hidl_vec<uint8_t> >{});
+      return Void();
+    }
+
+    time_t not_before = 0;
+    if (char_tag_map.find(Tag::ACTIVE_DATETIME) != char_tag_map.end()) {
+        not_before = char_tag_map.find(
+            Tag::ACTIVE_DATETIME)->second[0].f.dateTime;
+    } else if (char_tag_map.find(Tag::CREATION_DATETIME) !=
+               char_tag_map.end()) {
+        not_before = char_tag_map.find(
+            Tag::CREATION_DATETIME)->second[0].f.dateTime;
+    }
+    // TODO: else: both ACTIVE and CREATION datetime are absent, is
+    // this an error?
+    time_t not_after = 0;
+    if (char_tag_map.find(Tag::USAGE_EXPIRE_DATETIME) != char_tag_map.end()) {
+        not_after = char_tag_map.find(
+            Tag::USAGE_EXPIRE_DATETIME)->second[0].f.dateTime;
+    } else {
+        not_after = 1842739199; // Batch cert expiry date: 2028-05-23:23:59:59.
+    }
+
+    char not_before_str[UTCTIME_STR_WITH_NUL_SIZE] = {};
+    char not_after_str[UTCTIME_STR_WITH_NUL_SIZE] = {};
+    if (::strftime(not_before_str, sizeof(not_before_str),
+                   "%y%m%d%H%M%SZ", gmtime(&not_before)) == 0 ||
+        ::strftime(not_after_str, sizeof(not_after_str),
+                   "%y%m%d%H%M%SZ", gmtime(&not_after)) == 0) {
+        _hidl_cb(ErrorCode::UNKNOWN_ERROR, hidl_vec<hidl_vec<uint8_t> >{});
+    }
+
+    startRequest.mutable_blob()->set_blob(&keyToAttest[0], keyToAttest.size());
+    if (hidl_params_to_pb(
+            attestParams, startRequest.mutable_params()) != ErrorCode::OK) {
+      _hidl_cb(ErrorCode::INVALID_ARGUMENT, hidl_vec<hidl_vec<uint8_t> >{});
+      return Void();
+    }
+
+    // Developer configs (i.e. nodelocked-RO), and PROTO devices will
+    // fall back to TEST certs here, since BATCH certs will be
+    // unavailable.  The selected certificate may be determined via
+    // info included in the response to FinishAttestKeyRequest().
+    startRequest.set_selector(AttestationSelector::ATTEST_BATCH);
+
+    startRequest.set_not_before(not_before_str,
+                                sizeof(not_before_str) - 1);
+    startRequest.set_not_after(not_after_str,
+                                sizeof(not_after_str) - 1);
+
+    // TODO: as an optimization, avoid sending the
+    // ATTESTATION_APPLICATION_ID to Start, since only the length of
+    // this field is needed at this stage.
+    // NOTE: citadel adds the AAID to the hash in the prologue for now. So if this
+    // is ever changes the HASH_update call needs to move in the citadel firmware.
 
     KM_CALLV(StartAttestKey, startRequest, startResponse,
              hidl_vec<hidl_vec<uint8_t> >{});
@@ -553,11 +749,16 @@ Return<void> KeymasterDevice::attestKey(
     uint64_t operationHandle = startResponse.handle().handle();
     ContinueAttestKeyRequest continueRequest;
     ContinueAttestKeyResponse continueResponse;
+    // Prepare to abort the pending operation in event of an error.
+    Finalize finalize([&] () { abort(operationHandle); });
 
     continueRequest.mutable_handle()->set_handle(operationHandle);
-    // TODO
-    // continueRequest.set_attestation_app_id(
-    //     attestation_app_id(attestParams));
+    if (hidl_params_to_pb(
+            attestParams, continueRequest.mutable_params()) != ErrorCode::OK) {
+        LOG(ERROR) << "Failed to parse attest params";
+        _hidl_cb(ErrorCode::INVALID_ARGUMENT, hidl_vec<hidl_vec<uint8_t> >{});
+        return Void();
+    }
 
     KM_CALLV(ContinueAttestKey, continueRequest, continueResponse,
              hidl_vec<hidl_vec<uint8_t> >{});
@@ -570,24 +771,143 @@ Return<void> KeymasterDevice::attestKey(
     KM_CALLV(FinishAttestKey, finishRequest, finishResponse,
              hidl_vec<hidl_vec<uint8_t> >{});
 
+    hidl_vec<uint8_t>& attestation_application_id =
+            attest_tag_map[Tag::ATTESTATION_APPLICATION_ID].begin()->blob;
+    size_t cert_len = startResponse.certificate_prologue().size()
+                    + attestation_application_id.size()
+                    + continueResponse.certificate_body().size()
+                    + finishResponse.certificate_epilogue().size();
+
     std::stringstream ss;
+    {
+        char c = 0x30;
+        ss.write(&c, 1); // DER_SEQUENCE | DER_CONSTRUCTED
+
+        uint8_t buffer[10];
+        auto * cert_header = asn1_encode_length(cert_len, buffer, buffer + sizeof(buffer));
+
+        if (cert_header == nullptr) {
+            LOG(ERROR) << "Failed to generate attestation certificate sequence header";
+            _hidl_cb(ErrorCode::UNKNOWN_ERROR, hidl_vec<hidl_vec<uint8_t> >{});
+            return Void();
+        }
+        ss.write(reinterpret_cast<char*>(cert_header), buffer + sizeof(buffer) - cert_header);
+    }
+
     ss << startResponse.certificate_prologue();
+    ss.write(reinterpret_cast<const std::stringstream::char_type*>(
+            attestation_application_id.data()), attestation_application_id.size());
     ss << continueResponse.certificate_body();
     ss << finishResponse.certificate_epilogue();
 
-    hidl_vec<uint8_t> attestation_certificate;
-    attestation_certificate.setToExternal(
-        reinterpret_cast<uint8_t*>(
-            const_cast<char*>(ss.str().data())),
-        ss.str().size(), false);
+    if (!ss) {
+        LOG(ERROR) << "Failed to generate attestation certificate";
+        _hidl_cb(ErrorCode::UNKNOWN_ERROR, hidl_vec<hidl_vec<uint8_t> >{});
+        return Void();
+    }
 
-    chain.push_back(attestation_certificate);
-    // TODO:
-    // chain.push_back(intermediate_certificate());
-    // chain.push_back(root_certificate());
-    // verify cert chain
+    vector<hidl_vec<uint8_t> > chain;
+    string attestation_str = ss.str();
+    {
+        hidl_vec<uint8_t> attestation_certificate;
+        attestation_certificate.setToExternal(
+                reinterpret_cast<uint8_t*>(
+                        const_cast<char*>(attestation_str.data())),
+                attestation_str.size(), false);
 
-    _hidl_cb(ErrorCode::OK, hidl_vec<hidl_vec<uint8_t> >(chain));
+        chain.push_back(std::move(attestation_certificate));
+
+        hidl_vec<uint8_t> batch_cert;
+        hidl_vec<uint8_t> intermediate_cert;
+        hidl_vec<uint8_t> root;
+
+        for (const KeyParameter &param : characteristics.hardwareEnforced) {
+            if (param.tag != Tag::ALGORITHM) {
+                continue;
+            }
+
+            // Node-locked RO implies that factory provisioned certs
+            // (if any), are inaccessible, so fallback to the TEST
+            // certs.  Similarly, PROTO chips were not provisioned
+            // with certs, and hence will fallback to TEST certs.
+            if (finishResponse.nodelocked_ro() ||
+                finishResponse.chip_fusing() == nosapp::FUSING_PROTO) {
+                if (param.f.algorithm == Algorithm::RSA) {
+                    batch_cert.setToExternal(
+                        const_cast<uint8_t*>(
+                            TEST_BATCH_RSA_CERT),
+                                      sizeof(TEST_BATCH_RSA_CERT));
+                    intermediate_cert.setToExternal(
+                        const_cast<uint8_t*>(
+                            TEST_BATCH_RSA_INT_CERT),
+                        sizeof(TEST_BATCH_RSA_INT_CERT));
+                    root.setToExternal(
+                        const_cast<uint8_t*>(
+                            TEST_BATCH_ROOT_CERT),
+                        sizeof(TEST_BATCH_ROOT_CERT));
+                } else {
+                    batch_cert.setToExternal(
+                        const_cast<uint8_t*>(
+                            TEST_BATCH_EC_CERT),
+                        sizeof(TEST_BATCH_EC_CERT));
+                    intermediate_cert.setToExternal(
+                        const_cast<uint8_t*>(
+                            TEST_BATCH_EC_INT_CERT),
+                        sizeof(TEST_BATCH_EC_INT_CERT));
+                    root.setToExternal(
+                        const_cast<uint8_t*>(
+                            TEST_BATCH_ROOT_CERT),
+                        sizeof(TEST_BATCH_ROOT_CERT));
+                }
+            } else if (finishResponse.chip_fusing() == nosapp::FUSING_DVT) {
+                if (param.f.algorithm == Algorithm::RSA) {
+                    batch_cert.setToExternal(
+                        const_cast<uint8_t*>(DEV_BATCH_RSA_CERT),
+                        sizeof(DEV_BATCH_RSA_CERT));
+                    intermediate_cert.setToExternal(
+                        const_cast<uint8_t*>(DEV_BATCH_RSA_INT_CERT),
+                        sizeof(DEV_BATCH_RSA_INT_CERT));
+                } else {
+                    batch_cert.setToExternal(
+                        const_cast<uint8_t*>(DEV_BATCH_EC_CERT),
+                        sizeof(DEV_BATCH_EC_CERT));
+                    intermediate_cert.setToExternal(
+                        const_cast<uint8_t*>(DEV_BATCH_EC_INT_CERT),
+                        sizeof(DEV_BATCH_EC_INT_CERT));
+                }
+                root.setToExternal(
+                    const_cast<uint8_t*>(DEV_BATCH_ROOT_CERT),
+                    sizeof(DEV_BATCH_ROOT_CERT));
+            } else {  // PVT!
+                if (param.f.algorithm == Algorithm::RSA) {
+                    batch_cert.setToExternal(
+                        const_cast<uint8_t*>(PROD_BATCH_RSA_CERT),
+                        sizeof(PROD_BATCH_RSA_CERT));
+                    intermediate_cert.setToExternal(
+                        const_cast<uint8_t*>(PROD_BATCH_RSA_INT_CERT),
+                        sizeof(PROD_BATCH_RSA_INT_CERT));
+                } else {
+                    batch_cert.setToExternal(
+                        const_cast<uint8_t*>(PROD_BATCH_EC_CERT),
+                        sizeof(PROD_BATCH_EC_CERT));
+                    intermediate_cert.setToExternal(
+                        const_cast<uint8_t*>(PROD_BATCH_EC_INT_CERT),
+                        sizeof(PROD_BATCH_EC_INT_CERT));
+                }
+                root.setToExternal(
+                    const_cast<uint8_t*>(PROD_BATCH_ROOT_CERT),
+                    sizeof(PROD_BATCH_ROOT_CERT));
+            }
+            break; // we found the ALGORITM tag so we can break the loop
+        }
+
+        chain.push_back(std::move(batch_cert));
+        chain.push_back(std::move(intermediate_cert));
+        chain.push_back(std::move(root));
+    }
+
+    _hidl_cb(ErrorCode::OK, chain);
+    finalize.release();
     return Void();
 }
 
@@ -675,7 +995,6 @@ Return<void> KeymasterDevice::begin(
     request.mutable_blob()->set_blob(&key[0], key.size());
 
     hidl_vec<KeyParameter> params;
-    tag_map_t tag_map;
     if (translate_auth_token(
             authToken, request.mutable_auth_token()) != ErrorCode::OK) {
         _hidl_cb(ErrorCode::INVALID_ARGUMENT, params,
@@ -688,6 +1007,7 @@ Return<void> KeymasterDevice::begin(
                response.handle().handle());
       return Void();
     }
+    tag_map_t tag_map;
     if (hidl_params_to_map(inParams, &tag_map) != ErrorCode::OK) {
         _hidl_cb(ErrorCode::INVALID_ARGUMENT, params,
                  response.handle().handle());
@@ -739,19 +1059,6 @@ Return<void> KeymasterDevice::update(
     UpdateOperationRequest request;
     UpdateOperationResponse response;
 
-    // TODO: does keystore chunk stream data?  To what quantum?
-    if (input.size() > KM_MAX_PROTO_FIELD_SIZE) {
-        LOG(ERROR) << "Excess input length: " << input.size()
-                   << "max allowed: " << KM_MAX_PROTO_FIELD_SIZE;
-        if (this->abort(operationHandle) != ErrorCode::OK) {
-            LOG(ERROR) << "abort( " << operationHandle
-                       << ") failed";
-        }
-        _hidl_cb(ErrorCode::INVALID_INPUT_LENGTH, 0,
-                 hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
-        return Void();
-    }
-
     uint32_t consumed;
     hidl_vec<uint8_t> output;
     hidl_vec<KeyParameter> params;
@@ -769,11 +1076,9 @@ Return<void> KeymasterDevice::update(
         return Void();
     }
 
-    if (blocks.size() == 0) {
-        // Insufficient data available to proceed.
-        _hidl_cb(ErrorCode::OK, consumed, params, output);
-        return Void();
-    }
+    // blocks.size() may be zero, but do a round-trip none-the-less
+    // since this may be GCM, there may be AAD data in params.
+    // TODO: as an optimization, do some inspection apriori.
 
     request.mutable_handle()->set_handle(operationHandle);
 
@@ -792,8 +1097,8 @@ Return<void> KeymasterDevice::update(
     translate_verification_token(verificationToken,
                                  request.mutable_verification_token());
 
-    KM_CALLV(UpdateOperation, request, response,
-             0, hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
+    KM_CALLV_ABORT(UpdateOperation, request, response,
+                   0, hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
 
     if (buffer_advance(operationHandle, response.consumed()) != ErrorCode::OK) {
         _hidl_cb(ErrorCode::UNKNOWN_ERROR, 0, params, output);
@@ -805,6 +1110,16 @@ Return<void> KeymasterDevice::update(
         reinterpret_cast<uint8_t*>(const_cast<char*>(response.output().data())),
         response.output().size(), false);
 
+    // Special case ECDSA sign + Digest::NONE, which discards all but
+    // the left-most len(SHA256) bytes.
+    Algorithm algorithm;
+    buffer_algorithm(operationHandle, &algorithm);
+    if (algorithm == Algorithm::EC) {
+        if (response.consumed() == 0 && // Implies Digest::NONE.
+            buffer_remaining(operationHandle) >= SHA256_DIGEST_LENGTH) {
+            consumed = input.size();    // Discard remaining input.
+        }
+    }
     _hidl_cb(ErrorCode::OK, consumed, params, output);
     return Void();
 }
@@ -823,25 +1138,38 @@ Return<void> KeymasterDevice::finish(
     FinishOperationRequest request;
     FinishOperationResponse response;
 
-    if (input.size() > KM_MAX_PROTO_FIELD_SIZE) {
-        LOG(ERROR) << "Excess input length: " << input.size()
-                   << "max allowed: " << KM_MAX_PROTO_FIELD_SIZE;
-        if (this->abort(operationHandle) != ErrorCode::OK) {
-            LOG(ERROR) << "abort( " << operationHandle
-                       << ") failed";
-        }
-        _hidl_cb(ErrorCode::INVALID_INPUT_LENGTH,
-                 hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
-        return Void();
-    }
-
-    uint32_t consumed;
     ErrorCode error_code;
-    error_code = buffer_append(operationHandle, input, &consumed);
-    if (error_code != ErrorCode::OK) {
-        _hidl_cb(error_code,
-                 hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
-        return Void();
+    hidl_vec<uint8_t> output;
+
+    // Consume any input data via update calls.
+    size_t consumed = 0;
+    hidl_vec<KeyParameter> input_params = inParams;
+    string update_output_str;
+    while (consumed < input.size()) {
+        hidl_vec<KeyParameter> out_params;
+        update_cb _update_hidl_cb =
+            [&] (
+                ErrorCode error, uint32_t input_consumed,
+                const hidl_vec<KeyParameter>& params,
+                const hidl_vec<uint8_t>& update_output) {
+                    error_code = error;
+                    if (error == ErrorCode::OK) {
+                        consumed += input_consumed;
+                        input_params = params;  // Update the params.
+                        update_output_str += hidlVec2String(update_output);
+                    }
+            };
+
+        hidl_vec<uint8_t> input_data;
+        input_data.setToExternal(const_cast<uint8_t*>(&input.data()[consumed]),
+                                 input.size() - consumed);
+        update(operationHandle, input_params, input_data, authToken,
+               verificationToken, _update_hidl_cb);
+        if (error_code != ErrorCode::OK) {
+            _hidl_cb(error_code,
+                     hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
+            return Void();
+        }
     }
 
     hidl_vec<uint8_t> data;
@@ -855,9 +1183,8 @@ Return<void> KeymasterDevice::finish(
     request.mutable_handle()->set_handle(operationHandle);
 
     hidl_vec<KeyParameter> params;
-    hidl_vec<uint8_t> output;
     if (hidl_params_to_pb(
-            inParams, request.mutable_params()) != ErrorCode::OK) {
+            input_params, request.mutable_params()) != ErrorCode::OK) {
       _hidl_cb(ErrorCode::INVALID_ARGUMENT, params, output);
       return Void();
     }
@@ -873,13 +1200,17 @@ Return<void> KeymasterDevice::finish(
     translate_verification_token(verificationToken,
                                  request.mutable_verification_token());
 
-    KM_CALLV(FinishOperation, request, response,
-             hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
+    KM_CALLV_ABORT(FinishOperation, request, response,
+                   hidl_vec<KeyParameter>{}, hidl_vec<uint8_t>{});
 
     pb_to_hidl_params(response.params(), &params);
+    // Concatenate accumulated output from Update().
+    update_output_str += string(
+        response.output().data(), response.output().size());
     output.setToExternal(
-        reinterpret_cast<uint8_t*>(const_cast<char*>(response.output().data())),
-        response.output().size(), false);
+        reinterpret_cast<uint8_t*>(const_cast<char*>(
+                                       update_output_str.data())),
+        update_output_str.size(), false);
 
     _hidl_cb(ErrorCode::OK, params, output);
     return Void();
@@ -928,6 +1259,7 @@ Return<void> KeymasterDevice::importWrappedKey(
         _hidl_cb(error, hidl_vec<uint8_t>{}, KeyCharacteristics{});
         return Void();
     }
+    request.set_creation_time_ms(ms_since_epoch());
 
     KM_CALLV(ImportWrappedKey, request, response,
              hidl_vec<uint8_t>{}, KeyCharacteristics{});

@@ -1,5 +1,5 @@
 /* Internal interfaces for libelf.
-   Copyright (C) 1998-2010, 2015 Red Hat, Inc.
+   Copyright (C) 1998-2010, 2015, 2016 Red Hat, Inc.
    This file is part of elfutils.
    Contributed by Ulrich Drepper <drepper@redhat.com>, 1998.
 
@@ -29,10 +29,6 @@
 
 #ifndef _LIBELFP_H
 #define _LIBELFP_H 1
-
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
 
 #include <ar.h>
 #include <gelf.h>
@@ -106,6 +102,7 @@ enum
   ELF_E_INVALID_ENCODING,
   ELF_E_NOMEM,
   ELF_E_INVALID_FILE,
+  ELF_E_INVALID_ELF,
   ELF_E_INVALID_OP,
   ELF_E_NO_VERSION,
   ELF_E_INVALID_CMD,
@@ -233,7 +230,13 @@ struct Elf_Scn
   } shdr;
 
   unsigned int shdr_flags;	/* Section header modified?  */
-  unsigned int flags;		/* Section changed in size?  */
+  unsigned int flags;		/* Section changed in size?
+				   ELF_F_MALLOCED for a Elf_Data_Chunk
+				   dummy_scn means the rawchunks
+				   data.d.d_buf was malloced. For normal
+				   sections it means rawdata_base was
+				   malloced (by elf_compress) even if
+				   the Elf was mmapped.  */
 
   char *rawdata_base;		/* The unmodified data of the section.  */
   char *data_base;		/* The converted data of the section.  */
@@ -408,62 +411,36 @@ struct Elf
 typedef void (*xfct_t) (void *, const void *, size_t, int);
 
 /* The table with the function pointers.  */
-extern const xfct_t __elf_xfctstom[EV_NUM - 1][EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] attribute_hidden;
-extern const xfct_t __elf_xfctstof[EV_NUM - 1][EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] attribute_hidden;
+extern const xfct_t __elf_xfctstom[ELFCLASSNUM - 1][ELF_T_NUM]
+  attribute_hidden;
 
 
 /* Array with sizes of the external types indexed by ELF version, binary
    class, and type. */
-extern const size_t __libelf_type_sizes[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] attribute_hidden;
+extern const size_t __libelf_type_sizes[ELFCLASSNUM - 1][ELF_T_NUM]
+  attribute_hidden;
 /* We often have to access the size for a type in the current version.  */
-#if EV_NUM != 2
 # define elf_typesize(class,type,n) \
-  elfw2(class,fsize) (type, n, __libelf_version)
-#else
-# define elf_typesize(class,type,n) \
-  (__libelf_type_sizes[EV_CURRENT - 1][ELFW(ELFCLASS,class) - 1][type] * n)
-#endif
-
-/* Currently selected version of the ELF specification.  */
-extern unsigned int __libelf_version attribute_hidden;
+  (__libelf_type_sizes[ELFW(ELFCLASS,class) - 1][type] * n)
 
 /* The byte value used for filling gaps.  */
 extern int __libelf_fill_byte attribute_hidden;
 
-/* Nonzero if the version was set.  */
-extern int __libelf_version_initialized attribute_hidden;
+/* EV_CURRENT if the version was set, EV_NONE otherwise.  */
+extern unsigned int __libelf_version attribute_hidden;
 
-/* Index for __libelf_type_sizes et al.  */
-#if EV_NUM == 2
-# define LIBELF_EV_IDX	0
-#else
-# define LIBELF_EV_IDX	(__libelf_version - 1)
-#endif
-
-#if !ALLOW_UNALIGNED
-/* Array with alignment requirements of the internal types indexed by ELF
-   version, binary class, and type. */
-extern const uint_fast8_t __libelf_type_aligns[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] attribute_hidden;
+/* Array with alignment requirements of the internal types indexed by
+   binary class, and type. */
+extern const uint_fast8_t __libelf_type_aligns[ELFCLASSNUM - 1][ELF_T_NUM]
+  attribute_hidden;
 # define __libelf_type_align(class, type)	\
-    (__libelf_type_aligns[LIBELF_EV_IDX][class - 1][type] ?: 1)
-#else
-# define __libelf_type_align(class, type)	1
-#endif
+    (__libelf_type_aligns[class - 1][type] ?: 1)
 
 /* Given an Elf handle and a section type returns the Elf_Data d_type.
    Should not be called when SHF_COMPRESSED is set, the d_type should
    be ELF_T_BYTE.  */
-extern Elf_Type __libelf_data_type (Elf *elf, int sh_type) internal_function;
-
-/* The libelf API does not have such a function but it is still useful.
-   Get the memory size for the given type.
-
-   These functions cannot be marked internal since they are aliases
-   of the export elfXX_fsize functions.*/
-extern size_t __elf32_msize (Elf_Type __type, size_t __count,
-			     unsigned int __version);
-extern size_t __elf64_msize (Elf_Type __type, size_t __count,
-			     unsigned int __version);
+extern Elf_Type __libelf_data_type (Elf *elf, int sh_type, GElf_Xword align)
+  internal_function;
 
 
 /* Create Elf descriptor from memory image.  */
@@ -576,7 +553,7 @@ extern Elf_Data *__elf64_xlatetof_internal (Elf_Data *__dest,
 extern unsigned int __elf_version_internal (unsigned int __version)
      attribute_hidden;
 extern unsigned long int __elf_hash_internal (const char *__string)
-       __attribute__ ((__pure__, visibility ("hidden")));
+       __attribute__ ((__pure__)) attribute_hidden;
 extern long int __elf32_checksum_internal (Elf *__elf) attribute_hidden;
 extern long int __elf64_checksum_internal (Elf *__elf) attribute_hidden;
 
@@ -625,8 +602,13 @@ extern void __libelf_reset_rawdata (Elf_Scn *scn, void *buf, size_t size,
       }									      \
   } while (0)
 
-/* Align offset to 4 bytes as needed for note name and descriptor data.  */
-#define NOTE_ALIGN(n)	(((n) + 3) & -4U)
+/* Align offset to 4 bytes as needed for note name and descriptor data.
+   This is almost always used, except for GNU Property notes, which use
+   8 byte padding...  */
+#define NOTE_ALIGN4(n)	(((n) + 3) & -4U)
+
+/* Special note padding rule for GNU Property notes.  */
+#define NOTE_ALIGN8(n)	(((n) + 7) & -8U)
 
 /* Convenience macro.  */
 #define INVALID_NDX(ndx, type, data) \

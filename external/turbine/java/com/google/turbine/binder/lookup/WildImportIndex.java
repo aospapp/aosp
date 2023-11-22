@@ -20,6 +20,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.turbine.binder.sym.ClassSymbol;
+import com.google.turbine.tree.Tree;
 import com.google.turbine.tree.Tree.ImportDecl;
 
 /**
@@ -66,10 +67,12 @@ public class WildImportIndex implements ImportScope {
 
   /** Full resolve the type for a non-static on-demand import. */
   private static ImportScope onDemandImport(
-      TopLevelIndex cpi,
-      ImportDecl i,
-      final CanonicalSymbolResolver importResolver) {
-    Scope packageIndex = cpi.lookupPackage(i.type());
+      TopLevelIndex cpi, ImportDecl i, final CanonicalSymbolResolver importResolver) {
+    ImmutableList.Builder<String> flatNames = ImmutableList.builder();
+    for (Tree.Ident ident : i.type()) {
+      flatNames.add(ident.value());
+    }
+    Scope packageIndex = cpi.lookupPackage(flatNames.build());
     if (packageIndex != null) {
       // a wildcard import of a package
       return new ImportScope() {
@@ -79,7 +82,7 @@ public class WildImportIndex implements ImportScope {
         }
       };
     }
-    LookupResult result = cpi.lookup(new LookupKey(i.type()));
+    LookupResult result = cpi.scope().lookup(new LookupKey(i.type()));
     if (result == null) {
       return null;
     }
@@ -101,10 +104,8 @@ public class WildImportIndex implements ImportScope {
    * deferred).
    */
   private static ImportScope staticOnDemandImport(
-      TopLevelIndex cpi,
-      ImportDecl i,
-      final CanonicalSymbolResolver importResolver) {
-    LookupResult result = cpi.lookup(new LookupKey(i.type()));
+      TopLevelIndex cpi, ImportDecl i, final CanonicalSymbolResolver importResolver) {
+    LookupResult result = cpi.scope().lookup(new LookupKey(i.type()));
     if (result == null) {
       return null;
     }
@@ -136,11 +137,9 @@ public class WildImportIndex implements ImportScope {
   }
 
   static ClassSymbol resolveImportBase(
-      LookupResult result,
-      ResolveFunction resolve,
-      CanonicalSymbolResolver importResolver) {
+      LookupResult result, ResolveFunction resolve, CanonicalSymbolResolver importResolver) {
     ClassSymbol member = (ClassSymbol) result.sym();
-    for (String bit : result.remaining()) {
+    for (Tree.Ident bit : result.remaining()) {
       member = resolve.resolveOne(member, bit);
       if (member == null) {
         return null;

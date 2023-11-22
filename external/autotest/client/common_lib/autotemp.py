@@ -81,7 +81,8 @@ class tempdir(object):
         b.name # your directory
         b.clean() # clean up after yourself
     """
-    def __init__(self,  suffix='', unique_id='', prefix='', dir=None):
+    def __init__(self,  suffix='', unique_id='', prefix='', dir=None,
+                 auto_clean=True):
         """
         Initialize temp directory.
 
@@ -89,10 +90,12 @@ class tempdir(object):
         @param prefix: prefix for dir. Defaults to '_autotmp'.
         @param unique_id: unique id of tempdir.
         @param dir: parent directory of the tempdir. Defaults to /tmp.
+        @param auto_clean: automatically clean up the tempdir in destructor.
 
         eg: autotemp.tempdir(suffix='suffix', unique_id='123', prefix='prefix')
             creates a dir like '/tmp/prefix_autotmp_<random hash>123suffix'
         """
+        self.auto_clean = auto_clean
         suffix = unique_id + suffix
         prefix = prefix + _TEMPLATE
         self.name = module_tempfile.mkdtemp(suffix=suffix,
@@ -112,7 +115,7 @@ class tempdir(object):
 
     def __del__(self):
         try:
-            if self.name:
+            if self.name and self.auto_clean:
                 logging.debug('Clean was not called for ' + self.name)
                 self.clean()
         except:

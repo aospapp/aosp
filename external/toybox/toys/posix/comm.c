@@ -13,13 +13,13 @@ config COMM
   help
     usage: comm [-123] FILE1 FILE2
 
-    Reads FILE1 and FILE2, which should be ordered, and produces three text
+    Read FILE1 and FILE2, which should be ordered, and produce three text
     columns as output: lines only in FILE1; lines only in FILE2; and lines
     in both files. Filename "-" is a synonym for stdin.
 
-    -1	suppress the output column of lines unique to FILE1
-    -2	suppress the output column of lines unique to FILE2
-    -3	suppress the output column of lines duplicated in FILE1 and FILE2
+    -1	Suppress the output column of lines unique to FILE1
+    -2	Suppress the output column of lines unique to FILE2
+    -3	Suppress the output column of lines duplicated in FILE1 and FILE2
 */
 
 #define FOR_comm

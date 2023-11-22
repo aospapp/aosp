@@ -20,7 +20,7 @@ DEPENDENCIES = "modem:novatel-e362, modem_repair"
 # crbug.com/224110, and crbug.com/224329.
 # TODO(thieule): Change this from generic retry to specific failure retry.
 # crbug.com/224369.
-RETRIES = 2
+JOB_RETRIES = 2
 
 DOC = """
   Tests that commands sent to ModemManager or cromo are reflected in flimflam.

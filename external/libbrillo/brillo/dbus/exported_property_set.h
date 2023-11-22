@@ -71,6 +71,9 @@ class BRILLO_EXPORT ExportedPropertyBase {
   // interface of the exported object.
   virtual void SetUpdateCallback(const OnUpdateCallback& cb);
 
+  // Clears the update callback that was previously set with SetUpdateCallback.
+  virtual void ClearUpdateCallback();
+
   // Returns the contained value as Any.
   virtual brillo::Any GetValue() const = 0;
 
@@ -110,6 +113,10 @@ class BRILLO_EXPORT ExportedPropertySet {
   void RegisterProperty(const std::string& interface_name,
                         const std::string& property_name,
                         ExportedPropertyBase* exported_property);
+
+  // Unregisters a property from this exported property set.
+  void UnregisterProperty(const std::string& interface_name,
+                          const std::string& property_name);
 
   // D-Bus methods for org.freedesktop.DBus.Properties interface.
   VariantDictionary HandleGetAll(const std::string& interface_name);
@@ -208,7 +215,7 @@ class ExportedProperty : public ExportedPropertyBase {
     if (!validator_.is_null() && !validator_.Run(error, value.Get<T>())) {
       return false;
     }
-    value_ = value.Get<T>();
+    SetValue(value.Get<T>());
     return true;
   }
 

@@ -7,7 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50GetName"
 PURPOSE = "Verify cr50-get-name"
-ATTRIBUTES = "suite:cr50_stress_flaky"
+ATTRIBUTES = "suite:cr50_stress_experimental"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"
@@ -20,7 +20,10 @@ phase.
 @param dev_path: local path for the dev image
 """
 
-args_dict = utils.args_to_dict(args)
+if 'args_dict' not in locals():
+    args_dict = {}
+
+args_dict.update(utils.args_to_dict(args))
 servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run(machine):
@@ -30,6 +33,6 @@ def run(machine):
     dev_path = args_dict.get("dev_path", "")
 
     job.run_test("firmware_Cr50GetName", host=host, cmdline_args=args,
-                 iterations=iterations, dev_path=dev_path)
+                 iterations=iterations, dev_path=dev_path, full_args=args_dict)
 
 parallel_simple(run, machines)

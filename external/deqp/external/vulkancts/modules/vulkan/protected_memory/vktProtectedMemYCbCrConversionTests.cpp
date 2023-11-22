@@ -33,6 +33,7 @@
 #include "vkPrograms.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkYCbCrImageWithMemory.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "vktProtectedMemContext.hpp"
 #include "vktProtectedMemUtils.hpp"
@@ -358,7 +359,12 @@ void uploadYCbCrImage (ProtectedContext&					ctx,
 
 	beginCommandBuffer(vk, *cmdBuffer);
 
+	for (deUint32 planeNdx = 0; planeNdx < imageData.getDescription().numPlanes; ++planeNdx)
 	{
+		const vk::VkImageAspectFlagBits	aspect	= formatDesc.numPlanes > 1
+												? vk::getPlaneAspect(planeNdx)
+												: vk::VK_IMAGE_ASPECT_COLOR_BIT;
+
 		const vk::VkImageMemoryBarrier		preCopyBarrier	=
 		{
 			vk::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -370,7 +376,7 @@ void uploadYCbCrImage (ProtectedContext&					ctx,
 			queueFamilyIndex,
 			queueFamilyIndex,
 			image,
-			{ vk::VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }
+			{ aspect, 0u, 1u, 0u, 1u }
 		};
 
 		vk.cmdPipelineBarrier(*cmdBuffer,
@@ -406,7 +412,12 @@ void uploadYCbCrImage (ProtectedContext&					ctx,
 		vk.cmdCopyBufferToImage(*cmdBuffer, ***stagingBuffers[planeNdx], image, vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &copy);
 	}
 
+	for (deUint32 planeNdx = 0; planeNdx < imageData.getDescription().numPlanes; ++planeNdx)
 	{
+		const vk::VkImageAspectFlagBits	aspect	= formatDesc.numPlanes > 1
+												? vk::getPlaneAspect(planeNdx)
+												: vk::VK_IMAGE_ASPECT_COLOR_BIT;
+
 		const vk::VkImageMemoryBarrier		postCopyBarrier	=
 		{
 			vk::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -418,7 +429,7 @@ void uploadYCbCrImage (ProtectedContext&					ctx,
 			VK_QUEUE_FAMILY_IGNORED,
 			VK_QUEUE_FAMILY_IGNORED,
 			image,
-			{ vk::VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }
+			{ aspect, 0u, 1u, 0u, 1u }
 		};
 
 		vk.cmdPipelineBarrier(*cmdBuffer,
@@ -430,7 +441,7 @@ void uploadYCbCrImage (ProtectedContext&					ctx,
 								1u, &postCopyBarrier);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 
 	{
 		const vk::Unique<vk::VkFence>	fence		(createFence(vk, device));
@@ -563,7 +574,7 @@ bool validateImage (ProtectedContext&							ctx,
 		vk.cmdBindDescriptorSets(*resetCmdBuffer, vk::VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
 		vk.cmdDispatch(*resetCmdBuffer, 1u, 1u, 1u);
 
-		VK_CHECK(vk.endCommandBuffer(*resetCmdBuffer));
+		endCommandBuffer(vk, *resetCmdBuffer);
 		VK_CHECK(queueSubmit(ctx, PROTECTION_ENABLED, queue, *resetCmdBuffer, *fence, ~0ull));
 	}
 
@@ -580,7 +591,7 @@ bool validateImage (ProtectedContext&							ctx,
 		vk.cmdBindDescriptorSets(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
 		vk.cmdDispatch(*cmdBuffer, CHECK_SIZE, 1u, 1u);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 
 		queueSubmitResult = queueSubmit(ctx, PROTECTION_ENABLED, queue, *cmdBuffer, *fence, oneSec * 5);
 	}
@@ -772,6 +783,7 @@ de::MovePtr<vk::YCbCrImageWithMemory>	createYcbcrImage2D	(ProtectedContext&				c
 #else
 	const deUint32				flags		= 0x0;
 	const vk::MemoryRequirement	memReq		= vk::MemoryRequirement::Any;
+	DE_UNREF(protectionMode);
 #endif
 
 	const vk::VkImageCreateInfo	params		=
@@ -926,18 +938,7 @@ void renderYCbCrToColor (ProtectedContext&							ctx,
 							  1u, &attachmentStartBarrier);
 	}
 
-	const vk::VkClearValue				clearValue			= vk::makeClearValueColorF32(0.0f, 0.0f, 0.5f, 1.0f);
-	const vk::VkRenderPassBeginInfo		passBeginInfo		=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,		// sType
-		DE_NULL,											// pNext
-		*renderPass,										// renderPass
-		*framebuffer,										// framebuffer
-		{ { 0, 0 }, { size.x(), size.y() } },				// renderArea
-		1u,													// clearValueCount
-		&clearValue,										// pClearValues
-	};
-	vk.cmdBeginRenderPass(*cmdBuffer, &passBeginInfo, vk::VK_SUBPASS_CONTENTS_INLINE);
+	beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, vk::makeRect2D(0, 0, size.x(), size.y()), tcu::Vec4(0.0f, 0.0f, 0.5f, 1.0f));
 
 	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 	vk.cmdBindDescriptorSets(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
@@ -949,7 +950,7 @@ void renderYCbCrToColor (ProtectedContext&							ctx,
 
 	vk.cmdDraw(*cmdBuffer, /*vertexCount*/ (deUint32)posCoords.size(), 1u, 0u, 0u);
 
-	vk.cmdEndRenderPass(*cmdBuffer);
+	endRenderPass(vk, *cmdBuffer);
 
 	// color attachment render end barrier
 	{
@@ -976,7 +977,7 @@ void renderYCbCrToColor (ProtectedContext&							ctx,
 							  1u, &attachmentEndBarrier);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 
 	// Submit command buffer
 	{

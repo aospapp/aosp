@@ -40,6 +40,10 @@ py_test(
     timeout = "long",  # Moderate but for asan
     srcs = ["state_space_model_test.py"],
     srcs_version = "PY2AND3",
+    tags = [
+        "no_mac",
+        "no_windows",  # TODO: needs investigation on Windows
+    ],
     deps = [
         ":state_space_model",
         "//tensorflow/contrib/layers:layers_py",
@@ -74,7 +78,6 @@ py_library(
     srcs = ["kalman_filter.py"],
     srcs_version = "PY2AND3",
     deps = [
-        "//tensorflow/contrib/distributions:distributions_py",
         "//tensorflow/contrib/timeseries/python/timeseries:math_utils",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:control_flow_ops",
@@ -175,8 +178,9 @@ py_library(
 
 py_test(
     name = "structural_ensemble_test",
-    timeout = "long",  # Moderate but for asan/tsan timeouts
+    timeout = "long",  # Moderate but for asan/tsan/msan timeouts
     srcs = ["structural_ensemble_test.py"],
+    shard_count = 4,
     srcs_version = "PY2AND3",
     deps = [
         ":state_space_model",
@@ -230,7 +234,6 @@ py_library(
     srcs = ["filtering_postprocessor.py"],
     srcs_version = "PY2AND3",
     deps = [
-        "//tensorflow/contrib/distributions:distributions_py",
         "//tensorflow/contrib/timeseries/python/timeseries:math_utils",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:check_ops",
@@ -267,16 +270,4 @@ py_library(
         "//tensorflow/python:random_ops",
         "//third_party/py/numpy",
     ],
-)
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
-    visibility = ["//tensorflow:__subpackages__"],
 )

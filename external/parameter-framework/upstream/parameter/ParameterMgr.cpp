@@ -46,7 +46,7 @@
 #include "ComponentInstance.h"
 #include "ParameterBlockType.h"
 #include "BooleanParameterType.h"
-#include "IntegerParameterType.h"
+#include "IntegerParameterBuilder.h"
 #include "FixedPointParameterType.h"
 #include "FloatingPointParameterType.h"
 #include "ParameterBlackboard.h"
@@ -129,7 +129,7 @@ using namespace core;
 
 // Used for remote processor server creation
 typedef IRemoteProcessorServerInterface *(*CreateRemoteProcessorServer)(
-    uint16_t uiPort, IRemoteCommandHandler *pCommandHandler);
+    std::string bindAddress, IRemoteCommandHandler *pCommandHandler);
 
 // Config File System looks normally like this:
 // ---------------------------------------------
@@ -433,7 +433,7 @@ bool CParameterMgr::loadFrameworkConfiguration(string &strError)
 
     _xmlDoc *doc =
         CXmlDocSource::mkXmlDoc(_xmlConfigurationUri, true, true, elementSerializingContext);
-    if (doc == NULL) {
+    if (doc == nullptr) {
         return false;
     }
 
@@ -517,7 +517,7 @@ bool CParameterMgr::loadStructure(string &strError)
         LOG_CONTEXT("Importing system structure from file " + structureUri);
 
         _xmlDoc *doc = CXmlDocSource::mkXmlDoc(structureUri, true, true, parameterBuildContext);
-        if (doc == NULL) {
+        if (doc == nullptr) {
             return false;
         }
 
@@ -608,7 +608,7 @@ bool CParameterMgr::loadSettingsFromConfigFile(string &strError)
 
     _xmlDoc *doc =
         CXmlDocSource::mkXmlDoc(configurationDomainsUri, true, true, xmlDomainImportContext);
-    if (doc == NULL) {
+    if (doc == nullptr) {
         return false;
     }
 
@@ -702,7 +702,7 @@ const CConfigurableElement *CParameterMgr::getConfigurableElement(const string &
     // Nagivate through system class
     if (!pathNavigator.navigateThrough(getConstSystemClass()->getName(), strError)) {
 
-        return NULL;
+        return nullptr;
     }
 
     // Find element
@@ -712,7 +712,7 @@ const CConfigurableElement *CParameterMgr::getConfigurableElement(const string &
 
         strError = "Path not found: " + strPath;
 
-        return NULL;
+        return nullptr;
     }
 
     // Check found element is a parameter
@@ -739,7 +739,7 @@ CParameterHandle *CParameterMgr::createParameterHandle(const string &strPath, st
 
         // Element not found
         strError = "Element not found: " + strPath;
-        return NULL;
+        return nullptr;
     }
 
     if (!pConfigurableElement->isParameter()) {
@@ -747,7 +747,7 @@ CParameterHandle *CParameterMgr::createParameterHandle(const string &strPath, st
         // Element is not parameter
         strError = "Not a parameter: " + strPath;
 
-        return NULL;
+        return nullptr;
     }
 
     // Convert as parameter and return new handle
@@ -1355,7 +1355,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::listElementsCommand
 {
     CElementLocator elementLocator(getSystemClass(), false);
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1382,7 +1382,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::listParametersComma
 {
     CElementLocator elementLocator(getSystemClass(), false);
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1408,7 +1408,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::getElementStructure
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1432,7 +1432,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::getElementBytesComm
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1479,7 +1479,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::setElementBytesComm
     // Retrieve configurable element
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1622,7 +1622,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::dumpElementCommandP
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1645,7 +1645,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::getElementSizeComma
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1667,7 +1667,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::showPropertiesComma
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1715,7 +1715,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::listBelongingDomain
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -1737,7 +1737,7 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::listAssociatedDomai
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(remoteCommand.getArgument(0), &pLocatedElement, strResult)) {
 
@@ -2012,7 +2012,7 @@ bool CParameterMgr::accessConfigurationValue(const string &strDomain,
 {
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(strPath, &pLocatedElement, strError)) {
 
@@ -2028,7 +2028,7 @@ bool CParameterMgr::accessConfigurationValue(const string &strDomain,
     size_t baseOffset;
     bool bIsLastApplied;
 
-    CParameterBlackboard *pConfigurationBlackboard = NULL;
+    CParameterBlackboard *pConfigurationBlackboard = nullptr;
 
     {
         pConfigurationBlackboard = getConstConfigurableDomains()->findConfigurationBlackboard(
@@ -2400,7 +2400,7 @@ bool CParameterMgr::addConfigurableElementToDomain(const string &strDomain,
 
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(strConfigurableElementPath, &pLocatedElement, strError)) {
 
@@ -2443,7 +2443,7 @@ bool CParameterMgr::removeConfigurableElementFromDomain(const string &strDomain,
 
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(strConfigurableElementPath, &pLocatedElement, strError)) {
 
@@ -2475,7 +2475,7 @@ bool CParameterMgr::split(const string &strDomain, const string &strConfigurable
 
     CElementLocator elementLocator(getSystemClass());
 
-    CElement *pLocatedElement = NULL;
+    CElement *pLocatedElement = nullptr;
 
     if (!elementLocator.locate(strConfigurableElementPath, &pLocatedElement, strError)) {
 
@@ -2603,7 +2603,7 @@ bool CParameterMgr::wrapLegacyXmlImport(const string &xmlSource, bool fromFile, 
     // It doesn't make sense to resolve XIncludes on an imported file because
     // we can't reliably decide of a "base url"
     _xmlDoc *doc = CXmlDocSource::mkXmlDoc(xmlSource, fromFile, false, xmlDomainImportContext);
-    if (doc == NULL) {
+    if (doc == nullptr) {
         return false;
     }
 
@@ -2654,7 +2654,7 @@ bool CParameterMgr::exportSingleDomainXml(string &xmlDest, const string &domainN
     const CConfigurableDomain *requestedDomain =
         getConstConfigurableDomains()->findConfigurableDomain(domainName, errorMsg);
 
-    if (requestedDomain == NULL) {
+    if (requestedDomain == nullptr) {
         return false;
     }
 
@@ -2738,7 +2738,7 @@ CParameterBlackboard *CParameterMgr::getParameterBlackboard()
 void CParameterMgr::feedElementLibraries()
 {
     // Global Configuration handling
-    CElementLibrary *pFrameworkConfigurationLibrary = new CElementLibrary;
+    auto pFrameworkConfigurationLibrary = new CElementLibrary;
 
     pFrameworkConfigurationLibrary->addElementBuilder(
         "ParameterFrameworkConfiguration",
@@ -2759,7 +2759,7 @@ void CParameterMgr::feedElementLibraries()
     _pElementLibrarySet->addElementLibrary(pFrameworkConfigurationLibrary);
 
     // Parameter creation
-    CElementLibrary *pParameterCreationLibrary = new CElementLibrary;
+    auto pParameterCreationLibrary = new CElementLibrary;
 
     pParameterCreationLibrary->addElementBuilder(
         "Subsystem", new CSubsystemElementBuilder(getSystemClass()->getSubsystemLibrary()));
@@ -2777,8 +2777,7 @@ void CParameterMgr::feedElementLibraries()
         "ParameterBlock", new TNamedElementBuilderTemplate<CParameterBlockType>());
     pParameterCreationLibrary->addElementBuilder(
         "BooleanParameter", new TNamedElementBuilderTemplate<CBooleanParameterType>());
-    pParameterCreationLibrary->addElementBuilder(
-        "IntegerParameter", new TNamedElementBuilderTemplate<CIntegerParameterType>());
+    pParameterCreationLibrary->addElementBuilder("IntegerParameter", new IntegerParameterBuilder());
     pParameterCreationLibrary->addElementBuilder(
         "LinearAdaptation", new TElementBuilderTemplate<CLinearParameterAdaptation>());
     pParameterCreationLibrary->addElementBuilder(
@@ -2798,7 +2797,7 @@ void CParameterMgr::feedElementLibraries()
     _pElementLibrarySet->addElementLibrary(pParameterCreationLibrary);
 
     // Parameter Configuration Domains creation
-    CElementLibrary *pParameterConfigurationLibrary = new CElementLibrary;
+    auto pParameterConfigurationLibrary = new CElementLibrary;
 
     pParameterConfigurationLibrary->addElementBuilder(
         "ConfigurableDomain", new TElementBuilderTemplate<CConfigurableDomain>());
@@ -2853,28 +2852,29 @@ bool CParameterMgr::handleRemoteProcessingInterface(string &strError)
         return true;
     }
 
-    auto port = getConstFrameworkConfiguration()->getServerPort();
+    auto bindAddress = getConstFrameworkConfiguration()->getServerBindAddress();
 
     try {
         // The ownership of remoteComandHandler is given to Bg remote processor server.
-        _pRemoteProcessorServer = new BackgroundRemoteProcessorServer(port, createCommandHandler());
+        _pRemoteProcessorServer =
+            new BackgroundRemoteProcessorServer(bindAddress, createCommandHandler());
     } catch (std::runtime_error &e) {
         strError = string("ParameterMgr: Unable to create Remote Processor Server: ") + e.what();
         return false;
     }
 
-    if (_pRemoteProcessorServer == NULL) {
+    if (_pRemoteProcessorServer == nullptr) {
         strError = "ParameterMgr: Unable to create Remote Processor Server";
         return false;
     }
 
     if (!_pRemoteProcessorServer->start(strError)) {
         ostringstream oss;
-        oss << "ParameterMgr: Unable to start remote processor server on port " << port;
+        oss << "ParameterMgr: Unable to start remote processor server on " << bindAddress;
         strError = oss.str() + ": " + strError;
         return false;
     }
-    info() << "Remote Processor Server started on port " << port;
+    info() << "Remote Processor Server started on " << bindAddress;
     return true;
 }
 

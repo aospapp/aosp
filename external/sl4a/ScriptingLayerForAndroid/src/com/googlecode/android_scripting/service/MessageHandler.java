@@ -65,19 +65,21 @@ public class MessageHandler extends Handler {
      * for RPCs through RpcManagers.
      *
      * @param message The message that contains the method and parameters to
-     *     execute.
+     *                execute.
      */
     @Override
     public void handleMessage(Message message) {
         Log.d("Handling Remote request");
         int senderId = message.sendingUid == DEFAULT_UNSET_SENDING_ID ?
                 DEFAULT_SENDING_ID : message.sendingUid;
+        String sessionId = "" + senderId;
         if (message.what == SL4A_ACTION) {
             RpcReceiverManager receiverManager;
-            if (mRpcReceiverManagerFactory.getRpcReceiverManagers().containsKey(senderId)) {
-                receiverManager = mRpcReceiverManagerFactory.getRpcReceiverManagers().get(senderId);
+            if (mRpcReceiverManagerFactory.getRpcReceiverManagers().containsKey(sessionId)) {
+                receiverManager =
+                        mRpcReceiverManagerFactory.getRpcReceiverManagers().get(sessionId);
             } else {
-                receiverManager = mRpcReceiverManagerFactory.create(senderId);
+                receiverManager = mRpcReceiverManagerFactory.create(sessionId);
             }
             Bundle sl4aRequest = message.getData();
             String method = sl4aRequest.getString(SL4A_METHOD);

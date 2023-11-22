@@ -11,25 +11,13 @@
 
 #include "cras_iodev.h"
 #include "cras_types.h"
+#include "dev_io.h"
 
 struct buffer_share;
+struct cras_fmt_conv;
 struct cras_iodev;
 struct cras_rstream;
 struct dev_stream;
-
-/* Open input/output devices.
- *    dev - The device.
- *    wake_ts - When callback is needed to avoid xrun.
- *    coarse_rate_adjust - Hack for when the sample rate needs heavy correction.
- *    input_streaming - For capture, has the input started?
- */
-struct open_dev {
-	struct cras_iodev *dev;
-	struct timespec wake_ts;
-	int coarse_rate_adjust;
-	int input_streaming;
-	struct open_dev *prev, *next;
-};
 
 /* Hold communication pipes and pthread info for the thread used to play or
  * record audio.
@@ -39,6 +27,10 @@ struct open_dev {
  *    started - Non-zero if the thread has started successfully.
  *    suspended - Non-zero if the thread is suspended.
  *    open_devs - Lists of open input and output devices.
+ *    pollfds - What FDs wake up this thread.
+ *    pollfds_size - Number of available poll fds.
+ *    num_pollfds - Number of currently registered poll fds.
+ *    remix_converter - Format converter used to remix output channels.
  */
 struct audio_thread {
 	int to_thread_fds[2];
@@ -47,7 +39,10 @@ struct audio_thread {
 	int started;
 	int suspended;
 	struct open_dev *open_devs[CRAS_NUM_DIRECTIONS];
-
+	struct pollfd *pollfds;
+	size_t pollfds_size;
+	size_t num_pollfds;
+	struct cras_fmt_conv *remix_converter;
 };
 
 /* Callback function to be handled in main loop in audio thread.
@@ -58,7 +53,7 @@ typedef int (*thread_callback)(void *data);
 
 /* Creates an audio thread.
  * Returns:
- *    A pointer to the newly create audio thread.  It must be freed by calling
+ *    A pointer to the newly created audio thread.  It must be freed by calling
  *    audio_thread_destroy().  Returns NULL on error.
  */
 struct audio_thread *audio_thread_create();
@@ -77,6 +72,14 @@ int audio_thread_add_open_dev(struct audio_thread *thread,
  *    dev - The open device to remove.
  */
 int audio_thread_rm_open_dev(struct audio_thread *thread,
+			     struct cras_iodev *dev);
+
+/* Checks if dev is open and used by audio thread.
+ * Args:
+ *    thread - The thread accessing open devs.
+ *    dev - The device to check if it has already been open.
+ */
+int audio_thread_is_dev_open(struct audio_thread *thread,
 			     struct cras_iodev *dev);
 
 /* Adds an thread_callback to audio thread.
@@ -172,15 +175,23 @@ int audio_thread_disconnect_stream(struct audio_thread *thread,
 int audio_thread_dump_thread_info(struct audio_thread *thread,
 				  struct audio_debug_info *info);
 
+/* Starts or stops the aec dump task.
+ * Args:
+ *    thread - pointer to the audio thread.
+ *    stream_id - id of the target stream for aec dump.
+ *    start - True to start the aec dump, false to stop.
+ *    fd - File to store aec dump result.
+ */
+int audio_thread_set_aec_dump(struct audio_thread *thread,
+			      cras_stream_id_t stream_id,
+			      unsigned int start,
+			      int fd);
+
 /* Configures the global converter for output remixing. Called by main
  * thread. */
 int audio_thread_config_global_remix(struct audio_thread *thread,
 				     unsigned int num_channels,
 				     const float *coefficient);
-
-/* Gets the global remix converter. */
-struct cras_fmt_conv *audio_thread_get_global_remix_converter();
-
 
 /* Start ramping on a device.
  *

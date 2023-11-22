@@ -15,12 +15,12 @@ fi
 
 # Build the Go toolchain for arm devices.
 GOOS="android" GOARCH="arm" CGO_ENABLED="1" \
-	CC_FOR_TARGET="arm-linux-androideabi-gcc" \
-	CXX_FOR_TARGET="arm-linux-androideabi-g++" \
+	CC_FOR_TARGET="arm-linux-androideabi-clang" \
+	CXX_FOR_TARGET="arm-linux-androideabi-clang++" \
 	./make.bash --no-clean
 
 # Build the Go toolchain for arm64 devices.
 GOOS="android" GOARCH="arm64" CGO_ENABLED="1" \
-	CC_FOR_TARGET="aarch64-linux-android-gcc" \
-	CXX_FOR_TARGET="aarch64-linux-android-g++" \
+	CC_FOR_TARGET="aarch64-linux-android-clang" \
+	CXX_FOR_TARGET="aarch64-linux-android-clang++" \
 	./make.bash --no-clean

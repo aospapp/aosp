@@ -48,7 +48,7 @@
 #include "ixheaacd_audioobjtypes.h"
 
 #define mult16x16_16(a, b) ixheaacd_mult16((a), (b))
-#define mac16x16(a, b, c) ixheaacd_mac16x16in32((a), (b), (c))
+#define mac16x16(a, b, c) ixheaacd_mac16x16in32_sat((a), (b), (c))
 #define mpy_32x16(a, b) fixmuldiv2_32x16b((a), (b))
 #define mpy_16x16(a, b) ixheaacd_mult16x16in32((a), (b))
 #define mpy_32x32(a, b) ixheaacd_mult32((a), (b))
@@ -99,9 +99,13 @@ VOID ixheaacd_dct3_32(WORD32 *input, WORD32 *output,
 
     twid_im = *twidle_fwd;
     twidle_fwd += 3;
-    *p_out++ = mac32x16in32_dual(temp1[0], twid_re, temp1[1], twid_im);
-    *p_out++ = msu32x16in32_dual(temp1[0], twid_im, temp1[1], twid_re);
+
+    *p_out++ = ixheaacd_mult32x16in32(temp1[0], twid_re) +
+               ixheaacd_mult32x16in32(temp1[1], twid_im);
+    *p_out++ = -ixheaacd_mult32x16in32(temp1[1], twid_re) +
+               ixheaacd_mult32x16in32(temp1[0], twid_im);
   }
+
   twid_re = *twidle_fwd++;
 
   twid_im = *twidle_fwd;
@@ -114,11 +118,14 @@ VOID ixheaacd_dct3_32(WORD32 *input, WORD32 *output,
 
   temp1[0] = temp1[1];
 
-  temp2[2] = mac32x16in32_dual(temp1[0], twid_re, temp1[1], twid_im);
-  temp2[3] = msu32x16in32_dual(temp1[0], twid_im, temp1[1], twid_re);
+  temp2[2] = ixheaacd_mult32x16in32(temp1[0], twid_re) +
+             ixheaacd_mult32x16in32(temp1[1], twid_im);
+  temp2[3] = -ixheaacd_mult32x16in32(temp1[1], twid_re) +
+             ixheaacd_mult32x16in32(temp1[0], twid_im);
 
   ptr_forward = output;
   ptr_reverse = &output[DCT3_LEN - 1];
+
   temp2[0] = *ptr_forward++;
   temp2[1] = *ptr_forward--;
 
@@ -152,8 +159,11 @@ VOID ixheaacd_dct3_32(WORD32 *input, WORD32 *output,
 
     temp1[2] = temp2[1] + temp2[3];
     temp1[3] = (temp2[1] - temp2[3]);
-    temp1[4] = mac32x16in32_dual(temp1[0], twid_re, temp1[2], twid_im);
-    temp1[5] = msu32x16in32_dual(temp1[0], twid_im, temp1[2], twid_re);
+
+    temp1[4] = ixheaacd_mult32x16in32(temp1[0], twid_re) +
+               ixheaacd_mult32x16in32(temp1[2], twid_im);
+    temp1[5] = -ixheaacd_mult32x16in32(temp1[2], twid_re) +
+               ixheaacd_mult32x16in32(temp1[0], twid_im);
 
     temp1[1] >>= 1;
     temp1[3] >>= 1;
@@ -169,7 +179,7 @@ VOID ixheaacd_dct3_32(WORD32 *input, WORD32 *output,
   temp2[3] = *ptr_reverse--;
   temp2[2] = *ptr_reverse++;
 
-  twid_re = *twidle_rev;
+  twid_re = -*twidle_rev;
   twidle_rev -= 2;
   twid_im = *twidle_fwd;
   twidle_fwd += 2;
@@ -180,8 +190,10 @@ VOID ixheaacd_dct3_32(WORD32 *input, WORD32 *output,
   temp1[2] = temp2[1] + temp2[3];
   temp1[3] = (temp2[1] - temp2[3]);
 
-  temp1[4] = -mac32x16in32_dual(temp1[0], twid_re, temp1[2], twid_im);
-  temp1[5] = msu32x16in32_dual(temp1[0], twid_im, temp1[2], twid_re);
+  temp1[4] = ixheaacd_mult32x16in32(temp1[0], twid_re) -
+             ixheaacd_mult32x16in32(temp1[2], twid_im);
+  temp1[5] = ixheaacd_mult32x16in32(temp1[2], twid_re) +
+             ixheaacd_mult32x16in32(temp1[0], twid_im);
 
   temp1[1] >>= 1;
   temp1[3] >>= 1;
@@ -501,8 +513,8 @@ VOID ixheaacd_esbr_radix4bfly(const WORD32 *w, WORD32 *x, WORD32 index1,
                               WORD32 index) {
   int i;
   WORD32 l1, l2, h2, fft_jmp;
-  WORD32 xt0_0, yt0_0, xt1_0, yt1_0, xt2_0, yt2_0;
-  WORD32 xh0_0, xh1_0, xh20_0, xh21_0, xl0_0, xl1_0, xl20_0, xl21_0;
+  WORD64 xt0_0, yt0_0, xt1_0, yt1_0, xt2_0, yt2_0;
+  WORD64 xh0_0, xh1_0, xh20_0, xh21_0, xl0_0, xl1_0, xl20_0, xl21_0;
   WORD32 x_0, x_1, x_l1_0, x_l1_1, x_l2_0, x_l2_1;
   WORD32 x_h2_0, x_h2_1;
   WORD32 si10, si20, si30, co10, co20, co30;
@@ -539,34 +551,34 @@ VOID ixheaacd_esbr_radix4bfly(const WORD32 *w, WORD32 *x, WORD32 index1,
       x_l1_0 = x[l1];
       x_l2_0 = x[l2];
 
-      xh0_0 = x_0 + x_l1_0;
-      xl0_0 = x_0 - x_l1_0;
+      xh0_0 = (WORD64)x_0 + (WORD64)x_l1_0;
+      xl0_0 = (WORD64)x_0 - (WORD64)x_l1_0;
 
-      xh20_0 = x_h2_0 + x_l2_0;
-      xl20_0 = x_h2_0 - x_l2_0;
+      xh20_0 = (WORD64)x_h2_0 + (WORD64)x_l2_0;
+      xl20_0 = (WORD64)x_h2_0 - (WORD64)x_l2_0;
 
-      x[0] = xh0_0 + xh20_0;
-      xt0_0 = xh0_0 - xh20_0;
+      x[0] = (WORD32)ixheaacd_add64_sat(xh0_0, xh20_0);
+      xt0_0 = (WORD64)xh0_0 - (WORD64)xh20_0;
 
       x_1 = x[1];
       x_h2_1 = x[h2 + 1];
       x_l1_1 = x[l1 + 1];
       x_l2_1 = x[l2 + 1];
 
-      xh1_0 = x_1 + x_l1_1;
-      xl1_0 = x_1 - x_l1_1;
+      xh1_0 = (WORD64)x_1 + (WORD64)x_l1_1;
+      xl1_0 = (WORD64)x_1 - (WORD64)x_l1_1;
 
-      xh21_0 = x_h2_1 + x_l2_1;
-      xl21_0 = x_h2_1 - x_l2_1;
+      xh21_0 = (WORD64)x_h2_1 + (WORD64)x_l2_1;
+      xl21_0 = (WORD64)x_h2_1 - (WORD64)x_l2_1;
 
-      x[1] = xh1_0 + xh21_0;
-      yt0_0 = xh1_0 - xh21_0;
+      x[1] = (WORD32)ixheaacd_add64_sat(xh1_0, xh21_0);
+      yt0_0 = (WORD64)xh1_0 - (WORD64)xh21_0;
 
-      xt1_0 = xl0_0 + xl21_0;
-      xt2_0 = xl0_0 - xl21_0;
+      xt1_0 = (WORD64)xl0_0 + (WORD64)xl21_0;
+      xt2_0 = (WORD64)xl0_0 - (WORD64)xl21_0;
 
-      yt2_0 = xl1_0 + xl20_0;
-      yt1_0 = xl1_0 - xl20_0;
+      yt2_0 = (WORD64)xl1_0 + (WORD64)xl20_0;
+      yt1_0 = (WORD64)xl1_0 - (WORD64)xl20_0;
 
       mul_11 = ixheaacd_mult64(xt2_0, co30);
       mul_3 = ixheaacd_mult64(yt2_0, si30);
@@ -607,8 +619,6 @@ VOID ixheaacd_esbr_postradixcompute2(WORD32 *ptr_y, WORD32 *ptr_x,
   WORD32 x_0, x_1, x_2, x_3;
   WORD32 x_4, x_5, x_6, x_7;
   WORD32 x_8, x_9, x_a, x_b, x_c, x_d, x_e, x_f;
-  WORD32 n00, n10, n20, n30, n01, n11, n21, n31;
-  WORD32 n02, n12, n22, n32, n03, n13, n23, n33;
   WORD32 n0, j0;
   WORD32 *x2, *x0;
   WORD32 *y0, *y1, *y2, *y3;
@@ -636,23 +646,14 @@ VOID ixheaacd_esbr_postradixcompute2(WORD32 *ptr_y, WORD32 *ptr_x,
       x_6 = *x0++;
       x_7 = *x0++;
 
-      n00 = x_0 + x_2;
-      n01 = x_1 + x_3;
-      n20 = x_0 - x_2;
-      n21 = x_1 - x_3;
-      n10 = x_4 + x_6;
-      n11 = x_5 + x_7;
-      n30 = x_4 - x_6;
-      n31 = x_5 - x_7;
-
-      y0[h2] = n00;
-      y0[h2 + 1] = n01;
-      y1[h2] = n10;
-      y1[h2 + 1] = n11;
-      y2[h2] = n20;
-      y2[h2 + 1] = n21;
-      y3[h2] = n30;
-      y3[h2 + 1] = n31;
+      y0[h2] = ixheaacd_add32_sat(x_0, x_2);
+      y0[h2 + 1] = ixheaacd_add32_sat(x_1, x_3);
+      y1[h2] = ixheaacd_add32_sat(x_4, x_6);
+      y1[h2 + 1] = ixheaacd_add32_sat(x_5, x_7);
+      y2[h2] = ixheaacd_sub32_sat(x_0, x_2);
+      y2[h2 + 1] = ixheaacd_sub32_sat(x_1, x_3);
+      y3[h2] = ixheaacd_sub32_sat(x_4, x_6);
+      y3[h2 + 1] = ixheaacd_sub32_sat(x_5, x_7);
 
       x_8 = *x2++;
       x_9 = *x2++;
@@ -663,23 +664,14 @@ VOID ixheaacd_esbr_postradixcompute2(WORD32 *ptr_y, WORD32 *ptr_x,
       x_e = *x2++;
       x_f = *x2++;
 
-      n02 = x_8 + x_a;
-      n03 = x_9 + x_b;
-      n22 = x_8 - x_a;
-      n23 = x_9 - x_b;
-      n12 = x_c + x_e;
-      n13 = x_d + x_f;
-      n32 = x_c - x_e;
-      n33 = x_d - x_f;
-
-      y0[h2 + 2] = n02;
-      y0[h2 + 3] = n03;
-      y1[h2 + 2] = n12;
-      y1[h2 + 3] = n13;
-      y2[h2 + 2] = n22;
-      y2[h2 + 3] = n23;
-      y3[h2 + 2] = n32;
-      y3[h2 + 3] = n33;
+      y0[h2 + 2] = ixheaacd_add32_sat(x_8, x_a);
+      y0[h2 + 3] = ixheaacd_add32_sat(x_9, x_b);
+      y1[h2 + 2] = ixheaacd_add32_sat(x_c, x_e);
+      y1[h2 + 3] = ixheaacd_add32_sat(x_d, x_f);
+      y2[h2 + 2] = ixheaacd_sub32_sat(x_8, x_a);
+      y2[h2 + 3] = ixheaacd_sub32_sat(x_9, x_b);
+      y3[h2 + 2] = ixheaacd_sub32_sat(x_c, x_e);
+      y3[h2 + 3] = ixheaacd_sub32_sat(x_d, x_f);
     }
     x0 += (WORD32)npoints >> 1;
     x2 += (WORD32)npoints >> 1;
@@ -1224,19 +1216,19 @@ VOID ixheaacd_shiftrountine_with_rnd_hq(WORD32 *qmf_real, WORD32 *qmf_imag,
     r1 = *qmf_real++;
     i1 = *qmf_imag++;
 
-    timag = ixheaacd_add32(i1, r1);
+    timag = ixheaacd_add32_sat(i1, r1);
     timag = (ixheaacd_shl32_sat(timag, shift));
     filter_states_rev[j] = timag;
 
-    treal = ixheaacd_sub32(i2, r2);
+    treal = ixheaacd_sub32_sat(i2, r2);
     treal = (ixheaacd_shl32_sat(treal, shift));
     filter_states[j] = treal;
 
-    treal = ixheaacd_sub32(i1, r1);
+    treal = ixheaacd_sub32_sat(i1, r1);
     treal = (ixheaacd_shl32_sat(treal, shift));
     *filter_states++ = treal;
 
-    timag = ixheaacd_add32(i2, r2);
+    timag = ixheaacd_add32_sat(i2, r2);
     timag = (ixheaacd_shl32_sat(timag, shift));
     *filter_states_rev++ = timag;
   }

@@ -18,13 +18,13 @@
 %                                 June 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -51,6 +51,7 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/thread_.h"
 #include "MagickCore/thread-private.h"
+#include "MagickCore/utility-private.h"
 
 /*
   Struct declaractions.
@@ -146,14 +147,14 @@ static void *AcquireSemaphoreMemory(const size_t count,const size_t quantum)
     }
   memory=NULL;
   alignment=CACHE_LINE_SIZE;
-  extent=AlignedExtent(size,alignment);
+  extent=AlignedExtent(size,CACHE_LINE_SIZE);
   if ((size == 0) || (alignment < sizeof(void *)) || (extent < size))
     return((void *) NULL);
 #if defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
   if (posix_memalign(&memory,alignment,extent) != 0)
     memory=NULL;
 #elif defined(MAGICKCORE_HAVE__ALIGNED_MALLOC)
-  memory=_aligned_malloc(extent,alignment);
+   memory=_aligned_malloc(extent,alignment);
 #else
   {
     void
@@ -200,7 +201,7 @@ MagickExport SemaphoreInfo *AcquireSemaphoreInfo(void)
     sizeof(*semaphore_info));
   if (semaphore_info == (SemaphoreInfo *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(semaphore_info,0,sizeof(SemaphoreInfo));
+  (void) memset(semaphore_info,0,sizeof(SemaphoreInfo));
   /*
     Initialize the semaphore.
   */

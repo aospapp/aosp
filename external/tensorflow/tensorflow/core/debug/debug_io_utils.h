@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef TENSORFLOW_DEBUG_IO_UTILS_H_
-#define TENSORFLOW_DEBUG_IO_UTILS_H_
+#ifndef TENSORFLOW_CORE_DEBUG_DEBUG_IO_UTILS_H_
+#define TENSORFLOW_CORE_DEBUG_DEBUG_IO_UTILS_H_
 
 #include <cstddef>
 #include <functional>
@@ -193,6 +193,26 @@ class DebugFileIO {
                                      const string& dir_name,
                                      const string& file_name);
 
+  // Request additional bytes to be dumped to the file system.
+  //
+  // Does not actually dump the bytes, but instead just performs the
+  // bookkeeping necessary to prevent the total dumped amount of data from
+  // exceeding the limit (default 100 GBytes or set customly through the
+  // environment variable TFDBG_DISK_BYTES_LIMIT).
+  //
+  // Args:
+  //   bytes: Number of bytes to request.
+  //
+  // Returns:
+  //   Whether the request is approved given the total dumping
+  //   limit.
+  static bool requestDiskByteUsage(uint64 bytes);
+
+  // Reset the disk byte usage to zero.
+  static void resetDiskByteUsage();
+
+  static uint64 globalDiskBytesLimit;
+
  private:
   // Encapsulates the Tensor in an Event protobuf and write it to file.
   static Status DumpTensorToEventFile(const DebugNodeKey& debug_node_key,
@@ -204,6 +224,15 @@ class DebugFileIO {
   // TODO(cais): Replace with shared implementation once http://b/30497715 is
   // fixed.
   static Status RecursiveCreateDir(Env* env, const string& dir);
+
+  // Tracks how much disk has been used so far.
+  static uint64 diskBytesUsed;
+  // Mutex for thread-safe access to diskBytesUsed.
+  static mutex bytes_mu;
+  // Default limit for the disk space.
+  static const uint64 defaultGlobalDiskBytesLimit;
+
+  friend class DiskUsageLimitTest;
 };
 
 }  // namespace tensorflow
@@ -224,6 +253,7 @@ struct hash<::tensorflow::DebugNodeKey> {
 // TODO(cais): Support grpc:// debug URLs in open source once Python grpc
 //   genrule becomes available. See b/23796275.
 #ifndef PLATFORM_WINDOWS
+#include "grpcpp/channel.h"
 #include "tensorflow/core/debug/debug_service.grpc.pb.h"
 
 namespace tensorflow {
@@ -398,4 +428,4 @@ class DebugGrpcIO {
 }  // namespace tensorflow
 #endif  // #ifndef(PLATFORM_WINDOWS)
 
-#endif  // TENSORFLOW_DEBUG_IO_UTILS_H_
+#endif  // TENSORFLOW_CORE_DEBUG_DEBUG_IO_UTILS_H_

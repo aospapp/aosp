@@ -12,7 +12,7 @@ namespace data_container {
 
 namespace {
 
-bool ErrorStreamReadOnly(const tracked_objects::Location& location,
+bool ErrorStreamReadOnly(const base::Location& location,
                          ErrorPtr* error) {
   Error::AddTo(error,
                location,

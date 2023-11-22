@@ -11,7 +11,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
 # TODO(egemih): enable once crbug.com/781734 is fixed.
-# ATTRIBUTES = "suite:bluestreak"
+# ATTRIBUTES = "suite:hotrod"
 JOB_RETRIES = 3
 
 DOC = """

@@ -103,6 +103,10 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
   private static final PhoneNumber US_SPOOF_WITH_RAW_INPUT =
       new PhoneNumber().setCountryCode(1).setNationalNumber(0L)
           .setRawInput("000-000-0000");
+  private static final PhoneNumber UZ_FIXED_LINE =
+      new PhoneNumber().setCountryCode(998).setNationalNumber(612201234L);
+  private static final PhoneNumber UZ_MOBILE =
+      new PhoneNumber().setCountryCode(998).setNationalNumber(950123456L);
   private static final PhoneNumber INTERNATIONAL_TOLL_FREE =
       new PhoneNumber().setCountryCode(800).setNationalNumber(12345678L);
   // We set this to be the same length as numbers for the other non-geographical country prefix that
@@ -237,9 +241,9 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     assertEquals("0(?:(11|343|3715)15)?", metadata.getNationalPrefixForParsing());
     assertEquals("9$1", metadata.getNationalPrefixTransformRule());
     assertEquals("$2 15 $3-$4", metadata.getNumberFormat(2).getFormat());
-    assertEquals("(9)(\\d{4})(\\d{2})(\\d{4})",
+    assertEquals("(\\d)(\\d{4})(\\d{2})(\\d{4})",
                  metadata.getNumberFormat(3).getPattern());
-    assertEquals("(9)(\\d{4})(\\d{2})(\\d{4})",
+    assertEquals("(\\d)(\\d{4})(\\d{2})(\\d{4})",
                  metadata.getIntlNumberFormat(3).getPattern());
     assertEquals("$1 $2 $3 $4", metadata.getIntlNumberFormat(3).getFormat());
   }
@@ -851,6 +855,15 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
         phoneUtil.formatNumberForMobileDialing(MX_NUMBER1, RegionCode.MX, false));
     assertEquals("+523312345678",
         phoneUtil.formatNumberForMobileDialing(MX_NUMBER1, RegionCode.US, false));
+
+    // Test whether Uzbek phone numbers are returned in international format even when dialled from
+    // same region or other regions.
+    assertEquals("+998612201234",
+        phoneUtil.formatNumberForMobileDialing(UZ_FIXED_LINE, RegionCode.UZ, false));
+    assertEquals("+998950123456",
+        phoneUtil.formatNumberForMobileDialing(UZ_MOBILE, RegionCode.UZ, false));
+    assertEquals("+998950123456",
+        phoneUtil.formatNumberForMobileDialing(UZ_MOBILE, RegionCode.US, false));
 
     // Non-geographical numbers should always be dialed in international format.
     assertEquals("+80012345678",
@@ -2634,6 +2647,22 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
                  phoneUtil.parse("(800) 901-3355 ,extensio\u0301n 7246433", RegionCode.US));
     assertEquals(usWithExtension, phoneUtil.parse("(800) 901-3355 , 7246433", RegionCode.US));
     assertEquals(usWithExtension, phoneUtil.parse("(800) 901-3355 ext: 7246433", RegionCode.US));
+    // Testing Russian extension \u0434\u043E\u0431 with variants found online.
+    PhoneNumber ruWithExtension = new PhoneNumber();
+    ruWithExtension.setCountryCode(7).setNationalNumber(4232022511L).setExtension("100");
+    assertEquals(ruWithExtension,
+		 phoneUtil.parse("8 (423) 202-25-11, \u0434\u043E\u0431. 100", RegionCode.RU));
+    assertEquals(ruWithExtension,
+		 phoneUtil.parse("8 (423) 202-25-11 \u0434\u043E\u0431. 100", RegionCode.RU));
+    assertEquals(ruWithExtension,
+		 phoneUtil.parse("8 (423) 202-25-11, \u0434\u043E\u0431 100", RegionCode.RU));
+    assertEquals(ruWithExtension,
+		 phoneUtil.parse("8 (423) 202-25-11 \u0434\u043E\u0431 100", RegionCode.RU));
+    assertEquals(ruWithExtension,
+		 phoneUtil.parse("8 (423) 202-25-11\u0434\u043E\u0431100", RegionCode.RU));
+    // In upper case
+    assertEquals(ruWithExtension,
+                 phoneUtil.parse("8 (423) 202-25-11, \u0414\u041E\u0411. 100", RegionCode.RU));
 
     // Test that if a number has two extensions specified, we ignore the second.
     PhoneNumber usWithTwoExtensionsNumber = new PhoneNumber();
@@ -2770,6 +2799,9 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
                  phoneUtil.isNumberMatch("+64 3 331-6005 extn 1234", "+6433316005#1234"));
     assertEquals(PhoneNumberUtil.MatchType.EXACT_MATCH,
                  phoneUtil.isNumberMatch("+64 3 331-6005 ext. 1234", "+6433316005;1234"));
+    assertEquals(PhoneNumberUtil.MatchType.EXACT_MATCH,
+                 phoneUtil.isNumberMatch("+7 423 202-25-11 ext 100",
+					 "+7 4232022511 \u0434\u043E\u0431. 100"));
     // Test proto buffers.
     assertEquals(PhoneNumberUtil.MatchType.EXACT_MATCH,
                  phoneUtil.isNumberMatch(NZ_NUMBER, "+6403 331 6005"));

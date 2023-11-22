@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -403,6 +403,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     sizeof(*pixels));
   if (pixels == (unsigned char *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+  (void) memset(pixels,0,4*image->columns*sizeof(*pixels));
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     if (image->compression != RLECompression)
@@ -704,14 +705,15 @@ static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image,
   /*
     Write header.
   */
-  (void) ResetMagickMemory(header,' ',MagickPathExtent);
-  length=CopyMagickString(header,"#?RGBE\n",MagickPathExtent);
+  (void) memset(header,' ',MagickPathExtent);
+  length=CopyMagickString(header,"#?RADIANCE\n",MagickPathExtent);
   (void) WriteBlob(image,length,(unsigned char *) header);
   property=GetImageProperty(image,"comment",exception);
   if ((property != (const char *) NULL) &&
       (strchr(property,'\n') == (char *) NULL))
     {
-      count=FormatLocaleString(header,MagickPathExtent,"#%s\n",property);
+      count=FormatLocaleString(header,MagickPathExtent,"#%.*s\n",
+        MagickPathExtent-3,property);
       (void) WriteBlob(image,(size_t) count,(unsigned char *) header);
     }
   property=GetImageProperty(image,"hdr:exposure",exception);
@@ -746,7 +748,7 @@ static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image,
     sizeof(*pixels));
   if (pixels == (unsigned char *) NULL)
     ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(pixels,0,4*(image->columns+128)*sizeof(*pixels));
+  (void) memset(pixels,0,4*(image->columns+128)*sizeof(*pixels));
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetVirtualPixels(image,0,y,image->columns,1,exception);

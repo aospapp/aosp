@@ -16,7 +16,7 @@
 package com.android.icu4j.srcgen.checker;
 
 import com.google.common.collect.Lists;
-import com.google.currysrc.api.Rules;
+import com.google.currysrc.api.RuleSet;
 import com.google.currysrc.api.input.InputFileGenerator;
 import com.google.currysrc.api.output.NullOutputSourceFileGenerator;
 import com.google.currysrc.api.output.OutputSourceFileGenerator;
@@ -46,13 +46,13 @@ import java.io.File;
 import java.util.Collections;
 import java.util.List;
 
-import static com.android.icu4j.srcgen.Icu4jTransformRules.createOptionalRule;
+import static com.google.currysrc.api.process.Rules.createOptionalRule;
 
 /**
  * Rules that operate over a set of files and record the public API (according to Android's rules
  * for @hide).
  */
-class RecordPublicApiRules implements Rules {
+public class RecordPublicApiRules implements RuleSet {
 
   private final InputFileGenerator inputFileGenerator;
 
@@ -132,79 +132,91 @@ class RecordPublicApiRules implements Rules {
     }
 
     private void handleDeclarationNode(BodyDeclaration node) {
-      if (isExplicitlyHidden(node)) {
+      if (!isPublicApiEligible(node)) {
         return;
-      }
-
-      AbstractTypeDeclaration typeDeclaration = TypeLocator.findTypeDeclarationNode(node);
-      if (typeDeclaration == null) {
-        // Not unusual: methods / fields defined on anonymous types are like this. The parent
-        // is a constructor expression, not a declaration.
-        return;
-      }
-
-      boolean isNonTypeDeclaration = typeDeclaration != node;
-      if (isNonTypeDeclaration) {
-        if (isExplicitlyHidden(node) || !isMemberPublicApiEligible(typeDeclaration, node)) {
-          return;
-        }
-      }
-      while (typeDeclaration != null) {
-        if (isExplicitlyHidden(typeDeclaration) || !isTypePublicApiEligible(typeDeclaration)) {
-          return;
-        }
-        typeDeclaration = TypeLocator.findEnclosingTypeDeclaration(typeDeclaration);
       }
       // The node is appropriately public and is not hidden.
       publicMembers.addAll(BodyDeclarationLocators.toLocatorStringForms(node));
     }
 
-    private boolean isTypePublicApiEligible(AbstractTypeDeclaration typeDeclaration) {
-      int typeModifiers = typeDeclaration.getModifiers();
-      return ((typeModifiers & Modifier.PUBLIC) != 0);
-    }
-
-    public boolean isMemberPublicApiEligible(AbstractTypeDeclaration type, BodyDeclaration node) {
-      if (node.getNodeType() == ASTNode.ENUM_DECLARATION
-          || node.getNodeType() == ASTNode.TYPE_DECLARATION) {
-        throw new AssertionError("Unsupported node type: " + node);
-      }
-
-      if (type instanceof TypeDeclaration) {
-        TypeDeclaration typeDeclaration = (TypeDeclaration) type;
-        // All methods are public on interfaces. Not sure if true on Java 8.
-        if (typeDeclaration.isInterface()) {
-          return true;
-        }
-      }
-      int memberModifiers = node.getModifiers();
-      return ((memberModifiers & (Modifier.PUBLIC | Modifier.PROTECTED)) != 0);
-    }
-
-    private boolean isExplicitlyHidden(BodyDeclaration node) {
-      Javadoc javadoc = node.getJavadoc();
-      if (javadoc == null) {
-        return false;
-      }
-      final Boolean[] isHidden = new Boolean[] { false };
-      javadoc.accept(new ASTVisitor(true /* visitDocNodes */) {
-        @Override public boolean visit(TagElement node) {
-          String tagName = node.getTagName();
-          if (tagName == null) {
-            return true;
-          }
-          if (tagName.equals("@hide")) {
-            isHidden[0] = true;
-            return false;
-          }
-          return true;
-        }
-      });
-      return isHidden[0];
-    }
-
     public List<String> publicMembers() {
       return publicMembers;
     }
+  }
+
+  /**
+   * Determine if a declaration can be public API by looking at its and ancestor type's modifier and
+   * {@code @hide} javadoc tag.
+   */
+  public static boolean isPublicApiEligible(BodyDeclaration node) {
+    if (isExplicitlyHidden(node)) {
+      return false;
+    }
+
+    AbstractTypeDeclaration typeDeclaration = TypeLocator.findTypeDeclarationNode(node);
+    if (typeDeclaration == null) {
+      // Not unusual: methods / fields defined on anonymous types are like this. The parent
+      // is a constructor expression, not a declaration.
+      return false;
+    }
+
+    boolean isNonTypeDeclaration = typeDeclaration != node;
+    if (isNonTypeDeclaration) {
+      if (isExplicitlyHidden(node) || !isMemberPublicApiEligible(typeDeclaration, node)) {
+        return false;
+      }
+    }
+    while (typeDeclaration != null) {
+      if (isExplicitlyHidden(typeDeclaration) ||
+              !RecordPublicApiRules.isTypePublicApiEligible(typeDeclaration)) {
+        return false;
+      }
+      typeDeclaration = TypeLocator.findEnclosingTypeDeclaration(typeDeclaration);
+    }
+    return true;
+  }
+
+  private static boolean isExplicitlyHidden(BodyDeclaration node) {
+    // Don't visit AST or use ASTVisitor here as the caller is visiting the node.
+    Javadoc javadoc = node.getJavadoc();
+    if (javadoc == null) {
+      return false;
+    }
+    for (TagElement tagElement : (List<TagElement>) javadoc.tags()) {
+      String tagName = tagElement.getTagName();
+      if (tagName == null) {
+        continue;
+      }
+      if ("@hide".equals(tagName.toLowerCase())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isTypePublicApiEligible(AbstractTypeDeclaration typeDeclaration) {
+    int typeModifiers = typeDeclaration.getModifiers();
+    return ((typeModifiers & Modifier.PUBLIC) != 0);
+  }
+
+  private static boolean isMemberPublicApiEligible(AbstractTypeDeclaration type, BodyDeclaration node) {
+    if (node.getNodeType() == ASTNode.ENUM_DECLARATION
+            || node.getNodeType() == ASTNode.TYPE_DECLARATION) {
+      throw new AssertionError("Unsupported node type: " + node);
+    }
+
+    if (type instanceof TypeDeclaration) {
+      TypeDeclaration typeDeclaration = (TypeDeclaration) type;
+      // All methods are public on interfaces. Not sure if true on Java 8.
+      if (typeDeclaration.isInterface()) {
+        return true;
+      }
+    }
+    // Enum constant doesn't have visiblity
+    if (node.getNodeType() == ASTNode.ENUM_CONSTANT_DECLARATION) {
+      return true;
+    }
+    int memberModifiers = node.getModifiers();
+    return ((memberModifiers & (Modifier.PUBLIC | Modifier.PROTECTED)) != 0);
   }
 }

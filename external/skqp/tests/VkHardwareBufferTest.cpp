@@ -9,8 +9,7 @@
 
 #include "SkTypes.h"
 
-#ifdef SKQP_BUILD_HARDWAREBUFFER_TEST
-#if SK_SUPPORT_GPU && defined(SK_VULKAN)
+#if SK_SUPPORT_GPU && defined(SK_BUILD_FOR_ANDROID) && __ANDROID_API__ >= 26 && defined(SK_VULKAN)
 
 #include "GrBackendSemaphore.h"
 #include "GrContext.h"
@@ -18,7 +17,6 @@
 #include "GrContextPriv.h"
 #include "GrGpu.h"
 #include "GrProxyProvider.h"
-#include "GrTest.h"
 #include "SkAutoMalloc.h"
 #include "SkCanvas.h"
 #include "SkGr.h"
@@ -366,46 +364,20 @@ void EGLTestHelper::doClientSync() {
 
 #define DECLARE_VK_PROC(name) PFN_vk##name fVk##name
 
-#define ACQUIRE_VK_PROC(name, instance, device)                                        \
-    fVk##name = reinterpret_cast<PFN_vk##name>(getProc("vk" #name, instance, device)); \
-    if (fVk##name == nullptr) {                                                        \
-        ERRORF(reporter, "Function ptr for vk%s could not be acquired\n", #name);      \
-        return false;                                                                  \
-    }
-
-#define ACQUIRE_INST_VK_PROC(name)                                                          \
-    fVk##name = reinterpret_cast<PFN_vk##name>(getProc("vk" #name, fInst, VK_NULL_HANDLE)); \
-    if (fVk##name == nullptr) {                                                             \
-        ERRORF(reporter, "Function ptr for vk%s could not be acquired\n", #name);           \
-        fVkDestroyInstance(fInst, nullptr);                                                 \
-        return false;                                                                       \
+#define ACQUIRE_INST_VK_PROC(name)                                                           \
+    fVk##name = reinterpret_cast<PFN_vk##name>(getProc("vk" #name, fBackendContext.fInstance,\
+                                                       VK_NULL_HANDLE));                     \
+    if (fVk##name == nullptr) {                                                              \
+        ERRORF(reporter, "Function ptr for vk%s could not be acquired\n", #name);            \
+        return false;                                                                        \
     }
 
 #define ACQUIRE_DEVICE_VK_PROC(name)                                                          \
     fVk##name = reinterpret_cast<PFN_vk##name>(getProc("vk" #name, VK_NULL_HANDLE, fDevice)); \
     if (fVk##name == nullptr) {                                                               \
         ERRORF(reporter, "Function ptr for vk%s could not be acquired\n", #name);             \
-        fVkDestroyDevice(fDevice, nullptr);                                                   \
-        fVkDestroyInstance(fInst, nullptr);                                                   \
         return false;                                                                         \
     }
-
-#ifdef SK_ENABLE_VK_LAYERS
-const char* kMyDebugLayerNames[] = {
-    // elements of VK_LAYER_LUNARG_standard_validation
-    "VK_LAYER_GOOGLE_threading",
-    "VK_LAYER_LUNARG_parameter_validation",
-    "VK_LAYER_LUNARG_object_tracker",
-    "VK_LAYER_LUNARG_image",
-    "VK_LAYER_LUNARG_core_validation",
-    "VK_LAYER_LUNARG_swapchain",
-    "VK_LAYER_GOOGLE_unique_objects",
-    // not included in standard_validation
-    //"VK_LAYER_LUNARG_api_dump",
-    //"VK_LAYER_LUNARG_vktrace",
-    //"VK_LAYER_LUNARG_screenshot",
-};
-#endif
 
 class VulkanTestHelper : public BaseTestHelper {
 public:
@@ -418,13 +390,11 @@ public:
             return;
         }
         if (fImage != VK_NULL_HANDLE) {
-            SkASSERT(fVkDestroyImage);
             fVkDestroyImage(fDevice, fImage, nullptr);
             fImage = VK_NULL_HANDLE;
         }
 
         if (fMemory != VK_NULL_HANDLE) {
-            SkASSERT(fVkFreeMemory);
             fVkFreeMemory(fDevice, fMemory, nullptr);
             fMemory = VK_NULL_HANDLE;
         }
@@ -433,11 +403,26 @@ public:
         this->releaseImage();
 
         fGrContext.reset();
-        fBackendContext.reset();
+        fBackendContext.fMemoryAllocator.reset();
+        if (fDevice != VK_NULL_HANDLE) {
+            fVkDeviceWaitIdle(fDevice);
+            fVkDestroyDevice(fDevice, nullptr);
+            fDevice = VK_NULL_HANDLE;
+        }
+#ifdef SK_ENABLE_VK_LAYERS
+        if (fDebugCallback != VK_NULL_HANDLE) {
+            fDestroyDebugCallback(fBackendContext.fInstance, fDebugCallback, nullptr);
+        }
+#endif
+        if (fBackendContext.fInstance != VK_NULL_HANDLE) {
+            fVkDestroyInstance(fBackendContext.fInstance, nullptr);
+            fBackendContext.fInstance = VK_NULL_HANDLE;
+        }
 
-        fInst = VK_NULL_HANDLE;
-        fPhysDev = VK_NULL_HANDLE;
-        fDevice = VK_NULL_HANDLE;
+        delete fExtensions;
+
+        sk_gpu_test::FreeVulkanFeaturesStructs(fFeatures);
+        delete fFeatures;
     }
 
     bool init(skiatest::Reporter* reporter) override;
@@ -473,40 +458,40 @@ private:
     bool setupSemaphoreForSignaling(skiatest::Reporter* reporter, GrBackendSemaphore*);
     bool exportSemaphore(skiatest::Reporter* reporter, const GrBackendSemaphore&);
 
-    DECLARE_VK_PROC(EnumerateInstanceVersion);
-    DECLARE_VK_PROC(CreateInstance);
     DECLARE_VK_PROC(DestroyInstance);
-    DECLARE_VK_PROC(EnumeratePhysicalDevices);
-    DECLARE_VK_PROC(GetPhysicalDeviceProperties);
-    DECLARE_VK_PROC(GetPhysicalDeviceMemoryProperties2);
-    DECLARE_VK_PROC(GetPhysicalDeviceQueueFamilyProperties);
-    DECLARE_VK_PROC(GetPhysicalDeviceFeatures);
-    DECLARE_VK_PROC(GetPhysicalDeviceExternalSemaphoreProperties);
-    DECLARE_VK_PROC(CreateDevice);
-    DECLARE_VK_PROC(GetDeviceQueue);
     DECLARE_VK_PROC(DeviceWaitIdle);
     DECLARE_VK_PROC(DestroyDevice);
+
+    DECLARE_VK_PROC(GetPhysicalDeviceExternalSemaphoreProperties);
     DECLARE_VK_PROC(GetPhysicalDeviceImageFormatProperties2);
+    DECLARE_VK_PROC(GetPhysicalDeviceMemoryProperties2);
+
+    DECLARE_VK_PROC(GetAndroidHardwareBufferPropertiesANDROID);
+
     DECLARE_VK_PROC(CreateImage);
     DECLARE_VK_PROC(GetImageMemoryRequirements2);
-    DECLARE_VK_PROC(GetAndroidHardwareBufferPropertiesANDROID);
+    DECLARE_VK_PROC(DestroyImage);
+
     DECLARE_VK_PROC(AllocateMemory);
     DECLARE_VK_PROC(BindImageMemory2);
-    DECLARE_VK_PROC(DestroyImage);
     DECLARE_VK_PROC(FreeMemory);
+
     DECLARE_VK_PROC(CreateSemaphore);
     DECLARE_VK_PROC(GetSemaphoreFdKHR);
     DECLARE_VK_PROC(ImportSemaphoreFdKHR);
     DECLARE_VK_PROC(DestroySemaphore);
 
-    VkInstance fInst = VK_NULL_HANDLE;
-    VkPhysicalDevice fPhysDev = VK_NULL_HANDLE;
-    VkDevice fDevice = VK_NULL_HANDLE;
-
     VkImage fImage = VK_NULL_HANDLE;
     VkDeviceMemory fMemory = VK_NULL_HANDLE;
 
-    sk_sp<GrVkBackendContext> fBackendContext;
+    GrVkExtensions*                     fExtensions = nullptr;
+    VkPhysicalDeviceFeatures2*          fFeatures = nullptr;
+    VkDebugReportCallbackEXT            fDebugCallback = VK_NULL_HANDLE;
+    PFN_vkDestroyDebugReportCallbackEXT fDestroyDebugCallback = nullptr;
+
+    VkDevice fDevice = VK_NULL_HANDLE;
+
+    GrVkBackendContext fBackendContext;
     sk_sp<GrContext> fGrContext;
 };
 
@@ -516,7 +501,6 @@ bool VulkanTestHelper::init(skiatest::Reporter* reporter) {
     if (!sk_gpu_test::LoadVkLibraryAndGetProcAddrFuncs(&instProc, &devProc)) {
         return false;
     }
-
     auto getProc = [&instProc, &devProc](const char* proc_name,
                                          VkInstance instance, VkDevice device) {
         if (device != VK_NULL_HANDLE) {
@@ -525,278 +509,68 @@ bool VulkanTestHelper::init(skiatest::Reporter* reporter) {
         return instProc(instance, proc_name);
     };
 
-    VkResult err;
+    fExtensions = new GrVkExtensions();
+    fFeatures = new VkPhysicalDeviceFeatures2;
+    memset(fFeatures, 0, sizeof(VkPhysicalDeviceFeatures2));
+    fFeatures->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    fFeatures->pNext = nullptr;
 
-    ACQUIRE_VK_PROC(EnumerateInstanceVersion, VK_NULL_HANDLE, VK_NULL_HANDLE);
-    uint32_t instanceVersion = 0;
-    if (fVkEnumerateInstanceVersion) {
-        err = fVkEnumerateInstanceVersion(&instanceVersion);
-        if (err) {
-            ERRORF(reporter, "failed to enumerate instance version. Err: %d\n", err);
-            return false;
-        }
-    }
-    if (instanceVersion < VK_MAKE_VERSION(1, 1, 0)) {
+    fBackendContext.fInstance = VK_NULL_HANDLE;
+    fBackendContext.fDevice = VK_NULL_HANDLE;
+
+    if (!sk_gpu_test::CreateVkBackendContext(getProc, &fBackendContext, fExtensions,
+                                             fFeatures, &fDebugCallback)) {
         return false;
     }
+    fDevice = fBackendContext.fDevice;
 
-    const VkApplicationInfo app_info = {
-        VK_STRUCTURE_TYPE_APPLICATION_INFO, // sType
-        nullptr,                            // pNext
-        "vkHWBTest",                        // pApplicationName
-        0,                                  // applicationVersion
-        "vkHWBTest",                        // pEngineName
-        0,                                  // engineVerison
-        instanceVersion,                    // apiVersion
-    };
-
-    GrVkExtensions extensions(getProc);
-    extensions.initInstance(instanceVersion);
-
-    SkTArray<const char*> instanceLayerNames;
-    SkTArray<const char*> instanceExtensionNames;
-    uint32_t extensionFlags = 0;
-#ifdef SK_ENABLE_VK_LAYERS
-    for (size_t i = 0; i < SK_ARRAY_COUNT(kMyDebugLayerNames); ++i) {
-        if (extensions.hasInstanceLayer(kMyDebugLayerNames[i])) {
-            instanceLayerNames.push_back(kMyDebugLayerNames[i]);
-        }
-    }
-    if (extensions.hasInstanceExtension(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
-        instanceExtensionNames.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-        extensionFlags |= kEXT_debug_report_GrVkExtensionFlag;
-    }
-#endif
-
-    const VkInstanceCreateInfo instance_create = {
-        VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,    // sType
-        nullptr,                                   // pNext
-        0,                                         // flags
-        &app_info,                                 // pApplicationInfo
-        (uint32_t) instanceLayerNames.count(),     // enabledLayerNameCount
-        instanceLayerNames.begin(),                // ppEnabledLayerNames
-        (uint32_t) instanceExtensionNames.count(), // enabledExtensionNameCount
-        instanceExtensionNames.begin(),            // ppEnabledExtensionNames
-    };
-
-    ACQUIRE_VK_PROC(CreateInstance, VK_NULL_HANDLE, VK_NULL_HANDLE);
-    err = fVkCreateInstance(&instance_create, nullptr, &fInst);
-    if (err < 0) {
-        ERRORF(reporter, "vkCreateInstance failed: %d\n", err);
-        return false;
+    if (fDebugCallback != VK_NULL_HANDLE) {
+        fDestroyDebugCallback = (PFN_vkDestroyDebugReportCallbackEXT) instProc(
+                fBackendContext.fInstance, "vkDestroyDebugReportCallbackEXT");
     }
 
-    ACQUIRE_VK_PROC(DestroyInstance, fInst, VK_NULL_HANDLE);
-    ACQUIRE_INST_VK_PROC(EnumeratePhysicalDevices);
-    ACQUIRE_INST_VK_PROC(GetPhysicalDeviceProperties);
-    ACQUIRE_INST_VK_PROC(GetPhysicalDeviceQueueFamilyProperties);
-    ACQUIRE_INST_VK_PROC(GetPhysicalDeviceFeatures);
-    ACQUIRE_INST_VK_PROC(CreateDevice);
-    ACQUIRE_INST_VK_PROC(GetDeviceQueue);
+    ACQUIRE_INST_VK_PROC(DestroyInstance);
     ACQUIRE_INST_VK_PROC(DeviceWaitIdle);
     ACQUIRE_INST_VK_PROC(DestroyDevice);
 
-    uint32_t gpuCount;
-    err = fVkEnumeratePhysicalDevices(fInst, &gpuCount, nullptr);
-    if (err) {
-        ERRORF(reporter, "vkEnumeratePhysicalDevices failed: %d\n", err);
-        fVkDestroyInstance(fInst, nullptr);
+    if (!fExtensions->hasExtension(VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME,
+                                  2)) {
         return false;
     }
-    if (!gpuCount) {
-        // We can no physical devices so this isn't an error and failure in the test.
-        fVkDestroyInstance(fInst, nullptr);
+    if (!fExtensions->hasExtension(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME, 1)) {
         return false;
     }
-    // Just returning the first physical device instead of getting the whole array.
-    // TODO: find best match for our needs
-    gpuCount = 1;
-    err = fVkEnumeratePhysicalDevices(fInst, &gpuCount, &fPhysDev);
-    if (err) {
-        ERRORF(reporter, "vkEnumeratePhysicalDevices failed: %d\n", err);
-        fVkDestroyInstance(fInst, nullptr);
+    if (!fExtensions->hasExtension(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME, 1)) {
         return false;
     }
-
-    // query to get the initial queue props size
-    uint32_t queueCount;
-    fVkGetPhysicalDeviceQueueFamilyProperties(fPhysDev, &queueCount, nullptr);
-    if (!queueCount) {
-        ERRORF(reporter, "vkGetPhysicalDeviceQueueFamilyProperties returned no queues.\n");
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
+    if (!fExtensions->hasExtension(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME, 1)) {
+    //    return false;
     }
 
-    SkAutoMalloc queuePropsAlloc(queueCount * sizeof(VkQueueFamilyProperties));
-    // now get the actual queue props
-    VkQueueFamilyProperties* queueProps = (VkQueueFamilyProperties*)queuePropsAlloc.get();
-
-    fVkGetPhysicalDeviceQueueFamilyProperties(fPhysDev, &queueCount, queueProps);
-
-    // iterate to find the graphics queue
-    uint32_t graphicsQueueIndex = queueCount;
-    for (uint32_t i = 0; i < queueCount; i++) {
-        if (queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            graphicsQueueIndex = i;
-            break;
-        }
-    }
-    if (graphicsQueueIndex == queueCount) {
-        ERRORF(reporter, "Could not find any supported graphics queues.\n");
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
-    }
-
-    VkPhysicalDeviceProperties physDevProperties;
-    fVkGetPhysicalDeviceProperties(fPhysDev, &physDevProperties);
-    int physDevVersion = physDevProperties.apiVersion;
-
-    if (physDevVersion < VK_MAKE_VERSION(1, 1, 0)) {
-        return false;
-    }
-
-    // Physical-Device-level functions added in 1.1
     ACQUIRE_INST_VK_PROC(GetPhysicalDeviceMemoryProperties2);
     ACQUIRE_INST_VK_PROC(GetPhysicalDeviceImageFormatProperties2);
     ACQUIRE_INST_VK_PROC(GetPhysicalDeviceExternalSemaphoreProperties);
 
-    extensions.initDevice(physDevVersion, fInst, fPhysDev);
-
-    SkTArray<const char*> deviceLayerNames;
-    SkTArray<const char*> deviceExtensionNames;
-#ifdef SK_ENABLE_VK_LAYERS
-    for (size_t i = 0; i < SK_ARRAY_COUNT(kMyDebugLayerNames); ++i) {
-        if (extensions.hasDeviceLayer(kMyDebugLayerNames[i])) {
-            deviceLayerNames.push_back(kMyDebugLayerNames[i]);
-        }
-    }
-#endif
-
-    if (extensions.hasDeviceExtension(
-            VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME)) {
-        deviceExtensionNames.push_back(
-                VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME);
-    } else {
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
-    }
-
-    if (extensions.hasDeviceExtension(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME)) {
-        deviceExtensionNames.push_back(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
-    } else {
-        ERRORF(reporter, "Has HWB extension, but doesn't not have YCBCR coversion extension");
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
-    }
-
-    if (extensions.hasDeviceExtension(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME)) {
-        deviceExtensionNames.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
-    } else {
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
-    }
-
-    if (extensions.hasDeviceExtension(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME)) {
-        deviceExtensionNames.push_back(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME);
-    } else {
-        SkDebugf("We don't have the extension for VK_EXT_QUEUE_FAMILY_FOREIGN\n");
-        //fVkDestroyInstance(fInst, nullptr);
-        //return false;
-    }
-
-    // query to get the physical device properties
-    VkPhysicalDeviceFeatures deviceFeatures;
-    fVkGetPhysicalDeviceFeatures(fPhysDev, &deviceFeatures);
-    // this looks like it would slow things down,
-    // and we can't depend on it on all platforms
-    deviceFeatures.robustBufferAccess = VK_FALSE;
-
-    uint32_t featureFlags = 0;
-    if (deviceFeatures.geometryShader) {
-        featureFlags |= kGeometryShader_GrVkFeatureFlag;
-    }
-    if (deviceFeatures.dualSrcBlend) {
-        featureFlags |= kDualSrcBlend_GrVkFeatureFlag;
-    }
-    if (deviceFeatures.sampleRateShading) {
-        featureFlags |= kSampleRateShading_GrVkFeatureFlag;
-    }
-
-    float queuePriorities[1] = { 0.0 };
-    // Here we assume no need for swapchain queue
-    // If one is needed, the client will need its own setup code
-    const VkDeviceQueueCreateInfo queueInfo[1] = {
-        {
-            VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, // sType
-            nullptr,                                    // pNext
-            0,                                          // VkDeviceQueueCreateFlags
-            graphicsQueueIndex,                         // queueFamilyIndex
-            1,                                          // queueCount
-            queuePriorities,                            // pQueuePriorities
-        }
-    };
-    uint32_t queueInfoCount = 1;
-
-    const VkDeviceCreateInfo deviceInfo = {
-        VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,    // sType
-        nullptr,                                 // pNext
-        0,                                       // VkDeviceCreateFlags
-        queueInfoCount,                          // queueCreateInfoCount
-        queueInfo,                               // pQueueCreateInfos
-        (uint32_t) deviceLayerNames.count(),     // layerCount
-        deviceLayerNames.begin(),                // ppEnabledLayerNames
-        (uint32_t) deviceExtensionNames.count(), // extensionCount
-        deviceExtensionNames.begin(),            // ppEnabledExtensionNames
-        &deviceFeatures                          // ppEnabledFeatures
-    };
-
-    err = fVkCreateDevice(fPhysDev, &deviceInfo, nullptr, &fDevice);
-    if (err) {
-        ERRORF(reporter, "CreateDevice failed: %d\n", err);
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
-    }
+    ACQUIRE_DEVICE_VK_PROC(GetAndroidHardwareBufferPropertiesANDROID);
 
     ACQUIRE_DEVICE_VK_PROC(CreateImage);
     ACQUIRE_DEVICE_VK_PROC(GetImageMemoryRequirements2);
-    ACQUIRE_DEVICE_VK_PROC(GetAndroidHardwareBufferPropertiesANDROID);
+    ACQUIRE_DEVICE_VK_PROC(DestroyImage);
+
     ACQUIRE_DEVICE_VK_PROC(AllocateMemory);
     ACQUIRE_DEVICE_VK_PROC(BindImageMemory2);
-    ACQUIRE_DEVICE_VK_PROC(DestroyImage);
     ACQUIRE_DEVICE_VK_PROC(FreeMemory);
+
     ACQUIRE_DEVICE_VK_PROC(CreateSemaphore);
     ACQUIRE_DEVICE_VK_PROC(GetSemaphoreFdKHR);
     ACQUIRE_DEVICE_VK_PROC(ImportSemaphoreFdKHR);
     ACQUIRE_DEVICE_VK_PROC(DestroySemaphore);
 
-    VkQueue queue;
-    fVkGetDeviceQueue(fDevice, graphicsQueueIndex, 0, &queue);
-
-    // Setting up actual skia things now
-    auto interface =
-            sk_make_sp<GrVkInterface>(getProc, fInst, fDevice, extensionFlags);
-    if (!interface->validate(extensionFlags)) {
-        ERRORF(reporter, "Vulkan interface validation failed\n");
-        fVkDeviceWaitIdle(fDevice);
-        fVkDestroyDevice(fDevice, nullptr);
-        fVkDestroyInstance(fInst, nullptr);
-        return false;
-    }
-
-    fBackendContext.reset(new GrVkBackendContext());
-    fBackendContext->fInstance = fInst;
-    fBackendContext->fPhysicalDevice = fPhysDev;
-    fBackendContext->fDevice = fDevice;
-    fBackendContext->fQueue = queue;
-    fBackendContext->fGraphicsQueueIndex = graphicsQueueIndex;
-    fBackendContext->fMinAPIVersion = instanceVersion;
-    fBackendContext->fExtensions = extensionFlags;
-    fBackendContext->fFeatures = featureFlags;
-    fBackendContext->fInterface.reset(interface.release());
-    fBackendContext->fOwnsInstanceAndDevice = true;
-
     fGrContext = GrContext::MakeVulkan(fBackendContext);
     REPORTER_ASSERT(reporter, fGrContext.get());
+    if (!fGrContext) {
+        return false;
+    }
 
     return this->checkOptimalHardwareBuffer(reporter);
 }
@@ -837,8 +611,8 @@ bool VulkanTestHelper::checkOptimalHardwareBuffer(skiatest::Reporter* reporter) 
     imgFormProps.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
     imgFormProps.pNext = &externalImgFormatProps;
 
-    err = fVkGetPhysicalDeviceImageFormatProperties2(fPhysDev, &imageFormatInfo,
-                                                        &imgFormProps);
+    err = fVkGetPhysicalDeviceImageFormatProperties2(fBackendContext.fPhysicalDevice,
+                                                     &imageFormatInfo, &imgFormProps);
     if (VK_SUCCESS != err) {
         ERRORF(reporter, "vkGetPhysicalDeviceImageFormatProperites failed, err: %d", err);
         return false;
@@ -877,7 +651,7 @@ bool VulkanTestHelper::importHardwareBuffer(skiatest::Reporter* reporter,
 
     err = fVkGetAndroidHardwareBufferPropertiesANDROID(fDevice, buffer, &hwbProps);
     if (VK_SUCCESS != err) {
-        ERRORF(reporter, "GetAndroidHardwareBufferPropertiesAndoird failed, err: %d", err);
+        ERRORF(reporter, "GetAndroidHardwareBufferPropertiesAndroid failed, err: %d", err);
         return false;
     }
 
@@ -961,7 +735,7 @@ bool VulkanTestHelper::importHardwareBuffer(skiatest::Reporter* reporter,
     uint32_t typeIndex = 0;
     uint32_t heapIndex = 0;
     bool foundHeap = false;
-    fVkGetPhysicalDeviceMemoryProperties2(fPhysDev, &phyDevMemProps);
+    fVkGetPhysicalDeviceMemoryProperties2(fBackendContext.fPhysicalDevice, &phyDevMemProps);
     uint32_t memTypeCnt = phyDevMemProps.memoryProperties.memoryTypeCount;
     for (uint32_t i = 0; i < memTypeCnt && !foundHeap; ++i) {
         if (hwbProps.memoryTypeBits & (1 << i)) {
@@ -1023,7 +797,6 @@ bool VulkanTestHelper::importHardwareBuffer(skiatest::Reporter* reporter,
     outImageInfo->fImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     outImageInfo->fFormat = VK_FORMAT_R8G8B8A8_UNORM;
     outImageInfo->fLevelCount = 1;
-    outImageInfo->fInitialQueueFamily = VK_QUEUE_FAMILY_EXTERNAL;
     outImageInfo->fCurrentQueueFamily = VK_QUEUE_FAMILY_EXTERNAL;
     return true;
 }
@@ -1054,11 +827,13 @@ sk_sp<SkImage> VulkanTestHelper::importHardwareBufferForRead(skiatest::Reporter*
 
 bool VulkanTestHelper::flushSurfaceAndSignalSemaphore(skiatest::Reporter* reporter,
                                                       sk_sp<SkSurface> surface) {
+    surface->flush();
+    surface.reset();
     GrBackendSemaphore semaphore;
     if (!this->setupSemaphoreForSignaling(reporter, &semaphore)) {
         return false;
     }
-    GrSemaphoresSubmitted submitted = surface->flushAndSignalSemaphores(1, &semaphore);
+    GrSemaphoresSubmitted submitted = fGrContext->flushAndSignalSemaphores(1, &semaphore);
     if (GrSemaphoresSubmitted::kNo == submitted) {
         ERRORF(reporter, "Failing call to flushAndSignalSemaphores on SkSurface");
         return false;
@@ -1082,7 +857,8 @@ bool VulkanTestHelper::setupSemaphoreForSignaling(skiatest::Reporter* reporter,
     exSemProps.sType = VK_STRUCTURE_TYPE_EXTERNAL_SEMAPHORE_PROPERTIES;
     exSemProps.pNext = nullptr;
 
-    fVkGetPhysicalDeviceExternalSemaphoreProperties(fPhysDev, &exSemInfo, &exSemProps);
+    fVkGetPhysicalDeviceExternalSemaphoreProperties(fBackendContext.fPhysicalDevice, &exSemInfo,
+                                                    &exSemProps);
 
     if (!SkToBool(exSemProps.exportFromImportedHandleTypes &
                  VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT)) {
@@ -1436,12 +1212,10 @@ void run_test(skiatest::Reporter* reporter, const GrContextOptions& options,
         ///////////////////////////////////////////////////////////////////////////
 
         if (shareSyncs) {
-            if (!srcHelper->flushSurfaceAndSignalSemaphore(reporter, surface)) {
+            if (!srcHelper->flushSurfaceAndSignalSemaphore(reporter, std::move(surface))) {
                 cleanup_resources(srcHelper.get(), dstHelper.get(), buffer);
                 return;
             }
-
-            surface.reset();
         } else {
             surface.reset();
             srcHelper->doClientSync();
@@ -1455,6 +1229,7 @@ void run_test(skiatest::Reporter* reporter, const GrContextOptions& options,
 
     dstHelper->makeCurrent();
     sk_sp<SkImage> wrappedImage = dstHelper->importHardwareBufferForRead(reporter, buffer);
+
     if (!wrappedImage) {
         cleanup_resources(srcHelper.get(), dstHelper.get(), buffer);
         return;
@@ -1490,6 +1265,7 @@ void run_test(skiatest::Reporter* reporter, const GrContextOptions& options,
     if (!readResult) {
         ERRORF(reporter, "Read Pixels failed");
         wrappedImage.reset();
+        dstSurf.reset();
         dstHelper->doClientSync();
         cleanup_resources(srcHelper.get(), dstHelper.get(), buffer);
         return;
@@ -1497,6 +1273,7 @@ void run_test(skiatest::Reporter* reporter, const GrContextOptions& options,
 
     REPORTER_ASSERT(reporter, check_read(reporter, srcBitmap, dstBitmapFinal));
 
+    dstSurf.reset();
     wrappedImage.reset();
     dstHelper->doClientSync();
     cleanup_resources(srcHelper.get(), dstHelper.get(), buffer);
@@ -1542,6 +1319,5 @@ DEF_GPUTEST(VulkanHardwareBuffer_Vulkan_Vulkan_Syncs, reporter, options) {
     run_test(reporter, options, SrcType::kVulkan, DstType::kVulkan, true);
 }
 
-#endif
 #endif
 

@@ -16,6 +16,22 @@
 
 class GrGLSLProgramBuilder;
 
+#ifdef SK_DEBUG
+static bool is_matrix(GrSLType type) {
+    switch (type) {
+        case kFloat2x2_GrSLType:
+        case kFloat3x3_GrSLType:
+        case kFloat4x4_GrSLType:
+        case kHalf2x2_GrSLType:
+        case kHalf3x3_GrSLType:
+        case kHalf4x4_GrSLType:
+            return true;
+        default:
+            return false;
+    }
+}
+#endif
+
 class GrGLSLVarying {
 public:
     enum class Scope {
@@ -25,9 +41,16 @@ public:
     };
 
     GrGLSLVarying() = default;
-    GrGLSLVarying(GrSLType type, Scope scope = Scope::kVertToFrag) : fType(type), fScope(scope) {}
+    GrGLSLVarying(GrSLType type, Scope scope = Scope::kVertToFrag)
+        : fType(type)
+        , fScope(scope) {
+        // Metal doesn't support varying matrices, so we disallow them everywhere for consistency
+        SkASSERT(!is_matrix(type));
+    }
 
     void reset(GrSLType type, Scope scope = Scope::kVertToFrag) {
+        // Metal doesn't support varying matrices, so we disallow them everywhere for consistency
+        SkASSERT(!is_matrix(type));
         *this = GrGLSLVarying();
         fType = type;
         fScope = scope;
@@ -79,6 +102,12 @@ public:
      */
     void setNoPerspective();
 
+    enum class Interpolation {
+        kInterpolated,
+        kCanBeFlat, // Use "flat" if it will be faster.
+        kMustBeFlat // Use "flat" even if it is known to be slow.
+    };
+
     /*
      * addVarying allows fine grained control for setting up varyings between stages. Calling this
      * function will make sure all necessary decls are setup for the client. The client however is
@@ -87,20 +116,8 @@ public:
      * addPassThroughAttribute.
      * TODO convert most uses of addVarying to addPassThroughAttribute
      */
-    void addVarying(const char* name, GrGLSLVarying* varying) {
-        SkASSERT(GrSLTypeIsFloatType(varying->type())); // Integers must use addFlatVarying.
-        this->internalAddVarying(name, varying, false /*flat*/);
-    }
-
-    /*
-     * addFlatVarying sets up a varying whose value is constant across every fragment. The graphics
-     * pipeline will pull its value from the final vertex of the draw primitive (provoking vertex).
-     * Flat interpolation is not always supported and the user must check the caps before using.
-     * TODO: Some platforms can change the provoking vertex. Should we be resetting this knob?
-     */
-    void addFlatVarying(const char* name, GrGLSLVarying* varying) {
-        this->internalAddVarying(name, varying, true /*flat*/);
-    }
+    void addVarying(const char* name, GrGLSLVarying* varying,
+                    Interpolation = Interpolation::kInterpolated);
 
     /*
      * The GP can use these calls to pass an attribute through all shaders directly to 'output' in
@@ -110,8 +127,8 @@ public:
      * that will be set as the output varying for all emitted vertices.
      * TODO it might be nicer behavior to have a flag to declare output inside these calls
      */
-    void addPassThroughAttribute(const GrGeometryProcessor::Attribute*, const char* output);
-    void addFlatPassThroughAttribute(const GrGeometryProcessor::Attribute*, const char* output);
+    void addPassThroughAttribute(const GrGeometryProcessor::Attribute&, const char* output,
+                                 Interpolation = Interpolation::kInterpolated);
 
     void emitAttributes(const GrGeometryProcessor& gp);
 
@@ -148,10 +165,6 @@ protected:
     GrGLSLProgramBuilder* fProgramBuilder;
 
 private:
-    void internalAddVarying(const char* name, GrGLSLVarying*, bool flat);
-    void writePassThroughAttribute(const GrGeometryProcessor::Attribute*, const char* output,
-                                   const GrGLSLVarying&);
-
     void addAttribute(const GrShaderVar& var);
 
     virtual void onFinalize() = 0;

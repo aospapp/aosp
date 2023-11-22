@@ -40,3 +40,34 @@ filegroup {
         "src/main/java/android/icu/util/**/*.java",
     ],
 }
+
+//==========================================================
+// build repackaged ICU tests
+//
+// Target builds against core-libart and core-oj so that it can access all the
+// repackaged android.icu classes and methods and not just the ones available
+// through the Android API.
+//==========================================================
+java_test {
+    name: "android-icu4j-tests",
+
+    srcs: [
+        "src/main/tests/**/*.java",
+        "testing/src/**/*.java",
+    ],
+    java_resource_dirs: [
+        "src/main/tests",
+        "testing/src"
+    ],
+    static_libs: [
+        "junit",
+        "junit-params",
+    ],
+
+    patch_module: "java.base",
+    no_standard_libs: true,
+    libs: [
+        "core-all",
+    ],
+    system_modules: "core-all-system-modules",
+}

@@ -16,100 +16,55 @@
 
 #include "tools/ftrace_proto_gen/ftrace_proto_gen.h"
 
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <algorithm>
 #include <fstream>
 #include <regex>
-#include <set>
-#include <string>
+
+#include "perfetto/base/file_utils.h"
+#include "perfetto/base/logging.h"
+#include "perfetto/base/pipe.h"
+#include "perfetto/base/string_splitter.h"
+#include "perfetto/base/string_utils.h"
 
 namespace perfetto {
 
-namespace {
+using base::StartsWith;
+using base::Contains;
 
-std::string ToCamelCase(const std::string& s) {
-  std::string result;
-  result.reserve(s.size());
-  bool upperCaseNextChar = true;
-  for (size_t i = 0; i < s.size(); i++) {
-    char c = s[i];
-    if (c == '_') {
-      upperCaseNextChar = true;
-      continue;
-    }
-    if (upperCaseNextChar) {
-      upperCaseNextChar = false;
-      c = static_cast<char>(toupper(c));
-    }
-    result.push_back(c);
+std::string EventNameToProtoFieldName(const std::string& name) {
+  return (name == "0") ? "zero" : name;
+}
+
+std::string EventNameToProtoName(const std::string& name) {
+  return ToCamelCase(EventNameToProtoFieldName(name)) + "FtraceEvent";
+}
+
+std::vector<FtraceEventName> ReadWhitelist(const std::string& filename) {
+  std::string line;
+  std::vector<FtraceEventName> lines;
+
+  std::ifstream fin(filename, std::ios::in);
+  if (!fin) {
+    fprintf(stderr, "failed to open whitelist %s\n", filename.c_str());
+    return lines;
   }
-  return result;
-}
-
-bool StartsWith(const std::string& str, const std::string& prefix) {
-  return str.compare(0, prefix.length(), prefix) == 0;
-}
-
-bool Contains(const std::string& haystack, const std::string& needle) {
-  return haystack.find(needle) != std::string::npos;
-}
-
-}  // namespace
-
-std::string InferProtoType(const FtraceEvent::Field& field) {
-  // Fixed length strings: "char foo[16]"
-  if (std::regex_match(field.type_and_name, std::regex(R"(char \w+\[\d+\])")))
-    return "string";
-
-  // String pointers: "__data_loc char[] foo" (as in
-  // 'cpufreq_interactive_boost').
-  if (Contains(field.type_and_name, "char[] "))
-    return "string";
-  if (Contains(field.type_and_name, "char * "))
-    return "string";
-
-  // Variable length strings: "char* foo"
-  if (StartsWith(field.type_and_name, "char *"))
-    return "string";
-
-  // Variable length strings: "char foo" + size: 0 (as in 'print').
-  if (StartsWith(field.type_and_name, "char ") && field.size == 0)
-    return "string";
-
-  // ino_t, i_ino and dev_t are 32bit on some devices 64bit on others. For the
-  // protos we need to choose the largest possible size.
-  if (StartsWith(field.type_and_name, "ino_t ") ||
-      StartsWith(field.type_and_name, "i_ino ") ||
-      StartsWith(field.type_and_name, "dev_t ")) {
-    return "uint64";
+  while (std::getline(fin, line)) {
+    if (!StartsWith(line, "#"))
+      lines.emplace_back(FtraceEventName(line));
   }
-
-  // Ints of various sizes:
-  if (field.size <= 4 && field.is_signed)
-    return "int32";
-  if (field.size <= 4 && !field.is_signed)
-    return "uint32";
-  if (field.size <= 8 && field.is_signed)
-    return "int64";
-  if (field.size <= 8 && !field.is_signed)
-    return "uint64";
-  return "";
-}
-
-void PrintFtraceEventProtoAdditions(const std::set<std::string>& events) {
-  printf(
-      "\nNumber appropriately and add output to "
-      "protos/perfetto/trace/ftrace/ftrace_event.proto\n");
-  for (auto event : events) {
-    printf("%sFtraceEvent %s = ;\n", ToCamelCase(event).c_str(), event.c_str());
-  }
+  return lines;
 }
 
 void PrintEventFormatterMain(const std::set<std::string>& events) {
   printf(
       "\nAdd output to FormatEventText in "
-      "tools/ftrace_proto_gen/ftrace_event_formatter.cc\n");
+      "tools/trace_to_text/ftrace_event_formatter.cc\n");
   for (auto event : events) {
     printf(
-        "else if (event.has_%s()) {\nconst auto& inner = event.%s();\nline = "
+        "else if (event.has_%s()) {\nconst auto& inner = event.%s();\nreturn "
         "Format%s(inner);\n} ",
         event.c_str(), event.c_str(), ToCamelCase(event).c_str());
   }
@@ -118,7 +73,8 @@ void PrintEventFormatterMain(const std::set<std::string>& events) {
 // Add output to ParseInode in ftrace_inode_handler
 void PrintInodeHandlerMain(const std::string& event_name,
                            const perfetto::Proto& proto) {
-  for (const auto& field : proto.fields) {
+  for (const auto& p : proto.fields) {
+    const Proto::Field& field = p.second;
     if (Contains(field.name, "ino") && !Contains(field.name, "minor"))
       printf(
           "else if (event.has_%s() && event.%s().%s()) {\n*inode = "
@@ -129,7 +85,7 @@ void PrintInodeHandlerMain(const std::string& event_name,
 }
 
 void PrintEventFormatterUsingStatements(const std::set<std::string>& events) {
-  printf("\nAdd output to tools/ftrace_proto_gen/ftrace_event_formatter.cc\n");
+  printf("\nAdd output to tools/trace_to_text/ftrace_event_formatter.cc\n");
   for (auto event : events) {
     printf("using protos::%sFtraceEvent;\n", ToCamelCase(event).c_str());
   }
@@ -137,7 +93,7 @@ void PrintEventFormatterUsingStatements(const std::set<std::string>& events) {
 
 void PrintEventFormatterFunctions(const std::set<std::string>& events) {
   printf(
-      "\nAdd output to tools/ftrace_proto_gen/ftrace_event_formatter.cc and "
+      "\nAdd output to tools/trace_to_text/ftrace_event_formatter.cc and "
       "then manually go through format files to match fields\n");
   for (auto event : events) {
     printf(
@@ -149,79 +105,131 @@ void PrintEventFormatterFunctions(const std::set<std::string>& events) {
 }
 
 bool GenerateProto(const FtraceEvent& format, Proto* proto_out) {
-  proto_out->name = ToCamelCase(format.name) + "FtraceEvent";
-  proto_out->fields.reserve(format.fields.size());
+  proto_out->name = EventNameToProtoName(format.name);
+  proto_out->event_name = format.name;
   std::set<std::string> seen;
   // TODO(hjd): We should be cleverer about id assignment.
   uint32_t i = 1;
   for (const FtraceEvent::Field& field : format.fields) {
     std::string name = GetNameFromTypeAndName(field.type_and_name);
     // TODO(hjd): Handle dup names.
-    if (name == "" || seen.count(name))
+    // sa_handler is problematic because glib headers redefine it at the
+    // preprocessor level. It's impossible to have a variable or a function
+    // called sa_handler. On the good side, we realistically don't care about
+    // this field, it's just easier to skip it.
+    if (name == "" || seen.count(name) || name == "sa_handler" ||
+        name == "errno")
       continue;
     seen.insert(name);
-    std::string type = InferProtoType(field);
+    ProtoType type = InferProtoType(field);
     // Check we managed to infer a type.
-    if (type == "")
+    if (type.type == ProtoType::INVALID)
       continue;
-    proto_out->fields.emplace_back(Proto::Field{type, name, i});
+    Proto::Field protofield{std::move(type), name, i};
+    proto_out->AddField(std::move(protofield));
     i++;
   }
 
   return true;
 }
 
-std::set<std::string> GetWhitelistedEvents(const std::string& whitelist_path) {
-  std::string line;
-  std::set<std::string> whitelist;
+void GenerateFtraceEventProto(const std::vector<FtraceEventName>& raw_whitelist,
+                              const std::set<std::string>& groups,
+                              std::ostream* fout) {
+  *fout << "// Autogenerated by:\n";
+  *fout << std::string("// ") + __FILE__ + "\n";
+  *fout << "// Do not edit.\n\n";
+  *fout << R"(syntax = "proto2";)"
+        << "\n";
+  *fout << "option optimize_for = LITE_RUNTIME;\n\n";
 
-  std::ifstream fin(whitelist_path, std::ios::in);
-  if (!fin) {
-    fprintf(stderr, "Failed to open whitelist %s\n", whitelist_path.c_str());
-    return whitelist;
+  for (const std::string& group : groups) {
+    *fout << R"(import "perfetto/trace/ftrace/)" << group << R"(.proto";)"
+          << "\n";
   }
-  while (std::getline(fin, line)) {
-    if (!StartsWith(line, "#")) {
-      whitelist.insert(line);
+  *fout << "import \"perfetto/trace/ftrace/generic.proto\";\n";
+  *fout << "\n";
+  *fout << "package perfetto.protos;\n\n";
+  *fout << R"(message FtraceEvent {
+  // Nanoseconds since an epoch.
+  // Epoch is configurable by writing into trace_clock.
+  // By default this timestamp is CPU local.
+  // TODO: Figure out a story for reconciling the various clocks.
+  optional uint64 timestamp = 1;
+
+  // Kernel pid (do not confuse with userspace pid aka tgid)
+  optional uint32 pid = 2;
+
+  oneof event {
+)";
+
+  int i = 3;
+  for (const FtraceEventName& event : raw_whitelist) {
+    if (!event.valid()) {
+      *fout << "    // removed field with id " << i << ";\n";
+      ++i;
+      continue;
+    }
+
+    std::string field_name = EventNameToProtoFieldName(event.name());
+    std::string type_name = EventNameToProtoName(event.name());
+
+    // "    " (indent) + TypeName + " " + field_name + " = " + 123 + ";"
+    if (4 + type_name.size() + 1 + field_name.size() + 3 + 3 + 1 <= 80) {
+      // Everything fits in one line:
+      *fout << "    " << type_name << " " << field_name << " = " << i << ";\n";
+    } else if (4 + type_name.size() + 1 + field_name.size() + 2 <= 80) {
+      // Everything fits except the field id:
+      *fout << "    " << type_name << " " << field_name << " =\n        " << i
+            << ";\n";
+    } else {
+      // Nothing fits:
+      *fout << "    " << type_name << "\n        " << field_name << " = " << i
+            << ";\n";
+    }
+    ++i;
+    // We cannot depend on the proto file to get this number because
+    // it would cause a dependency cycle between this generator and the
+    // generated code.
+    if (i == 327) {
+      *fout << "    GenericFtraceEvent generic = " << i << ";\n";
+      ++i;
     }
   }
-  return whitelist;
+  *fout << "  }\n";
+  *fout << "}\n";
 }
 
 // Generates section of event_info.cc for a single event.
-std::string SingleEventInfo(perfetto::FtraceEvent format,
-                            perfetto::Proto proto,
+std::string SingleEventInfo(perfetto::Proto proto,
                             const std::string& group,
-                            const std::string& proto_field_id) {
+                            const uint32_t proto_field_id) {
   std::string s = "";
-  s += "    event->name = \"" + format.name + "\";\n";
+  s += "    event->name = \"" + proto.event_name + "\";\n";
   s += "    event->group = \"" + group + "\";\n";
-  s += "    event->proto_field_id = " + proto_field_id + ";\n";
+  s += "    event->proto_field_id = " + std::to_string(proto_field_id) + ";\n";
 
-  for (const auto& field : proto.fields) {
-    s += "    event->fields.push_back(MakeField(\"" + field.name + "\", " +
-         std::to_string(field.number) + ", kProto" + ToCamelCase(field.type) +
-         "));\n";
+  for (const auto& field : proto.SortedFields()) {
+    s += "    event->fields.push_back(MakeField(\"" + field->name + "\", " +
+         std::to_string(field->number) + ", ProtoSchemaType::k" +
+         ToCamelCase(field->type.ToString()) + "));\n";
   }
   return s;
 }
 
 // This will generate the event_info.cc file for the whitelisted protos.
-void GenerateEventInfo(const std::vector<std::string>& events_info) {
-  std::string output_path = "src/ftrace_reader/event_info.cc";
-  std::ofstream fout(output_path.c_str(), std::ios::out);
-  if (!fout) {
-    fprintf(stderr, "Failed to open %s\n", output_path.c_str());
-    return;
-  }
-
+void GenerateEventInfo(const std::vector<std::string>& events_info,
+                       std::ostream* fout) {
   std::string s = "// Autogenerated by:\n";
   s += std::string("// ") + __FILE__ + "\n";
   s += "// Do not edit.\n";
   s += R"(
-#include "src/ftrace_reader/event_info.h"
+#include "perfetto/protozero/proto_utils.h"
+#include "src/traced/probes/ftrace/event_info.h"
 
 namespace perfetto {
+
+using protozero::proto_utils::ProtoSchemaType;
 
 std::vector<Event> GetStaticEventInfo() {
   std::vector<Event> events;
@@ -243,11 +251,10 @@ std::vector<Event> GetStaticEventInfo() {
 }  // namespace perfetto
 )";
 
-  fout << s;
-  fout.close();
+  *fout << s;
 }
 
-std::string Proto::ToString() {
+std::string ProtoHeader() {
   std::string s = "// Autogenerated by:\n";
   s += std::string("// ") + __FILE__ + "\n";
   s += "// Do not edit.\n";
@@ -258,13 +265,6 @@ option optimize_for = LITE_RUNTIME;
 package perfetto.protos;
 
 )";
-
-  s += "message " + name + " {\n";
-  for (const Proto::Field& field : fields) {
-    s += "  optional " + field.type + " " + field.name + " = " +
-         std::to_string(field.number) + ";\n";
-  }
-  s += "}\n";
   return s;
 }
 

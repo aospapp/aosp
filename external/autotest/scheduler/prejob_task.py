@@ -59,7 +59,9 @@ import re
 
 from autotest_lib.client.common_lib import host_protections
 from autotest_lib.frontend.afe import models
-from autotest_lib.scheduler import agent_task, scheduler_config
+from autotest_lib.scheduler import agent_task
+from autotest_lib.scheduler import drone_manager
+from autotest_lib.scheduler import scheduler_config
 from autotest_lib.server import autoserv_utils
 from autotest_lib.server.cros import provision
 
@@ -388,17 +390,20 @@ class ProvisionTask(PreJobTask):
 
 
     def _command_line(self):
-        # If we give queue_entry to _autoserv_command_line, then it will append
-        # -c for this invocation if the queue_entry is a client side test. We
-        # don't want that, as it messes with provisioning, so we just drop it
-        # from the arguments here.
+        # If we give queue_entry to autoserv_run_job_command, then it will
+        # append -c for this invocation if the queue_entry is a client side
+        # test. We don't want that, as it messes with provisioning, so we just
+        # drop it from the arguments here.
         # Note that we also don't verify job_repo_url as provisioining tasks are
         # required to stage whatever content we need, and the job itself will
         # force autotest to be staged if it isn't already.
-        return autoserv_utils._autoserv_command_line(self.host.hostname,
-                                                     self._extra_command_args,
-                                                     in_lab=True)
-
+        return autoserv_utils.autoserv_run_job_command(
+                autoserv_utils.autoserv_directory,
+                self.host.hostname,
+                results_directory=drone_manager.WORKING_DIRECTORY,
+                extra_args=self._extra_command_args,
+                in_lab=True,
+        )
 
     def prolog(self):
         super(ProvisionTask, self).prolog()

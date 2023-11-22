@@ -43,11 +43,10 @@ public class EnableCollectionTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ObjectReference::EnableCollection command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/EnableCollectionDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.EnableCollectionDebuggee";
+        return EnableCollectionDebuggee.class.getName();
     }
 
     /**
@@ -65,7 +64,7 @@ public class EnableCollectionTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         finalSyncMessage = "TO_FINISH";
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

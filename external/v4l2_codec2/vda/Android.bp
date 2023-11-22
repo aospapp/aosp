@@ -13,7 +13,6 @@ cc_library_shared {
         "ranges.cc",
         "shared_memory_region.cc",
         "v4l2_device.cc",
-        "v4l2_slice_video_decode_accelerator.cc",
         "v4l2_video_decode_accelerator.cc",
         "video_codecs.cc",
         "video_decode_accelerator.cc",
@@ -36,6 +35,7 @@ cc_library_shared {
         "-Wall",
         "-Werror",
         "-Wno-unused-parameter",
+        "-Wno-implicit-fallthrough", // at h264_decoder.cc:1374
     ],
     clang: true,
     sanitize: {

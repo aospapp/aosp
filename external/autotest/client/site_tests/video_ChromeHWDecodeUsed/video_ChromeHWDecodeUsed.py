@@ -10,10 +10,11 @@ import logging
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros.video import histogram_verifier
 from autotest_lib.client.cros.video import constants
-from autotest_lib.client.cros.video import native_html5_player
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
+from autotest_lib.client.cros.video import histogram_verifier
+from autotest_lib.client.cros.video import native_html5_player
 
 
 class video_ChromeHWDecodeUsed(test.test):
@@ -23,7 +24,8 @@ class video_ChromeHWDecodeUsed(test.test):
     def is_skipping_test(self, codec):
         """Determine whether this test should skip.
 
-        @param codec: the codec to be tested. Example values: 'vp8', 'vp9', 'h264'.
+        @param codec: the codec to be tested. Example values: 'vp8', 'vp9',
+                      'h264'.
         """
         blacklist = [
                 # (board, milestone, codec); None if don't care.
@@ -43,21 +45,30 @@ class video_ChromeHWDecodeUsed(test.test):
         return False
 
     @helper_logger.video_log_wrapper
-    def run_once(self, codec, is_mse, video_file, arc_mode=None):
+    def run_once(self, codec, is_mse, video_file, capability, arc_mode=None):
         """
         Tests whether VDA works by verifying histogram for the loaded video.
 
         @param is_mse: bool, True if the content uses MSE, False otherwise.
         @param video_file: Sample video file to be loaded in Chrome.
-
+        @param capability: Capability required for executing this test.
         """
         if self.is_skipping_test(codec):
             raise error.TestNAError('Skipping test run on this board.')
+
+        if not device_capability.DeviceCapability().have_capability(capability):
+            logging.warning("Missing Capability: %s", capability)
+            return
 
         with chrome.Chrome(
                 extra_browser_args=helper_logger.chrome_vmodule_flag(),
                 arc_mode=arc_mode,
                 init_network_controller=True) as cr:
+            init_status_differ = histogram_verifier.HistogramDiffer(
+                cr, constants.MEDIA_GVD_INIT_STATUS)
+            error_differ = histogram_verifier.HistogramDiffer(
+                cr, constants.MEDIA_GVD_ERROR)
+
             # This will execute for MSE video by accesing shaka player
             if is_mse:
                  tab1 = cr.browser.tabs.New()
@@ -89,19 +100,16 @@ class video_ChromeHWDecodeUsed(test.test):
                  # Waits until the video ends or an error happens.
                  player.wait_ended_or_error()
 
-            # Waits for histogram updated for the test video.
-            histogram_verifier.verify(
-                 cr,
-                 constants.MEDIA_GVD_INIT_STATUS,
-                 constants.MEDIA_GVD_BUCKET)
+            # Wait for histogram updated for the test video.
+            histogram_verifier.expect_sole_bucket(
+                init_status_differ, constants.MEDIA_GVD_BUCKET, 'OK (0)')
 
-            # Verify no GPU error happens.
-            if histogram_verifier.is_histogram_present(
-                    cr,
-                    constants.MEDIA_GVD_ERROR):
-                logging.info(histogram_verifier.get_histogram(
-                             cr, constants.MEDIA_GVD_ERROR))
-                raise error.TestError('GPU Video Decoder Error.')
+            # Check if there's GPU Video Error for a period of time.
+            has_error, diff_error = histogram_verifier.poll_histogram_grow(
+                error_differ)
+            if has_error:
+                raise error.TestError(
+                    'GPU Video Decoder Error. Histogram diff: %r' % diff_error)
 
             # Verify the video ends successully for normal videos.
             if not is_mse and player.check_error():

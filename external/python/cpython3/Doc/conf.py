@@ -8,12 +8,13 @@
 
 import sys, os, time
 sys.path.append(os.path.abspath('tools/extensions'))
+sys.path.append(os.path.abspath('includes'))
 
 # General configuration
 # ---------------------
 
 extensions = ['sphinx.ext.coverage', 'sphinx.ext.doctest',
-              'pyspecific', 'c_annotations']
+              'pyspecific', 'c_annotations', 'escape4chm']
 
 # General substitutions.
 project = 'Python'
@@ -33,11 +34,17 @@ today_fmt = '%B %d, %Y'
 # By default, highlight as Python 3.
 highlight_language = 'python3'
 
-# Require Sphinx 1.2 for build.
-needs_sphinx = '1.2'
+# Require Sphinx 1.6.6 for build.
+needs_sphinx = "1.6.6"
 
 # Ignore any .rst files in the venv/ directory.
-exclude_patterns = ['venv/*', 'README.rst']
+venvdir = os.getenv('VENVDIR', 'venv')
+exclude_patterns = [venvdir+'/*', 'README.rst']
+
+# Disable Docutils smartquotes for several translations
+smartquotes_excludes = {
+    'languages': ['ja', 'fr', 'zh_TW', 'zh_CN'], 'builders': ['man', 'text'],
+}
 
 
 # Options for HTML output
@@ -88,14 +95,17 @@ html_split_index = True
 # Options for LaTeX output
 # ------------------------
 
+latex_engine = 'xelatex'
+
 # Get LaTeX to handle Unicode correctly
-latex_elements = {'inputenc': r'\usepackage[utf8x]{inputenc}', 'utf8extra': ''}
+latex_elements = {
+}
 
 # Additional stuff for the LaTeX preamble.
 latex_elements['preamble'] = r'''
 \authoraddress{
-  \strong{Python Software Foundation}\\
-  Email: \email{docs@python.org}
+  \sphinxstrong{Python Software Foundation}\\
+  Email: \sphinxemail{docs@python.org}
 }
 \let\Verbatim=\OriginalVerbatim
 \let\endVerbatim=\endOriginalVerbatim
@@ -105,7 +115,7 @@ latex_elements['preamble'] = r'''
 latex_elements['papersize'] = 'a4'
 
 # The font size ('10pt', '11pt' or '12pt').
-latex_elements['font_size'] = '10pt'
+latex_elements['pointsize'] = '10pt'
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, document class [howto/manual]).

@@ -7,9 +7,9 @@
 
 #include <X11/Xlib.h>
 
-extern Display *g_xlib_display;
+extern Display* g_xlib_display;
 extern Window g_xlib_window;
 
 bool XlibInit();
 
-#endif // BENCH_GL_XLIB_H_
+#endif  // BENCH_GL_XLIB_H_

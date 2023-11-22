@@ -60,8 +60,18 @@ class test_init(base_job_unittest.test_init.generic_tests, unittest.TestCase):
             log_per_reboot_data = lambda self: None
         self.god.stub_with(server_job.sysinfo, 'sysinfo', lambda r: sysi())
 
-        self.job.__init__(self.control_file, (), None, 'job_label',
-                          'auser', ['mach1', 'mach2'])
+        self.job.__init__(
+                self.control_file,
+                (),
+                None,
+                'job_label',
+                'auser',
+                ['mach1', 'mach2'],
+                [
+                        {'hostname': 'mach1'},  # Incomplete machine_dict.
+                        {'hostname': 'mach2'},  # Incomplete machine_dict.
+                ],
+        )
         self.god.unstub_all()
 
 

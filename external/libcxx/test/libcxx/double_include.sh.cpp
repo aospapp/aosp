@@ -27,6 +27,7 @@
 #ifndef _LIBCPP_HAS_NO_THREADS
 #include <atomic>
 #endif
+#include <bit>
 #include <bitset>
 #include <cassert>
 #include <ccomplex>
@@ -34,6 +35,7 @@
 #include <cerrno>
 #include <cfenv>
 #include <cfloat>
+#include <charconv>
 #include <chrono>
 #include <cinttypes>
 #include <ciso646>
@@ -41,6 +43,7 @@
 #include <clocale>
 #include <cmath>
 #include <codecvt>
+#include <compare>
 #include <complex>
 #include <complex.h>
 #include <condition_variable>
@@ -61,6 +64,7 @@
 #include <deque>
 #include <errno.h>
 #include <exception>
+#include <filesystem>
 #include <float.h>
 #include <forward_list>
 #include <fstream>
@@ -101,6 +105,7 @@
 #ifndef _LIBCPP_HAS_NO_THREADS
 #include <shared_mutex>
 #endif
+#include <span>
 #include <sstream>
 #include <stack>
 #include <stdbool.h>
@@ -129,6 +134,7 @@
 #include <valarray>
 #include <variant>
 #include <vector>
+#include <version>
 #include <wchar.h>
 #include <wctype.h>
 
@@ -139,7 +145,6 @@
 #include <experimental/coroutine>
 #endif
 #include <experimental/deque>
-#include <experimental/dynarray>
 #include <experimental/filesystem>
 #include <experimental/forward_list>
 #include <experimental/functional>
@@ -149,6 +154,7 @@
 #include <experimental/memory_resource>
 #include <experimental/propagate_const>
 #include <experimental/regex>
+#include <experimental/simd>
 #include <experimental/set>
 #include <experimental/string>
 #include <experimental/type_traits>

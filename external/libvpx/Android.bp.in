@@ -1,37 +1,16 @@
-// This step is only required for ARM. MIPS uses intrinsics exclusively and x86
-// requires 'yasm' to pre-process its assembly files.
-// The ARM assembly sources must be converted from ADS to GAS compatible format.
-gensrcs {
-    name: "libvpx_arm_neon_asm_srcs_converted",
-    srcs: libvpx_arm_neon_asm_srcs,
-    tool_files: [
-        "libvpx/build/make/ads2gas.pl",
-        "libvpx/build/make/thumb.pm",
-    ],
-    output_extension: "asm.S",
-    cmd: "cat $(in) | perl $(location libvpx/build/make/ads2gas.pl) > $(out)",
-    export_include_dirs: ["libvpx"],
-}
-
-cc_library_static {
+cc_library_shared {
     name: "libvpx",
     vendor_available: true,
+    version_script: "exports.lds",
 
     arch: {
+        // configured to require the neon unit
         arm: {
-            // Clang arm assembler cannot compile libvpx .S files yet.
-            clang_asflags: ["-no-integrated-as"],
-
-            // Want arm, not thumb, optimized
-            instruction_set: "arm",
-
-            srcs: libvpx_arm_c_srcs,
-            local_include_dirs: ["config/arm"],
-
             neon: {
-                exclude_srcs: libvpx_arm_neon_exclude_c_srcs,
-                srcs: libvpx_arm_neon_c_srcs,
-                generated_sources: ["libvpx_arm_neon_asm_srcs_converted"],
+                // Want arm, not thumb, optimized
+                instruction_set: "arm",
+
+                srcs: libvpx_arm_neon_c_srcs + libvpx_arm_neon_asm_srcs,
                 local_include_dirs: ["config/arm-neon"],
             },
         },
@@ -41,44 +20,14 @@ cc_library_static {
             local_include_dirs: ["config/arm64"],
         },
 
-        mips: {
-            srcs: libvpx_mips32_c_srcs,
-            local_include_dirs: ["config/mips32"],
-
-            dspr2: {
-                exclude_srcs: libvpx_mips32_dspr2_exclude_c_srcs,
-                srcs: libvpx_mips32_dspr2_c_srcs,
-                local_include_dirs: ["config/mips32-dspr2"],
-            },
-
-            msa: {
-                exclude_srcs: libvpx_mips32_msa_exclude_c_srcs,
-                srcs: libvpx_mips32_msa_c_srcs,
-                local_include_dirs: ["config/mips32-msa"],
-            },
-        },
-
-        mips64: {
-            srcs: libvpx_mips64_c_srcs,
-            local_include_dirs: ["config/mips64"],
-
-            msa: {
-                exclude_srcs: libvpx_mips64_msa_exclude_c_srcs,
-                srcs: libvpx_mips64_msa_c_srcs,
-                local_include_dirs: ["config/mips64-msa"],
-            },
-        },
-
         x86: {
             srcs: libvpx_x86_c_srcs + libvpx_x86_asm_srcs,
             local_include_dirs: ["config/x86"],
         },
 
         x86_64: {
-            //srcs: libvpx_x86_64_c_srcs + libvpx_x86_64_asm_srcs,
-            //local_include_dirs: ["config/x86_64"],
-            srcs: libvpx_generic_c_srcs,
-            local_include_dirs: ["config/generic"],
+            srcs: libvpx_x86_64_c_srcs + libvpx_x86_64_asm_srcs,
+            local_include_dirs: ["config/x86_64"],
         },
     },
 
@@ -90,14 +39,10 @@ cc_library_static {
     export_include_dirs: ["libvpx"],
 
     sanitize: {
-        cfi: true,
-        diag: {
-            cfi: true,
-        },
-        blacklist: "cfi_blacklist.txt",
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+        // Enable CFI if this becomes a shared library.
+        // cfi: true,
+        blacklist: "libvpx_blacklist.txt",
     },
 }
-
-subdirs = [
-    "libwebm",
-]

@@ -36,7 +36,7 @@ class BRILLO_EXPORT MockMessageLoop : public MessageLoop {
       .WillByDefault(::testing::Invoke(
           &fake_loop_,
           static_cast<TaskId(FakeMessageLoop::*)(
-                      const tracked_objects::Location&,
+                      const base::Location&,
                       const base::Closure&,
                       base::TimeDelta)>(
               &FakeMessageLoop::PostDelayedTask)));
@@ -45,7 +45,7 @@ class BRILLO_EXPORT MockMessageLoop : public MessageLoop {
       .WillByDefault(::testing::Invoke(
           &fake_loop_,
           static_cast<TaskId(FakeMessageLoop::*)(
-                      const tracked_objects::Location&, int, WatchMode, bool,
+                      const base::Location&, int, WatchMode, bool,
                       const base::Closure&)>(
               &FakeMessageLoop::WatchFileDescriptor)));
     ON_CALL(*this, CancelTask(::testing::_))
@@ -58,12 +58,12 @@ class BRILLO_EXPORT MockMessageLoop : public MessageLoop {
   ~MockMessageLoop() override = default;
 
   MOCK_METHOD3(PostDelayedTask,
-               TaskId(const tracked_objects::Location& from_here,
+               TaskId(const base::Location& from_here,
                       const base::Closure& task,
                       base::TimeDelta delay));
   using MessageLoop::PostDelayedTask;
   MOCK_METHOD5(WatchFileDescriptor,
-               TaskId(const tracked_objects::Location& from_here,
+               TaskId(const base::Location& from_here,
                       int fd,
                       WatchMode mode,
                       bool persistent,

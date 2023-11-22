@@ -188,7 +188,7 @@ WORD32 ihevcd_ref_list(codec_t *ps_codec, pps_t *ps_pps, sps_t *ps_sps, slice_he
         i4_poc_lt = ps_slice_hdr->ai4_poc_lsb_lt[i];
         if(ps_slice_hdr->ai1_delta_poc_msb_present_flag[i])
         {
-            i4_poc_lt += i4_pic_order_cnt_val - ps_slice_hdr->ai1_delta_poc_msb_cycle_lt[i] * u4_max_poc_lsb - ps_slice_hdr->i4_pic_order_cnt_lsb;
+            i4_poc_lt += i4_pic_order_cnt_val - ps_slice_hdr->ai1_delta_poc_msb_cycle_lt[i] * (WORD32)u4_max_poc_lsb - ps_slice_hdr->i4_pic_order_cnt_lsb;
         }
 
         if(ps_slice_hdr->ai1_used_by_curr_pic_lt_flag[i])

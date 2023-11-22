@@ -52,7 +52,6 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.security.auth.x500.X500Principal;
-import libcore.java.security.StandardNames;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -136,6 +135,7 @@ public final class TestKeyStore {
     private static TestKeyStore INTERMEDIATE_CA_EC;
 
     private static TestKeyStore SERVER;
+    private static TestKeyStore SERVER_HOSTNAME;
     private static TestKeyStore CLIENT;
     private static TestKeyStore CLIENT_CERTIFICATE;
     private static TestKeyStore CLIENT_EC_RSA_CERTIFICATE;
@@ -160,6 +160,7 @@ public final class TestKeyStore {
     private static final byte[] LOCAL_HOST_ADDRESS = {127, 0, 0, 1};
     private static final String LOCAL_HOST_NAME = "localhost";
     private static final String LOCAL_HOST_NAME_IPV6 = "ip6-localhost";
+    public static final String CERT_HOSTNAME = "example.com";
 
     public final KeyStore keyStore;
     public final char[] storePassword;
@@ -236,6 +237,13 @@ public final class TestKeyStore {
                          .addSubjectAltNameIpAddress(LOCAL_HOST_ADDRESS)
                          .certificateSerialNumber(BigInteger.valueOf(3))
                          .build();
+        SERVER_HOSTNAME = new Builder()
+            .aliasPrefix("server-hostname")
+            .signer(INTERMEDIATE_CA.getPrivateKey("RSA", "RSA"))
+            .rootCa(INTERMEDIATE_CA.getRootCertificate("RSA"))
+            .addSubjectAltNameDnsName(CERT_HOSTNAME)
+            .certificateSerialNumber(BigInteger.valueOf(4))
+            .build();
         CLIENT = new TestKeyStore(createClient(INTERMEDIATE_CA.keyStore), null, null);
         CLIENT_EC_RSA_CERTIFICATE = new Builder()
                                             .aliasPrefix("client-ec")
@@ -303,6 +311,15 @@ public final class TestKeyStore {
     public static TestKeyStore getServer() {
         initCerts();
         return SERVER;
+    }
+
+    /**
+     * Return a server keystore with a matched RSA certificate with SAN hostname and private key
+     * as well as a CA certificate.
+     */
+    public static TestKeyStore getServerHostname() {
+        initCerts();
+        return SERVER_HOSTNAME;
     }
 
     /**
@@ -688,13 +705,13 @@ public final class TestKeyStore {
         String keyAlgorithm = privateKey.getAlgorithm();
         String signatureAlgorithm;
         if (keyAlgorithm.equals("RSA")) {
-            signatureAlgorithm = "sha1WithRSA";
+            signatureAlgorithm = "sha256WithRSA";
         } else if (keyAlgorithm.equals("DSA")) {
-            signatureAlgorithm = "sha1WithDSA";
+            signatureAlgorithm = "sha256WithDSA";
         } else if (keyAlgorithm.equals("EC")) {
-            signatureAlgorithm = "sha1WithECDSA";
+            signatureAlgorithm = "sha256WithECDSA";
         } else if (keyAlgorithm.equals("EC_RSA")) {
-            signatureAlgorithm = "sha1WithRSA";
+            signatureAlgorithm = "sha256WithRSA";
         } else {
             throw new IllegalArgumentException("Unknown key algorithm " + keyAlgorithm);
         }

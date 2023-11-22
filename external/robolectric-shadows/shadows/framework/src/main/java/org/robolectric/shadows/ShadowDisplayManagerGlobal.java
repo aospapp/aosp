@@ -1,10 +1,12 @@
 package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
+import static android.os.Build.VERSION_CODES.P;
 
 import android.hardware.display.DisplayManagerGlobal;
 import android.hardware.display.IDisplayManager;
 import android.hardware.display.IDisplayManagerCallback;
+import android.hardware.display.WifiDisplayStatus;
 import android.os.RemoteException;
 import android.view.DisplayInfo;
 import java.util.ArrayList;
@@ -39,6 +41,11 @@ public class ShadowDisplayManagerGlobal {
       shadow.mDm = myIDisplayManager;
     }
     return instance;
+  }
+
+  @Implementation
+  protected WifiDisplayStatus getWifiDisplayStatus() {
+    return new WifiDisplayStatus();
   }
 
   int addDisplay(DisplayInfo displayInfo) {

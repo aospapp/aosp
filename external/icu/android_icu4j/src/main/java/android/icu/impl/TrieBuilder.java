@@ -50,6 +50,7 @@ public class TrieBuilder
      * This interface specifies methods to be implemented in order for
      * com.ibm.impl.Trie, to surrogate offset information encapsulated within 
      * the data.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static interface DataManipulate
     {

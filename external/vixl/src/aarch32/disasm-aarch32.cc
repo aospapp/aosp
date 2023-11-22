@@ -44,6 +44,9 @@ extern "C" {
 namespace vixl {
 namespace aarch32 {
 
+using internal::Int64;
+using internal::Uint32;
+
 class T32CodeAddressIncrementer {
   uint32_t* code_address_;
   uint32_t increment_;
@@ -812,6 +815,14 @@ DataTypeValue Dt_size_15_Decode(uint32_t value) {
 }
 
 DataTypeValue Dt_size_16_Decode(uint32_t value) {
+  switch (value) {
+    case 0x2:
+      return F32;
+  }
+  return kDataTypeValueInvalid;
+}
+
+DataTypeValue Dt_size_17_Decode(uint32_t value) {
   switch (value) {
     case 0x0:
       return I8;
@@ -6153,158 +6164,128 @@ void Disassembler::vrhadd(
   os() << rn << ", " << rm;
 }
 
-void Disassembler::vrinta(DataType dt1,
-                          DataType dt2,
-                          DRegister rd,
-                          DRegister rm) {
+void Disassembler::vrinta(DataType dt, DRegister rd, DRegister rm) {
   os().SetCurrentInstruction(kVrinta, kFpNeon);
-  os() << ToCString(kVrinta) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrinta) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrinta(DataType dt1,
-                          DataType dt2,
-                          QRegister rd,
-                          QRegister rm) {
+void Disassembler::vrinta(DataType dt, QRegister rd, QRegister rm) {
   os().SetCurrentInstruction(kVrinta, kFpNeon);
-  os() << ToCString(kVrinta) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrinta) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrinta(DataType dt1,
-                          DataType dt2,
-                          SRegister rd,
-                          SRegister rm) {
+void Disassembler::vrinta(DataType dt, SRegister rd, SRegister rm) {
   os().SetCurrentInstruction(kVrinta, kFpNeon);
-  os() << ToCString(kVrinta) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrinta) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrintm(DataType dt1,
-                          DataType dt2,
-                          DRegister rd,
-                          DRegister rm) {
+void Disassembler::vrintm(DataType dt, DRegister rd, DRegister rm) {
   os().SetCurrentInstruction(kVrintm, kFpNeon);
-  os() << ToCString(kVrintm) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrintm) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrintm(DataType dt1,
-                          DataType dt2,
-                          QRegister rd,
-                          QRegister rm) {
+void Disassembler::vrintm(DataType dt, QRegister rd, QRegister rm) {
   os().SetCurrentInstruction(kVrintm, kFpNeon);
-  os() << ToCString(kVrintm) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrintm) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrintm(DataType dt1,
-                          DataType dt2,
+void Disassembler::vrintm(DataType dt, SRegister rd, SRegister rm) {
+  os().SetCurrentInstruction(kVrintm, kFpNeon);
+  os() << ToCString(kVrintm) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintn(DataType dt, DRegister rd, DRegister rm) {
+  os().SetCurrentInstruction(kVrintn, kFpNeon);
+  os() << ToCString(kVrintn) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintn(DataType dt, QRegister rd, QRegister rm) {
+  os().SetCurrentInstruction(kVrintn, kFpNeon);
+  os() << ToCString(kVrintn) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintn(DataType dt, SRegister rd, SRegister rm) {
+  os().SetCurrentInstruction(kVrintn, kFpNeon);
+  os() << ToCString(kVrintn) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintp(DataType dt, DRegister rd, DRegister rm) {
+  os().SetCurrentInstruction(kVrintp, kFpNeon);
+  os() << ToCString(kVrintp) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintp(DataType dt, QRegister rd, QRegister rm) {
+  os().SetCurrentInstruction(kVrintp, kFpNeon);
+  os() << ToCString(kVrintp) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintp(DataType dt, SRegister rd, SRegister rm) {
+  os().SetCurrentInstruction(kVrintp, kFpNeon);
+  os() << ToCString(kVrintp) << dt << " " << rd << ", " << rm;
+}
+
+void Disassembler::vrintr(Condition cond,
+                          DataType dt,
                           SRegister rd,
                           SRegister rm) {
-  os().SetCurrentInstruction(kVrintm, kFpNeon);
-  os() << ToCString(kVrintm) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintn(DataType dt1,
-                          DataType dt2,
-                          DRegister rd,
-                          DRegister rm) {
-  os().SetCurrentInstruction(kVrintn, kFpNeon);
-  os() << ToCString(kVrintn) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintn(DataType dt1,
-                          DataType dt2,
-                          QRegister rd,
-                          QRegister rm) {
-  os().SetCurrentInstruction(kVrintn, kFpNeon);
-  os() << ToCString(kVrintn) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintn(DataType dt1,
-                          DataType dt2,
-                          SRegister rd,
-                          SRegister rm) {
-  os().SetCurrentInstruction(kVrintn, kFpNeon);
-  os() << ToCString(kVrintn) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintp(DataType dt1,
-                          DataType dt2,
-                          DRegister rd,
-                          DRegister rm) {
-  os().SetCurrentInstruction(kVrintp, kFpNeon);
-  os() << ToCString(kVrintp) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintp(DataType dt1,
-                          DataType dt2,
-                          QRegister rd,
-                          QRegister rm) {
-  os().SetCurrentInstruction(kVrintp, kFpNeon);
-  os() << ToCString(kVrintp) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintp(DataType dt1,
-                          DataType dt2,
-                          SRegister rd,
-                          SRegister rm) {
-  os().SetCurrentInstruction(kVrintp, kFpNeon);
-  os() << ToCString(kVrintp) << dt1 << dt2 << " " << rd << ", " << rm;
-}
-
-void Disassembler::vrintr(
-    Condition cond, DataType dt1, DataType dt2, SRegister rd, SRegister rm) {
   os().SetCurrentInstruction(kVrintr, kFpNeon);
-  os() << ToCString(kVrintr) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm;
+  os() << ToCString(kVrintr) << ConditionPrinter(it_block_, cond) << dt << " "
+       << rd << ", " << rm;
 }
 
-void Disassembler::vrintr(
-    Condition cond, DataType dt1, DataType dt2, DRegister rd, DRegister rm) {
+void Disassembler::vrintr(Condition cond,
+                          DataType dt,
+                          DRegister rd,
+                          DRegister rm) {
   os().SetCurrentInstruction(kVrintr, kFpNeon);
-  os() << ToCString(kVrintr) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm;
+  os() << ToCString(kVrintr) << ConditionPrinter(it_block_, cond) << dt << " "
+       << rd << ", " << rm;
 }
 
-void Disassembler::vrintx(
-    Condition cond, DataType dt1, DataType dt2, DRegister rd, DRegister rm) {
+void Disassembler::vrintx(Condition cond,
+                          DataType dt,
+                          DRegister rd,
+                          DRegister rm) {
   os().SetCurrentInstruction(kVrintx, kFpNeon);
-  os() << ToCString(kVrintx) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm;
+  os() << ToCString(kVrintx) << ConditionPrinter(it_block_, cond) << dt << " "
+       << rd << ", " << rm;
 }
 
-void Disassembler::vrintx(DataType dt1,
-                          DataType dt2,
-                          QRegister rd,
-                          QRegister rm) {
+void Disassembler::vrintx(DataType dt, QRegister rd, QRegister rm) {
   os().SetCurrentInstruction(kVrintx, kFpNeon);
-  os() << ToCString(kVrintx) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrintx) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrintx(
-    Condition cond, DataType dt1, DataType dt2, SRegister rd, SRegister rm) {
+void Disassembler::vrintx(Condition cond,
+                          DataType dt,
+                          SRegister rd,
+                          SRegister rm) {
   os().SetCurrentInstruction(kVrintx, kFpNeon);
-  os() << ToCString(kVrintx) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm;
+  os() << ToCString(kVrintx) << ConditionPrinter(it_block_, cond) << dt << " "
+       << rd << ", " << rm;
 }
 
-void Disassembler::vrintz(
-    Condition cond, DataType dt1, DataType dt2, DRegister rd, DRegister rm) {
+void Disassembler::vrintz(Condition cond,
+                          DataType dt,
+                          DRegister rd,
+                          DRegister rm) {
   os().SetCurrentInstruction(kVrintz, kFpNeon);
-  os() << ToCString(kVrintz) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm;
+  os() << ToCString(kVrintz) << ConditionPrinter(it_block_, cond) << dt << " "
+       << rd << ", " << rm;
 }
 
-void Disassembler::vrintz(DataType dt1,
-                          DataType dt2,
-                          QRegister rd,
-                          QRegister rm) {
+void Disassembler::vrintz(DataType dt, QRegister rd, QRegister rm) {
   os().SetCurrentInstruction(kVrintz, kFpNeon);
-  os() << ToCString(kVrintz) << dt1 << dt2 << " " << rd << ", " << rm;
+  os() << ToCString(kVrintz) << dt << " " << rd << ", " << rm;
 }
 
-void Disassembler::vrintz(
-    Condition cond, DataType dt1, DataType dt2, SRegister rd, SRegister rm) {
+void Disassembler::vrintz(Condition cond,
+                          DataType dt,
+                          SRegister rd,
+                          SRegister rm) {
   os().SetCurrentInstruction(kVrintz, kFpNeon);
-  os() << ToCString(kVrintz) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm;
+  os() << ToCString(kVrintz) << ConditionPrinter(it_block_, cond) << dt << " "
+       << rd << ", " << rm;
 }
 
 void Disassembler::vrshl(
@@ -7028,15 +7009,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     Register(rd),
                     Register(rn),
                     Register(rm));
-              } else if (OutsideITBlock()) {
+              } else {
+                VIXL_ASSERT(OutsideITBlock());
                 // ADDS{<q>} {<Rd>}, <Rn>, <Rm> ; T1
                 adds(Condition::None(),
                      Narrow,
                      Register(rd),
                      Register(rn),
                      Register(rm));
-              } else {
-                UnallocatedT32(instr);
               }
               break;
             }
@@ -7052,15 +7032,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     Register(rd),
                     Register(rn),
                     Register(rm));
-              } else if (OutsideITBlock()) {
+              } else {
+                VIXL_ASSERT(OutsideITBlock());
                 // SUBS{<q>} {<Rd>}, <Rn>, <Rm> ; T1
                 subs(Condition::None(),
                      Narrow,
                      Register(rd),
                      Register(rn),
                      Register(rm));
-              } else {
-                UnallocatedT32(instr);
               }
               break;
             }
@@ -7072,15 +7051,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
               if (InITBlock()) {
                 // ADD<c>{<q>} <Rd>, <Rn>, #<imm3> ; T1
                 add(CurrentCond(), Narrow, Register(rd), Register(rn), imm);
-              } else if (OutsideITBlock()) {
+              } else {
+                VIXL_ASSERT(OutsideITBlock());
                 // ADDS{<q>} <Rd>, <Rn>, #<imm3> ; T1
                 adds(Condition::None(),
                      Narrow,
                      Register(rd),
                      Register(rn),
                      imm);
-              } else {
-                UnallocatedT32(instr);
               }
               break;
             }
@@ -7092,15 +7070,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
               if (InITBlock()) {
                 // SUB<c>{<q>} <Rd>, <Rn>, #<imm3> ; T1
                 sub(CurrentCond(), Narrow, Register(rd), Register(rn), imm);
-              } else if (OutsideITBlock()) {
+              } else {
+                VIXL_ASSERT(OutsideITBlock());
                 // SUBS{<q>} <Rd>, <Rn>, #<imm3> ; T1
                 subs(Condition::None(),
                      Narrow,
                      Register(rd),
                      Register(rn),
                      imm);
-              } else {
-                UnallocatedT32(instr);
               }
               break;
             }
@@ -7182,7 +7159,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                 Operand(Register(rm),
                         shift_operand.GetType(),
                         shift_operand.GetAmount()));
-          } else if (OutsideITBlock()) {
+          } else {
+            VIXL_ASSERT(OutsideITBlock());
             // MOVS{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T2
             movs(Condition::None(),
                  Narrow,
@@ -7190,8 +7168,6 @@ void Disassembler::DecodeT32(uint32_t instr) {
                  Operand(Register(rm),
                          shift_operand.GetType(),
                          shift_operand.GetAmount()));
-          } else {
-            UnallocatedT32(instr);
           }
           break;
         }
@@ -7208,11 +7184,10 @@ void Disassembler::DecodeT32(uint32_t instr) {
           if (InITBlock()) {
             // MOV<c>{<q>} <Rd>, #<imm8> ; T1
             mov(CurrentCond(), Narrow, Register(rd), imm);
-          } else if (OutsideITBlock()) {
+          } else {
+            VIXL_ASSERT(OutsideITBlock());
             // MOVS{<q>} <Rd>, #<imm8> ; T1
             movs(Condition::None(), Narrow, Register(rd), imm);
-          } else {
-            UnallocatedT32(instr);
           }
           break;
         }
@@ -7289,15 +7264,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // ANDS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     ands(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7312,15 +7286,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // EORS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     eors(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7357,14 +7330,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Narrow,
                         Register(rd),
                         Operand(Register(rm), LSL, Register(rs)));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // MOVS{<q>} <Rdm>, <Rdm>, LSL <Rs> ; T1
                     movs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Operand(Register(rm), LSL, Register(rs)));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7401,14 +7373,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Narrow,
                         Register(rd),
                         Operand(Register(rm), LSR, Register(rs)));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // MOVS{<q>} <Rdm>, <Rdm>, LSR <Rs> ; T1
                     movs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Operand(Register(rm), LSR, Register(rs)));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7451,14 +7422,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Narrow,
                         Register(rd),
                         Operand(Register(rm), ASR, Register(rs)));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // MOVS{<q>} <Rdm>, <Rdm>, ASR <Rs> ; T1
                     movs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Operand(Register(rm), ASR, Register(rs)));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7473,15 +7443,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // ADCS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     adcs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7496,15 +7465,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // SBCS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     sbcs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7541,14 +7509,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Narrow,
                         Register(rd),
                         Operand(Register(rm), ROR, Register(rs)));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // MOVS{<q>} <Rdm>, <Rdm>, ROR <Rs> ; T1
                     movs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Operand(Register(rm), ROR, Register(rs)));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7577,15 +7544,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rn),
                         UINT32_C(0));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // RSBS{<q>} {<Rd>}, <Rn>, #0 ; T1
                     rsbs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rn),
                          UINT32_C(0));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7622,15 +7588,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // ORRS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     orrs(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7645,14 +7610,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rn),
                         Register(rd));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // MULS{<q>} <Rdm>, <Rn>, {<Rdm>} ; T1
                     muls(Condition::None(),
                          Register(rd),
                          Register(rn),
                          Register(rd));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7667,15 +7631,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // BICS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     bics(Condition::None(),
                          Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7686,11 +7649,10 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // MVN<c>{<q>} <Rd>, <Rm> ; T1
                     mvn(CurrentCond(), Narrow, Register(rd), Register(rm));
-                  } else if (OutsideITBlock()) {
+                  } else {
+                    VIXL_ASSERT(OutsideITBlock());
                     // MVNS{<q>} <Rd>, <Rm> ; T1
                     mvns(Condition::None(), Narrow, Register(rd), Register(rm));
-                  } else {
-                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -8415,10 +8377,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                 return;
               }
               Condition condition((instr >> 24) & 0xf);
-              int32_t imm = SignExtend<int32_t>((instr >> 16) & 0xff, 8) << 1;
+              int32_t imm = SignExtend<int32_t>(((instr >> 16) & 0xff) << 1, 9);
               Location location(imm, kT32PcDelta);
               // B<c>{<q>} <label> ; T1
               b(condition, Narrow, &location);
+              if (InITBlock()) {
+                UnpredictableT32(instr);
+              }
               break;
             }
           }
@@ -8435,10 +8400,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
           switch (instr & 0x10000000) {
             case 0x00000000: {
               // 0xe0000000
-              int32_t imm = SignExtend<int32_t>((instr >> 16) & 0x7ff, 11) << 1;
+              int32_t imm =
+                  SignExtend<int32_t>(((instr >> 16) & 0x7ff) << 1, 12);
               Location location(imm, kT32PcDelta);
               // B{<c>}{<q>} <label> ; T2
               b(CurrentCond(), Narrow, &location);
+              if (!OutsideITBlockOrLast()) {
+                UnpredictableT32(instr);
+              }
               break;
             }
             case 0x10000000: {
@@ -9844,24 +9813,30 @@ void Disassembler::DecodeT32(uint32_t instr) {
                           }
                           Condition condition((instr >> 22) & 0xf);
                           int32_t imm =
-                              SignExtend<int32_t>((instr & 0x7ff) |
-                                                      ((instr >> 5) & 0x1f800) |
-                                                      ((instr << 4) & 0x20000) |
-                                                      ((instr << 7) & 0x40000) |
-                                                      ((instr >> 7) & 0x80000),
-                                                  20)
-                              << 1;
+                              SignExtend<int32_t>(((instr & 0x7ff) |
+                                                   ((instr >> 5) & 0x1f800) |
+                                                   ((instr << 4) & 0x20000) |
+                                                   ((instr << 7) & 0x40000) |
+                                                   ((instr >> 7) & 0x80000))
+                                                      << 1,
+                                                  21);
                           Location location(imm, kT32PcDelta);
-                          if (OutsideITBlock() && (imm >= -1048576) &&
-                              (imm <= 1048574) && ((imm & 1) == 0) &&
+                          if ((imm >= -1048576) && (imm <= 1048574) &&
+                              ((imm & 1) == 0) &&
                               ((imm >= -256) && (imm <= 254) &&
                                ((imm & 1) == 0))) {
                             // B<c>.W <label> ; T3
                             b(condition, Wide, &location);
-                          } else if (OutsideITBlock() && (imm >= -1048576) &&
-                                     (imm <= 1048574) && ((imm & 1) == 0)) {
+                            if (InITBlock()) {
+                              UnpredictableT32(instr);
+                            }
+                          } else if ((imm >= -1048576) && (imm <= 1048574) &&
+                                     ((imm & 1) == 0)) {
                             // B<c>{<q>} <label> ; T3
                             b(condition, Best, &location);
+                            if (InITBlock()) {
+                              UnpredictableT32(instr);
+                            }
                           } else {
                             UnallocatedT32(instr);
                           }
@@ -9882,14 +9857,17 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       Location location(imm, kT32PcDelta);
                       if ((imm >= -16777216) && (imm <= 16777214) &&
                           ((imm & 1) == 0) &&
-                          (OutsideITBlockOrLast() && (imm >= -2048) &&
-                           (imm <= 2046) && ((imm & 1) == 0))) {
+                          ((imm >= -2048) && (imm <= 2046) &&
+                           ((imm & 1) == 0))) {
                         // B{<c>}.W <label> ; T4
                         b(CurrentCond(), Wide, &location);
-                      } else if (OutsideITBlockOrLast() && (imm >= -16777216) &&
-                                 (imm <= 16777214) && ((imm & 1) == 0)) {
+                      } else if ((imm >= -16777216) && (imm <= 16777214) &&
+                                 ((imm & 1) == 0)) {
                         // B{<c>}{<q>} <label> ; T4
                         b(CurrentCond(), Best, &location);
+                        if (!OutsideITBlockOrLast()) {
+                          UnpredictableT32(instr);
+                        }
                       } else {
                         UnallocatedT32(instr);
                       }
@@ -10429,7 +10407,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   tbb(CurrentCond(),
                                       Register(rn),
                                       Register(rm));
-                                  if (((instr & 0xfff0fff0) != 0xe8d0f000)) {
+                                  if (((instr & 0xfff0fff0) != 0xe8d0f000) ||
+                                      !OutsideITBlockOrLast()) {
                                     UnpredictableT32(instr);
                                   }
                                   break;
@@ -10442,7 +10421,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   tbh(CurrentCond(),
                                       Register(rn),
                                       Register(rm));
-                                  if (((instr & 0xfff0fff0) != 0xe8d0f010)) {
+                                  if (((instr & 0xfff0fff0) != 0xe8d0f010) ||
+                                      !OutsideITBlockOrLast()) {
                                     UnpredictableT32(instr);
                                   }
                                   break;
@@ -22628,148 +22608,99 @@ void Disassembler::DecodeT32(uint32_t instr) {
             }
             case 0x04000000: {
               // 0xec000000
-              switch (instr & 0x11100000) {
-                case 0x00000000: {
-                  // 0xec000000
-                  switch (instr & 0x00000e00) {
-                    case 0x00000a00: {
+              switch (instr & 0x11100e00) {
+                case 0x00000a00: {
+                  // 0xec000a00
+                  switch (instr & 0x00800100) {
+                    case 0x00000000: {
                       // 0xec000a00
-                      switch (instr & 0x00800100) {
+                      if ((instr & 0x006000d0) == 0x00400010) {
+                        unsigned rm = ExtractSRegister(instr, 5, 0);
+                        unsigned rt = (instr >> 12) & 0xf;
+                        unsigned rt2 = (instr >> 16) & 0xf;
+                        // VMOV{<c>}{<q>} <Sm>, <Sm1>, <Rt>, <Rt2> ; T1
+                        vmov(CurrentCond(),
+                             SRegister(rm),
+                             SRegister(rm + 1),
+                             Register(rt),
+                             Register(rt2));
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00000100: {
+                      // 0xec000b00
+                      if ((instr & 0x006000d0) == 0x00400010) {
+                        unsigned rm = ExtractDRegister(instr, 5, 0);
+                        unsigned rt = (instr >> 12) & 0xf;
+                        unsigned rt2 = (instr >> 16) & 0xf;
+                        // VMOV{<c>}{<q>} <Dm>, <Rt>, <Rt2> ; T1
+                        vmov(CurrentCond(),
+                             DRegister(rm),
+                             Register(rt),
+                             Register(rt2));
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00800000: {
+                      // 0xec800a00
+                      unsigned rn = (instr >> 16) & 0xf;
+                      WriteBack write_back((instr >> 21) & 0x1);
+                      unsigned first = ExtractSRegister(instr, 22, 12);
+                      unsigned len = instr & 0xff;
+                      // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; T2
+                      vstm(CurrentCond(),
+                           kDataTypeValueNone,
+                           Register(rn),
+                           write_back,
+                           SRegisterList(SRegister(first), len));
+                      if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00800100: {
+                      // 0xec800b00
+                      switch (instr & 0x00000001) {
                         case 0x00000000: {
-                          // 0xec000a00
-                          if ((instr & 0x006000d0) == 0x00400010) {
-                            unsigned rm = ExtractSRegister(instr, 5, 0);
-                            unsigned rt = (instr >> 12) & 0xf;
-                            unsigned rt2 = (instr >> 16) & 0xf;
-                            // VMOV{<c>}{<q>} <Sm>, <Sm1>, <Rt>, <Rt2> ; T1
-                            vmov(CurrentCond(),
-                                 SRegister(rm),
-                                 SRegister(rm + 1),
-                                 Register(rt),
-                                 Register(rt2));
-                          } else {
-                            UnallocatedT32(instr);
-                          }
-                          break;
-                        }
-                        case 0x00000100: {
-                          // 0xec000b00
-                          if ((instr & 0x006000d0) == 0x00400010) {
-                            unsigned rm = ExtractDRegister(instr, 5, 0);
-                            unsigned rt = (instr >> 12) & 0xf;
-                            unsigned rt2 = (instr >> 16) & 0xf;
-                            // VMOV{<c>}{<q>} <Dm>, <Rt>, <Rt2> ; T1
-                            vmov(CurrentCond(),
-                                 DRegister(rm),
-                                 Register(rt),
-                                 Register(rt2));
-                          } else {
-                            UnallocatedT32(instr);
-                          }
-                          break;
-                        }
-                        case 0x00800000: {
-                          // 0xec800a00
+                          // 0xec800b00
                           unsigned rn = (instr >> 16) & 0xf;
                           WriteBack write_back((instr >> 21) & 0x1);
-                          unsigned first = ExtractSRegister(instr, 22, 12);
-                          unsigned len = instr & 0xff;
-                          // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; T2
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; T1
                           vstm(CurrentCond(),
                                kDataTypeValueNone,
                                Register(rn),
                                write_back,
-                               SRegisterList(SRegister(first), len));
-                          if ((len == 0) ||
-                              ((first + len) > kNumberOfSRegisters)) {
+                               DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) ||
+                              (end > kMaxNumberOfDRegisters)) {
                             UnpredictableT32(instr);
                           }
                           break;
                         }
-                        case 0x00800100: {
-                          // 0xec800b00
-                          switch (instr & 0x00000001) {
-                            case 0x00000000: {
-                              // 0xec800b00
-                              unsigned rn = (instr >> 16) & 0xf;
-                              WriteBack write_back((instr >> 21) & 0x1);
-                              unsigned first = ExtractDRegister(instr, 22, 12);
-                              unsigned imm8 = (instr & 0xff);
-                              unsigned len = imm8 / 2;
-                              unsigned end = first + len;
-                              // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; T1 NOLINT(whitespace/line_length)
-                              vstm(CurrentCond(),
-                                   kDataTypeValueNone,
-                                   Register(rn),
-                                   write_back,
-                                   DRegisterList(DRegister(first), len));
-                              if ((len == 0) || (len > 16) ||
-                                  (end > kMaxNumberOfDRegisters)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00000001: {
-                              // 0xec800b01
-                              unsigned rn = (instr >> 16) & 0xf;
-                              WriteBack write_back((instr >> 21) & 0x1);
-                              unsigned first = ExtractDRegister(instr, 22, 12);
-                              unsigned imm8 = (instr & 0xff);
-                              unsigned len = imm8 / 2;
-                              unsigned end = first + len;
-                              // FSTMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; T1
-                              fstmiax(CurrentCond(),
-                                      Register(rn),
-                                      write_back,
-                                      DRegisterList(DRegister(first), len));
-                              if ((len == 0) || (len > 16) || (end > 16)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
+                        case 0x00000001: {
+                          // 0xec800b01
+                          unsigned rn = (instr >> 16) & 0xf;
+                          WriteBack write_back((instr >> 21) & 0x1);
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // FSTMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; T1
+                          fstmiax(CurrentCond(),
+                                  Register(rn),
+                                  write_back,
+                                  DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) || (end > 16)) {
+                            UnpredictableT32(instr);
                           }
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    default: {
-                      switch (instr & 0x00200000) {
-                        case 0x00000000: {
-                          // 0xec000000
-                          switch (instr & 0x00800000) {
-                            case 0x00000000: {
-                              // 0xec000000
-                              if ((instr & 0x00400000) == 0x00400000) {
-                                if (((instr & 0xe00) == 0xa00)) {
-                                  UnallocatedT32(instr);
-                                  return;
-                                }
-                                UnimplementedT32_32("MCRR", instr);
-                              } else {
-                                UnallocatedT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00800000: {
-                              // 0xec800000
-                              if (((instr & 0xe00) == 0xa00)) {
-                                UnallocatedT32(instr);
-                                return;
-                              }
-                              UnimplementedT32_32("STC", instr);
-                              break;
-                            }
-                          }
-                          break;
-                        }
-                        case 0x00200000: {
-                          // 0xec200000
-                          if (((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("STC", instr);
                           break;
                         }
                       }
@@ -22778,757 +22709,571 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   }
                   break;
                 }
-                case 0x00100000: {
-                  // 0xec100000
-                  switch (instr & 0x00000e00) {
-                    case 0x00000a00: {
+                case 0x00000e00: {
+                  // 0xec000e00
+                  switch (instr & 0x00600000) {
+                    case 0x00000000: {
+                      // 0xec000e00
+                      if ((instr & 0x0080f100) == 0x00805000) {
+                        UnimplementedT32_32("STC", instr);
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00200000: {
+                      // 0xec200e00
+                      if ((instr & 0x0000f100) == 0x00005000) {
+                        UnimplementedT32_32("STC", instr);
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00400000: {
+                      // 0xec400e00
+                      if ((instr & 0x00800000) == 0x00000000) {
+                        UnimplementedT32_32("MCRR", instr);
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    default:
+                      UnallocatedT32(instr);
+                      break;
+                  }
+                  break;
+                }
+                case 0x00100a00: {
+                  // 0xec100a00
+                  switch (instr & 0x00800100) {
+                    case 0x00000000: {
                       // 0xec100a00
-                      switch (instr & 0x00800100) {
+                      if ((instr & 0x006000d0) == 0x00400010) {
+                        unsigned rt = (instr >> 12) & 0xf;
+                        unsigned rt2 = (instr >> 16) & 0xf;
+                        unsigned rm = ExtractSRegister(instr, 5, 0);
+                        // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Sm>, <Sm1> ; T1
+                        vmov(CurrentCond(),
+                             Register(rt),
+                             Register(rt2),
+                             SRegister(rm),
+                             SRegister(rm + 1));
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00000100: {
+                      // 0xec100b00
+                      if ((instr & 0x006000d0) == 0x00400010) {
+                        unsigned rt = (instr >> 12) & 0xf;
+                        unsigned rt2 = (instr >> 16) & 0xf;
+                        unsigned rm = ExtractDRegister(instr, 5, 0);
+                        // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Dm> ; T1
+                        vmov(CurrentCond(),
+                             Register(rt),
+                             Register(rt2),
+                             DRegister(rm));
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00800000: {
+                      // 0xec900a00
+                      if (((Uint32((instr >> 21)) & Uint32(0x1)) ==
+                           Uint32(0x1)) &&
+                          ((Uint32((instr >> 16)) & Uint32(0xf)) ==
+                           Uint32(0xd))) {
+                        unsigned first = ExtractSRegister(instr, 22, 12);
+                        unsigned len = instr & 0xff;
+                        // VPOP{<c>}{<q>}{.<size>} <sreglist> ; T2
+                        vpop(CurrentCond(),
+                             kDataTypeValueNone,
+                             SRegisterList(SRegister(first), len));
+                        if ((len == 0) ||
+                            ((first + len) > kNumberOfSRegisters)) {
+                          UnpredictableT32(instr);
+                        }
+                        return;
+                      }
+                      unsigned rn = (instr >> 16) & 0xf;
+                      WriteBack write_back((instr >> 21) & 0x1);
+                      unsigned first = ExtractSRegister(instr, 22, 12);
+                      unsigned len = instr & 0xff;
+                      // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; T2
+                      vldm(CurrentCond(),
+                           kDataTypeValueNone,
+                           Register(rn),
+                           write_back,
+                           SRegisterList(SRegister(first), len));
+                      if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00800100: {
+                      // 0xec900b00
+                      switch (instr & 0x00000001) {
                         case 0x00000000: {
-                          // 0xec100a00
-                          if ((instr & 0x006000d0) == 0x00400010) {
-                            unsigned rt = (instr >> 12) & 0xf;
-                            unsigned rt2 = (instr >> 16) & 0xf;
-                            unsigned rm = ExtractSRegister(instr, 5, 0);
-                            // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Sm>, <Sm1> ; T1
-                            vmov(CurrentCond(),
-                                 Register(rt),
-                                 Register(rt2),
-                                 SRegister(rm),
-                                 SRegister(rm + 1));
-                          } else {
-                            UnallocatedT32(instr);
-                          }
-                          break;
-                        }
-                        case 0x00000100: {
-                          // 0xec100b00
-                          if ((instr & 0x006000d0) == 0x00400010) {
-                            unsigned rt = (instr >> 12) & 0xf;
-                            unsigned rt2 = (instr >> 16) & 0xf;
-                            unsigned rm = ExtractDRegister(instr, 5, 0);
-                            // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Dm> ; T1
-                            vmov(CurrentCond(),
-                                 Register(rt),
-                                 Register(rt2),
-                                 DRegister(rm));
-                          } else {
-                            UnallocatedT32(instr);
-                          }
-                          break;
-                        }
-                        case 0x00800000: {
-                          // 0xec900a00
+                          // 0xec900b00
                           if (((Uint32((instr >> 21)) & Uint32(0x1)) ==
                                Uint32(0x1)) &&
                               ((Uint32((instr >> 16)) & Uint32(0xf)) ==
                                Uint32(0xd))) {
-                            unsigned first = ExtractSRegister(instr, 22, 12);
-                            unsigned len = instr & 0xff;
-                            // VPOP{<c>}{<q>}{.<size>} <sreglist> ; T2
+                            unsigned first = ExtractDRegister(instr, 22, 12);
+                            unsigned imm8 = (instr & 0xff);
+                            unsigned len = imm8 / 2;
+                            unsigned end = first + len;
+                            // VPOP{<c>}{<q>}{.<size>} <dreglist> ; T1
                             vpop(CurrentCond(),
                                  kDataTypeValueNone,
-                                 SRegisterList(SRegister(first), len));
-                            if ((len == 0) ||
-                                ((first + len) > kNumberOfSRegisters)) {
+                                 DRegisterList(DRegister(first), len));
+                            if ((len == 0) || (len > 16) ||
+                                (end > kMaxNumberOfDRegisters)) {
                               UnpredictableT32(instr);
                             }
                             return;
                           }
                           unsigned rn = (instr >> 16) & 0xf;
                           WriteBack write_back((instr >> 21) & 0x1);
-                          unsigned first = ExtractSRegister(instr, 22, 12);
-                          unsigned len = instr & 0xff;
-                          // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; T2
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; T1
                           vldm(CurrentCond(),
                                kDataTypeValueNone,
                                Register(rn),
                                write_back,
-                               SRegisterList(SRegister(first), len));
-                          if ((len == 0) ||
-                              ((first + len) > kNumberOfSRegisters)) {
+                               DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) ||
+                              (end > kMaxNumberOfDRegisters)) {
                             UnpredictableT32(instr);
                           }
                           break;
                         }
-                        case 0x00800100: {
-                          // 0xec900b00
-                          switch (instr & 0x00000001) {
-                            case 0x00000000: {
-                              // 0xec900b00
-                              if (((Uint32((instr >> 21)) & Uint32(0x1)) ==
-                                   Uint32(0x1)) &&
-                                  ((Uint32((instr >> 16)) & Uint32(0xf)) ==
-                                   Uint32(0xd))) {
-                                unsigned first =
-                                    ExtractDRegister(instr, 22, 12);
-                                unsigned imm8 = (instr & 0xff);
-                                unsigned len = imm8 / 2;
-                                unsigned end = first + len;
-                                // VPOP{<c>}{<q>}{.<size>} <dreglist> ; T1
-                                vpop(CurrentCond(),
-                                     kDataTypeValueNone,
-                                     DRegisterList(DRegister(first), len));
-                                if ((len == 0) || (len > 16) ||
-                                    (end > kMaxNumberOfDRegisters)) {
-                                  UnpredictableT32(instr);
-                                }
-                                return;
-                              }
-                              unsigned rn = (instr >> 16) & 0xf;
-                              WriteBack write_back((instr >> 21) & 0x1);
-                              unsigned first = ExtractDRegister(instr, 22, 12);
-                              unsigned imm8 = (instr & 0xff);
-                              unsigned len = imm8 / 2;
-                              unsigned end = first + len;
-                              // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; T1 NOLINT(whitespace/line_length)
-                              vldm(CurrentCond(),
-                                   kDataTypeValueNone,
-                                   Register(rn),
-                                   write_back,
-                                   DRegisterList(DRegister(first), len));
-                              if ((len == 0) || (len > 16) ||
-                                  (end > kMaxNumberOfDRegisters)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00000001: {
-                              // 0xec900b01
-                              unsigned rn = (instr >> 16) & 0xf;
-                              WriteBack write_back((instr >> 21) & 0x1);
-                              unsigned first = ExtractDRegister(instr, 22, 12);
-                              unsigned imm8 = (instr & 0xff);
-                              unsigned len = imm8 / 2;
-                              unsigned end = first + len;
-                              // FLDMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; T1
-                              fldmiax(CurrentCond(),
-                                      Register(rn),
-                                      write_back,
-                                      DRegisterList(DRegister(first), len));
-                              if ((len == 0) || (len > 16) || (end > 16)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
+                        case 0x00000001: {
+                          // 0xec900b01
+                          unsigned rn = (instr >> 16) & 0xf;
+                          WriteBack write_back((instr >> 21) & 0x1);
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // FLDMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; T1
+                          fldmiax(CurrentCond(),
+                                  Register(rn),
+                                  write_back,
+                                  DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) || (end > 16)) {
+                            UnpredictableT32(instr);
                           }
                           break;
                         }
                       }
                       break;
                     }
-                    default: {
-                      switch (instr & 0x00200000) {
+                  }
+                  break;
+                }
+                case 0x00100e00: {
+                  // 0xec100e00
+                  switch (instr & 0x00600000) {
+                    case 0x00000000: {
+                      // 0xec100e00
+                      if ((instr & 0x0080f100) == 0x00805000) {
+                        if (((instr & 0xf0000) == 0xf0000)) {
+                          UnallocatedT32(instr);
+                          return;
+                        }
+                        UnimplementedT32_32("LDC", instr);
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00200000: {
+                      // 0xec300e00
+                      if ((instr & 0x0000f100) == 0x00005000) {
+                        if (((instr & 0xf0000) == 0xf0000)) {
+                          UnallocatedT32(instr);
+                          return;
+                        }
+                        UnimplementedT32_32("LDC", instr);
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00400000: {
+                      // 0xec500e00
+                      if ((instr & 0x00800000) == 0x00000000) {
+                        UnimplementedT32_32("MRRC", instr);
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    default:
+                      UnallocatedT32(instr);
+                      break;
+                  }
+                  break;
+                }
+                case 0x01000a00: {
+                  // 0xed000a00
+                  switch (instr & 0x00200100) {
+                    case 0x00000000: {
+                      // 0xed000a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = (instr >> 16) & 0xf;
+                      Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
+                      int32_t offset = (instr & 0xff) << 2;
+                      // VSTR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; T2
+                      vstr(CurrentCond(),
+                           Untyped32,
+                           SRegister(rd),
+                           MemOperand(Register(rn), sign, offset, Offset));
+                      break;
+                    }
+                    case 0x00000100: {
+                      // 0xed000b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = (instr >> 16) & 0xf;
+                      Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
+                      int32_t offset = (instr & 0xff) << 2;
+                      // VSTR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; T1
+                      vstr(CurrentCond(),
+                           Untyped64,
+                           DRegister(rd),
+                           MemOperand(Register(rn), sign, offset, Offset));
+                      break;
+                    }
+                    case 0x00200000: {
+                      // 0xed200a00
+                      if ((instr & 0x00800000) == 0x00000000) {
+                        if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
+                             Uint32(0xd))) {
+                          unsigned first = ExtractSRegister(instr, 22, 12);
+                          unsigned len = instr & 0xff;
+                          // VPUSH{<c>}{<q>}{.<size>} <sreglist> ; T2
+                          vpush(CurrentCond(),
+                                kDataTypeValueNone,
+                                SRegisterList(SRegister(first), len));
+                          if ((len == 0) ||
+                              ((first + len) > kNumberOfSRegisters)) {
+                            UnpredictableT32(instr);
+                          }
+                          return;
+                        }
+                        unsigned rn = (instr >> 16) & 0xf;
+                        unsigned first = ExtractSRegister(instr, 22, 12);
+                        unsigned len = instr & 0xff;
+                        // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; T2
+                        vstmdb(CurrentCond(),
+                               kDataTypeValueNone,
+                               Register(rn),
+                               WriteBack(WRITE_BACK),
+                               SRegisterList(SRegister(first), len));
+                        if ((len == 0) ||
+                            ((first + len) > kNumberOfSRegisters)) {
+                          UnpredictableT32(instr);
+                        }
+                      } else {
+                        UnallocatedT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00200100: {
+                      // 0xed200b00
+                      switch (instr & 0x00800001) {
                         case 0x00000000: {
-                          // 0xec100000
-                          switch (instr & 0x00800000) {
-                            case 0x00000000: {
-                              // 0xec100000
-                              if ((instr & 0x00400000) == 0x00400000) {
-                                if (((instr & 0xe00) == 0xa00)) {
-                                  UnallocatedT32(instr);
-                                  return;
-                                }
-                                UnimplementedT32_32("MRRC", instr);
-                              } else {
-                                UnallocatedT32(instr);
-                              }
-                              break;
+                          // 0xed200b00
+                          if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
+                               Uint32(0xd))) {
+                            unsigned first = ExtractDRegister(instr, 22, 12);
+                            unsigned imm8 = (instr & 0xff);
+                            unsigned len = imm8 / 2;
+                            unsigned end = first + len;
+                            // VPUSH{<c>}{<q>}{.<size>} <dreglist> ; T1
+                            vpush(CurrentCond(),
+                                  kDataTypeValueNone,
+                                  DRegisterList(DRegister(first), len));
+                            if ((len == 0) || (len > 16) ||
+                                (end > kMaxNumberOfDRegisters)) {
+                              UnpredictableT32(instr);
                             }
-                            case 0x00800000: {
-                              // 0xec900000
-                              if (((instr & 0xf0000) == 0xf0000) ||
-                                  ((instr & 0xe00) == 0xa00)) {
-                                UnallocatedT32(instr);
-                                return;
-                              }
-                              UnimplementedT32_32("LDC", instr);
-                              break;
-                            }
-                          }
-                          break;
-                        }
-                        case 0x00200000: {
-                          // 0xec300000
-                          if (((instr & 0xf0000) == 0xf0000) ||
-                              ((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
                             return;
                           }
-                          UnimplementedT32_32("LDC", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 0x01000000: {
-                  // 0xed000000
-                  switch (instr & 0x00200000) {
-                    case 0x00000000: {
-                      // 0xed000000
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xed000a00
-                          switch (instr & 0x00000100) {
-                            case 0x00000000: {
-                              // 0xed000a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = (instr >> 16) & 0xf;
-                              Sign sign((((instr >> 23) & 0x1) == 0) ? minus
-                                                                     : plus);
-                              int32_t offset = (instr & 0xff) << 2;
-                              // VSTR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; T2 NOLINT(whitespace/line_length)
-                              vstr(CurrentCond(),
-                                   Untyped32,
-                                   SRegister(rd),
-                                   MemOperand(Register(rn),
-                                              sign,
-                                              offset,
-                                              Offset));
-                              break;
-                            }
-                            case 0x00000100: {
-                              // 0xed000b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = (instr >> 16) & 0xf;
-                              Sign sign((((instr >> 23) & 0x1) == 0) ? minus
-                                                                     : plus);
-                              int32_t offset = (instr & 0xff) << 2;
-                              // VSTR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; T1 NOLINT(whitespace/line_length)
-                              vstr(CurrentCond(),
-                                   Untyped64,
-                                   DRegister(rd),
-                                   MemOperand(Register(rn),
-                                              sign,
-                                              offset,
-                                              Offset));
-                              break;
-                            }
+                          unsigned rn = (instr >> 16) & 0xf;
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; T1
+                          vstmdb(CurrentCond(),
+                                 kDataTypeValueNone,
+                                 Register(rn),
+                                 WriteBack(WRITE_BACK),
+                                 DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) ||
+                              (end > kMaxNumberOfDRegisters)) {
+                            UnpredictableT32(instr);
                           }
                           break;
                         }
-                        default: {
-                          if (((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("STC", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    case 0x00200000: {
-                      // 0xed200000
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xed200a00
-                          switch (instr & 0x00800100) {
-                            case 0x00000000: {
-                              // 0xed200a00
-                              if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
-                                   Uint32(0xd))) {
-                                unsigned first =
-                                    ExtractSRegister(instr, 22, 12);
-                                unsigned len = instr & 0xff;
-                                // VPUSH{<c>}{<q>}{.<size>} <sreglist> ; T2
-                                vpush(CurrentCond(),
-                                      kDataTypeValueNone,
-                                      SRegisterList(SRegister(first), len));
-                                if ((len == 0) ||
-                                    ((first + len) > kNumberOfSRegisters)) {
-                                  UnpredictableT32(instr);
-                                }
-                                return;
-                              }
-                              unsigned rn = (instr >> 16) & 0xf;
-                              unsigned first = ExtractSRegister(instr, 22, 12);
-                              unsigned len = instr & 0xff;
-                              // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; T2 NOLINT(whitespace/line_length)
-                              vstmdb(CurrentCond(),
-                                     kDataTypeValueNone,
-                                     Register(rn),
-                                     WriteBack(WRITE_BACK),
-                                     SRegisterList(SRegister(first), len));
-                              if ((len == 0) ||
-                                  ((first + len) > kNumberOfSRegisters)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00000100: {
-                              // 0xed200b00
-                              switch (instr & 0x00000001) {
-                                case 0x00000000: {
-                                  // 0xed200b00
-                                  if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
-                                       Uint32(0xd))) {
-                                    unsigned first =
-                                        ExtractDRegister(instr, 22, 12);
-                                    unsigned imm8 = (instr & 0xff);
-                                    unsigned len = imm8 / 2;
-                                    unsigned end = first + len;
-                                    // VPUSH{<c>}{<q>}{.<size>} <dreglist> ; T1
-                                    vpush(CurrentCond(),
-                                          kDataTypeValueNone,
-                                          DRegisterList(DRegister(first), len));
-                                    if ((len == 0) || (len > 16) ||
-                                        (end > kMaxNumberOfDRegisters)) {
-                                      UnpredictableT32(instr);
-                                    }
-                                    return;
-                                  }
-                                  unsigned rn = (instr >> 16) & 0xf;
-                                  unsigned first =
-                                      ExtractDRegister(instr, 22, 12);
-                                  unsigned imm8 = (instr & 0xff);
-                                  unsigned len = imm8 / 2;
-                                  unsigned end = first + len;
-                                  // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; T1 NOLINT(whitespace/line_length)
-                                  vstmdb(CurrentCond(),
-                                         kDataTypeValueNone,
-                                         Register(rn),
-                                         WriteBack(WRITE_BACK),
-                                         DRegisterList(DRegister(first), len));
-                                  if ((len == 0) || (len > 16) ||
-                                      (end > kMaxNumberOfDRegisters)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x00000001: {
-                                  // 0xed200b01
-                                  unsigned rn = (instr >> 16) & 0xf;
-                                  unsigned first =
-                                      ExtractDRegister(instr, 22, 12);
-                                  unsigned imm8 = (instr & 0xff);
-                                  unsigned len = imm8 / 2;
-                                  unsigned end = first + len;
-                                  // FSTMDBX{<c>}{<q>} <Rn>!, <dreglist> ; T1
-                                  fstmdbx(CurrentCond(),
-                                          Register(rn),
-                                          WriteBack(WRITE_BACK),
-                                          DRegisterList(DRegister(first), len));
-                                  if ((len == 0) || (len > 16) || (end > 16)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                              }
-                              break;
-                            }
-                            default:
-                              UnallocatedT32(instr);
-                              break;
+                        case 0x00000001: {
+                          // 0xed200b01
+                          unsigned rn = (instr >> 16) & 0xf;
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // FSTMDBX{<c>}{<q>} <Rn>!, <dreglist> ; T1
+                          fstmdbx(CurrentCond(),
+                                  Register(rn),
+                                  WriteBack(WRITE_BACK),
+                                  DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) || (end > 16)) {
+                            UnpredictableT32(instr);
                           }
                           break;
                         }
-                        default: {
-                          if (((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("STC", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 0x01100000: {
-                  // 0xed100000
-                  switch (instr & 0x00200000) {
-                    case 0x00000000: {
-                      // 0xed100000
-                      switch (instr & 0x000f0000) {
-                        case 0x000f0000: {
-                          // 0xed1f0000
-                          switch (instr & 0x00000e00) {
-                            case 0x00000a00: {
-                              // 0xed1f0a00
-                              switch (instr & 0x00000100) {
-                                case 0x00000000: {
-                                  // 0xed1f0a00
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  uint32_t U = (instr >> 23) & 0x1;
-                                  int32_t imm = instr & 0xff;
-                                  imm <<= 2;
-                                  if (U == 0) imm = -imm;
-                                  bool minus_zero = (imm == 0) && (U == 0);
-                                  Location location(imm, kT32PcDelta);
-                                  // VLDR{<c>}{<q>}{.32} <Sd>, <label> ; T2
-                                  if (minus_zero) {
-                                    vldr(CurrentCond(),
-                                         Untyped32,
-                                         SRegister(rd),
-                                         MemOperand(pc, minus, 0));
-                                  } else {
-                                    vldr(CurrentCond(),
-                                         Untyped32,
-                                         SRegister(rd),
-                                         &location);
-                                  }
-                                  break;
-                                }
-                                case 0x00000100: {
-                                  // 0xed1f0b00
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  uint32_t U = (instr >> 23) & 0x1;
-                                  int32_t imm = instr & 0xff;
-                                  imm <<= 2;
-                                  if (U == 0) imm = -imm;
-                                  bool minus_zero = (imm == 0) && (U == 0);
-                                  Location location(imm, kT32PcDelta);
-                                  // VLDR{<c>}{<q>}{.64} <Dd>, <label> ; T1
-                                  if (minus_zero) {
-                                    vldr(CurrentCond(),
-                                         Untyped64,
-                                         DRegister(rd),
-                                         MemOperand(pc, minus, 0));
-                                  } else {
-                                    vldr(CurrentCond(),
-                                         Untyped64,
-                                         DRegister(rd),
-                                         &location);
-                                  }
-                                  break;
-                                }
-                              }
-                              break;
-                            }
-                            default: {
-                              if (((instr & 0xe00) == 0xa00)) {
-                                UnallocatedT32(instr);
-                                return;
-                              }
-                              UnimplementedT32_32("LDC", instr);
-                              break;
-                            }
-                          }
-                          break;
-                        }
-                        default: {
-                          switch (instr & 0x00000e00) {
-                            case 0x00000a00: {
-                              // 0xed100a00
-                              switch (instr & 0x00000100) {
-                                case 0x00000000: {
-                                  // 0xed100a00
-                                  if (((instr & 0xf0000) == 0xf0000)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rn = (instr >> 16) & 0xf;
-                                  Sign sign((((instr >> 23) & 0x1) == 0)
-                                                ? minus
-                                                : plus);
-                                  int32_t offset = (instr & 0xff) << 2;
-                                  // VLDR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; T2 NOLINT(whitespace/line_length)
-                                  vldr(CurrentCond(),
-                                       Untyped32,
-                                       SRegister(rd),
-                                       MemOperand(Register(rn),
-                                                  sign,
-                                                  offset,
-                                                  Offset));
-                                  break;
-                                }
-                                case 0x00000100: {
-                                  // 0xed100b00
-                                  if (((instr & 0xf0000) == 0xf0000)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned rn = (instr >> 16) & 0xf;
-                                  Sign sign((((instr >> 23) & 0x1) == 0)
-                                                ? minus
-                                                : plus);
-                                  int32_t offset = (instr & 0xff) << 2;
-                                  // VLDR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; T1 NOLINT(whitespace/line_length)
-                                  vldr(CurrentCond(),
-                                       Untyped64,
-                                       DRegister(rd),
-                                       MemOperand(Register(rn),
-                                                  sign,
-                                                  offset,
-                                                  Offset));
-                                  break;
-                                }
-                              }
-                              break;
-                            }
-                            default: {
-                              if (((instr & 0xf0000) == 0xf0000) ||
-                                  ((instr & 0xe00) == 0xa00)) {
-                                UnallocatedT32(instr);
-                                return;
-                              }
-                              UnimplementedT32_32("LDC", instr);
-                              break;
-                            }
-                          }
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    case 0x00200000: {
-                      // 0xed300000
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xed300a00
-                          switch (instr & 0x00800100) {
-                            case 0x00000000: {
-                              // 0xed300a00
-                              unsigned rn = (instr >> 16) & 0xf;
-                              unsigned first = ExtractSRegister(instr, 22, 12);
-                              unsigned len = instr & 0xff;
-                              // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; T2 NOLINT(whitespace/line_length)
-                              vldmdb(CurrentCond(),
-                                     kDataTypeValueNone,
-                                     Register(rn),
-                                     WriteBack(WRITE_BACK),
-                                     SRegisterList(SRegister(first), len));
-                              if ((len == 0) ||
-                                  ((first + len) > kNumberOfSRegisters)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00000100: {
-                              // 0xed300b00
-                              switch (instr & 0x00000001) {
-                                case 0x00000000: {
-                                  // 0xed300b00
-                                  unsigned rn = (instr >> 16) & 0xf;
-                                  unsigned first =
-                                      ExtractDRegister(instr, 22, 12);
-                                  unsigned imm8 = (instr & 0xff);
-                                  unsigned len = imm8 / 2;
-                                  unsigned end = first + len;
-                                  // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; T1 NOLINT(whitespace/line_length)
-                                  vldmdb(CurrentCond(),
-                                         kDataTypeValueNone,
-                                         Register(rn),
-                                         WriteBack(WRITE_BACK),
-                                         DRegisterList(DRegister(first), len));
-                                  if ((len == 0) || (len > 16) ||
-                                      (end > kMaxNumberOfDRegisters)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x00000001: {
-                                  // 0xed300b01
-                                  unsigned rn = (instr >> 16) & 0xf;
-                                  unsigned first =
-                                      ExtractDRegister(instr, 22, 12);
-                                  unsigned imm8 = (instr & 0xff);
-                                  unsigned len = imm8 / 2;
-                                  unsigned end = first + len;
-                                  // FLDMDBX{<c>}{<q>} <Rn>!, <dreglist> ; T1
-                                  fldmdbx(CurrentCond(),
-                                          Register(rn),
-                                          WriteBack(WRITE_BACK),
-                                          DRegisterList(DRegister(first), len));
-                                  if ((len == 0) || (len > 16) || (end > 16)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                              }
-                              break;
-                            }
-                            default:
-                              UnallocatedT32(instr);
-                              break;
-                          }
-                          break;
-                        }
-                        default: {
-                          if (((instr & 0xf0000) == 0xf0000) ||
-                              ((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("LDC", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 0x10000000: {
-                  // 0xfc000000
-                  switch (instr & 0x00200000) {
-                    case 0x00000000: {
-                      // 0xfc000000
-                      switch (instr & 0x00800000) {
-                        case 0x00000000: {
-                          // 0xfc000000
-                          if ((instr & 0x00400000) == 0x00400000) {
-                            if (((instr & 0xe00) == 0xa00)) {
-                              UnallocatedT32(instr);
-                              return;
-                            }
-                            UnimplementedT32_32("MCRR2", instr);
-                          } else {
-                            UnallocatedT32(instr);
-                          }
-                          break;
-                        }
-                        case 0x00800000: {
-                          // 0xfc800000
-                          if (((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("STC2", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    case 0x00200000: {
-                      // 0xfc200000
-                      if (((instr & 0xe00) == 0xa00)) {
-                        UnallocatedT32(instr);
-                        return;
-                      }
-                      UnimplementedT32_32("STC2", instr);
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 0x10100000: {
-                  // 0xfc100000
-                  switch (instr & 0x00200000) {
-                    case 0x00000000: {
-                      // 0xfc100000
-                      switch (instr & 0x00800000) {
-                        case 0x00000000: {
-                          // 0xfc100000
-                          if ((instr & 0x00400000) == 0x00400000) {
-                            if (((instr & 0xe00) == 0xa00)) {
-                              UnallocatedT32(instr);
-                              return;
-                            }
-                            UnimplementedT32_32("MRRC2", instr);
-                          } else {
-                            UnallocatedT32(instr);
-                          }
-                          break;
-                        }
-                        case 0x00800000: {
-                          // 0xfc900000
-                          if (((instr & 0xf0000) == 0xf0000) ||
-                              ((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("LDC2", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    case 0x00200000: {
-                      // 0xfc300000
-                      if (((instr & 0xf0000) == 0xf0000) ||
-                          ((instr & 0xe00) == 0xa00)) {
-                        UnallocatedT32(instr);
-                        return;
-                      }
-                      UnimplementedT32_32("LDC2", instr);
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 0x11000000: {
-                  // 0xfd000000
-                  switch (instr & 0x00200000) {
-                    case 0x00000000: {
-                      // 0xfd000000
-                      if (((instr & 0xe00) == 0xa00)) {
-                        UnallocatedT32(instr);
-                        return;
-                      }
-                      UnimplementedT32_32("STC2", instr);
-                      break;
-                    }
-                    case 0x00200000: {
-                      // 0xfd200000
-                      if (((instr & 0xe00) == 0xa00)) {
-                        UnallocatedT32(instr);
-                        return;
-                      }
-                      UnimplementedT32_32("STC2", instr);
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 0x11100000: {
-                  // 0xfd100000
-                  switch (instr & 0x00200000) {
-                    case 0x00000000: {
-                      // 0xfd100000
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xfd100a00
+                        default:
                           UnallocatedT32(instr);
                           break;
+                      }
+                      break;
+                    }
+                  }
+                  break;
+                }
+                case 0x01000e00: {
+                  // 0xed000e00
+                  switch (instr & 0x0060f100) {
+                    case 0x00005000: {
+                      // 0xed005e00
+                      UnimplementedT32_32("STC", instr);
+                      break;
+                    }
+                    case 0x00205000: {
+                      // 0xed205e00
+                      UnimplementedT32_32("STC", instr);
+                      break;
+                    }
+                    default:
+                      UnallocatedT32(instr);
+                      break;
+                  }
+                  break;
+                }
+                case 0x01100a00: {
+                  // 0xed100a00
+                  switch (instr & 0x00200100) {
+                    case 0x00000000: {
+                      // 0xed100a00
+                      switch (instr & 0x000f0000) {
+                        case 0x000f0000: {
+                          // 0xed1f0a00
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          uint32_t U = (instr >> 23) & 0x1;
+                          int32_t imm = instr & 0xff;
+                          imm <<= 2;
+                          if (U == 0) imm = -imm;
+                          bool minus_zero = (imm == 0) && (U == 0);
+                          Location location(imm, kT32PcDelta);
+                          // VLDR{<c>}{<q>}{.32} <Sd>, <label> ; T2
+                          if (minus_zero) {
+                            vldr(CurrentCond(),
+                                 Untyped32,
+                                 SRegister(rd),
+                                 MemOperand(pc, minus, 0));
+                          } else {
+                            vldr(CurrentCond(),
+                                 Untyped32,
+                                 SRegister(rd),
+                                 &location);
+                          }
+                          break;
                         }
                         default: {
-                          switch (instr & 0x000f0000) {
-                            case 0x000f0000: {
-                              // 0xfd1f0000
-                              if (((instr & 0xe00) == 0xa00)) {
-                                UnallocatedT32(instr);
-                                return;
-                              }
-                              UnimplementedT32_32("LDC2", instr);
-                              break;
-                            }
-                            default: {
-                              if (((instr & 0xf0000) == 0xf0000) ||
-                                  ((instr & 0xe00) == 0xa00)) {
-                                UnallocatedT32(instr);
-                                return;
-                              }
-                              UnimplementedT32_32("LDC2", instr);
-                              break;
-                            }
+                          if (((instr & 0xf0000) == 0xf0000)) {
+                            UnallocatedT32(instr);
+                            return;
                           }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rn = (instr >> 16) & 0xf;
+                          Sign sign((((instr >> 23) & 0x1) == 0) ? minus
+                                                                 : plus);
+                          int32_t offset = (instr & 0xff) << 2;
+                          // VLDR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; T2 NOLINT(whitespace/line_length)
+                          vldr(CurrentCond(),
+                               Untyped32,
+                               SRegister(rd),
+                               MemOperand(Register(rn), sign, offset, Offset));
+                          break;
+                        }
+                      }
+                      break;
+                    }
+                    case 0x00000100: {
+                      // 0xed100b00
+                      switch (instr & 0x000f0000) {
+                        case 0x000f0000: {
+                          // 0xed1f0b00
+                          unsigned rd = ExtractDRegister(instr, 22, 12);
+                          uint32_t U = (instr >> 23) & 0x1;
+                          int32_t imm = instr & 0xff;
+                          imm <<= 2;
+                          if (U == 0) imm = -imm;
+                          bool minus_zero = (imm == 0) && (U == 0);
+                          Location location(imm, kT32PcDelta);
+                          // VLDR{<c>}{<q>}{.64} <Dd>, <label> ; T1
+                          if (minus_zero) {
+                            vldr(CurrentCond(),
+                                 Untyped64,
+                                 DRegister(rd),
+                                 MemOperand(pc, minus, 0));
+                          } else {
+                            vldr(CurrentCond(),
+                                 Untyped64,
+                                 DRegister(rd),
+                                 &location);
+                          }
+                          break;
+                        }
+                        default: {
+                          if (((instr & 0xf0000) == 0xf0000)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractDRegister(instr, 22, 12);
+                          unsigned rn = (instr >> 16) & 0xf;
+                          Sign sign((((instr >> 23) & 0x1) == 0) ? minus
+                                                                 : plus);
+                          int32_t offset = (instr & 0xff) << 2;
+                          // VLDR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; T1 NOLINT(whitespace/line_length)
+                          vldr(CurrentCond(),
+                               Untyped64,
+                               DRegister(rd),
+                               MemOperand(Register(rn), sign, offset, Offset));
                           break;
                         }
                       }
                       break;
                     }
                     case 0x00200000: {
-                      // 0xfd300000
-                      if (((instr & 0xf0000) == 0xf0000) ||
-                          ((instr & 0xe00) == 0xa00)) {
+                      // 0xed300a00
+                      if ((instr & 0x00800000) == 0x00000000) {
+                        unsigned rn = (instr >> 16) & 0xf;
+                        unsigned first = ExtractSRegister(instr, 22, 12);
+                        unsigned len = instr & 0xff;
+                        // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; T2
+                        vldmdb(CurrentCond(),
+                               kDataTypeValueNone,
+                               Register(rn),
+                               WriteBack(WRITE_BACK),
+                               SRegisterList(SRegister(first), len));
+                        if ((len == 0) ||
+                            ((first + len) > kNumberOfSRegisters)) {
+                          UnpredictableT32(instr);
+                        }
+                      } else {
                         UnallocatedT32(instr);
-                        return;
                       }
-                      UnimplementedT32_32("LDC2", instr);
+                      break;
+                    }
+                    case 0x00200100: {
+                      // 0xed300b00
+                      switch (instr & 0x00800001) {
+                        case 0x00000000: {
+                          // 0xed300b00
+                          unsigned rn = (instr >> 16) & 0xf;
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; T1
+                          vldmdb(CurrentCond(),
+                                 kDataTypeValueNone,
+                                 Register(rn),
+                                 WriteBack(WRITE_BACK),
+                                 DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) ||
+                              (end > kMaxNumberOfDRegisters)) {
+                            UnpredictableT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x00000001: {
+                          // 0xed300b01
+                          unsigned rn = (instr >> 16) & 0xf;
+                          unsigned first = ExtractDRegister(instr, 22, 12);
+                          unsigned imm8 = (instr & 0xff);
+                          unsigned len = imm8 / 2;
+                          unsigned end = first + len;
+                          // FLDMDBX{<c>}{<q>} <Rn>!, <dreglist> ; T1
+                          fldmdbx(CurrentCond(),
+                                  Register(rn),
+                                  WriteBack(WRITE_BACK),
+                                  DRegisterList(DRegister(first), len));
+                          if ((len == 0) || (len > 16) || (end > 16)) {
+                            UnpredictableT32(instr);
+                          }
+                          break;
+                        }
+                        default:
+                          UnallocatedT32(instr);
+                          break;
+                      }
                       break;
                     }
                   }
                   break;
                 }
+                case 0x01100e00: {
+                  // 0xed100e00
+                  switch (instr & 0x0060f100) {
+                    case 0x00005000: {
+                      // 0xed105e00
+                      switch (instr & 0x000f0000) {
+                        case 0x000f0000: {
+                          // 0xed1f5e00
+                          UnimplementedT32_32("LDC", instr);
+                          break;
+                        }
+                        default: {
+                          if (((instr & 0xf0000) == 0xf0000)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          UnimplementedT32_32("LDC", instr);
+                          break;
+                        }
+                      }
+                      break;
+                    }
+                    case 0x00205000: {
+                      // 0xed305e00
+                      if (((instr & 0xf0000) == 0xf0000)) {
+                        UnallocatedT32(instr);
+                        return;
+                      }
+                      UnimplementedT32_32("LDC", instr);
+                      break;
+                    }
+                    default:
+                      UnallocatedT32(instr);
+                      break;
+                  }
+                  break;
+                }
+                default:
+                  UnallocatedT32(instr);
+                  break;
               }
               break;
             }
@@ -23537,1857 +23282,1623 @@ void Disassembler::DecodeT32(uint32_t instr) {
               switch (instr & 0x01000010) {
                 case 0x00000000: {
                   // 0xee000000
-                  switch (instr & 0x10000000) {
-                    case 0x00000000: {
-                      // 0xee000000
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xee000a00
-                          switch (instr & 0x00b00140) {
+                  switch (instr & 0x10b00f40) {
+                    case 0x00000a00: {
+                      // 0xee000a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
+                      vmla(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00000a40: {
+                      // 0xee000a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
+                      vmls(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00000b00: {
+                      // 0xee000b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
+                      vmla(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00000b40: {
+                      // 0xee000b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
+                      vmls(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00100a00: {
+                      // 0xee100a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VNMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vnmls(CurrentCond(),
+                            F32,
+                            SRegister(rd),
+                            SRegister(rn),
+                            SRegister(rm));
+                      break;
+                    }
+                    case 0x00100a40: {
+                      // 0xee100a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VNMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vnmla(CurrentCond(),
+                            F32,
+                            SRegister(rd),
+                            SRegister(rn),
+                            SRegister(rm));
+                      break;
+                    }
+                    case 0x00100b00: {
+                      // 0xee100b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VNMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vnmls(CurrentCond(),
+                            F64,
+                            DRegister(rd),
+                            DRegister(rn),
+                            DRegister(rm));
+                      break;
+                    }
+                    case 0x00100b40: {
+                      // 0xee100b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VNMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vnmla(CurrentCond(),
+                            F64,
+                            DRegister(rd),
+                            DRegister(rn),
+                            DRegister(rm));
+                      break;
+                    }
+                    case 0x00200a00: {
+                      // 0xee200a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T2
+                      vmul(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00200a40: {
+                      // 0xee200a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VNMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T1
+                      vnmul(CurrentCond(),
+                            F32,
+                            SRegister(rd),
+                            SRegister(rn),
+                            SRegister(rm));
+                      break;
+                    }
+                    case 0x00200b00: {
+                      // 0xee200b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T2
+                      vmul(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00200b40: {
+                      // 0xee200b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VNMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T1
+                      vnmul(CurrentCond(),
+                            F64,
+                            DRegister(rd),
+                            DRegister(rn),
+                            DRegister(rm));
+                      break;
+                    }
+                    case 0x00300a00: {
+                      // 0xee300a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VADD{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T2
+                      vadd(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00300a40: {
+                      // 0xee300a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VSUB{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T2
+                      vsub(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00300b00: {
+                      // 0xee300b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VADD{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T2
+                      vadd(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00300b40: {
+                      // 0xee300b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VSUB{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T2
+                      vsub(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00800a00: {
+                      // 0xee800a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VDIV{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T1
+                      vdiv(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00800b00: {
+                      // 0xee800b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VDIV{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T1
+                      vdiv(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00900a00: {
+                      // 0xee900a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VFNMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vfnms(CurrentCond(),
+                            F32,
+                            SRegister(rd),
+                            SRegister(rn),
+                            SRegister(rm));
+                      break;
+                    }
+                    case 0x00900a40: {
+                      // 0xee900a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VFNMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vfnma(CurrentCond(),
+                            F32,
+                            SRegister(rd),
+                            SRegister(rn),
+                            SRegister(rm));
+                      break;
+                    }
+                    case 0x00900b00: {
+                      // 0xee900b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VFNMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vfnms(CurrentCond(),
+                            F64,
+                            DRegister(rd),
+                            DRegister(rn),
+                            DRegister(rm));
+                      break;
+                    }
+                    case 0x00900b40: {
+                      // 0xee900b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VFNMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vfnma(CurrentCond(),
+                            F64,
+                            DRegister(rd),
+                            DRegister(rn),
+                            DRegister(rm));
+                      break;
+                    }
+                    case 0x00a00a00: {
+                      // 0xeea00a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VFMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
+                      vfma(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00a00a40: {
+                      // 0xeea00a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VFMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
+                      vfms(CurrentCond(),
+                           F32,
+                           SRegister(rd),
+                           SRegister(rn),
+                           SRegister(rm));
+                      break;
+                    }
+                    case 0x00a00b00: {
+                      // 0xeea00b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VFMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
+                      vfma(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00a00b40: {
+                      // 0xeea00b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VFMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
+                      vfms(CurrentCond(),
+                           F64,
+                           DRegister(rd),
+                           DRegister(rn),
+                           DRegister(rm));
+                      break;
+                    }
+                    case 0x00b00a00: {
+                      // 0xeeb00a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      uint32_t encoded_imm =
+                          (instr & 0xf) | ((instr >> 12) & 0xf0);
+                      NeonImmediate imm =
+                          ImmediateVFP::Decode<float>(encoded_imm);
+                      // VMOV{<c>}{<q>}.F32 <Sd>, #<imm> ; T2
+                      vmov(CurrentCond(), F32, SRegister(rd), imm);
+                      if (((instr & 0xffb00ff0) != 0xeeb00a00)) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00b00a40: {
+                      // 0xeeb00a40
+                      switch (instr & 0x000e0000) {
+                        case 0x00000000: {
+                          // 0xeeb00a40
+                          switch (instr & 0x00010080) {
                             case 0x00000000: {
-                              // 0xee000a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
-                              vmla(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00000040: {
-                              // 0xee000a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
-                              vmls(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00000100: {
-                              // 0xee000b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
-                              vmla(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00000140: {
-                              // 0xee000b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
-                              vmls(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00100000: {
-                              // 0xee100a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VNMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vnmls(CurrentCond(),
-                                    F32,
-                                    SRegister(rd),
-                                    SRegister(rn),
-                                    SRegister(rm));
-                              break;
-                            }
-                            case 0x00100040: {
-                              // 0xee100a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VNMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vnmla(CurrentCond(),
-                                    F32,
-                                    SRegister(rd),
-                                    SRegister(rn),
-                                    SRegister(rm));
-                              break;
-                            }
-                            case 0x00100100: {
-                              // 0xee100b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VNMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vnmls(CurrentCond(),
-                                    F64,
-                                    DRegister(rd),
-                                    DRegister(rn),
-                                    DRegister(rm));
-                              break;
-                            }
-                            case 0x00100140: {
-                              // 0xee100b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VNMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vnmla(CurrentCond(),
-                                    F64,
-                                    DRegister(rd),
-                                    DRegister(rn),
-                                    DRegister(rm));
-                              break;
-                            }
-                            case 0x00200000: {
-                              // 0xee200a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T2
-                              vmul(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00200040: {
-                              // 0xee200a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VNMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T1
-                              vnmul(CurrentCond(),
-                                    F32,
-                                    SRegister(rd),
-                                    SRegister(rn),
-                                    SRegister(rm));
-                              break;
-                            }
-                            case 0x00200100: {
-                              // 0xee200b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T2
-                              vmul(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00200140: {
-                              // 0xee200b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VNMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T1
-                              vnmul(CurrentCond(),
-                                    F64,
-                                    DRegister(rd),
-                                    DRegister(rn),
-                                    DRegister(rm));
-                              break;
-                            }
-                            case 0x00300000: {
-                              // 0xee300a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VADD{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T2
-                              vadd(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00300040: {
-                              // 0xee300a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VSUB{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T2
-                              vsub(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00300100: {
-                              // 0xee300b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VADD{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T2
-                              vadd(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00300140: {
-                              // 0xee300b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VSUB{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T2
-                              vsub(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00800000: {
-                              // 0xee800a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VDIV{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; T1
-                              vdiv(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00800100: {
-                              // 0xee800b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VDIV{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; T1
-                              vdiv(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00900000: {
-                              // 0xee900a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VFNMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vfnms(CurrentCond(),
-                                    F32,
-                                    SRegister(rd),
-                                    SRegister(rn),
-                                    SRegister(rm));
-                              break;
-                            }
-                            case 0x00900040: {
-                              // 0xee900a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VFNMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vfnma(CurrentCond(),
-                                    F32,
-                                    SRegister(rd),
-                                    SRegister(rn),
-                                    SRegister(rm));
-                              break;
-                            }
-                            case 0x00900100: {
-                              // 0xee900b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VFNMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vfnms(CurrentCond(),
-                                    F64,
-                                    DRegister(rd),
-                                    DRegister(rn),
-                                    DRegister(rm));
-                              break;
-                            }
-                            case 0x00900140: {
-                              // 0xee900b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VFNMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vfnma(CurrentCond(),
-                                    F64,
-                                    DRegister(rd),
-                                    DRegister(rn),
-                                    DRegister(rm));
-                              break;
-                            }
-                            case 0x00a00000: {
-                              // 0xeea00a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VFMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
-                              vfma(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00a00040: {
-                              // 0xeea00a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VFMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
-                              vfms(CurrentCond(),
-                                   F32,
-                                   SRegister(rd),
-                                   SRegister(rn),
-                                   SRegister(rm));
-                              break;
-                            }
-                            case 0x00a00100: {
-                              // 0xeea00b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VFMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
-                              vfma(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00a00140: {
-                              // 0xeea00b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VFMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
-                              vfms(CurrentCond(),
-                                   F64,
-                                   DRegister(rd),
-                                   DRegister(rn),
-                                   DRegister(rm));
-                              break;
-                            }
-                            case 0x00b00000: {
-                              // 0xeeb00a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              uint32_t encoded_imm =
-                                  (instr & 0xf) | ((instr >> 12) & 0xf0);
-                              NeonImmediate imm =
-                                  ImmediateVFP::Decode<float>(encoded_imm);
-                              // VMOV{<c>}{<q>}.F32 <Sd>, #<imm> ; T2
-                              vmov(CurrentCond(), F32, SRegister(rd), imm);
-                              if (((instr & 0xffb00ff0) != 0xeeb00a00)) {
-                                UnpredictableT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00b00040: {
                               // 0xeeb00a40
-                              switch (instr & 0x000e0000) {
-                                case 0x00000000: {
-                                  // 0xeeb00a40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb00a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VMOV{<c>}{<q>}.F32 <Sd>, <Sm> ; T2
-                                      vmov(CurrentCond(),
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb00ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VABS{<c>}{<q>}.F32 <Sd>, <Sm> ; T2
-                                      vabs(CurrentCond(),
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb10a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VNEG{<c>}{<q>}.F32 <Sd>, <Sm> ; T2
-                                      vneg(CurrentCond(),
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb10ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VSQRT{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
-                                      vsqrt(CurrentCond(),
-                                            F32,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00020000: {
-                                  // 0xeeb20a40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb20a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTB{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; T1
-                                      vcvtb(CurrentCond(),
-                                            F32,
-                                            F16,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb20ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTT{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; T1
-                                      vcvtt(CurrentCond(),
-                                            F32,
-                                            F16,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb30a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTB{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; T1
-                                      vcvtb(CurrentCond(),
-                                            F16,
-                                            F32,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb30ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTT{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; T1
-                                      vcvtt(CurrentCond(),
-                                            F16,
-                                            F32,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00040000: {
-                                  // 0xeeb40a40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb40a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCMP{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
-                                      vcmp(CurrentCond(),
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb40ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCMPE{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
-                                      vcmpe(CurrentCond(),
-                                            F32,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb50a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      // VCMP{<c>}{<q>}.F32 <Sd>, #0.0 ; T2
-                                      vcmp(CurrentCond(),
-                                           F32,
-                                           SRegister(rd),
-                                           0.0);
-                                      if (((instr & 0xffbf0fff) !=
-                                           0xeeb50a40)) {
-                                        UnpredictableT32(instr);
-                                      }
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb50ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      // VCMPE{<c>}{<q>}.F32 <Sd>, #0.0 ; T2
-                                      vcmpe(CurrentCond(),
-                                            F32,
-                                            SRegister(rd),
-                                            0.0);
-                                      if (((instr & 0xffbf0fff) !=
-                                           0xeeb50ac0)) {
-                                        UnpredictableT32(instr);
-                                      }
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00060000: {
-                                  // 0xeeb60a40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb60a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VRINTR{<c>}{<q>}.F32.F32 <Sd>, <Sm> ; T1 NOLINT(whitespace/line_length)
-                                      vrintr(CurrentCond(),
-                                             F32,
-                                             F32,
-                                             SRegister(rd),
-                                             SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb60ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VRINTZ{<c>}{<q>}.F32.F32 <Sd>, <Sm> ; T1 NOLINT(whitespace/line_length)
-                                      vrintz(CurrentCond(),
-                                             F32,
-                                             F32,
-                                             SRegister(rd),
-                                             SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb70a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VRINTX{<c>}{<q>}.F32.F32 <Sd>, <Sm> ; T1 NOLINT(whitespace/line_length)
-                                      vrintx(CurrentCond(),
-                                             F32,
-                                             F32,
-                                             SRegister(rd),
-                                             SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb70ac0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVT{<c>}{<q>}.F64.F32 <Dd>, <Sm> ; T1
-                                      vcvt(CurrentCond(),
-                                           F64,
-                                           F32,
-                                           DRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00080000: {
-                                  // 0xeeb80a40
-                                  if ((instr & 0x00010000) == 0x00000000) {
-                                    DataType dt =
-                                        Dt_op_2_Decode((instr >> 7) & 0x1);
-                                    if (dt.Is(kDataTypeValueInvalid)) {
-                                      UnallocatedT32(instr);
-                                      return;
-                                    }
-                                    unsigned rd =
-                                        ExtractSRegister(instr, 22, 12);
-                                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                                    // VCVT{<c>}{<q>}.F32.<dt> <Sd>, <Sm> ; T1
-                                    vcvt(CurrentCond(),
-                                         F32,
-                                         dt,
-                                         SRegister(rd),
-                                         SRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000a0000: {
-                                  // 0xeeba0a40
-                                  DataType dt =
-                                      Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
-                                                       ((instr >> 15) & 0x2));
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned offset = 32;
-                                  if (dt.Is(S16) || dt.Is(U16)) {
-                                    offset = 16;
-                                  }
-                                  uint32_t fbits =
-                                      offset - (((instr >> 5) & 0x1) |
-                                                ((instr << 1) & 0x1e));
-                                  // VCVT{<c>}{<q>}.F32.<dt> <Sdm>, <Sdm>, #<fbits> ; T1 NOLINT(whitespace/line_length)
-                                  vcvt(CurrentCond(),
-                                       F32,
-                                       dt,
-                                       SRegister(rd),
-                                       SRegister(rd),
-                                       fbits);
-                                  break;
-                                }
-                                case 0x000c0000: {
-                                  // 0xeebc0a40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeebc0a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTR{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; T1
-                                      vcvtr(CurrentCond(),
-                                            U32,
-                                            F32,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeebc0ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVT{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; T1
-                                      vcvt(CurrentCond(),
-                                           U32,
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeebd0a40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTR{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; T1
-                                      vcvtr(CurrentCond(),
-                                            S32,
-                                            F32,
-                                            SRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeebd0ac0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVT{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; T1
-                                      vcvt(CurrentCond(),
-                                           S32,
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x000e0000: {
-                                  // 0xeebe0a40
-                                  DataType dt =
-                                      Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
-                                                       ((instr >> 15) & 0x2));
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned offset = 32;
-                                  if (dt.Is(S16) || dt.Is(U16)) {
-                                    offset = 16;
-                                  }
-                                  uint32_t fbits =
-                                      offset - (((instr >> 5) & 0x1) |
-                                                ((instr << 1) & 0x1e));
-                                  // VCVT{<c>}{<q>}.<dt>.F32 <Sdm>, <Sdm>, #<fbits> ; T1 NOLINT(whitespace/line_length)
-                                  vcvt(CurrentCond(),
-                                       dt,
-                                       F32,
-                                       SRegister(rd),
-                                       SRegister(rd),
-                                       fbits);
-                                  break;
-                                }
-                              }
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VMOV{<c>}{<q>}.F32 <Sd>, <Sm> ; T2
+                              vmov(CurrentCond(),
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
                               break;
                             }
-                            case 0x00b00100: {
-                              // 0xeeb00b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              uint32_t encoded_imm =
-                                  (instr & 0xf) | ((instr >> 12) & 0xf0);
-                              NeonImmediate imm =
-                                  ImmediateVFP::Decode<double>(encoded_imm);
-                              // VMOV{<c>}{<q>}.F64 <Dd>, #<imm> ; T2
-                              vmov(CurrentCond(), F64, DRegister(rd), imm);
-                              if (((instr & 0xffb00ff0) != 0xeeb00b00)) {
+                            case 0x00000080: {
+                              // 0xeeb00ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VABS{<c>}{<q>}.F32 <Sd>, <Sm> ; T2
+                              vabs(CurrentCond(),
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb10a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VNEG{<c>}{<q>}.F32 <Sd>, <Sm> ; T2
+                              vneg(CurrentCond(),
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeeb10ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VSQRT{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
+                              vsqrt(CurrentCond(),
+                                    F32,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x00020000: {
+                          // 0xeeb20a40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeeb20a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTB{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; T1
+                              vcvtb(CurrentCond(),
+                                    F32,
+                                    F16,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeeb20ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTT{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; T1
+                              vcvtt(CurrentCond(),
+                                    F32,
+                                    F16,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb30a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTB{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; T1
+                              vcvtb(CurrentCond(),
+                                    F16,
+                                    F32,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeeb30ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTT{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; T1
+                              vcvtt(CurrentCond(),
+                                    F16,
+                                    F32,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x00040000: {
+                          // 0xeeb40a40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeeb40a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCMP{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
+                              vcmp(CurrentCond(),
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeeb40ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCMPE{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
+                              vcmpe(CurrentCond(),
+                                    F32,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb50a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              // VCMP{<c>}{<q>}.F32 <Sd>, #0.0 ; T2
+                              vcmp(CurrentCond(), F32, SRegister(rd), 0.0);
+                              if (((instr & 0xffbf0fff) != 0xeeb50a40)) {
                                 UnpredictableT32(instr);
                               }
                               break;
                             }
-                            case 0x00b00140: {
-                              // 0xeeb00b40
-                              switch (instr & 0x000e0000) {
-                                case 0x00000000: {
-                                  // 0xeeb00b40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb00b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VMOV{<c>}{<q>}.F64 <Dd>, <Dm> ; T2
-                                      vmov(CurrentCond(),
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb00bc0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VABS{<c>}{<q>}.F64 <Dd>, <Dm> ; T2
-                                      vabs(CurrentCond(),
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb10b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VNEG{<c>}{<q>}.F64 <Dd>, <Dm> ; T2
-                                      vneg(CurrentCond(),
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb10bc0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VSQRT{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
-                                      vsqrt(CurrentCond(),
-                                            F64,
-                                            DRegister(rd),
-                                            DRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00020000: {
-                                  // 0xeeb20b40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb20b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTB{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; T1
-                                      vcvtb(CurrentCond(),
-                                            F64,
-                                            F16,
-                                            DRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb20bc0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractSRegister(instr, 5, 0);
-                                      // VCVTT{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; T1
-                                      vcvtt(CurrentCond(),
-                                            F64,
-                                            F16,
-                                            DRegister(rd),
-                                            SRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb30b40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVTB{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; T1
-                                      vcvtb(CurrentCond(),
-                                            F16,
-                                            F64,
-                                            SRegister(rd),
-                                            DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb30bc0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVTT{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; T1
-                                      vcvtt(CurrentCond(),
-                                            F16,
-                                            F64,
-                                            SRegister(rd),
-                                            DRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00040000: {
-                                  // 0xeeb40b40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb40b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCMP{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
-                                      vcmp(CurrentCond(),
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb40bc0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCMPE{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
-                                      vcmpe(CurrentCond(),
-                                            F64,
-                                            DRegister(rd),
-                                            DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb50b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      // VCMP{<c>}{<q>}.F64 <Dd>, #0.0 ; T2
-                                      vcmp(CurrentCond(),
-                                           F64,
-                                           DRegister(rd),
-                                           0.0);
-                                      if (((instr & 0xffbf0fff) !=
-                                           0xeeb50b40)) {
-                                        UnpredictableT32(instr);
-                                      }
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb50bc0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      // VCMPE{<c>}{<q>}.F64 <Dd>, #0.0 ; T2
-                                      vcmpe(CurrentCond(),
-                                            F64,
-                                            DRegister(rd),
-                                            0.0);
-                                      if (((instr & 0xffbf0fff) !=
-                                           0xeeb50bc0)) {
-                                        UnpredictableT32(instr);
-                                      }
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00060000: {
-                                  // 0xeeb60b40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeeb60b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VRINTR{<c>}{<q>}.F64.F64 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                      vrintr(CurrentCond(),
-                                             F64,
-                                             F64,
-                                             DRegister(rd),
-                                             DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeeb60bc0
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VRINTZ{<c>}{<q>}.F64.F64 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                      vrintz(CurrentCond(),
-                                             F64,
-                                             F64,
-                                             DRegister(rd),
-                                             DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeeb70b40
-                                      unsigned rd =
-                                          ExtractDRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VRINTX{<c>}{<q>}.F64.F64 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                      vrintx(CurrentCond(),
-                                             F64,
-                                             F64,
-                                             DRegister(rd),
-                                             DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeeb70bc0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVT{<c>}{<q>}.F32.F64 <Sd>, <Dm> ; T1
-                                      vcvt(CurrentCond(),
-                                           F32,
-                                           F64,
-                                           SRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x00080000: {
-                                  // 0xeeb80b40
-                                  if ((instr & 0x00010000) == 0x00000000) {
-                                    DataType dt =
-                                        Dt_op_2_Decode((instr >> 7) & 0x1);
-                                    if (dt.Is(kDataTypeValueInvalid)) {
-                                      UnallocatedT32(instr);
-                                      return;
-                                    }
-                                    unsigned rd =
-                                        ExtractDRegister(instr, 22, 12);
-                                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                                    // VCVT{<c>}{<q>}.F64.<dt> <Dd>, <Sm> ; T1
-                                    vcvt(CurrentCond(),
-                                         F64,
-                                         dt,
-                                         DRegister(rd),
-                                         SRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000a0000: {
-                                  // 0xeeba0b40
-                                  DataType dt =
-                                      Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
-                                                       ((instr >> 15) & 0x2));
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned offset = 32;
-                                  if (dt.Is(S16) || dt.Is(U16)) {
-                                    offset = 16;
-                                  }
-                                  uint32_t fbits =
-                                      offset - (((instr >> 5) & 0x1) |
-                                                ((instr << 1) & 0x1e));
-                                  // VCVT{<c>}{<q>}.F64.<dt> <Ddm>, <Ddm>, #<fbits> ; T1 NOLINT(whitespace/line_length)
-                                  vcvt(CurrentCond(),
-                                       F64,
-                                       dt,
-                                       DRegister(rd),
-                                       DRegister(rd),
-                                       fbits);
-                                  break;
-                                }
-                                case 0x000c0000: {
-                                  // 0xeebc0b40
-                                  switch (instr & 0x00010080) {
-                                    case 0x00000000: {
-                                      // 0xeebc0b40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVTR{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; T1
-                                      vcvtr(CurrentCond(),
-                                            U32,
-                                            F64,
-                                            SRegister(rd),
-                                            DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00000080: {
-                                      // 0xeebc0bc0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVT{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; T1
-                                      vcvt(CurrentCond(),
-                                           U32,
-                                           F64,
-                                           SRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010000: {
-                                      // 0xeebd0b40
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVTR{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; T1
-                                      vcvtr(CurrentCond(),
-                                            S32,
-                                            F64,
-                                            SRegister(rd),
-                                            DRegister(rm));
-                                      break;
-                                    }
-                                    case 0x00010080: {
-                                      // 0xeebd0bc0
-                                      unsigned rd =
-                                          ExtractSRegister(instr, 22, 12);
-                                      unsigned rm =
-                                          ExtractDRegister(instr, 5, 0);
-                                      // VCVT{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; T1
-                                      vcvt(CurrentCond(),
-                                           S32,
-                                           F64,
-                                           SRegister(rd),
-                                           DRegister(rm));
-                                      break;
-                                    }
-                                  }
-                                  break;
-                                }
-                                case 0x000e0000: {
-                                  // 0xeebe0b40
-                                  DataType dt =
-                                      Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
-                                                       ((instr >> 15) & 0x2));
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned offset = 32;
-                                  if (dt.Is(S16) || dt.Is(U16)) {
-                                    offset = 16;
-                                  }
-                                  uint32_t fbits =
-                                      offset - (((instr >> 5) & 0x1) |
-                                                ((instr << 1) & 0x1e));
-                                  // VCVT{<c>}{<q>}.<dt>.F64 <Ddm>, <Ddm>, #<fbits> ; T1 NOLINT(whitespace/line_length)
-                                  vcvt(CurrentCond(),
-                                       dt,
-                                       F64,
-                                       DRegister(rd),
-                                       DRegister(rd),
-                                       fbits);
-                                  break;
-                                }
+                            case 0x00010080: {
+                              // 0xeeb50ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              // VCMPE{<c>}{<q>}.F32 <Sd>, #0.0 ; T2
+                              vcmpe(CurrentCond(), F32, SRegister(rd), 0.0);
+                              if (((instr & 0xffbf0fff) != 0xeeb50ac0)) {
+                                UnpredictableT32(instr);
                               }
                               break;
                             }
-                            default:
-                              UnallocatedT32(instr);
-                              break;
                           }
                           break;
                         }
-                        default: {
-                          if (((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("CDP", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    case 0x10000000: {
-                      // 0xfe000000
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xfe000a00
-                          switch (instr & 0x00b00140) {
+                        case 0x00060000: {
+                          // 0xeeb60a40
+                          switch (instr & 0x00010080) {
                             case 0x00000000: {
-                              // 0xfe000a00
+                              // 0xeeb60a40
                               unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
                               unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VSELEQ.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vseleq(F32,
+                              // VRINTR{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
+                              vrintr(CurrentCond(),
+                                     F32,
                                      SRegister(rd),
-                                     SRegister(rn),
                                      SRegister(rm));
                               break;
                             }
-                            case 0x00000100: {
-                              // 0xfe000b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VSELEQ.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vseleq(F64,
-                                     DRegister(rd),
-                                     DRegister(rn),
-                                     DRegister(rm));
-                              break;
-                            }
-                            case 0x00100000: {
-                              // 0xfe100a00
+                            case 0x00000080: {
+                              // 0xeeb60ac0
                               unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
                               unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VSELVS.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vselvs(F32,
+                              // VRINTZ{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
+                              vrintz(CurrentCond(),
+                                     F32,
                                      SRegister(rd),
-                                     SRegister(rn),
                                      SRegister(rm));
                               break;
                             }
-                            case 0x00100100: {
-                              // 0xfe100b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VSELVS.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vselvs(F64,
-                                     DRegister(rd),
-                                     DRegister(rn),
-                                     DRegister(rm));
-                              break;
-                            }
-                            case 0x00200000: {
-                              // 0xfe200a00
+                            case 0x00010000: {
+                              // 0xeeb70a40
                               unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
                               unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VSELGE.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vselge(F32,
+                              // VRINTX{<c>}{<q>}.F32 <Sd>, <Sm> ; T1
+                              vrintx(CurrentCond(),
+                                     F32,
                                      SRegister(rd),
-                                     SRegister(rn),
                                      SRegister(rm));
                               break;
                             }
-                            case 0x00200100: {
-                              // 0xfe200b00
+                            case 0x00010080: {
+                              // 0xeeb70ac0
                               unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VSELGE.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vselge(F64,
-                                     DRegister(rd),
-                                     DRegister(rn),
-                                     DRegister(rm));
-                              break;
-                            }
-                            case 0x00300000: {
-                              // 0xfe300a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
                               unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VSELGT.F32 <Sd>, <Sn>, <Sm> ; T1
-                              vselgt(F32,
-                                     SRegister(rd),
-                                     SRegister(rn),
-                                     SRegister(rm));
+                              // VCVT{<c>}{<q>}.F64.F32 <Dd>, <Sm> ; T1
+                              vcvt(CurrentCond(),
+                                   F64,
+                                   F32,
+                                   DRegister(rd),
+                                   SRegister(rm));
                               break;
                             }
-                            case 0x00300100: {
-                              // 0xfe300b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VSELGT.F64 <Dd>, <Dn>, <Dm> ; T1
-                              vselgt(F64,
-                                     DRegister(rd),
-                                     DRegister(rn),
-                                     DRegister(rm));
-                              break;
-                            }
-                            case 0x00800000: {
-                              // 0xfe800a00
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VMAXNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
-                              vmaxnm(F32,
-                                     SRegister(rd),
-                                     SRegister(rn),
-                                     SRegister(rm));
-                              break;
-                            }
-                            case 0x00800040: {
-                              // 0xfe800a40
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VMINNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
-                              vminnm(F32,
-                                     SRegister(rd),
-                                     SRegister(rn),
-                                     SRegister(rm));
-                              break;
-                            }
-                            case 0x00800100: {
-                              // 0xfe800b00
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VMAXNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
-                              vmaxnm(F64,
-                                     DRegister(rd),
-                                     DRegister(rn),
-                                     DRegister(rm));
-                              break;
-                            }
-                            case 0x00800140: {
-                              // 0xfe800b40
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              unsigned rm = ExtractDRegister(instr, 5, 0);
-                              // VMINNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
-                              vminnm(F64,
-                                     DRegister(rd),
-                                     DRegister(rn),
-                                     DRegister(rm));
-                              break;
-                            }
-                            case 0x00b00040: {
-                              // 0xfeb00a40
-                              switch (instr & 0x000f0000) {
-                                case 0x00080000: {
-                                  // 0xfeb80a40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractSRegister(instr, 22, 12);
-                                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                                    // VRINTA{<q>}.F32.F32 <Sd>, <Sm> ; T1
-                                    vrinta(F32,
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x00090000: {
-                                  // 0xfeb90a40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractSRegister(instr, 22, 12);
-                                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                                    // VRINTN{<q>}.F32.F32 <Sd>, <Sm> ; T1
-                                    vrintn(F32,
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000a0000: {
-                                  // 0xfeba0a40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractSRegister(instr, 22, 12);
-                                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                                    // VRINTP{<q>}.F32.F32 <Sd>, <Sm> ; T1
-                                    vrintp(F32,
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000b0000: {
-                                  // 0xfebb0a40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractSRegister(instr, 22, 12);
-                                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                                    // VRINTM{<q>}.F32.F32 <Sd>, <Sm> ; T1
-                                    vrintm(F32,
-                                           F32,
-                                           SRegister(rd),
-                                           SRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000c0000: {
-                                  // 0xfebc0a40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractSRegister(instr, 5, 0);
-                                  // VCVTA{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
-                                  vcvta(dt, F32, SRegister(rd), SRegister(rm));
-                                  break;
-                                }
-                                case 0x000d0000: {
-                                  // 0xfebd0a40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractSRegister(instr, 5, 0);
-                                  // VCVTN{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
-                                  vcvtn(dt, F32, SRegister(rd), SRegister(rm));
-                                  break;
-                                }
-                                case 0x000e0000: {
-                                  // 0xfebe0a40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractSRegister(instr, 5, 0);
-                                  // VCVTP{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
-                                  vcvtp(dt, F32, SRegister(rd), SRegister(rm));
-                                  break;
-                                }
-                                case 0x000f0000: {
-                                  // 0xfebf0a40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractSRegister(instr, 5, 0);
-                                  // VCVTM{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
-                                  vcvtm(dt, F32, SRegister(rd), SRegister(rm));
-                                  break;
-                                }
-                                default:
-                                  UnallocatedT32(instr);
-                                  break;
-                              }
-                              break;
-                            }
-                            case 0x00b00140: {
-                              // 0xfeb00b40
-                              switch (instr & 0x000f0000) {
-                                case 0x00080000: {
-                                  // 0xfeb80b40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractDRegister(instr, 22, 12);
-                                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                                    // VRINTA{<q>}.F64.F64 <Dd>, <Dm> ; T1
-                                    vrinta(F64,
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x00090000: {
-                                  // 0xfeb90b40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractDRegister(instr, 22, 12);
-                                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                                    // VRINTN{<q>}.F64.F64 <Dd>, <Dm> ; T1
-                                    vrintn(F64,
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000a0000: {
-                                  // 0xfeba0b40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractDRegister(instr, 22, 12);
-                                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                                    // VRINTP{<q>}.F64.F64 <Dd>, <Dm> ; T1
-                                    vrintp(F64,
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000b0000: {
-                                  // 0xfebb0b40
-                                  if ((instr & 0x00000080) == 0x00000000) {
-                                    unsigned rd =
-                                        ExtractDRegister(instr, 22, 12);
-                                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                                    // VRINTM{<q>}.F64.F64 <Dd>, <Dm> ; T1
-                                    vrintm(F64,
-                                           F64,
-                                           DRegister(rd),
-                                           DRegister(rm));
-                                  } else {
-                                    UnallocatedT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x000c0000: {
-                                  // 0xfebc0b40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VCVTA{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
-                                  vcvta(dt, F64, SRegister(rd), DRegister(rm));
-                                  break;
-                                }
-                                case 0x000d0000: {
-                                  // 0xfebd0b40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VCVTN{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
-                                  vcvtn(dt, F64, SRegister(rd), DRegister(rm));
-                                  break;
-                                }
-                                case 0x000e0000: {
-                                  // 0xfebe0b40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VCVTP{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
-                                  vcvtp(dt, F64, SRegister(rd), DRegister(rm));
-                                  break;
-                                }
-                                case 0x000f0000: {
-                                  // 0xfebf0b40
-                                  DataType dt =
-                                      Dt_op_2_Decode((instr >> 7) & 0x1);
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractSRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VCVTM{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
-                                  vcvtm(dt, F64, SRegister(rd), DRegister(rm));
-                                  break;
-                                }
-                                default:
-                                  UnallocatedT32(instr);
-                                  break;
-                              }
-                              break;
-                            }
-                            default:
-                              UnallocatedT32(instr);
-                              break;
                           }
                           break;
                         }
-                        default: {
-                          if (((instr & 0xe00) == 0xa00)) {
+                        case 0x00080000: {
+                          // 0xeeb80a40
+                          if ((instr & 0x00010000) == 0x00000000) {
+                            DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                            if (dt.Is(kDataTypeValueInvalid)) {
+                              UnallocatedT32(instr);
+                              return;
+                            }
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.F32.<dt> <Sd>, <Sm> ; T1
+                            vcvt(CurrentCond(),
+                                 F32,
+                                 dt,
+                                 SRegister(rd),
+                                 SRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000a0000: {
+                          // 0xeeba0a40
+                          DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                         ((instr >> 15) & 0x2));
+                          if (dt.Is(kDataTypeValueInvalid)) {
                             UnallocatedT32(instr);
                             return;
                           }
-                          UnimplementedT32_32("CDP2", instr);
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned offset = 32;
+                          if (dt.Is(S16) || dt.Is(U16)) {
+                            offset = 16;
+                          }
+                          uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                     ((instr << 1) & 0x1e));
+                          // VCVT{<c>}{<q>}.F32.<dt> <Sdm>, <Sdm>, #<fbits> ; T1
+                          vcvt(CurrentCond(),
+                               F32,
+                               dt,
+                               SRegister(rd),
+                               SRegister(rd),
+                               fbits);
+                          break;
+                        }
+                        case 0x000c0000: {
+                          // 0xeebc0a40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeebc0a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTR{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; T1
+                              vcvtr(CurrentCond(),
+                                    U32,
+                                    F32,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeebc0ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVT{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; T1
+                              vcvt(CurrentCond(),
+                                   U32,
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeebd0a40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTR{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; T1
+                              vcvtr(CurrentCond(),
+                                    S32,
+                                    F32,
+                                    SRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeebd0ac0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVT{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; T1
+                              vcvt(CurrentCond(),
+                                   S32,
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x000e0000: {
+                          // 0xeebe0a40
+                          DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                         ((instr >> 15) & 0x2));
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned offset = 32;
+                          if (dt.Is(S16) || dt.Is(U16)) {
+                            offset = 16;
+                          }
+                          uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                     ((instr << 1) & 0x1e));
+                          // VCVT{<c>}{<q>}.<dt>.F32 <Sdm>, <Sdm>, #<fbits> ; T1
+                          vcvt(CurrentCond(),
+                               dt,
+                               F32,
+                               SRegister(rd),
+                               SRegister(rd),
+                               fbits);
                           break;
                         }
                       }
                       break;
                     }
+                    case 0x00b00b00: {
+                      // 0xeeb00b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      uint32_t encoded_imm =
+                          (instr & 0xf) | ((instr >> 12) & 0xf0);
+                      NeonImmediate imm =
+                          ImmediateVFP::Decode<double>(encoded_imm);
+                      // VMOV{<c>}{<q>}.F64 <Dd>, #<imm> ; T2
+                      vmov(CurrentCond(), F64, DRegister(rd), imm);
+                      if (((instr & 0xffb00ff0) != 0xeeb00b00)) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x00b00b40: {
+                      // 0xeeb00b40
+                      switch (instr & 0x000e0000) {
+                        case 0x00000000: {
+                          // 0xeeb00b40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeeb00b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VMOV{<c>}{<q>}.F64 <Dd>, <Dm> ; T2
+                              vmov(CurrentCond(),
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeeb00bc0
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VABS{<c>}{<q>}.F64 <Dd>, <Dm> ; T2
+                              vabs(CurrentCond(),
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb10b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VNEG{<c>}{<q>}.F64 <Dd>, <Dm> ; T2
+                              vneg(CurrentCond(),
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeeb10bc0
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VSQRT{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
+                              vsqrt(CurrentCond(),
+                                    F64,
+                                    DRegister(rd),
+                                    DRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x00020000: {
+                          // 0xeeb20b40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeeb20b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTB{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; T1
+                              vcvtb(CurrentCond(),
+                                    F64,
+                                    F16,
+                                    DRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeeb20bc0
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractSRegister(instr, 5, 0);
+                              // VCVTT{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; T1
+                              vcvtt(CurrentCond(),
+                                    F64,
+                                    F16,
+                                    DRegister(rd),
+                                    SRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb30b40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVTB{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; T1
+                              vcvtb(CurrentCond(),
+                                    F16,
+                                    F64,
+                                    SRegister(rd),
+                                    DRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeeb30bc0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVTT{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; T1
+                              vcvtt(CurrentCond(),
+                                    F16,
+                                    F64,
+                                    SRegister(rd),
+                                    DRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x00040000: {
+                          // 0xeeb40b40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeeb40b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCMP{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
+                              vcmp(CurrentCond(),
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeeb40bc0
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCMPE{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
+                              vcmpe(CurrentCond(),
+                                    F64,
+                                    DRegister(rd),
+                                    DRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb50b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              // VCMP{<c>}{<q>}.F64 <Dd>, #0.0 ; T2
+                              vcmp(CurrentCond(), F64, DRegister(rd), 0.0);
+                              if (((instr & 0xffbf0fff) != 0xeeb50b40)) {
+                                UnpredictableT32(instr);
+                              }
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeeb50bc0
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              // VCMPE{<c>}{<q>}.F64 <Dd>, #0.0 ; T2
+                              vcmpe(CurrentCond(), F64, DRegister(rd), 0.0);
+                              if (((instr & 0xffbf0fff) != 0xeeb50bc0)) {
+                                UnpredictableT32(instr);
+                              }
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x00060000: {
+                          // 0xeeb60b40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeeb60b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VRINTR{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
+                              vrintr(CurrentCond(),
+                                     F64,
+                                     DRegister(rd),
+                                     DRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeeb60bc0
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VRINTZ{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
+                              vrintz(CurrentCond(),
+                                     F64,
+                                     DRegister(rd),
+                                     DRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeeb70b40
+                              unsigned rd = ExtractDRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VRINTX{<c>}{<q>}.F64 <Dd>, <Dm> ; T1
+                              vrintx(CurrentCond(),
+                                     F64,
+                                     DRegister(rd),
+                                     DRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeeb70bc0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVT{<c>}{<q>}.F32.F64 <Sd>, <Dm> ; T1
+                              vcvt(CurrentCond(),
+                                   F32,
+                                   F64,
+                                   SRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x00080000: {
+                          // 0xeeb80b40
+                          if ((instr & 0x00010000) == 0x00000000) {
+                            DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                            if (dt.Is(kDataTypeValueInvalid)) {
+                              UnallocatedT32(instr);
+                              return;
+                            }
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.F64.<dt> <Dd>, <Sm> ; T1
+                            vcvt(CurrentCond(),
+                                 F64,
+                                 dt,
+                                 DRegister(rd),
+                                 SRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000a0000: {
+                          // 0xeeba0b40
+                          DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                         ((instr >> 15) & 0x2));
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractDRegister(instr, 22, 12);
+                          unsigned offset = 32;
+                          if (dt.Is(S16) || dt.Is(U16)) {
+                            offset = 16;
+                          }
+                          uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                     ((instr << 1) & 0x1e));
+                          // VCVT{<c>}{<q>}.F64.<dt> <Ddm>, <Ddm>, #<fbits> ; T1
+                          vcvt(CurrentCond(),
+                               F64,
+                               dt,
+                               DRegister(rd),
+                               DRegister(rd),
+                               fbits);
+                          break;
+                        }
+                        case 0x000c0000: {
+                          // 0xeebc0b40
+                          switch (instr & 0x00010080) {
+                            case 0x00000000: {
+                              // 0xeebc0b40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVTR{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; T1
+                              vcvtr(CurrentCond(),
+                                    U32,
+                                    F64,
+                                    SRegister(rd),
+                                    DRegister(rm));
+                              break;
+                            }
+                            case 0x00000080: {
+                              // 0xeebc0bc0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVT{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; T1
+                              vcvt(CurrentCond(),
+                                   U32,
+                                   F64,
+                                   SRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                            case 0x00010000: {
+                              // 0xeebd0b40
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVTR{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; T1
+                              vcvtr(CurrentCond(),
+                                    S32,
+                                    F64,
+                                    SRegister(rd),
+                                    DRegister(rm));
+                              break;
+                            }
+                            case 0x00010080: {
+                              // 0xeebd0bc0
+                              unsigned rd = ExtractSRegister(instr, 22, 12);
+                              unsigned rm = ExtractDRegister(instr, 5, 0);
+                              // VCVT{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; T1
+                              vcvt(CurrentCond(),
+                                   S32,
+                                   F64,
+                                   SRegister(rd),
+                                   DRegister(rm));
+                              break;
+                            }
+                          }
+                          break;
+                        }
+                        case 0x000e0000: {
+                          // 0xeebe0b40
+                          DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                         ((instr >> 15) & 0x2));
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractDRegister(instr, 22, 12);
+                          unsigned offset = 32;
+                          if (dt.Is(S16) || dt.Is(U16)) {
+                            offset = 16;
+                          }
+                          uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                     ((instr << 1) & 0x1e));
+                          // VCVT{<c>}{<q>}.<dt>.F64 <Ddm>, <Ddm>, #<fbits> ; T1
+                          vcvt(CurrentCond(),
+                               dt,
+                               F64,
+                               DRegister(rd),
+                               DRegister(rd),
+                               fbits);
+                          break;
+                        }
+                      }
+                      break;
+                    }
+                    case 0x10000a00: {
+                      // 0xfe000a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VSELEQ.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vseleq(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10000b00: {
+                      // 0xfe000b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VSELEQ.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vseleq(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10100a00: {
+                      // 0xfe100a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VSELVS.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vselvs(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10100b00: {
+                      // 0xfe100b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VSELVS.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vselvs(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10200a00: {
+                      // 0xfe200a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VSELGE.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vselge(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10200b00: {
+                      // 0xfe200b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VSELGE.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vselge(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10300a00: {
+                      // 0xfe300a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VSELGT.F32 <Sd>, <Sn>, <Sm> ; T1
+                      vselgt(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10300b00: {
+                      // 0xfe300b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VSELGT.F64 <Dd>, <Dn>, <Dm> ; T1
+                      vselgt(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10800a00: {
+                      // 0xfe800a00
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VMAXNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
+                      vmaxnm(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10800a40: {
+                      // 0xfe800a40
+                      unsigned rd = ExtractSRegister(instr, 22, 12);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rm = ExtractSRegister(instr, 5, 0);
+                      // VMINNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; T2
+                      vminnm(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10800b00: {
+                      // 0xfe800b00
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VMAXNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
+                      vmaxnm(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10800b40: {
+                      // 0xfe800b40
+                      unsigned rd = ExtractDRegister(instr, 22, 12);
+                      unsigned rn = ExtractDRegister(instr, 7, 16);
+                      unsigned rm = ExtractDRegister(instr, 5, 0);
+                      // VMINNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; T2
+                      vminnm(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+                      if (InITBlock()) {
+                        UnpredictableT32(instr);
+                      }
+                      break;
+                    }
+                    case 0x10b00a40: {
+                      // 0xfeb00a40
+                      switch (instr & 0x000f0000) {
+                        case 0x00080000: {
+                          // 0xfeb80a40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTA{<q>}.F32 <Sd>, <Sm> ; T1
+                            vrinta(F32, SRegister(rd), SRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x00090000: {
+                          // 0xfeb90a40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTN{<q>}.F32 <Sd>, <Sm> ; T1
+                            vrintn(F32, SRegister(rd), SRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000a0000: {
+                          // 0xfeba0a40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTP{<q>}.F32 <Sd>, <Sm> ; T1
+                            vrintp(F32, SRegister(rd), SRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000b0000: {
+                          // 0xfebb0a40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTM{<q>}.F32 <Sd>, <Sm> ; T1
+                            vrintm(F32, SRegister(rd), SRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000c0000: {
+                          // 0xfebc0a40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractSRegister(instr, 5, 0);
+                          // VCVTA{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
+                          vcvta(dt, F32, SRegister(rd), SRegister(rm));
+                          break;
+                        }
+                        case 0x000d0000: {
+                          // 0xfebd0a40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractSRegister(instr, 5, 0);
+                          // VCVTN{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
+                          vcvtn(dt, F32, SRegister(rd), SRegister(rm));
+                          break;
+                        }
+                        case 0x000e0000: {
+                          // 0xfebe0a40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractSRegister(instr, 5, 0);
+                          // VCVTP{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
+                          vcvtp(dt, F32, SRegister(rd), SRegister(rm));
+                          break;
+                        }
+                        case 0x000f0000: {
+                          // 0xfebf0a40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractSRegister(instr, 5, 0);
+                          // VCVTM{<q>}.<dt>.F32 <Sd>, <Sm> ; T1
+                          vcvtm(dt, F32, SRegister(rd), SRegister(rm));
+                          break;
+                        }
+                        default:
+                          UnallocatedT32(instr);
+                          break;
+                      }
+                      break;
+                    }
+                    case 0x10b00b40: {
+                      // 0xfeb00b40
+                      switch (instr & 0x000f0000) {
+                        case 0x00080000: {
+                          // 0xfeb80b40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTA{<q>}.F64 <Dd>, <Dm> ; T1
+                            vrinta(F64, DRegister(rd), DRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x00090000: {
+                          // 0xfeb90b40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTN{<q>}.F64 <Dd>, <Dm> ; T1
+                            vrintn(F64, DRegister(rd), DRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000a0000: {
+                          // 0xfeba0b40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTP{<q>}.F64 <Dd>, <Dm> ; T1
+                            vrintp(F64, DRegister(rd), DRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000b0000: {
+                          // 0xfebb0b40
+                          if ((instr & 0x00000080) == 0x00000000) {
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTM{<q>}.F64 <Dd>, <Dm> ; T1
+                            vrintm(F64, DRegister(rd), DRegister(rm));
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x000c0000: {
+                          // 0xfebc0b40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractDRegister(instr, 5, 0);
+                          // VCVTA{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
+                          vcvta(dt, F64, SRegister(rd), DRegister(rm));
+                          break;
+                        }
+                        case 0x000d0000: {
+                          // 0xfebd0b40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractDRegister(instr, 5, 0);
+                          // VCVTN{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
+                          vcvtn(dt, F64, SRegister(rd), DRegister(rm));
+                          break;
+                        }
+                        case 0x000e0000: {
+                          // 0xfebe0b40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractDRegister(instr, 5, 0);
+                          // VCVTP{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
+                          vcvtp(dt, F64, SRegister(rd), DRegister(rm));
+                          break;
+                        }
+                        case 0x000f0000: {
+                          // 0xfebf0b40
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractDRegister(instr, 5, 0);
+                          // VCVTM{<q>}.<dt>.F64 <Sd>, <Dm> ; T1
+                          vcvtm(dt, F64, SRegister(rd), DRegister(rm));
+                          break;
+                        }
+                        default:
+                          UnallocatedT32(instr);
+                          break;
+                      }
+                      break;
+                    }
+                    default:
+                      UnallocatedT32(instr);
+                      break;
                   }
                   break;
                 }
                 case 0x00000010: {
                   // 0xee000010
-                  switch (instr & 0x10100000) {
-                    case 0x00000000: {
-                      // 0xee000010
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
+                  switch (instr & 0x10100e00) {
+                    case 0x00000a00: {
+                      // 0xee000a10
+                      switch (instr & 0x00800100) {
+                        case 0x00000000: {
                           // 0xee000a10
-                          switch (instr & 0x00800100) {
-                            case 0x00000000: {
-                              // 0xee000a10
-                              if ((instr & 0x00600000) == 0x00000000) {
-                                unsigned rn = ExtractSRegister(instr, 7, 16);
-                                unsigned rt = (instr >> 12) & 0xf;
-                                // VMOV{<c>}{<q>} <Sn>, <Rt> ; T1
-                                vmov(CurrentCond(),
-                                     SRegister(rn),
+                          if ((instr & 0x00600000) == 0x00000000) {
+                            unsigned rn = ExtractSRegister(instr, 7, 16);
+                            unsigned rt = (instr >> 12) & 0xf;
+                            // VMOV{<c>}{<q>} <Sn>, <Rt> ; T1
+                            vmov(CurrentCond(), SRegister(rn), Register(rt));
+                            if (((instr & 0xfff00f7f) != 0xee000a10)) {
+                              UnpredictableT32(instr);
+                            }
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x00000100: {
+                          // 0xee000b10
+                          unsigned lane;
+                          DataType dt =
+                              Dt_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
+                                                        ((instr >> 19) & 0xc),
+                                                    &lane);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedT32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractDRegister(instr, 7, 16);
+                          unsigned rt = (instr >> 12) & 0xf;
+                          // VMOV{<c>}{<q>}{.<size>} <Dd[x]>, <Rt> ; T1
+                          vmov(CurrentCond(),
+                               dt,
+                               DRegisterLane(rd, lane),
+                               Register(rt));
+                          if (((instr & 0xff900f1f) != 0xee000b10)) {
+                            UnpredictableT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x00800000: {
+                          // 0xee800a10
+                          if ((instr & 0x00600000) == 0x00600000) {
+                            unsigned spec_reg = (instr >> 16) & 0xf;
+                            unsigned rt = (instr >> 12) & 0xf;
+                            switch (spec_reg) {
+                              case 0x0:
+                              case 0x1:
+                              case 0x8: {
+                                // VMSR{<c>}{<q>} <spec_reg>, <Rt> ; T1
+                                vmsr(CurrentCond(),
+                                     SpecialFPRegister(spec_reg),
                                      Register(rt));
-                                if (((instr & 0xfff00f7f) != 0xee000a10)) {
+                                if (((instr & 0xfff00fff) != 0xeee00a10)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                UnallocatedT32(instr);
+                                break;
                               }
-                              break;
+                              default:
+                                UnallocatedT32(instr);
+                                break;
                             }
-                            case 0x00000100: {
-                              // 0xee000b10
-                              unsigned lane;
-                              DataType dt =
-                                  Dt_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
-                                                            ((instr >> 19) &
-                                                             0xc),
-                                                        &lane);
+                          } else {
+                            UnallocatedT32(instr);
+                          }
+                          break;
+                        }
+                        case 0x00800100: {
+                          // 0xee800b10
+                          switch (instr & 0x00200040) {
+                            case 0x00000000: {
+                              // 0xee800b10
+                              DataType dt = Dt_B_E_1_Decode(
+                                  ((instr >> 5) & 0x1) | ((instr >> 21) & 0x2));
                               if (dt.Is(kDataTypeValueInvalid)) {
                                 UnallocatedT32(instr);
                                 return;
                               }
                               unsigned rd = ExtractDRegister(instr, 7, 16);
                               unsigned rt = (instr >> 12) & 0xf;
-                              // VMOV{<c>}{<q>}{.<size>} <Dd[x]>, <Rt> ; T1
-                              vmov(CurrentCond(),
+                              // VDUP{<c>}{<q>}.<dt> <Dd>, <Rt> ; T1
+                              vdup(CurrentCond(),
                                    dt,
-                                   DRegisterLane(rd, lane),
+                                   DRegister(rd),
                                    Register(rt));
-                              if (((instr & 0xff900f1f) != 0xee000b10)) {
+                              if (((instr & 0xffb00f5f) != 0xee800b10)) {
                                 UnpredictableT32(instr);
                               }
                               break;
                             }
-                            case 0x00800000: {
-                              // 0xee800a10
-                              if ((instr & 0x00600000) == 0x00600000) {
-                                unsigned spec_reg = (instr >> 16) & 0xf;
-                                unsigned rt = (instr >> 12) & 0xf;
-                                switch (spec_reg) {
-                                  case 0x0:
-                                  case 0x1:
-                                  case 0x8: {
-                                    // VMSR{<c>}{<q>} <spec_reg>, <Rt> ; T1
-                                    vmsr(CurrentCond(),
-                                         SpecialFPRegister(spec_reg),
-                                         Register(rt));
-                                    if (((instr & 0xfff00fff) != 0xeee00a10)) {
-                                      UnpredictableT32(instr);
-                                    }
-                                    break;
-                                  }
-                                  default:
-                                    UnallocatedT32(instr);
-                                    break;
-                                }
-                              } else {
-                                UnallocatedT32(instr);
-                              }
-                              break;
-                            }
-                            case 0x00800100: {
-                              // 0xee800b10
-                              switch (instr & 0x00200040) {
-                                case 0x00000000: {
-                                  // 0xee800b10
-                                  DataType dt =
-                                      Dt_B_E_1_Decode(((instr >> 5) & 0x1) |
-                                                      ((instr >> 21) & 0x2));
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractDRegister(instr, 7, 16);
-                                  unsigned rt = (instr >> 12) & 0xf;
-                                  // VDUP{<c>}{<q>}.<dt> <Dd>, <Rt> ; T1
-                                  vdup(CurrentCond(),
-                                       dt,
-                                       DRegister(rd),
-                                       Register(rt));
-                                  if (((instr & 0xffb00f5f) != 0xee800b10)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x00200000: {
-                                  // 0xeea00b10
-                                  DataType dt =
-                                      Dt_B_E_1_Decode(((instr >> 5) & 0x1) |
-                                                      ((instr >> 21) & 0x2));
-                                  if (dt.Is(kDataTypeValueInvalid)) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  if (((instr >> 16) & 1) != 0) {
-                                    UnallocatedT32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractQRegister(instr, 7, 16);
-                                  unsigned rt = (instr >> 12) & 0xf;
-                                  // VDUP{<c>}{<q>}.<dt> <Qd>, <Rt> ; T1
-                                  vdup(CurrentCond(),
-                                       dt,
-                                       QRegister(rd),
-                                       Register(rt));
-                                  if (((instr & 0xffb00f5f) != 0xeea00b10)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                                default:
-                                  UnallocatedT32(instr);
-                                  break;
-                              }
-                              break;
-                            }
-                          }
-                          break;
-                        }
-                        default: {
-                          if (((instr & 0xe00) == 0xa00)) {
-                            UnallocatedT32(instr);
-                            return;
-                          }
-                          UnimplementedT32_32("MCR", instr);
-                          break;
-                        }
-                      }
-                      break;
-                    }
-                    case 0x00100000: {
-                      // 0xee100010
-                      switch (instr & 0x00000e00) {
-                        case 0x00000a00: {
-                          // 0xee100a10
-                          switch (instr & 0x00000100) {
-                            case 0x00000000: {
-                              // 0xee100a10
-                              switch (instr & 0x00e00000) {
-                                case 0x00000000: {
-                                  // 0xee100a10
-                                  unsigned rt = (instr >> 12) & 0xf;
-                                  unsigned rn = ExtractSRegister(instr, 7, 16);
-                                  // VMOV{<c>}{<q>} <Rt>, <Sn> ; T1
-                                  vmov(CurrentCond(),
-                                       Register(rt),
-                                       SRegister(rn));
-                                  if (((instr & 0xfff00f7f) != 0xee100a10)) {
-                                    UnpredictableT32(instr);
-                                  }
-                                  break;
-                                }
-                                case 0x00e00000: {
-                                  // 0xeef00a10
-                                  unsigned rt = (instr >> 12) & 0xf;
-                                  unsigned spec_reg = (instr >> 16) & 0xf;
-                                  switch (spec_reg) {
-                                    case 0x0:
-                                    case 0x1:
-                                    case 0x5:
-                                    case 0x6:
-                                    case 0x7:
-                                    case 0x8: {
-                                      // VMRS{<c>}{<q>} <Rt>, <spec_reg> ; T1
-                                      vmrs(CurrentCond(),
-                                           RegisterOrAPSR_nzcv(rt),
-                                           SpecialFPRegister(spec_reg));
-                                      if (((instr & 0xfff00fff) !=
-                                           0xeef00a10)) {
-                                        UnpredictableT32(instr);
-                                      }
-                                      break;
-                                    }
-                                    default:
-                                      UnallocatedT32(instr);
-                                      break;
-                                  }
-                                  break;
-                                }
-                                default:
-                                  UnallocatedT32(instr);
-                                  break;
-                              }
-                              break;
-                            }
-                            case 0x00000100: {
-                              // 0xee100b10
-                              unsigned lane;
-                              DataType dt =
-                                  Dt_U_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
-                                                              ((instr >> 19) &
-                                                               0xc) |
-                                                              ((instr >> 19) &
-                                                               0x10),
-                                                          &lane);
+                            case 0x00200000: {
+                              // 0xeea00b10
+                              DataType dt = Dt_B_E_1_Decode(
+                                  ((instr >> 5) & 0x1) | ((instr >> 21) & 0x2));
                               if (dt.Is(kDataTypeValueInvalid)) {
                                 UnallocatedT32(instr);
                                 return;
                               }
+                              if (((instr >> 16) & 1) != 0) {
+                                UnallocatedT32(instr);
+                                return;
+                              }
+                              unsigned rd = ExtractQRegister(instr, 7, 16);
                               unsigned rt = (instr >> 12) & 0xf;
-                              unsigned rn = ExtractDRegister(instr, 7, 16);
-                              // VMOV{<c>}{<q>}{.<dt>} <Rt>, <Dn[x]> ; T1
-                              vmov(CurrentCond(),
+                              // VDUP{<c>}{<q>}.<dt> <Qd>, <Rt> ; T1
+                              vdup(CurrentCond(),
                                    dt,
-                                   Register(rt),
-                                   DRegisterLane(rn, lane));
-                              if (((instr & 0xff100f1f) != 0xee100b10)) {
+                                   QRegister(rd),
+                                   Register(rt));
+                              if (((instr & 0xffb00f5f) != 0xeea00b10)) {
                                 UnpredictableT32(instr);
                               }
                               break;
                             }
+                            default:
+                              UnallocatedT32(instr);
+                              break;
                           }
                           break;
                         }
-                        default: {
-                          if (((instr & 0xe00) == 0xa00)) {
+                      }
+                      break;
+                    }
+                    case 0x00000e00: {
+                      // 0xee000e10
+                      UnimplementedT32_32("MCR", instr);
+                      break;
+                    }
+                    case 0x00100a00: {
+                      // 0xee100a10
+                      switch (instr & 0x00000100) {
+                        case 0x00000000: {
+                          // 0xee100a10
+                          switch (instr & 0x00e00000) {
+                            case 0x00000000: {
+                              // 0xee100a10
+                              unsigned rt = (instr >> 12) & 0xf;
+                              unsigned rn = ExtractSRegister(instr, 7, 16);
+                              // VMOV{<c>}{<q>} <Rt>, <Sn> ; T1
+                              vmov(CurrentCond(), Register(rt), SRegister(rn));
+                              if (((instr & 0xfff00f7f) != 0xee100a10)) {
+                                UnpredictableT32(instr);
+                              }
+                              break;
+                            }
+                            case 0x00e00000: {
+                              // 0xeef00a10
+                              unsigned rt = (instr >> 12) & 0xf;
+                              unsigned spec_reg = (instr >> 16) & 0xf;
+                              switch (spec_reg) {
+                                case 0x0:
+                                case 0x1:
+                                case 0x5:
+                                case 0x6:
+                                case 0x7:
+                                case 0x8: {
+                                  // VMRS{<c>}{<q>} <Rt>, <spec_reg> ; T1
+                                  vmrs(CurrentCond(),
+                                       RegisterOrAPSR_nzcv(rt),
+                                       SpecialFPRegister(spec_reg));
+                                  if (((instr & 0xfff00fff) != 0xeef00a10)) {
+                                    UnpredictableT32(instr);
+                                  }
+                                  break;
+                                }
+                                default:
+                                  UnallocatedT32(instr);
+                                  break;
+                              }
+                              break;
+                            }
+                            default:
+                              UnallocatedT32(instr);
+                              break;
+                          }
+                          break;
+                        }
+                        case 0x00000100: {
+                          // 0xee100b10
+                          unsigned lane;
+                          DataType dt =
+                              Dt_U_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
+                                                          ((instr >> 19) &
+                                                           0xc) |
+                                                          ((instr >> 19) &
+                                                           0x10),
+                                                      &lane);
+                          if (dt.Is(kDataTypeValueInvalid)) {
                             UnallocatedT32(instr);
                             return;
                           }
-                          UnimplementedT32_32("MRC", instr);
+                          unsigned rt = (instr >> 12) & 0xf;
+                          unsigned rn = ExtractDRegister(instr, 7, 16);
+                          // VMOV{<c>}{<q>}{.<dt>} <Rt>, <Dn[x]> ; T1
+                          vmov(CurrentCond(),
+                               dt,
+                               Register(rt),
+                               DRegisterLane(rn, lane));
+                          if (((instr & 0xff100f1f) != 0xee100b10)) {
+                            UnpredictableT32(instr);
+                          }
                           break;
                         }
                       }
                       break;
                     }
-                    case 0x10000000: {
-                      // 0xfe000010
-                      if (((instr & 0xe00) == 0xa00)) {
-                        UnallocatedT32(instr);
-                        return;
-                      }
-                      UnimplementedT32_32("MCR2", instr);
+                    case 0x00100e00: {
+                      // 0xee100e10
+                      UnimplementedT32_32("MRC", instr);
                       break;
                     }
-                    case 0x10100000: {
-                      // 0xfe100010
-                      if (((instr & 0xe00) == 0xa00)) {
-                        UnallocatedT32(instr);
-                        return;
-                      }
-                      UnimplementedT32_32("MRC2", instr);
+                    default:
+                      UnallocatedT32(instr);
                       break;
-                    }
                   }
                   break;
                 }
@@ -27828,180 +27339,180 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                         }
                                         case 0x00000400: {
                                           // 0xffb20400
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            unsigned rd =
-                                                ExtractDRegister(instr, 22, 12);
-                                            unsigned rm =
-                                                ExtractDRegister(instr, 5, 0);
-                                            // VRINTN{<q>}.F32.F32 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                            vrintn(F32,
-                                                   F32,
-                                                   DRegister(rd),
-                                                   DRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          unsigned rd =
+                                              ExtractDRegister(instr, 22, 12);
+                                          unsigned rm =
+                                              ExtractDRegister(instr, 5, 0);
+                                          // VRINTN{<q>}.<dt> <Dd>, <Dm> ; T1
+                                          vrintn(dt,
+                                                 DRegister(rd),
+                                                 DRegister(rm));
                                           break;
                                         }
                                         case 0x00000440: {
                                           // 0xffb20440
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            if (((instr >> 12) & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rd =
-                                                ExtractQRegister(instr, 22, 12);
-                                            if ((instr & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rm =
-                                                ExtractQRegister(instr, 5, 0);
-                                            // VRINTN{<q>}.F32.F32 <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
-                                            vrintn(F32,
-                                                   F32,
-                                                   QRegister(rd),
-                                                   QRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          if (((instr >> 12) & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rd =
+                                              ExtractQRegister(instr, 22, 12);
+                                          if ((instr & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rm =
+                                              ExtractQRegister(instr, 5, 0);
+                                          // VRINTN{<q>}.<dt> <Qd>, <Qm> ; T1
+                                          vrintn(dt,
+                                                 QRegister(rd),
+                                                 QRegister(rm));
                                           break;
                                         }
                                         case 0x00000480: {
                                           // 0xffb20480
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            unsigned rd =
-                                                ExtractDRegister(instr, 22, 12);
-                                            unsigned rm =
-                                                ExtractDRegister(instr, 5, 0);
-                                            // VRINTX{<q>}.F32.F32 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                            vrintx(Condition::None(),
-                                                   F32,
-                                                   F32,
-                                                   DRegister(rd),
-                                                   DRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          unsigned rd =
+                                              ExtractDRegister(instr, 22, 12);
+                                          unsigned rm =
+                                              ExtractDRegister(instr, 5, 0);
+                                          // VRINTX{<q>}.<dt> <Dd>, <Dm> ; T1
+                                          vrintx(Condition::None(),
+                                                 dt,
+                                                 DRegister(rd),
+                                                 DRegister(rm));
                                           break;
                                         }
                                         case 0x000004c0: {
                                           // 0xffb204c0
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            if (((instr >> 12) & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rd =
-                                                ExtractQRegister(instr, 22, 12);
-                                            if ((instr & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rm =
-                                                ExtractQRegister(instr, 5, 0);
-                                            // VRINTX{<q>}.F32.F32 <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
-                                            vrintx(F32,
-                                                   F32,
-                                                   QRegister(rd),
-                                                   QRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          if (((instr >> 12) & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rd =
+                                              ExtractQRegister(instr, 22, 12);
+                                          if ((instr & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rm =
+                                              ExtractQRegister(instr, 5, 0);
+                                          // VRINTX{<q>}.<dt> <Qd>, <Qm> ; T1
+                                          vrintx(dt,
+                                                 QRegister(rd),
+                                                 QRegister(rm));
                                           break;
                                         }
                                         case 0x00000500: {
                                           // 0xffb20500
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            unsigned rd =
-                                                ExtractDRegister(instr, 22, 12);
-                                            unsigned rm =
-                                                ExtractDRegister(instr, 5, 0);
-                                            // VRINTA{<q>}.F32.F32 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                            vrinta(F32,
-                                                   F32,
-                                                   DRegister(rd),
-                                                   DRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          unsigned rd =
+                                              ExtractDRegister(instr, 22, 12);
+                                          unsigned rm =
+                                              ExtractDRegister(instr, 5, 0);
+                                          // VRINTA{<q>}.<dt> <Dd>, <Dm> ; T1
+                                          vrinta(dt,
+                                                 DRegister(rd),
+                                                 DRegister(rm));
                                           break;
                                         }
                                         case 0x00000540: {
                                           // 0xffb20540
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            if (((instr >> 12) & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rd =
-                                                ExtractQRegister(instr, 22, 12);
-                                            if ((instr & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rm =
-                                                ExtractQRegister(instr, 5, 0);
-                                            // VRINTA{<q>}.F32.F32 <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
-                                            vrinta(F32,
-                                                   F32,
-                                                   QRegister(rd),
-                                                   QRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          if (((instr >> 12) & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rd =
+                                              ExtractQRegister(instr, 22, 12);
+                                          if ((instr & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rm =
+                                              ExtractQRegister(instr, 5, 0);
+                                          // VRINTA{<q>}.<dt> <Qd>, <Qm> ; T1
+                                          vrinta(dt,
+                                                 QRegister(rd),
+                                                 QRegister(rm));
                                           break;
                                         }
                                         case 0x00000580: {
                                           // 0xffb20580
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            unsigned rd =
-                                                ExtractDRegister(instr, 22, 12);
-                                            unsigned rm =
-                                                ExtractDRegister(instr, 5, 0);
-                                            // VRINTZ{<q>}.F32.F32 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                            vrintz(Condition::None(),
-                                                   F32,
-                                                   F32,
-                                                   DRegister(rd),
-                                                   DRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          unsigned rd =
+                                              ExtractDRegister(instr, 22, 12);
+                                          unsigned rm =
+                                              ExtractDRegister(instr, 5, 0);
+                                          // VRINTZ{<q>}.<dt> <Dd>, <Dm> ; T1
+                                          vrintz(Condition::None(),
+                                                 dt,
+                                                 DRegister(rd),
+                                                 DRegister(rm));
                                           break;
                                         }
                                         case 0x000005c0: {
                                           // 0xffb205c0
-                                          if ((instr & 0x000c0000) ==
-                                              0x00080000) {
-                                            if (((instr >> 12) & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rd =
-                                                ExtractQRegister(instr, 22, 12);
-                                            if ((instr & 1) != 0) {
-                                              UnallocatedT32(instr);
-                                              return;
-                                            }
-                                            unsigned rm =
-                                                ExtractQRegister(instr, 5, 0);
-                                            // VRINTZ{<q>}.F32.F32 <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
-                                            vrintz(F32,
-                                                   F32,
-                                                   QRegister(rd),
-                                                   QRegister(rm));
-                                          } else {
+                                          DataType dt = Dt_size_16_Decode(
+                                              (instr >> 18) & 0x3);
+                                          if (dt.Is(kDataTypeValueInvalid)) {
                                             UnallocatedT32(instr);
+                                            return;
                                           }
+                                          if (((instr >> 12) & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rd =
+                                              ExtractQRegister(instr, 22, 12);
+                                          if ((instr & 1) != 0) {
+                                            UnallocatedT32(instr);
+                                            return;
+                                          }
+                                          unsigned rm =
+                                              ExtractQRegister(instr, 5, 0);
+                                          // VRINTZ{<q>}.<dt> <Qd>, <Qm> ; T1
+                                          vrintz(dt,
+                                                 QRegister(rd),
+                                                 QRegister(rm));
                                           break;
                                         }
                                       }
@@ -28096,7 +27607,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                           // 0xffb20300
                                           if ((instr & 0x00000040) ==
                                               0x00000000) {
-                                            DataType dt = Dt_size_16_Decode(
+                                            DataType dt = Dt_size_17_Decode(
                                                 (instr >> 18) & 0x3);
                                             if (dt.Is(kDataTypeValueInvalid)) {
                                               UnallocatedT32(instr);
@@ -28168,24 +27679,37 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                         }
                                         case 0x00000480: {
                                           // 0xffb20680
-                                          switch (instr & 0x000c0040) {
-                                            case 0x00080000: {
-                                              // 0xffba0680
+                                          switch (instr & 0x00000040) {
+                                            case 0x00000000: {
+                                              // 0xffb20680
+                                              DataType dt = Dt_size_16_Decode(
+                                                  (instr >> 18) & 0x3);
+                                              if (dt.Is(
+                                                      kDataTypeValueInvalid)) {
+                                                UnallocatedT32(instr);
+                                                return;
+                                              }
                                               unsigned rd =
                                                   ExtractDRegister(instr,
                                                                    22,
                                                                    12);
                                               unsigned rm =
                                                   ExtractDRegister(instr, 5, 0);
-                                              // VRINTM{<q>}.F32.F32 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                              vrintm(F32,
-                                                     F32,
+                                              // VRINTM{<q>}.<dt> <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
+                                              vrintm(dt,
                                                      DRegister(rd),
                                                      DRegister(rm));
                                               break;
                                             }
-                                            case 0x00080040: {
-                                              // 0xffba06c0
+                                            case 0x00000040: {
+                                              // 0xffb206c0
+                                              DataType dt = Dt_size_16_Decode(
+                                                  (instr >> 18) & 0x3);
+                                              if (dt.Is(
+                                                      kDataTypeValueInvalid)) {
+                                                UnallocatedT32(instr);
+                                                return;
+                                              }
                                               if (((instr >> 12) & 1) != 0) {
                                                 UnallocatedT32(instr);
                                                 return;
@@ -28200,16 +27724,12 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                               }
                                               unsigned rm =
                                                   ExtractQRegister(instr, 5, 0);
-                                              // VRINTM{<q>}.F32.F32 <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
-                                              vrintm(F32,
-                                                     F32,
+                                              // VRINTM{<q>}.<dt> <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
+                                              vrintm(dt,
                                                      QRegister(rd),
                                                      QRegister(rm));
                                               break;
                                             }
-                                            default:
-                                              UnallocatedT32(instr);
-                                              break;
                                           }
                                           break;
                                         }
@@ -28238,24 +27758,37 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                         }
                                         case 0x00000580: {
                                           // 0xffb20780
-                                          switch (instr & 0x000c0040) {
-                                            case 0x00080000: {
-                                              // 0xffba0780
+                                          switch (instr & 0x00000040) {
+                                            case 0x00000000: {
+                                              // 0xffb20780
+                                              DataType dt = Dt_size_16_Decode(
+                                                  (instr >> 18) & 0x3);
+                                              if (dt.Is(
+                                                      kDataTypeValueInvalid)) {
+                                                UnallocatedT32(instr);
+                                                return;
+                                              }
                                               unsigned rd =
                                                   ExtractDRegister(instr,
                                                                    22,
                                                                    12);
                                               unsigned rm =
                                                   ExtractDRegister(instr, 5, 0);
-                                              // VRINTP{<q>}.F32.F32 <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
-                                              vrintp(F32,
-                                                     F32,
+                                              // VRINTP{<q>}.<dt> <Dd>, <Dm> ; T1 NOLINT(whitespace/line_length)
+                                              vrintp(dt,
                                                      DRegister(rd),
                                                      DRegister(rm));
                                               break;
                                             }
-                                            case 0x00080040: {
-                                              // 0xffba07c0
+                                            case 0x00000040: {
+                                              // 0xffb207c0
+                                              DataType dt = Dt_size_16_Decode(
+                                                  (instr >> 18) & 0x3);
+                                              if (dt.Is(
+                                                      kDataTypeValueInvalid)) {
+                                                UnallocatedT32(instr);
+                                                return;
+                                              }
                                               if (((instr >> 12) & 1) != 0) {
                                                 UnallocatedT32(instr);
                                                 return;
@@ -28270,16 +27803,12 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                               }
                                               unsigned rm =
                                                   ExtractQRegister(instr, 5, 0);
-                                              // VRINTP{<q>}.F32.F32 <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
-                                              vrintp(F32,
-                                                     F32,
+                                              // VRINTP{<q>}.<dt> <Qd>, <Qm> ; T1 NOLINT(whitespace/line_length)
+                                              vrintp(dt,
                                                      QRegister(rd),
                                                      QRegister(rm));
                                               break;
                                             }
-                                            default:
-                                              UnallocatedT32(instr);
-                                              break;
                                           }
                                           break;
                                         }
@@ -30581,6 +30110,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                      DRegister(rd),
                                      DRegister(rn),
                                      DRegister(rm));
+                              if (InITBlock()) {
+                                UnpredictableT32(instr);
+                              }
                               break;
                             }
                             case 0x10200000: {
@@ -30593,6 +30125,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                      DRegister(rd),
                                      DRegister(rn),
                                      DRegister(rm));
+                              if (InITBlock()) {
+                                UnpredictableT32(instr);
+                              }
                               break;
                             }
                             default:
@@ -31430,6 +30965,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                      QRegister(rd),
                                      QRegister(rn),
                                      QRegister(rm));
+                              if (InITBlock()) {
+                                UnpredictableT32(instr);
+                              }
                               break;
                             }
                             case 0x10200000: {
@@ -31454,6 +30992,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                      QRegister(rd),
                                      QRegister(rn),
                                      QRegister(rm));
+                              if (InITBlock()) {
+                                UnpredictableT32(instr);
+                              }
                               break;
                             }
                             default:
@@ -42141,156 +41682,146 @@ void Disassembler::DecodeA32(uint32_t instr) {
                               }
                               case 0x00000400: {
                                 // 0xf3b20400
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VRINTN{<q>}.F32.F32 <Dd>, <Dm> ; A1
-                                  vrintn(F32,
-                                         F32,
-                                         DRegister(rd),
-                                         DRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                unsigned rd = ExtractDRegister(instr, 22, 12);
+                                unsigned rm = ExtractDRegister(instr, 5, 0);
+                                // VRINTN{<q>}.<dt> <Dd>, <Dm> ; A1
+                                vrintn(dt, DRegister(rd), DRegister(rm));
                                 break;
                               }
                               case 0x00000440: {
                                 // 0xf3b20440
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  if (((instr >> 12) & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractQRegister(instr, 22, 12);
-                                  if ((instr & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rm = ExtractQRegister(instr, 5, 0);
-                                  // VRINTN{<q>}.F32.F32 <Qd>, <Qm> ; A1
-                                  vrintn(F32,
-                                         F32,
-                                         QRegister(rd),
-                                         QRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                if (((instr >> 12) & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rd = ExtractQRegister(instr, 22, 12);
+                                if ((instr & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rm = ExtractQRegister(instr, 5, 0);
+                                // VRINTN{<q>}.<dt> <Qd>, <Qm> ; A1
+                                vrintn(dt, QRegister(rd), QRegister(rm));
                                 break;
                               }
                               case 0x00000480: {
                                 // 0xf3b20480
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VRINTX{<q>}.F32.F32 <Dd>, <Dm> ; A1
-                                  vrintx(al,
-                                         F32,
-                                         F32,
-                                         DRegister(rd),
-                                         DRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                unsigned rd = ExtractDRegister(instr, 22, 12);
+                                unsigned rm = ExtractDRegister(instr, 5, 0);
+                                // VRINTX{<q>}.<dt> <Dd>, <Dm> ; A1
+                                vrintx(al, dt, DRegister(rd), DRegister(rm));
                                 break;
                               }
                               case 0x000004c0: {
                                 // 0xf3b204c0
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  if (((instr >> 12) & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractQRegister(instr, 22, 12);
-                                  if ((instr & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rm = ExtractQRegister(instr, 5, 0);
-                                  // VRINTX{<q>}.F32.F32 <Qd>, <Qm> ; A1
-                                  vrintx(F32,
-                                         F32,
-                                         QRegister(rd),
-                                         QRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                if (((instr >> 12) & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rd = ExtractQRegister(instr, 22, 12);
+                                if ((instr & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rm = ExtractQRegister(instr, 5, 0);
+                                // VRINTX{<q>}.<dt> <Qd>, <Qm> ; A1
+                                vrintx(dt, QRegister(rd), QRegister(rm));
                                 break;
                               }
                               case 0x00000500: {
                                 // 0xf3b20500
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VRINTA{<q>}.F32.F32 <Dd>, <Dm> ; A1
-                                  vrinta(F32,
-                                         F32,
-                                         DRegister(rd),
-                                         DRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                unsigned rd = ExtractDRegister(instr, 22, 12);
+                                unsigned rm = ExtractDRegister(instr, 5, 0);
+                                // VRINTA{<q>}.<dt> <Dd>, <Dm> ; A1
+                                vrinta(dt, DRegister(rd), DRegister(rm));
                                 break;
                               }
                               case 0x00000540: {
                                 // 0xf3b20540
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  if (((instr >> 12) & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractQRegister(instr, 22, 12);
-                                  if ((instr & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rm = ExtractQRegister(instr, 5, 0);
-                                  // VRINTA{<q>}.F32.F32 <Qd>, <Qm> ; A1
-                                  vrinta(F32,
-                                         F32,
-                                         QRegister(rd),
-                                         QRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                if (((instr >> 12) & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rd = ExtractQRegister(instr, 22, 12);
+                                if ((instr & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rm = ExtractQRegister(instr, 5, 0);
+                                // VRINTA{<q>}.<dt> <Qd>, <Qm> ; A1
+                                vrinta(dt, QRegister(rd), QRegister(rm));
                                 break;
                               }
                               case 0x00000580: {
                                 // 0xf3b20580
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  unsigned rd = ExtractDRegister(instr, 22, 12);
-                                  unsigned rm = ExtractDRegister(instr, 5, 0);
-                                  // VRINTZ{<q>}.F32.F32 <Dd>, <Dm> ; A1
-                                  vrintz(al,
-                                         F32,
-                                         F32,
-                                         DRegister(rd),
-                                         DRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                unsigned rd = ExtractDRegister(instr, 22, 12);
+                                unsigned rm = ExtractDRegister(instr, 5, 0);
+                                // VRINTZ{<q>}.<dt> <Dd>, <Dm> ; A1
+                                vrintz(al, dt, DRegister(rd), DRegister(rm));
                                 break;
                               }
                               case 0x000005c0: {
                                 // 0xf3b205c0
-                                if ((instr & 0x000c0000) == 0x00080000) {
-                                  if (((instr >> 12) & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rd = ExtractQRegister(instr, 22, 12);
-                                  if ((instr & 1) != 0) {
-                                    UnallocatedA32(instr);
-                                    return;
-                                  }
-                                  unsigned rm = ExtractQRegister(instr, 5, 0);
-                                  // VRINTZ{<q>}.F32.F32 <Qd>, <Qm> ; A1
-                                  vrintz(F32,
-                                         F32,
-                                         QRegister(rd),
-                                         QRegister(rm));
-                                } else {
+                                DataType dt =
+                                    Dt_size_16_Decode((instr >> 18) & 0x3);
+                                if (dt.Is(kDataTypeValueInvalid)) {
                                   UnallocatedA32(instr);
+                                  return;
                                 }
+                                if (((instr >> 12) & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rd = ExtractQRegister(instr, 22, 12);
+                                if ((instr & 1) != 0) {
+                                  UnallocatedA32(instr);
+                                  return;
+                                }
+                                unsigned rm = ExtractQRegister(instr, 5, 0);
+                                // VRINTZ{<q>}.<dt> <Qd>, <Qm> ; A1
+                                vrintz(dt, QRegister(rd), QRegister(rm));
                                 break;
                               }
                             }
@@ -42369,7 +41900,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                 // 0xf3b20300
                                 if ((instr & 0x00000040) == 0x00000000) {
                                   DataType dt =
-                                      Dt_size_16_Decode((instr >> 18) & 0x3);
+                                      Dt_size_17_Decode((instr >> 18) & 0x3);
                                   if (dt.Is(kDataTypeValueInvalid)) {
                                     UnallocatedA32(instr);
                                     return;
@@ -42433,21 +41964,30 @@ void Disassembler::DecodeA32(uint32_t instr) {
                               }
                               case 0x00000480: {
                                 // 0xf3b20680
-                                switch (instr & 0x000c0040) {
-                                  case 0x00080000: {
-                                    // 0xf3ba0680
+                                switch (instr & 0x00000040) {
+                                  case 0x00000000: {
+                                    // 0xf3b20680
+                                    DataType dt =
+                                        Dt_size_16_Decode((instr >> 18) & 0x3);
+                                    if (dt.Is(kDataTypeValueInvalid)) {
+                                      UnallocatedA32(instr);
+                                      return;
+                                    }
                                     unsigned rd =
                                         ExtractDRegister(instr, 22, 12);
                                     unsigned rm = ExtractDRegister(instr, 5, 0);
-                                    // VRINTM{<q>}.F32.F32 <Dd>, <Dm> ; A1
-                                    vrintm(F32,
-                                           F32,
-                                           DRegister(rd),
-                                           DRegister(rm));
+                                    // VRINTM{<q>}.<dt> <Dd>, <Dm> ; A1
+                                    vrintm(dt, DRegister(rd), DRegister(rm));
                                     break;
                                   }
-                                  case 0x00080040: {
-                                    // 0xf3ba06c0
+                                  case 0x00000040: {
+                                    // 0xf3b206c0
+                                    DataType dt =
+                                        Dt_size_16_Decode((instr >> 18) & 0x3);
+                                    if (dt.Is(kDataTypeValueInvalid)) {
+                                      UnallocatedA32(instr);
+                                      return;
+                                    }
                                     if (((instr >> 12) & 1) != 0) {
                                       UnallocatedA32(instr);
                                       return;
@@ -42459,16 +41999,10 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                       return;
                                     }
                                     unsigned rm = ExtractQRegister(instr, 5, 0);
-                                    // VRINTM{<q>}.F32.F32 <Qd>, <Qm> ; A1
-                                    vrintm(F32,
-                                           F32,
-                                           QRegister(rd),
-                                           QRegister(rm));
+                                    // VRINTM{<q>}.<dt> <Qd>, <Qm> ; A1
+                                    vrintm(dt, QRegister(rd), QRegister(rm));
                                     break;
                                   }
-                                  default:
-                                    UnallocatedA32(instr);
-                                    break;
                                 }
                                 break;
                               }
@@ -42494,21 +42028,30 @@ void Disassembler::DecodeA32(uint32_t instr) {
                               }
                               case 0x00000580: {
                                 // 0xf3b20780
-                                switch (instr & 0x000c0040) {
-                                  case 0x00080000: {
-                                    // 0xf3ba0780
+                                switch (instr & 0x00000040) {
+                                  case 0x00000000: {
+                                    // 0xf3b20780
+                                    DataType dt =
+                                        Dt_size_16_Decode((instr >> 18) & 0x3);
+                                    if (dt.Is(kDataTypeValueInvalid)) {
+                                      UnallocatedA32(instr);
+                                      return;
+                                    }
                                     unsigned rd =
                                         ExtractDRegister(instr, 22, 12);
                                     unsigned rm = ExtractDRegister(instr, 5, 0);
-                                    // VRINTP{<q>}.F32.F32 <Dd>, <Dm> ; A1
-                                    vrintp(F32,
-                                           F32,
-                                           DRegister(rd),
-                                           DRegister(rm));
+                                    // VRINTP{<q>}.<dt> <Dd>, <Dm> ; A1
+                                    vrintp(dt, DRegister(rd), DRegister(rm));
                                     break;
                                   }
-                                  case 0x00080040: {
-                                    // 0xf3ba07c0
+                                  case 0x00000040: {
+                                    // 0xf3b207c0
+                                    DataType dt =
+                                        Dt_size_16_Decode((instr >> 18) & 0x3);
+                                    if (dt.Is(kDataTypeValueInvalid)) {
+                                      UnallocatedA32(instr);
+                                      return;
+                                    }
                                     if (((instr >> 12) & 1) != 0) {
                                       UnallocatedA32(instr);
                                       return;
@@ -42520,16 +42063,10 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                       return;
                                     }
                                     unsigned rm = ExtractQRegister(instr, 5, 0);
-                                    // VRINTP{<q>}.F32.F32 <Qd>, <Qm> ; A1
-                                    vrintp(F32,
-                                           F32,
-                                           QRegister(rd),
-                                           QRegister(rm));
+                                    // VRINTP{<q>}.<dt> <Qd>, <Qm> ; A1
+                                    vrintp(dt, QRegister(rd), QRegister(rm));
                                     break;
                                   }
-                                  default:
-                                    UnallocatedA32(instr);
-                                    break;
                                 }
                                 break;
                               }
@@ -55672,554 +55209,341 @@ void Disassembler::DecodeA32(uint32_t instr) {
       }
       case 0x0a000000: {
         // 0xfa000000
-        int32_t imm = SignExtend<int32_t>(((instr >> 24) & 0x1) |
-                                              ((instr << 1) & 0x1fffffe),
-                                          25)
-                      << 1;
+        int32_t imm = SignExtend<int32_t>((((instr >> 24) & 0x1) |
+                                           ((instr << 1) & 0x1fffffe))
+                                              << 1,
+                                          26);
         Location location(imm, kA32PcDelta);
         // BLX{<c>}{<q>} <label> ; A2
         blx(al, &location);
         break;
       }
-      case 0x0c000000: {
-        // 0xfc000000
-        switch (instr & 0x01300000) {
-          case 0x00000000: {
-            // 0xfc000000
-            switch (instr & 0x00800000) {
-              case 0x00000000: {
-                // 0xfc000000
-                if ((instr & 0x00400000) == 0x00400000) {
-                  if (((instr & 0xe00) == 0xa00)) {
-                    UnallocatedA32(instr);
-                    return;
-                  }
-                  UnimplementedA32("MCRR2", instr);
-                } else {
-                  UnallocatedA32(instr);
-                }
-                break;
-              }
-              case 0x00800000: {
-                // 0xfc800000
-                if (((instr & 0xe00) == 0xa00)) {
-                  UnallocatedA32(instr);
-                  return;
-                }
-                UnimplementedA32("STC2", instr);
-                break;
-              }
-            }
-            break;
-          }
-          case 0x00100000: {
-            // 0xfc100000
-            switch (instr & 0x00800000) {
-              case 0x00000000: {
-                // 0xfc100000
-                if ((instr & 0x00400000) == 0x00400000) {
-                  if (((instr & 0xe00) == 0xa00)) {
-                    UnallocatedA32(instr);
-                    return;
-                  }
-                  UnimplementedA32("MRRC2", instr);
-                } else {
-                  UnallocatedA32(instr);
-                }
-                break;
-              }
-              case 0x00800000: {
-                // 0xfc900000
-                switch (instr & 0x00000e00) {
-                  case 0x00000a00: {
-                    // 0xfc900a00
-                    UnallocatedA32(instr);
-                    break;
-                  }
-                  default: {
-                    switch (instr & 0x000f0000) {
-                      case 0x000f0000: {
-                        // 0xfc9f0000
-                        if (((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("LDC2", instr);
-                        break;
-                      }
-                      default: {
-                        if (((instr & 0xf0000) == 0xf0000) ||
-                            ((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("LDC2", instr);
-                        break;
-                      }
-                    }
-                    break;
-                  }
-                }
-                break;
-              }
-            }
-            break;
-          }
-          case 0x00200000: {
-            // 0xfc200000
-            if (((instr & 0xe00) == 0xa00)) {
-              UnallocatedA32(instr);
-              return;
-            }
-            UnimplementedA32("STC2", instr);
-            break;
-          }
-          case 0x00300000: {
-            // 0xfc300000
-            if (((instr & 0xf0000) == 0xf0000) || ((instr & 0xe00) == 0xa00)) {
-              UnallocatedA32(instr);
-              return;
-            }
-            UnimplementedA32("LDC2", instr);
-            break;
-          }
-          case 0x01000000: {
-            // 0xfd000000
-            if (((instr & 0xe00) == 0xa00)) {
-              UnallocatedA32(instr);
-              return;
-            }
-            UnimplementedA32("STC2", instr);
-            break;
-          }
-          case 0x01100000: {
-            // 0xfd100000
-            switch (instr & 0x00000e00) {
-              case 0x00000a00: {
-                // 0xfd100a00
-                UnallocatedA32(instr);
-                break;
-              }
-              default: {
-                switch (instr & 0x000f0000) {
-                  case 0x000f0000: {
-                    // 0xfd1f0000
-                    if (((instr & 0xe00) == 0xa00)) {
-                      UnallocatedA32(instr);
-                      return;
-                    }
-                    UnimplementedA32("LDC2", instr);
-                    break;
-                  }
-                  default: {
-                    if (((instr & 0xf0000) == 0xf0000) ||
-                        ((instr & 0xe00) == 0xa00)) {
-                      UnallocatedA32(instr);
-                      return;
-                    }
-                    UnimplementedA32("LDC2", instr);
-                    break;
-                  }
-                }
-                break;
-              }
-            }
-            break;
-          }
-          case 0x01200000: {
-            // 0xfd200000
-            if (((instr & 0xe00) == 0xa00)) {
-              UnallocatedA32(instr);
-              return;
-            }
-            UnimplementedA32("STC2", instr);
-            break;
-          }
-          case 0x01300000: {
-            // 0xfd300000
-            if (((instr & 0xf0000) == 0xf0000) || ((instr & 0xe00) == 0xa00)) {
-              UnallocatedA32(instr);
-              return;
-            }
-            UnimplementedA32("LDC2", instr);
-            break;
-          }
-        }
-        break;
-      }
       case 0x0e000000: {
         // 0xfe000000
-        switch (instr & 0x01000010) {
-          case 0x00000000: {
-            // 0xfe000000
-            switch (instr & 0x00000e00) {
-              case 0x00000a00: {
-                // 0xfe000a00
-                switch (instr & 0x00b00140) {
-                  case 0x00000000: {
-                    // 0xfe000a00
-                    unsigned rd = ExtractSRegister(instr, 22, 12);
-                    unsigned rn = ExtractSRegister(instr, 7, 16);
-                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                    // VSELEQ.F32 <Sd>, <Sn>, <Sm> ; A1
-                    vseleq(F32, SRegister(rd), SRegister(rn), SRegister(rm));
-                    break;
-                  }
-                  case 0x00000100: {
-                    // 0xfe000b00
-                    unsigned rd = ExtractDRegister(instr, 22, 12);
-                    unsigned rn = ExtractDRegister(instr, 7, 16);
-                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                    // VSELEQ.F64 <Dd>, <Dn>, <Dm> ; A1
-                    vseleq(F64, DRegister(rd), DRegister(rn), DRegister(rm));
-                    break;
-                  }
-                  case 0x00100000: {
-                    // 0xfe100a00
-                    unsigned rd = ExtractSRegister(instr, 22, 12);
-                    unsigned rn = ExtractSRegister(instr, 7, 16);
-                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                    // VSELVS.F32 <Sd>, <Sn>, <Sm> ; A1
-                    vselvs(F32, SRegister(rd), SRegister(rn), SRegister(rm));
-                    break;
-                  }
-                  case 0x00100100: {
-                    // 0xfe100b00
-                    unsigned rd = ExtractDRegister(instr, 22, 12);
-                    unsigned rn = ExtractDRegister(instr, 7, 16);
-                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                    // VSELVS.F64 <Dd>, <Dn>, <Dm> ; A1
-                    vselvs(F64, DRegister(rd), DRegister(rn), DRegister(rm));
-                    break;
-                  }
-                  case 0x00200000: {
-                    // 0xfe200a00
-                    unsigned rd = ExtractSRegister(instr, 22, 12);
-                    unsigned rn = ExtractSRegister(instr, 7, 16);
-                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                    // VSELGE.F32 <Sd>, <Sn>, <Sm> ; A1
-                    vselge(F32, SRegister(rd), SRegister(rn), SRegister(rm));
-                    break;
-                  }
-                  case 0x00200100: {
-                    // 0xfe200b00
-                    unsigned rd = ExtractDRegister(instr, 22, 12);
-                    unsigned rn = ExtractDRegister(instr, 7, 16);
-                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                    // VSELGE.F64 <Dd>, <Dn>, <Dm> ; A1
-                    vselge(F64, DRegister(rd), DRegister(rn), DRegister(rm));
-                    break;
-                  }
-                  case 0x00300000: {
-                    // 0xfe300a00
-                    unsigned rd = ExtractSRegister(instr, 22, 12);
-                    unsigned rn = ExtractSRegister(instr, 7, 16);
-                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                    // VSELGT.F32 <Sd>, <Sn>, <Sm> ; A1
-                    vselgt(F32, SRegister(rd), SRegister(rn), SRegister(rm));
-                    break;
-                  }
-                  case 0x00300100: {
-                    // 0xfe300b00
-                    unsigned rd = ExtractDRegister(instr, 22, 12);
-                    unsigned rn = ExtractDRegister(instr, 7, 16);
-                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                    // VSELGT.F64 <Dd>, <Dn>, <Dm> ; A1
-                    vselgt(F64, DRegister(rd), DRegister(rn), DRegister(rm));
-                    break;
-                  }
-                  case 0x00800000: {
-                    // 0xfe800a00
-                    unsigned rd = ExtractSRegister(instr, 22, 12);
-                    unsigned rn = ExtractSRegister(instr, 7, 16);
-                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                    // VMAXNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
-                    vmaxnm(F32, SRegister(rd), SRegister(rn), SRegister(rm));
-                    break;
-                  }
-                  case 0x00800040: {
-                    // 0xfe800a40
-                    unsigned rd = ExtractSRegister(instr, 22, 12);
-                    unsigned rn = ExtractSRegister(instr, 7, 16);
-                    unsigned rm = ExtractSRegister(instr, 5, 0);
-                    // VMINNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
-                    vminnm(F32, SRegister(rd), SRegister(rn), SRegister(rm));
-                    break;
-                  }
-                  case 0x00800100: {
-                    // 0xfe800b00
-                    unsigned rd = ExtractDRegister(instr, 22, 12);
-                    unsigned rn = ExtractDRegister(instr, 7, 16);
-                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                    // VMAXNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
-                    vmaxnm(F64, DRegister(rd), DRegister(rn), DRegister(rm));
-                    break;
-                  }
-                  case 0x00800140: {
-                    // 0xfe800b40
-                    unsigned rd = ExtractDRegister(instr, 22, 12);
-                    unsigned rn = ExtractDRegister(instr, 7, 16);
-                    unsigned rm = ExtractDRegister(instr, 5, 0);
-                    // VMINNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
-                    vminnm(F64, DRegister(rd), DRegister(rn), DRegister(rm));
-                    break;
-                  }
-                  case 0x00b00040: {
-                    // 0xfeb00a40
-                    switch (instr & 0x000f0000) {
-                      case 0x00080000: {
-                        // 0xfeb80a40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractSRegister(instr, 22, 12);
-                          unsigned rm = ExtractSRegister(instr, 5, 0);
-                          // VRINTA{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                          vrinta(F32, F32, SRegister(rd), SRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00090000: {
-                        // 0xfeb90a40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractSRegister(instr, 22, 12);
-                          unsigned rm = ExtractSRegister(instr, 5, 0);
-                          // VRINTN{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                          vrintn(F32, F32, SRegister(rd), SRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x000a0000: {
-                        // 0xfeba0a40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractSRegister(instr, 22, 12);
-                          unsigned rm = ExtractSRegister(instr, 5, 0);
-                          // VRINTP{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                          vrintp(F32, F32, SRegister(rd), SRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x000b0000: {
-                        // 0xfebb0a40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractSRegister(instr, 22, 12);
-                          unsigned rm = ExtractSRegister(instr, 5, 0);
-                          // VRINTM{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                          vrintm(F32, F32, SRegister(rd), SRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x000c0000: {
-                        // 0xfebc0a40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VCVTA{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
-                        vcvta(dt, F32, SRegister(rd), SRegister(rm));
-                        break;
-                      }
-                      case 0x000d0000: {
-                        // 0xfebd0a40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VCVTN{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
-                        vcvtn(dt, F32, SRegister(rd), SRegister(rm));
-                        break;
-                      }
-                      case 0x000e0000: {
-                        // 0xfebe0a40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VCVTP{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
-                        vcvtp(dt, F32, SRegister(rd), SRegister(rm));
-                        break;
-                      }
-                      case 0x000f0000: {
-                        // 0xfebf0a40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VCVTM{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
-                        vcvtm(dt, F32, SRegister(rd), SRegister(rm));
-                        break;
-                      }
-                      default:
-                        UnallocatedA32(instr);
-                        break;
-                    }
-                    break;
-                  }
-                  case 0x00b00140: {
-                    // 0xfeb00b40
-                    switch (instr & 0x000f0000) {
-                      case 0x00080000: {
-                        // 0xfeb80b40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractDRegister(instr, 22, 12);
-                          unsigned rm = ExtractDRegister(instr, 5, 0);
-                          // VRINTA{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                          vrinta(F64, F64, DRegister(rd), DRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00090000: {
-                        // 0xfeb90b40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractDRegister(instr, 22, 12);
-                          unsigned rm = ExtractDRegister(instr, 5, 0);
-                          // VRINTN{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                          vrintn(F64, F64, DRegister(rd), DRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x000a0000: {
-                        // 0xfeba0b40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractDRegister(instr, 22, 12);
-                          unsigned rm = ExtractDRegister(instr, 5, 0);
-                          // VRINTP{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                          vrintp(F64, F64, DRegister(rd), DRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x000b0000: {
-                        // 0xfebb0b40
-                        if ((instr & 0x00000080) == 0x00000000) {
-                          unsigned rd = ExtractDRegister(instr, 22, 12);
-                          unsigned rm = ExtractDRegister(instr, 5, 0);
-                          // VRINTM{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                          vrintm(F64, F64, DRegister(rd), DRegister(rm));
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x000c0000: {
-                        // 0xfebc0b40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VCVTA{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
-                        vcvta(dt, F64, SRegister(rd), DRegister(rm));
-                        break;
-                      }
-                      case 0x000d0000: {
-                        // 0xfebd0b40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VCVTN{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
-                        vcvtn(dt, F64, SRegister(rd), DRegister(rm));
-                        break;
-                      }
-                      case 0x000e0000: {
-                        // 0xfebe0b40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VCVTP{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
-                        vcvtp(dt, F64, SRegister(rd), DRegister(rm));
-                        break;
-                      }
-                      case 0x000f0000: {
-                        // 0xfebf0b40
-                        DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                        if (dt.Is(kDataTypeValueInvalid)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VCVTM{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
-                        vcvtm(dt, F64, SRegister(rd), DRegister(rm));
-                        break;
-                      }
-                      default:
-                        UnallocatedA32(instr);
-                        break;
-                    }
-                    break;
-                  }
-                  default:
-                    UnallocatedA32(instr);
-                    break;
+        switch (instr & 0x01b00f50) {
+          case 0x00000a00: {
+            // 0xfe000a00
+            unsigned rd = ExtractSRegister(instr, 22, 12);
+            unsigned rn = ExtractSRegister(instr, 7, 16);
+            unsigned rm = ExtractSRegister(instr, 5, 0);
+            // VSELEQ.F32 <Sd>, <Sn>, <Sm> ; A1
+            vseleq(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+            break;
+          }
+          case 0x00000b00: {
+            // 0xfe000b00
+            unsigned rd = ExtractDRegister(instr, 22, 12);
+            unsigned rn = ExtractDRegister(instr, 7, 16);
+            unsigned rm = ExtractDRegister(instr, 5, 0);
+            // VSELEQ.F64 <Dd>, <Dn>, <Dm> ; A1
+            vseleq(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+            break;
+          }
+          case 0x00100a00: {
+            // 0xfe100a00
+            unsigned rd = ExtractSRegister(instr, 22, 12);
+            unsigned rn = ExtractSRegister(instr, 7, 16);
+            unsigned rm = ExtractSRegister(instr, 5, 0);
+            // VSELVS.F32 <Sd>, <Sn>, <Sm> ; A1
+            vselvs(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+            break;
+          }
+          case 0x00100b00: {
+            // 0xfe100b00
+            unsigned rd = ExtractDRegister(instr, 22, 12);
+            unsigned rn = ExtractDRegister(instr, 7, 16);
+            unsigned rm = ExtractDRegister(instr, 5, 0);
+            // VSELVS.F64 <Dd>, <Dn>, <Dm> ; A1
+            vselvs(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+            break;
+          }
+          case 0x00200a00: {
+            // 0xfe200a00
+            unsigned rd = ExtractSRegister(instr, 22, 12);
+            unsigned rn = ExtractSRegister(instr, 7, 16);
+            unsigned rm = ExtractSRegister(instr, 5, 0);
+            // VSELGE.F32 <Sd>, <Sn>, <Sm> ; A1
+            vselge(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+            break;
+          }
+          case 0x00200b00: {
+            // 0xfe200b00
+            unsigned rd = ExtractDRegister(instr, 22, 12);
+            unsigned rn = ExtractDRegister(instr, 7, 16);
+            unsigned rm = ExtractDRegister(instr, 5, 0);
+            // VSELGE.F64 <Dd>, <Dn>, <Dm> ; A1
+            vselge(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+            break;
+          }
+          case 0x00300a00: {
+            // 0xfe300a00
+            unsigned rd = ExtractSRegister(instr, 22, 12);
+            unsigned rn = ExtractSRegister(instr, 7, 16);
+            unsigned rm = ExtractSRegister(instr, 5, 0);
+            // VSELGT.F32 <Sd>, <Sn>, <Sm> ; A1
+            vselgt(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+            break;
+          }
+          case 0x00300b00: {
+            // 0xfe300b00
+            unsigned rd = ExtractDRegister(instr, 22, 12);
+            unsigned rn = ExtractDRegister(instr, 7, 16);
+            unsigned rm = ExtractDRegister(instr, 5, 0);
+            // VSELGT.F64 <Dd>, <Dn>, <Dm> ; A1
+            vselgt(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+            break;
+          }
+          case 0x00800a00: {
+            // 0xfe800a00
+            unsigned rd = ExtractSRegister(instr, 22, 12);
+            unsigned rn = ExtractSRegister(instr, 7, 16);
+            unsigned rm = ExtractSRegister(instr, 5, 0);
+            // VMAXNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
+            vmaxnm(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+            break;
+          }
+          case 0x00800a40: {
+            // 0xfe800a40
+            unsigned rd = ExtractSRegister(instr, 22, 12);
+            unsigned rn = ExtractSRegister(instr, 7, 16);
+            unsigned rm = ExtractSRegister(instr, 5, 0);
+            // VMINNM{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
+            vminnm(F32, SRegister(rd), SRegister(rn), SRegister(rm));
+            break;
+          }
+          case 0x00800b00: {
+            // 0xfe800b00
+            unsigned rd = ExtractDRegister(instr, 22, 12);
+            unsigned rn = ExtractDRegister(instr, 7, 16);
+            unsigned rm = ExtractDRegister(instr, 5, 0);
+            // VMAXNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
+            vmaxnm(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+            break;
+          }
+          case 0x00800b40: {
+            // 0xfe800b40
+            unsigned rd = ExtractDRegister(instr, 22, 12);
+            unsigned rn = ExtractDRegister(instr, 7, 16);
+            unsigned rm = ExtractDRegister(instr, 5, 0);
+            // VMINNM{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
+            vminnm(F64, DRegister(rd), DRegister(rn), DRegister(rm));
+            break;
+          }
+          case 0x00b00a40: {
+            // 0xfeb00a40
+            switch (instr & 0x000f0000) {
+              case 0x00080000: {
+                // 0xfeb80a40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractSRegister(instr, 22, 12);
+                  unsigned rm = ExtractSRegister(instr, 5, 0);
+                  // VRINTA{<q>}.F32 <Sd>, <Sm> ; A1
+                  vrinta(F32, SRegister(rd), SRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
                 }
                 break;
               }
-              default: {
-                if (((instr & 0xe00) == 0xa00)) {
+              case 0x00090000: {
+                // 0xfeb90a40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractSRegister(instr, 22, 12);
+                  unsigned rm = ExtractSRegister(instr, 5, 0);
+                  // VRINTN{<q>}.F32 <Sd>, <Sm> ; A1
+                  vrintn(F32, SRegister(rd), SRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x000a0000: {
+                // 0xfeba0a40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractSRegister(instr, 22, 12);
+                  unsigned rm = ExtractSRegister(instr, 5, 0);
+                  // VRINTP{<q>}.F32 <Sd>, <Sm> ; A1
+                  vrintp(F32, SRegister(rd), SRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x000b0000: {
+                // 0xfebb0a40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractSRegister(instr, 22, 12);
+                  unsigned rm = ExtractSRegister(instr, 5, 0);
+                  // VRINTM{<q>}.F32 <Sd>, <Sm> ; A1
+                  vrintm(F32, SRegister(rd), SRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x000c0000: {
+                // 0xfebc0a40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
                   UnallocatedA32(instr);
                   return;
                 }
-                UnimplementedA32("CDP2", instr);
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractSRegister(instr, 5, 0);
+                // VCVTA{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
+                vcvta(dt, F32, SRegister(rd), SRegister(rm));
                 break;
               }
+              case 0x000d0000: {
+                // 0xfebd0a40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractSRegister(instr, 5, 0);
+                // VCVTN{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
+                vcvtn(dt, F32, SRegister(rd), SRegister(rm));
+                break;
+              }
+              case 0x000e0000: {
+                // 0xfebe0a40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractSRegister(instr, 5, 0);
+                // VCVTP{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
+                vcvtp(dt, F32, SRegister(rd), SRegister(rm));
+                break;
+              }
+              case 0x000f0000: {
+                // 0xfebf0a40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractSRegister(instr, 5, 0);
+                // VCVTM{<q>}.<dt>.F32 <Sd>, <Sm> ; A1
+                vcvtm(dt, F32, SRegister(rd), SRegister(rm));
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
             }
             break;
           }
-          case 0x00000010: {
-            // 0xfe000010
-            switch (instr & 0x00100000) {
-              case 0x00000000: {
-                // 0xfe000010
-                if (((instr & 0xe00) == 0xa00)) {
+          case 0x00b00b40: {
+            // 0xfeb00b40
+            switch (instr & 0x000f0000) {
+              case 0x00080000: {
+                // 0xfeb80b40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractDRegister(instr, 22, 12);
+                  unsigned rm = ExtractDRegister(instr, 5, 0);
+                  // VRINTA{<q>}.F64 <Dd>, <Dm> ; A1
+                  vrinta(F64, DRegister(rd), DRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00090000: {
+                // 0xfeb90b40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractDRegister(instr, 22, 12);
+                  unsigned rm = ExtractDRegister(instr, 5, 0);
+                  // VRINTN{<q>}.F64 <Dd>, <Dm> ; A1
+                  vrintn(F64, DRegister(rd), DRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x000a0000: {
+                // 0xfeba0b40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractDRegister(instr, 22, 12);
+                  unsigned rm = ExtractDRegister(instr, 5, 0);
+                  // VRINTP{<q>}.F64 <Dd>, <Dm> ; A1
+                  vrintp(F64, DRegister(rd), DRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x000b0000: {
+                // 0xfebb0b40
+                if ((instr & 0x00000080) == 0x00000000) {
+                  unsigned rd = ExtractDRegister(instr, 22, 12);
+                  unsigned rm = ExtractDRegister(instr, 5, 0);
+                  // VRINTM{<q>}.F64 <Dd>, <Dm> ; A1
+                  vrintm(F64, DRegister(rd), DRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x000c0000: {
+                // 0xfebc0b40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
                   UnallocatedA32(instr);
                   return;
                 }
-                UnimplementedA32("MCR2", instr);
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractDRegister(instr, 5, 0);
+                // VCVTA{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
+                vcvta(dt, F64, SRegister(rd), DRegister(rm));
                 break;
               }
-              case 0x00100000: {
-                // 0xfe100010
-                if (((instr & 0xe00) == 0xa00)) {
+              case 0x000d0000: {
+                // 0xfebd0b40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
                   UnallocatedA32(instr);
                   return;
                 }
-                UnimplementedA32("MRC2", instr);
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractDRegister(instr, 5, 0);
+                // VCVTN{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
+                vcvtn(dt, F64, SRegister(rd), DRegister(rm));
                 break;
               }
+              case 0x000e0000: {
+                // 0xfebe0b40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractDRegister(instr, 5, 0);
+                // VCVTP{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
+                vcvtp(dt, F64, SRegister(rd), DRegister(rm));
+                break;
+              }
+              case 0x000f0000: {
+                // 0xfebf0b40
+                DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                if (dt.Is(kDataTypeValueInvalid)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rm = ExtractDRegister(instr, 5, 0);
+                // VCVTM{<q>}.<dt>.F64 <Sd>, <Dm> ; A1
+                vcvtm(dt, F64, SRegister(rd), DRegister(rm));
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
             }
             break;
           }
@@ -56229,6 +55553,9 @@ void Disassembler::DecodeA32(uint32_t instr) {
         }
         break;
       }
+      default:
+        UnallocatedA32(instr);
+        break;
     }
   } else {
     switch (instr & 0x0e000000) {
@@ -65392,7 +64719,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
               return;
             }
             Condition condition((instr >> 28) & 0xf);
-            int32_t imm = SignExtend<int32_t>(instr & 0xffffff, 24) << 2;
+            int32_t imm = SignExtend<int32_t>((instr & 0xffffff) << 2, 26);
             Location location(imm, kA32PcDelta);
             // B{<c>}{<q>} <label> ; A1
             b(condition, Best, &location);
@@ -65405,7 +64732,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
               return;
             }
             Condition condition((instr >> 28) & 0xf);
-            int32_t imm = SignExtend<int32_t>(instr & 0xffffff, 24) << 2;
+            int32_t imm = SignExtend<int32_t>((instr & 0xffffff) << 2, 26);
             Location location(imm, kA32PcDelta);
             // BL{<c>}{<q>} <label> ; A1
             bl(condition, &location);
@@ -65416,58 +64743,77 @@ void Disassembler::DecodeA32(uint32_t instr) {
       }
       case 0x0c000000: {
         // 0x0c000000
-        switch (instr & 0x01100000) {
-          case 0x00000000: {
-            // 0x0c000000
-            switch (instr & 0x00000e00) {
-              case 0x00000a00: {
+        switch (instr & 0x01100e00) {
+          case 0x00000a00: {
+            // 0x0c000a00
+            switch (instr & 0x00800100) {
+              case 0x00000000: {
                 // 0x0c000a00
-                switch (instr & 0x00800100) {
+                if ((instr & 0x006000d0) == 0x00400010) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned rm = ExtractSRegister(instr, 5, 0);
+                  unsigned rt = (instr >> 12) & 0xf;
+                  unsigned rt2 = (instr >> 16) & 0xf;
+                  // VMOV{<c>}{<q>} <Sm>, <Sm1>, <Rt>, <Rt2> ; A1
+                  vmov(condition,
+                       SRegister(rm),
+                       SRegister(rm + 1),
+                       Register(rt),
+                       Register(rt2));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00000100: {
+                // 0x0c000b00
+                if ((instr & 0x006000d0) == 0x00400010) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned rm = ExtractDRegister(instr, 5, 0);
+                  unsigned rt = (instr >> 12) & 0xf;
+                  unsigned rt2 = (instr >> 16) & 0xf;
+                  // VMOV{<c>}{<q>} <Dm>, <Rt>, <Rt2> ; A1
+                  vmov(condition, DRegister(rm), Register(rt), Register(rt2));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00800000: {
+                // 0x0c800a00
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                Condition condition((instr >> 28) & 0xf);
+                unsigned rn = (instr >> 16) & 0xf;
+                WriteBack write_back((instr >> 21) & 0x1);
+                unsigned first = ExtractSRegister(instr, 22, 12);
+                unsigned len = instr & 0xff;
+                // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; A2
+                vstm(condition,
+                     kDataTypeValueNone,
+                     Register(rn),
+                     write_back,
+                     SRegisterList(SRegister(first), len));
+                if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                  UnpredictableA32(instr);
+                }
+                break;
+              }
+              case 0x00800100: {
+                // 0x0c800b00
+                switch (instr & 0x00000001) {
                   case 0x00000000: {
-                    // 0x0c000a00
-                    if ((instr & 0x006000d0) == 0x00400010) {
-                      if (((instr & 0xf0000000) == 0xf0000000)) {
-                        UnallocatedA32(instr);
-                        return;
-                      }
-                      Condition condition((instr >> 28) & 0xf);
-                      unsigned rm = ExtractSRegister(instr, 5, 0);
-                      unsigned rt = (instr >> 12) & 0xf;
-                      unsigned rt2 = (instr >> 16) & 0xf;
-                      // VMOV{<c>}{<q>} <Sm>, <Sm1>, <Rt>, <Rt2> ; A1
-                      vmov(condition,
-                           SRegister(rm),
-                           SRegister(rm + 1),
-                           Register(rt),
-                           Register(rt2));
-                    } else {
-                      UnallocatedA32(instr);
-                    }
-                    break;
-                  }
-                  case 0x00000100: {
-                    // 0x0c000b00
-                    if ((instr & 0x006000d0) == 0x00400010) {
-                      if (((instr & 0xf0000000) == 0xf0000000)) {
-                        UnallocatedA32(instr);
-                        return;
-                      }
-                      Condition condition((instr >> 28) & 0xf);
-                      unsigned rm = ExtractDRegister(instr, 5, 0);
-                      unsigned rt = (instr >> 12) & 0xf;
-                      unsigned rt2 = (instr >> 16) & 0xf;
-                      // VMOV{<c>}{<q>} <Dm>, <Rt>, <Rt2> ; A1
-                      vmov(condition,
-                           DRegister(rm),
-                           Register(rt),
-                           Register(rt2));
-                    } else {
-                      UnallocatedA32(instr);
-                    }
-                    break;
-                  }
-                  case 0x00800000: {
-                    // 0x0c800a00
+                    // 0x0c800b00
                     if (((instr & 0xf0000000) == 0xf0000000)) {
                       UnallocatedA32(instr);
                       return;
@@ -65475,116 +64821,43 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     Condition condition((instr >> 28) & 0xf);
                     unsigned rn = (instr >> 16) & 0xf;
                     WriteBack write_back((instr >> 21) & 0x1);
-                    unsigned first = ExtractSRegister(instr, 22, 12);
-                    unsigned len = instr & 0xff;
-                    // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; A2
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; A1
                     vstm(condition,
                          kDataTypeValueNone,
                          Register(rn),
                          write_back,
-                         SRegisterList(SRegister(first), len));
-                    if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                         DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) ||
+                        (end > kMaxNumberOfDRegisters)) {
                       UnpredictableA32(instr);
                     }
                     break;
                   }
-                  case 0x00800100: {
-                    // 0x0c800b00
-                    switch (instr & 0x00000001) {
-                      case 0x00000000: {
-                        // 0x0c800b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        WriteBack write_back((instr >> 21) & 0x1);
-                        unsigned first = ExtractDRegister(instr, 22, 12);
-                        unsigned imm8 = (instr & 0xff);
-                        unsigned len = imm8 / 2;
-                        unsigned end = first + len;
-                        // VSTM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; A1
-                        vstm(condition,
-                             kDataTypeValueNone,
-                             Register(rn),
-                             write_back,
-                             DRegisterList(DRegister(first), len));
-                        if ((len == 0) || (len > 16) ||
-                            (end > kMaxNumberOfDRegisters)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00000001: {
-                        // 0x0c800b01
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        WriteBack write_back((instr >> 21) & 0x1);
-                        unsigned first = ExtractDRegister(instr, 22, 12);
-                        unsigned imm8 = (instr & 0xff);
-                        unsigned len = imm8 / 2;
-                        unsigned end = first + len;
-                        // FSTMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; A1
-                        fstmiax(condition,
-                                Register(rn),
-                                write_back,
-                                DRegisterList(DRegister(first), len));
-                        if ((len == 0) || (len > 16) || (end > 16)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                    }
-                    break;
-                  }
-                }
-                break;
-              }
-              default: {
-                switch (instr & 0x00200000) {
-                  case 0x00000000: {
-                    // 0x0c000000
-                    switch (instr & 0x00800000) {
-                      case 0x00000000: {
-                        // 0x0c000000
-                        if ((instr & 0x00400000) == 0x00400000) {
-                          if (((instr & 0xf0000000) == 0xf0000000) ||
-                              ((instr & 0xe00) == 0xa00)) {
-                            UnallocatedA32(instr);
-                            return;
-                          }
-                          UnimplementedA32("MCRR", instr);
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00800000: {
-                        // 0x0c800000
-                        if (((instr & 0xf0000000) == 0xf0000000) ||
-                            ((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("STC", instr);
-                        break;
-                      }
-                    }
-                    break;
-                  }
-                  case 0x00200000: {
-                    // 0x0c200000
-                    if (((instr & 0xf0000000) == 0xf0000000) ||
-                        ((instr & 0xe00) == 0xa00)) {
+                  case 0x00000001: {
+                    // 0x0c800b01
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
                       UnallocatedA32(instr);
                       return;
                     }
-                    UnimplementedA32("STC", instr);
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    WriteBack write_back((instr >> 21) & 0x1);
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // FSTMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; A1
+                    fstmiax(condition,
+                            Register(rn),
+                            write_back,
+                            DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) || (end > 16)) {
+                      UnpredictableA32(instr);
+                    }
                     break;
                   }
                 }
@@ -65593,57 +64866,139 @@ void Disassembler::DecodeA32(uint32_t instr) {
             }
             break;
           }
-          case 0x00100000: {
-            // 0x0c100000
-            switch (instr & 0x00000e00) {
-              case 0x00000a00: {
+          case 0x00000e00: {
+            // 0x0c000e00
+            switch (instr & 0x00600000) {
+              case 0x00000000: {
+                // 0x0c000e00
+                if ((instr & 0x0080f100) == 0x00805000) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  UnimplementedA32("STC", instr);
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00200000: {
+                // 0x0c200e00
+                if ((instr & 0x0000f100) == 0x00005000) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  UnimplementedA32("STC", instr);
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00400000: {
+                // 0x0c400e00
+                if ((instr & 0x00800000) == 0x00000000) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  UnimplementedA32("MCRR", instr);
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
+            }
+            break;
+          }
+          case 0x00100a00: {
+            // 0x0c100a00
+            switch (instr & 0x00800100) {
+              case 0x00000000: {
                 // 0x0c100a00
-                switch (instr & 0x00800100) {
+                if ((instr & 0x006000d0) == 0x00400010) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned rt = (instr >> 12) & 0xf;
+                  unsigned rt2 = (instr >> 16) & 0xf;
+                  unsigned rm = ExtractSRegister(instr, 5, 0);
+                  // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Sm>, <Sm1> ; A1
+                  vmov(condition,
+                       Register(rt),
+                       Register(rt2),
+                       SRegister(rm),
+                       SRegister(rm + 1));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00000100: {
+                // 0x0c100b00
+                if ((instr & 0x006000d0) == 0x00400010) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned rt = (instr >> 12) & 0xf;
+                  unsigned rt2 = (instr >> 16) & 0xf;
+                  unsigned rm = ExtractDRegister(instr, 5, 0);
+                  // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Dm> ; A1
+                  vmov(condition, Register(rt), Register(rt2), DRegister(rm));
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00800000: {
+                // 0x0c900a00
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                if (((Uint32((instr >> 21)) & Uint32(0x1)) == Uint32(0x1)) &&
+                    ((Uint32((instr >> 16)) & Uint32(0xf)) == Uint32(0xd)) &&
+                    ((instr & 0xf0000000) != 0xf0000000)) {
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned first = ExtractSRegister(instr, 22, 12);
+                  unsigned len = instr & 0xff;
+                  // VPOP{<c>}{<q>}{.<size>} <sreglist> ; A2
+                  vpop(condition,
+                       kDataTypeValueNone,
+                       SRegisterList(SRegister(first), len));
+                  if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                    UnpredictableA32(instr);
+                  }
+                  return;
+                }
+                Condition condition((instr >> 28) & 0xf);
+                unsigned rn = (instr >> 16) & 0xf;
+                WriteBack write_back((instr >> 21) & 0x1);
+                unsigned first = ExtractSRegister(instr, 22, 12);
+                unsigned len = instr & 0xff;
+                // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; A2
+                vldm(condition,
+                     kDataTypeValueNone,
+                     Register(rn),
+                     write_back,
+                     SRegisterList(SRegister(first), len));
+                if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                  UnpredictableA32(instr);
+                }
+                break;
+              }
+              case 0x00800100: {
+                // 0x0c900b00
+                switch (instr & 0x00000001) {
                   case 0x00000000: {
-                    // 0x0c100a00
-                    if ((instr & 0x006000d0) == 0x00400010) {
-                      if (((instr & 0xf0000000) == 0xf0000000)) {
-                        UnallocatedA32(instr);
-                        return;
-                      }
-                      Condition condition((instr >> 28) & 0xf);
-                      unsigned rt = (instr >> 12) & 0xf;
-                      unsigned rt2 = (instr >> 16) & 0xf;
-                      unsigned rm = ExtractSRegister(instr, 5, 0);
-                      // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Sm>, <Sm1> ; A1
-                      vmov(condition,
-                           Register(rt),
-                           Register(rt2),
-                           SRegister(rm),
-                           SRegister(rm + 1));
-                    } else {
-                      UnallocatedA32(instr);
-                    }
-                    break;
-                  }
-                  case 0x00000100: {
-                    // 0x0c100b00
-                    if ((instr & 0x006000d0) == 0x00400010) {
-                      if (((instr & 0xf0000000) == 0xf0000000)) {
-                        UnallocatedA32(instr);
-                        return;
-                      }
-                      Condition condition((instr >> 28) & 0xf);
-                      unsigned rt = (instr >> 12) & 0xf;
-                      unsigned rt2 = (instr >> 16) & 0xf;
-                      unsigned rm = ExtractDRegister(instr, 5, 0);
-                      // VMOV{<c>}{<q>} <Rt>, <Rt2>, <Dm> ; A1
-                      vmov(condition,
-                           Register(rt),
-                           Register(rt2),
-                           DRegister(rm));
-                    } else {
-                      UnallocatedA32(instr);
-                    }
-                    break;
-                  }
-                  case 0x00800000: {
-                    // 0x0c900a00
+                    // 0x0c900b00
                     if (((instr & 0xf0000000) == 0xf0000000)) {
                       UnallocatedA32(instr);
                       return;
@@ -65654,13 +65009,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                          Uint32(0xd)) &&
                         ((instr & 0xf0000000) != 0xf0000000)) {
                       Condition condition((instr >> 28) & 0xf);
-                      unsigned first = ExtractSRegister(instr, 22, 12);
-                      unsigned len = instr & 0xff;
-                      // VPOP{<c>}{<q>}{.<size>} <sreglist> ; A2
+                      unsigned first = ExtractDRegister(instr, 22, 12);
+                      unsigned imm8 = (instr & 0xff);
+                      unsigned len = imm8 / 2;
+                      unsigned end = first + len;
+                      // VPOP{<c>}{<q>}{.<size>} <dreglist> ; A1
                       vpop(condition,
                            kDataTypeValueNone,
-                           SRegisterList(SRegister(first), len));
-                      if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                           DRegisterList(DRegister(first), len));
+                      if ((len == 0) || (len > 16) ||
+                          (end > kMaxNumberOfDRegisters)) {
                         UnpredictableA32(instr);
                       }
                       return;
@@ -65668,153 +65026,43 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     Condition condition((instr >> 28) & 0xf);
                     unsigned rn = (instr >> 16) & 0xf;
                     WriteBack write_back((instr >> 21) & 0x1);
-                    unsigned first = ExtractSRegister(instr, 22, 12);
-                    unsigned len = instr & 0xff;
-                    // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <sreglist> ; A2
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; A1
                     vldm(condition,
                          kDataTypeValueNone,
                          Register(rn),
                          write_back,
-                         SRegisterList(SRegister(first), len));
-                    if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                         DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) ||
+                        (end > kMaxNumberOfDRegisters)) {
                       UnpredictableA32(instr);
                     }
                     break;
                   }
-                  case 0x00800100: {
-                    // 0x0c900b00
-                    switch (instr & 0x00000001) {
-                      case 0x00000000: {
-                        // 0x0c900b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        if (((Uint32((instr >> 21)) & Uint32(0x1)) ==
-                             Uint32(0x1)) &&
-                            ((Uint32((instr >> 16)) & Uint32(0xf)) ==
-                             Uint32(0xd)) &&
-                            ((instr & 0xf0000000) != 0xf0000000)) {
-                          Condition condition((instr >> 28) & 0xf);
-                          unsigned first = ExtractDRegister(instr, 22, 12);
-                          unsigned imm8 = (instr & 0xff);
-                          unsigned len = imm8 / 2;
-                          unsigned end = first + len;
-                          // VPOP{<c>}{<q>}{.<size>} <dreglist> ; A1
-                          vpop(condition,
-                               kDataTypeValueNone,
-                               DRegisterList(DRegister(first), len));
-                          if ((len == 0) || (len > 16) ||
-                              (end > kMaxNumberOfDRegisters)) {
-                            UnpredictableA32(instr);
-                          }
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        WriteBack write_back((instr >> 21) & 0x1);
-                        unsigned first = ExtractDRegister(instr, 22, 12);
-                        unsigned imm8 = (instr & 0xff);
-                        unsigned len = imm8 / 2;
-                        unsigned end = first + len;
-                        // VLDM{<c>}{<q>}{.<size>} <Rn>{!}, <dreglist> ; A1
-                        vldm(condition,
-                             kDataTypeValueNone,
-                             Register(rn),
-                             write_back,
-                             DRegisterList(DRegister(first), len));
-                        if ((len == 0) || (len > 16) ||
-                            (end > kMaxNumberOfDRegisters)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00000001: {
-                        // 0x0c900b01
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        WriteBack write_back((instr >> 21) & 0x1);
-                        unsigned first = ExtractDRegister(instr, 22, 12);
-                        unsigned imm8 = (instr & 0xff);
-                        unsigned len = imm8 / 2;
-                        unsigned end = first + len;
-                        // FLDMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; A1
-                        fldmiax(condition,
-                                Register(rn),
-                                write_back,
-                                DRegisterList(DRegister(first), len));
-                        if ((len == 0) || (len > 16) || (end > 16)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                    }
-                    break;
-                  }
-                }
-                break;
-              }
-              default: {
-                switch (instr & 0x00200000) {
-                  case 0x00000000: {
-                    // 0x0c100000
-                    switch (instr & 0x00800000) {
-                      case 0x00000000: {
-                        // 0x0c100000
-                        if ((instr & 0x00400000) == 0x00400000) {
-                          if (((instr & 0xf0000000) == 0xf0000000) ||
-                              ((instr & 0xe00) == 0xa00)) {
-                            UnallocatedA32(instr);
-                            return;
-                          }
-                          UnimplementedA32("MRRC", instr);
-                        } else {
-                          UnallocatedA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00800000: {
-                        // 0x0c900000
-                        switch (instr & 0x000f0000) {
-                          case 0x000f0000: {
-                            // 0x0c9f0000
-                            if (((instr & 0xf0000000) == 0xf0000000) ||
-                                ((instr & 0xe00) == 0xa00)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            UnimplementedA32("LDC", instr);
-                            break;
-                          }
-                          default: {
-                            if (((instr & 0xf0000000) == 0xf0000000) ||
-                                ((instr & 0xf0000) == 0xf0000) ||
-                                ((instr & 0xe00) == 0xa00)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            UnimplementedA32("LDC", instr);
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                    }
-                    break;
-                  }
-                  case 0x00200000: {
-                    // 0x0c300000
-                    if (((instr & 0xf0000000) == 0xf0000000) ||
-                        ((instr & 0xf0000) == 0xf0000) ||
-                        ((instr & 0xe00) == 0xa00)) {
+                  case 0x00000001: {
+                    // 0x0c900b01
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
                       UnallocatedA32(instr);
                       return;
                     }
-                    UnimplementedA32("LDC", instr);
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    WriteBack write_back((instr >> 21) & 0x1);
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // FLDMIAX{<c>}{<q>} <Rn>{!}, <dreglist> ; A1
+                    fldmiax(condition,
+                            Register(rn),
+                            write_back,
+                            DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) || (end > 16)) {
+                      UnpredictableA32(instr);
+                    }
                     break;
                   }
                 }
@@ -65823,444 +65071,458 @@ void Disassembler::DecodeA32(uint32_t instr) {
             }
             break;
           }
-          case 0x01000000: {
-            // 0x0d000000
-            switch (instr & 0x00200000) {
+          case 0x00100e00: {
+            // 0x0c100e00
+            switch (instr & 0x00600000) {
               case 0x00000000: {
-                // 0x0d000000
-                switch (instr & 0x00000e00) {
-                  case 0x00000a00: {
-                    // 0x0d000a00
-                    switch (instr & 0x00000100) {
-                      case 0x00000000: {
-                        // 0x0d000a00
+                // 0x0c100e00
+                switch (instr & 0x0080f100) {
+                  case 0x00805000: {
+                    // 0x0c905e00
+                    switch (instr & 0x000f0000) {
+                      case 0x000f0000: {
+                        // 0x0c9f5e00
                         if (((instr & 0xf0000000) == 0xf0000000)) {
                           UnallocatedA32(instr);
                           return;
                         }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
-                        int32_t offset = (instr & 0xff) << 2;
-                        // VSTR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; A2
-                        vstr(condition,
-                             Untyped32,
-                             SRegister(rd),
-                             MemOperand(Register(rn), sign, offset, Offset));
+                        UnimplementedA32("LDC", instr);
                         break;
                       }
-                      case 0x00000100: {
-                        // 0x0d000b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                      default: {
+                        if (((instr & 0xf0000000) == 0xf0000000) ||
+                            ((instr & 0xf0000) == 0xf0000)) {
                           UnallocatedA32(instr);
                           return;
                         }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
-                        int32_t offset = (instr & 0xff) << 2;
-                        // VSTR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; A1
-                        vstr(condition,
-                             Untyped64,
-                             DRegister(rd),
-                             MemOperand(Register(rn), sign, offset, Offset));
+                        UnimplementedA32("LDC", instr);
                         break;
                       }
                     }
                     break;
                   }
-                  default: {
-                    if (((instr & 0xf0000000) == 0xf0000000) ||
-                        ((instr & 0xe00) == 0xa00)) {
-                      UnallocatedA32(instr);
-                      return;
-                    }
-                    UnimplementedA32("STC", instr);
+                  default:
+                    UnallocatedA32(instr);
                     break;
-                  }
                 }
                 break;
               }
               case 0x00200000: {
-                // 0x0d200000
-                switch (instr & 0x00000e00) {
-                  case 0x00000a00: {
-                    // 0x0d200a00
-                    switch (instr & 0x00800100) {
-                      case 0x00000000: {
-                        // 0x0d200a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
-                             Uint32(0xd)) &&
-                            ((instr & 0xf0000000) != 0xf0000000)) {
-                          Condition condition((instr >> 28) & 0xf);
-                          unsigned first = ExtractSRegister(instr, 22, 12);
-                          unsigned len = instr & 0xff;
-                          // VPUSH{<c>}{<q>}{.<size>} <sreglist> ; A2
-                          vpush(condition,
-                                kDataTypeValueNone,
-                                SRegisterList(SRegister(first), len));
-                          if ((len == 0) ||
-                              ((first + len) > kNumberOfSRegisters)) {
-                            UnpredictableA32(instr);
-                          }
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        unsigned first = ExtractSRegister(instr, 22, 12);
-                        unsigned len = instr & 0xff;
-                        // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; A2
-                        vstmdb(condition,
-                               kDataTypeValueNone,
-                               Register(rn),
-                               WriteBack(WRITE_BACK),
-                               SRegisterList(SRegister(first), len));
-                        if ((len == 0) ||
-                            ((first + len) > kNumberOfSRegisters)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00000100: {
-                        // 0x0d200b00
-                        switch (instr & 0x00000001) {
-                          case 0x00000000: {
-                            // 0x0d200b00
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
-                                 Uint32(0xd)) &&
-                                ((instr & 0xf0000000) != 0xf0000000)) {
-                              Condition condition((instr >> 28) & 0xf);
-                              unsigned first = ExtractDRegister(instr, 22, 12);
-                              unsigned imm8 = (instr & 0xff);
-                              unsigned len = imm8 / 2;
-                              unsigned end = first + len;
-                              // VPUSH{<c>}{<q>}{.<size>} <dreglist> ; A1
-                              vpush(condition,
-                                    kDataTypeValueNone,
-                                    DRegisterList(DRegister(first), len));
-                              if ((len == 0) || (len > 16) ||
-                                  (end > kMaxNumberOfDRegisters)) {
-                                UnpredictableA32(instr);
-                              }
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rn = (instr >> 16) & 0xf;
-                            unsigned first = ExtractDRegister(instr, 22, 12);
-                            unsigned imm8 = (instr & 0xff);
-                            unsigned len = imm8 / 2;
-                            unsigned end = first + len;
-                            // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; A1
-                            vstmdb(condition,
-                                   kDataTypeValueNone,
-                                   Register(rn),
-                                   WriteBack(WRITE_BACK),
-                                   DRegisterList(DRegister(first), len));
-                            if ((len == 0) || (len > 16) ||
-                                (end > kMaxNumberOfDRegisters)) {
-                              UnpredictableA32(instr);
-                            }
-                            break;
-                          }
-                          case 0x00000001: {
-                            // 0x0d200b01
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rn = (instr >> 16) & 0xf;
-                            unsigned first = ExtractDRegister(instr, 22, 12);
-                            unsigned imm8 = (instr & 0xff);
-                            unsigned len = imm8 / 2;
-                            unsigned end = first + len;
-                            // FSTMDBX{<c>}{<q>} <Rn>!, <dreglist> ; A1
-                            fstmdbx(condition,
-                                    Register(rn),
-                                    WriteBack(WRITE_BACK),
-                                    DRegisterList(DRegister(first), len));
-                            if ((len == 0) || (len > 16) || (end > 16)) {
-                              UnpredictableA32(instr);
-                            }
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                      default:
-                        UnallocatedA32(instr);
-                        break;
-                    }
-                    break;
+                // 0x0c300e00
+                if ((instr & 0x0000f100) == 0x00005000) {
+                  if (((instr & 0xf0000000) == 0xf0000000) ||
+                      ((instr & 0xf0000) == 0xf0000)) {
+                    UnallocatedA32(instr);
+                    return;
                   }
-                  default: {
-                    if (((instr & 0xf0000000) == 0xf0000000) ||
-                        ((instr & 0xe00) == 0xa00)) {
+                  UnimplementedA32("LDC", instr);
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00400000: {
+                // 0x0c500e00
+                if ((instr & 0x00800000) == 0x00000000) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  UnimplementedA32("MRRC", instr);
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
+            }
+            break;
+          }
+          case 0x01000a00: {
+            // 0x0d000a00
+            switch (instr & 0x00200100) {
+              case 0x00000000: {
+                // 0x0d000a00
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                Condition condition((instr >> 28) & 0xf);
+                unsigned rd = ExtractSRegister(instr, 22, 12);
+                unsigned rn = (instr >> 16) & 0xf;
+                Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
+                int32_t offset = (instr & 0xff) << 2;
+                // VSTR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; A2
+                vstr(condition,
+                     Untyped32,
+                     SRegister(rd),
+                     MemOperand(Register(rn), sign, offset, Offset));
+                break;
+              }
+              case 0x00000100: {
+                // 0x0d000b00
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                Condition condition((instr >> 28) & 0xf);
+                unsigned rd = ExtractDRegister(instr, 22, 12);
+                unsigned rn = (instr >> 16) & 0xf;
+                Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
+                int32_t offset = (instr & 0xff) << 2;
+                // VSTR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; A1
+                vstr(condition,
+                     Untyped64,
+                     DRegister(rd),
+                     MemOperand(Register(rn), sign, offset, Offset));
+                break;
+              }
+              case 0x00200000: {
+                // 0x0d200a00
+                if ((instr & 0x00800000) == 0x00000000) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  if (((Uint32((instr >> 16)) & Uint32(0xf)) == Uint32(0xd)) &&
+                      ((instr & 0xf0000000) != 0xf0000000)) {
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned first = ExtractSRegister(instr, 22, 12);
+                    unsigned len = instr & 0xff;
+                    // VPUSH{<c>}{<q>}{.<size>} <sreglist> ; A2
+                    vpush(condition,
+                          kDataTypeValueNone,
+                          SRegisterList(SRegister(first), len));
+                    if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                      UnpredictableA32(instr);
+                    }
+                    return;
+                  }
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned rn = (instr >> 16) & 0xf;
+                  unsigned first = ExtractSRegister(instr, 22, 12);
+                  unsigned len = instr & 0xff;
+                  // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; A2
+                  vstmdb(condition,
+                         kDataTypeValueNone,
+                         Register(rn),
+                         WriteBack(WRITE_BACK),
+                         SRegisterList(SRegister(first), len));
+                  if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                    UnpredictableA32(instr);
+                  }
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00200100: {
+                // 0x0d200b00
+                switch (instr & 0x00800001) {
+                  case 0x00000000: {
+                    // 0x0d200b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
                       UnallocatedA32(instr);
                       return;
                     }
-                    UnimplementedA32("STC", instr);
+                    if (((Uint32((instr >> 16)) & Uint32(0xf)) ==
+                         Uint32(0xd)) &&
+                        ((instr & 0xf0000000) != 0xf0000000)) {
+                      Condition condition((instr >> 28) & 0xf);
+                      unsigned first = ExtractDRegister(instr, 22, 12);
+                      unsigned imm8 = (instr & 0xff);
+                      unsigned len = imm8 / 2;
+                      unsigned end = first + len;
+                      // VPUSH{<c>}{<q>}{.<size>} <dreglist> ; A1
+                      vpush(condition,
+                            kDataTypeValueNone,
+                            DRegisterList(DRegister(first), len));
+                      if ((len == 0) || (len > 16) ||
+                          (end > kMaxNumberOfDRegisters)) {
+                        UnpredictableA32(instr);
+                      }
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // VSTMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; A1
+                    vstmdb(condition,
+                           kDataTypeValueNone,
+                           Register(rn),
+                           WriteBack(WRITE_BACK),
+                           DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) ||
+                        (end > kMaxNumberOfDRegisters)) {
+                      UnpredictableA32(instr);
+                    }
                     break;
                   }
+                  case 0x00000001: {
+                    // 0x0d200b01
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // FSTMDBX{<c>}{<q>} <Rn>!, <dreglist> ; A1
+                    fstmdbx(condition,
+                            Register(rn),
+                            WriteBack(WRITE_BACK),
+                            DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) || (end > 16)) {
+                      UnpredictableA32(instr);
+                    }
+                    break;
+                  }
+                  default:
+                    UnallocatedA32(instr);
+                    break;
                 }
                 break;
               }
             }
             break;
           }
-          case 0x01100000: {
-            // 0x0d100000
-            switch (instr & 0x00200000) {
+          case 0x01000e00: {
+            // 0x0d000e00
+            switch (instr & 0x0060f100) {
+              case 0x00005000: {
+                // 0x0d005e00
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                UnimplementedA32("STC", instr);
+                break;
+              }
+              case 0x00205000: {
+                // 0x0d205e00
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                UnimplementedA32("STC", instr);
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
+            }
+            break;
+          }
+          case 0x01100a00: {
+            // 0x0d100a00
+            switch (instr & 0x00200100) {
               case 0x00000000: {
-                // 0x0d100000
+                // 0x0d100a00
                 switch (instr & 0x000f0000) {
                   case 0x000f0000: {
-                    // 0x0d1f0000
-                    switch (instr & 0x00000e00) {
-                      case 0x00000a00: {
-                        // 0x0d1f0a00
-                        switch (instr & 0x00000100) {
-                          case 0x00000000: {
-                            // 0x0d1f0a00
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rd = ExtractSRegister(instr, 22, 12);
-                            uint32_t U = (instr >> 23) & 0x1;
-                            int32_t imm = instr & 0xff;
-                            imm <<= 2;
-                            if (U == 0) imm = -imm;
-                            bool minus_zero = (imm == 0) && (U == 0);
-                            Location location(imm, kA32PcDelta);
-                            // VLDR{<c>}{<q>}{.32} <Sd>, <label> ; A2
-                            if (minus_zero) {
-                              vldr(condition,
-                                   Untyped32,
-                                   SRegister(rd),
-                                   MemOperand(pc, minus, 0));
-                            } else {
-                              vldr(condition,
-                                   Untyped32,
-                                   SRegister(rd),
-                                   &location);
-                            }
-                            break;
-                          }
-                          case 0x00000100: {
-                            // 0x0d1f0b00
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rd = ExtractDRegister(instr, 22, 12);
-                            uint32_t U = (instr >> 23) & 0x1;
-                            int32_t imm = instr & 0xff;
-                            imm <<= 2;
-                            if (U == 0) imm = -imm;
-                            bool minus_zero = (imm == 0) && (U == 0);
-                            Location location(imm, kA32PcDelta);
-                            // VLDR{<c>}{<q>}{.64} <Dd>, <label> ; A1
-                            if (minus_zero) {
-                              vldr(condition,
-                                   Untyped64,
-                                   DRegister(rd),
-                                   MemOperand(pc, minus, 0));
-                            } else {
-                              vldr(condition,
-                                   Untyped64,
-                                   DRegister(rd),
-                                   &location);
-                            }
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                      default: {
-                        if (((instr & 0xf0000000) == 0xf0000000) ||
-                            ((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("LDC", instr);
-                        break;
-                      }
+                    // 0x0d1f0a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    uint32_t U = (instr >> 23) & 0x1;
+                    int32_t imm = instr & 0xff;
+                    imm <<= 2;
+                    if (U == 0) imm = -imm;
+                    bool minus_zero = (imm == 0) && (U == 0);
+                    Location location(imm, kA32PcDelta);
+                    // VLDR{<c>}{<q>}{.32} <Sd>, <label> ; A2
+                    if (minus_zero) {
+                      vldr(condition,
+                           Untyped32,
+                           SRegister(rd),
+                           MemOperand(pc, minus, 0));
+                    } else {
+                      vldr(condition, Untyped32, SRegister(rd), &location);
                     }
                     break;
                   }
                   default: {
-                    switch (instr & 0x00000e00) {
-                      case 0x00000a00: {
-                        // 0x0d100a00
-                        switch (instr & 0x00000100) {
-                          case 0x00000000: {
-                            // 0x0d100a00
-                            if (((instr & 0xf0000000) == 0xf0000000) ||
-                                ((instr & 0xf0000) == 0xf0000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rd = ExtractSRegister(instr, 22, 12);
-                            unsigned rn = (instr >> 16) & 0xf;
-                            Sign sign((((instr >> 23) & 0x1) == 0) ? minus
-                                                                   : plus);
-                            int32_t offset = (instr & 0xff) << 2;
-                            // VLDR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; A2 NOLINT(whitespace/line_length)
-                            vldr(condition,
-                                 Untyped32,
-                                 SRegister(rd),
-                                 MemOperand(Register(rn),
-                                            sign,
-                                            offset,
-                                            Offset));
-                            break;
-                          }
-                          case 0x00000100: {
-                            // 0x0d100b00
-                            if (((instr & 0xf0000000) == 0xf0000000) ||
-                                ((instr & 0xf0000) == 0xf0000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rd = ExtractDRegister(instr, 22, 12);
-                            unsigned rn = (instr >> 16) & 0xf;
-                            Sign sign((((instr >> 23) & 0x1) == 0) ? minus
-                                                                   : plus);
-                            int32_t offset = (instr & 0xff) << 2;
-                            // VLDR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; A1 NOLINT(whitespace/line_length)
-                            vldr(condition,
-                                 Untyped64,
-                                 DRegister(rd),
-                                 MemOperand(Register(rn),
-                                            sign,
-                                            offset,
-                                            Offset));
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                      default: {
-                        if (((instr & 0xf0000000) == 0xf0000000) ||
-                            ((instr & 0xf0000) == 0xf0000) ||
-                            ((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("LDC", instr);
-                        break;
-                      }
+                    if (((instr & 0xf0000000) == 0xf0000000) ||
+                        ((instr & 0xf0000) == 0xf0000)) {
+                      UnallocatedA32(instr);
+                      return;
                     }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
+                    int32_t offset = (instr & 0xff) << 2;
+                    // VLDR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; A2
+                    vldr(condition,
+                         Untyped32,
+                         SRegister(rd),
+                         MemOperand(Register(rn), sign, offset, Offset));
+                    break;
+                  }
+                }
+                break;
+              }
+              case 0x00000100: {
+                // 0x0d100b00
+                switch (instr & 0x000f0000) {
+                  case 0x000f0000: {
+                    // 0x0d1f0b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    uint32_t U = (instr >> 23) & 0x1;
+                    int32_t imm = instr & 0xff;
+                    imm <<= 2;
+                    if (U == 0) imm = -imm;
+                    bool minus_zero = (imm == 0) && (U == 0);
+                    Location location(imm, kA32PcDelta);
+                    // VLDR{<c>}{<q>}{.64} <Dd>, <label> ; A1
+                    if (minus_zero) {
+                      vldr(condition,
+                           Untyped64,
+                           DRegister(rd),
+                           MemOperand(pc, minus, 0));
+                    } else {
+                      vldr(condition, Untyped64, DRegister(rd), &location);
+                    }
+                    break;
+                  }
+                  default: {
+                    if (((instr & 0xf0000000) == 0xf0000000) ||
+                        ((instr & 0xf0000) == 0xf0000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    Sign sign((((instr >> 23) & 0x1) == 0) ? minus : plus);
+                    int32_t offset = (instr & 0xff) << 2;
+                    // VLDR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; A1
+                    vldr(condition,
+                         Untyped64,
+                         DRegister(rd),
+                         MemOperand(Register(rn), sign, offset, Offset));
                     break;
                   }
                 }
                 break;
               }
               case 0x00200000: {
-                // 0x0d300000
-                switch (instr & 0x00000e00) {
-                  case 0x00000a00: {
-                    // 0x0d300a00
-                    switch (instr & 0x00800100) {
-                      case 0x00000000: {
-                        // 0x0d300a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rn = (instr >> 16) & 0xf;
-                        unsigned first = ExtractSRegister(instr, 22, 12);
-                        unsigned len = instr & 0xff;
-                        // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; A2
-                        vldmdb(condition,
-                               kDataTypeValueNone,
-                               Register(rn),
-                               WriteBack(WRITE_BACK),
-                               SRegisterList(SRegister(first), len));
-                        if ((len == 0) ||
-                            ((first + len) > kNumberOfSRegisters)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00000100: {
-                        // 0x0d300b00
-                        switch (instr & 0x00000001) {
-                          case 0x00000000: {
-                            // 0x0d300b00
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rn = (instr >> 16) & 0xf;
-                            unsigned first = ExtractDRegister(instr, 22, 12);
-                            unsigned imm8 = (instr & 0xff);
-                            unsigned len = imm8 / 2;
-                            unsigned end = first + len;
-                            // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; A1
-                            vldmdb(condition,
-                                   kDataTypeValueNone,
-                                   Register(rn),
-                                   WriteBack(WRITE_BACK),
-                                   DRegisterList(DRegister(first), len));
-                            if ((len == 0) || (len > 16) ||
-                                (end > kMaxNumberOfDRegisters)) {
-                              UnpredictableA32(instr);
-                            }
-                            break;
-                          }
-                          case 0x00000001: {
-                            // 0x0d300b01
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned rn = (instr >> 16) & 0xf;
-                            unsigned first = ExtractDRegister(instr, 22, 12);
-                            unsigned imm8 = (instr & 0xff);
-                            unsigned len = imm8 / 2;
-                            unsigned end = first + len;
-                            // FLDMDBX{<c>}{<q>} <Rn>!, <dreglist> ; A1
-                            fldmdbx(condition,
-                                    Register(rn),
-                                    WriteBack(WRITE_BACK),
-                                    DRegisterList(DRegister(first), len));
-                            if ((len == 0) || (len > 16) || (end > 16)) {
-                              UnpredictableA32(instr);
-                            }
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                      default:
-                        UnallocatedA32(instr);
-                        break;
+                // 0x0d300a00
+                if ((instr & 0x00800000) == 0x00000000) {
+                  if (((instr & 0xf0000000) == 0xf0000000)) {
+                    UnallocatedA32(instr);
+                    return;
+                  }
+                  Condition condition((instr >> 28) & 0xf);
+                  unsigned rn = (instr >> 16) & 0xf;
+                  unsigned first = ExtractSRegister(instr, 22, 12);
+                  unsigned len = instr & 0xff;
+                  // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <sreglist> ; A2
+                  vldmdb(condition,
+                         kDataTypeValueNone,
+                         Register(rn),
+                         WriteBack(WRITE_BACK),
+                         SRegisterList(SRegister(first), len));
+                  if ((len == 0) || ((first + len) > kNumberOfSRegisters)) {
+                    UnpredictableA32(instr);
+                  }
+                } else {
+                  UnallocatedA32(instr);
+                }
+                break;
+              }
+              case 0x00200100: {
+                // 0x0d300b00
+                switch (instr & 0x00800001) {
+                  case 0x00000000: {
+                    // 0x0d300b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
                     }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // VLDMDB{<c>}{<q>}{.<size>} <Rn>!, <dreglist> ; A1
+                    vldmdb(condition,
+                           kDataTypeValueNone,
+                           Register(rn),
+                           WriteBack(WRITE_BACK),
+                           DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) ||
+                        (end > kMaxNumberOfDRegisters)) {
+                      UnpredictableA32(instr);
+                    }
+                    break;
+                  }
+                  case 0x00000001: {
+                    // 0x0d300b01
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rn = (instr >> 16) & 0xf;
+                    unsigned first = ExtractDRegister(instr, 22, 12);
+                    unsigned imm8 = (instr & 0xff);
+                    unsigned len = imm8 / 2;
+                    unsigned end = first + len;
+                    // FLDMDBX{<c>}{<q>} <Rn>!, <dreglist> ; A1
+                    fldmdbx(condition,
+                            Register(rn),
+                            WriteBack(WRITE_BACK),
+                            DRegisterList(DRegister(first), len));
+                    if ((len == 0) || (len > 16) || (end > 16)) {
+                      UnpredictableA32(instr);
+                    }
+                    break;
+                  }
+                  default:
+                    UnallocatedA32(instr);
+                    break;
+                }
+                break;
+              }
+            }
+            break;
+          }
+          case 0x01100e00: {
+            // 0x0d100e00
+            switch (instr & 0x0060f100) {
+              case 0x00005000: {
+                // 0x0d105e00
+                switch (instr & 0x000f0000) {
+                  case 0x000f0000: {
+                    // 0x0d1f5e00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    UnimplementedA32("LDC", instr);
                     break;
                   }
                   default: {
                     if (((instr & 0xf0000000) == 0xf0000000) ||
-                        ((instr & 0xf0000) == 0xf0000) ||
-                        ((instr & 0xe00) == 0xa00)) {
+                        ((instr & 0xf0000) == 0xf0000)) {
                       UnallocatedA32(instr);
                       return;
                     }
@@ -66270,9 +65532,25 @@ void Disassembler::DecodeA32(uint32_t instr) {
                 }
                 break;
               }
+              case 0x00205000: {
+                // 0x0d305e00
+                if (((instr & 0xf0000000) == 0xf0000000) ||
+                    ((instr & 0xf0000) == 0xf0000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                UnimplementedA32("LDC", instr);
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
             }
             break;
           }
+          default:
+            UnallocatedA32(instr);
+            break;
         }
         break;
       }
@@ -66281,1416 +65559,396 @@ void Disassembler::DecodeA32(uint32_t instr) {
         switch (instr & 0x01000000) {
           case 0x00000000: {
             // 0x0e000000
-            switch (instr & 0x00000010) {
-              case 0x00000000: {
-                // 0x0e000000
-                switch (instr & 0x00000e00) {
-                  case 0x00000a00: {
+            switch (instr & 0x00100e10) {
+              case 0x00000a00: {
+                // 0x0e000a00
+                switch (instr & 0x00a00140) {
+                  case 0x00000000: {
                     // 0x0e000a00
-                    switch (instr & 0x00b00140) {
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
+                    vmla(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00000040: {
+                    // 0x0e000a40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
+                    vmls(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00000100: {
+                    // 0x0e000b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
+                    vmla(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00000140: {
+                    // 0x0e000b40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
+                    vmls(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00200000: {
+                    // 0x0e200a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A2
+                    vmul(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00200040: {
+                    // 0x0e200a40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VNMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A1
+                    vnmul(condition,
+                          F32,
+                          SRegister(rd),
+                          SRegister(rn),
+                          SRegister(rm));
+                    break;
+                  }
+                  case 0x00200100: {
+                    // 0x0e200b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A2
+                    vmul(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00200140: {
+                    // 0x0e200b40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VNMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A1
+                    vnmul(condition,
+                          F64,
+                          DRegister(rd),
+                          DRegister(rn),
+                          DRegister(rm));
+                    break;
+                  }
+                  case 0x00800000: {
+                    // 0x0e800a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VDIV{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A1
+                    vdiv(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00800100: {
+                    // 0x0e800b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VDIV{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A1
+                    vdiv(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00a00000: {
+                    // 0x0ea00a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VFMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
+                    vfma(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00a00040: {
+                    // 0x0ea00a40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VFMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
+                    vfms(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00a00100: {
+                    // 0x0ea00b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VFMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
+                    vfma(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00a00140: {
+                    // 0x0ea00b40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VFMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
+                    vfms(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  default:
+                    UnallocatedA32(instr);
+                    break;
+                }
+                break;
+              }
+              case 0x00000a10: {
+                // 0x0e000a10
+                switch (instr & 0x00800100) {
+                  case 0x00000000: {
+                    // 0x0e000a10
+                    if ((instr & 0x00600000) == 0x00000000) {
+                      if (((instr & 0xf0000000) == 0xf0000000)) {
+                        UnallocatedA32(instr);
+                        return;
+                      }
+                      Condition condition((instr >> 28) & 0xf);
+                      unsigned rn = ExtractSRegister(instr, 7, 16);
+                      unsigned rt = (instr >> 12) & 0xf;
+                      // VMOV{<c>}{<q>} <Sn>, <Rt> ; A1
+                      vmov(condition, SRegister(rn), Register(rt));
+                      if (((instr & 0xff00f7f) != 0xe000a10)) {
+                        UnpredictableA32(instr);
+                      }
+                    } else {
+                      UnallocatedA32(instr);
+                    }
+                    break;
+                  }
+                  case 0x00000100: {
+                    // 0x0e000b10
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned lane;
+                    DataType dt =
+                        Dt_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
+                                                  ((instr >> 19) & 0xc),
+                                              &lane);
+                    if (dt.Is(kDataTypeValueInvalid)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    unsigned rd = ExtractDRegister(instr, 7, 16);
+                    unsigned rt = (instr >> 12) & 0xf;
+                    // VMOV{<c>}{<q>}{.<size>} <Dd[x]>, <Rt> ; A1
+                    vmov(condition, dt, DRegisterLane(rd, lane), Register(rt));
+                    if (((instr & 0xf900f1f) != 0xe000b10)) {
+                      UnpredictableA32(instr);
+                    }
+                    break;
+                  }
+                  case 0x00800000: {
+                    // 0x0e800a10
+                    if ((instr & 0x00600000) == 0x00600000) {
+                      if (((instr & 0xf0000000) == 0xf0000000)) {
+                        UnallocatedA32(instr);
+                        return;
+                      }
+                      Condition condition((instr >> 28) & 0xf);
+                      unsigned spec_reg = (instr >> 16) & 0xf;
+                      unsigned rt = (instr >> 12) & 0xf;
+                      switch (spec_reg) {
+                        case 0x0:
+                        case 0x1:
+                        case 0x8: {
+                          // VMSR{<c>}{<q>} <spec_reg>, <Rt> ; A1
+                          vmsr(condition,
+                               SpecialFPRegister(spec_reg),
+                               Register(rt));
+                          if (((instr & 0xff00fff) != 0xee00a10)) {
+                            UnpredictableA32(instr);
+                          }
+                          break;
+                        }
+                        default:
+                          UnallocatedA32(instr);
+                          break;
+                      }
+                    } else {
+                      UnallocatedA32(instr);
+                    }
+                    break;
+                  }
+                  case 0x00800100: {
+                    // 0x0e800b10
+                    switch (instr & 0x00200040) {
                       case 0x00000000: {
-                        // 0x0e000a00
+                        // 0x0e800b10
                         if (((instr & 0xf0000000) == 0xf0000000)) {
                           UnallocatedA32(instr);
                           return;
                         }
                         Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
-                        vmla(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00000040: {
-                        // 0x0e000a40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                        DataType dt = Dt_B_E_1_Decode(((instr >> 5) & 0x1) |
+                                                      ((instr >> 21) & 0x2));
+                        if (dt.Is(kDataTypeValueInvalid)) {
                           UnallocatedA32(instr);
                           return;
                         }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
-                        vmls(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00000100: {
-                        // 0x0e000b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
+                        unsigned rd = ExtractDRegister(instr, 7, 16);
+                        unsigned rt = (instr >> 12) & 0xf;
+                        // VDUP{<c>}{<q>}.<dt> <Dd>, <Rt> ; A1
+                        vdup(condition, dt, DRegister(rd), Register(rt));
+                        if (((instr & 0xfb00f5f) != 0xe800b10)) {
+                          UnpredictableA32(instr);
                         }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
-                        vmla(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00000140: {
-                        // 0x0e000b40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
-                        vmls(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00100000: {
-                        // 0x0e100a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VNMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
-                        vnmls(condition,
-                              F32,
-                              SRegister(rd),
-                              SRegister(rn),
-                              SRegister(rm));
-                        break;
-                      }
-                      case 0x00100040: {
-                        // 0x0e100a40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VNMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
-                        vnmla(condition,
-                              F32,
-                              SRegister(rd),
-                              SRegister(rn),
-                              SRegister(rm));
-                        break;
-                      }
-                      case 0x00100100: {
-                        // 0x0e100b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VNMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
-                        vnmls(condition,
-                              F64,
-                              DRegister(rd),
-                              DRegister(rn),
-                              DRegister(rm));
-                        break;
-                      }
-                      case 0x00100140: {
-                        // 0x0e100b40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VNMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
-                        vnmla(condition,
-                              F64,
-                              DRegister(rd),
-                              DRegister(rn),
-                              DRegister(rm));
                         break;
                       }
                       case 0x00200000: {
-                        // 0x0e200a00
+                        // 0x0ea00b10
                         if (((instr & 0xf0000000) == 0xf0000000)) {
                           UnallocatedA32(instr);
                           return;
                         }
                         Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A2
-                        vmul(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00200040: {
-                        // 0x0e200a40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                        DataType dt = Dt_B_E_1_Decode(((instr >> 5) & 0x1) |
+                                                      ((instr >> 21) & 0x2));
+                        if (dt.Is(kDataTypeValueInvalid)) {
                           UnallocatedA32(instr);
                           return;
                         }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VNMUL{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A1
-                        vnmul(condition,
-                              F32,
-                              SRegister(rd),
-                              SRegister(rn),
-                              SRegister(rm));
-                        break;
-                      }
-                      case 0x00200100: {
-                        // 0x0e200b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                        if (((instr >> 16) & 1) != 0) {
                           UnallocatedA32(instr);
                           return;
                         }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A2
-                        vmul(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00200140: {
-                        // 0x0e200b40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VNMUL{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A1
-                        vnmul(condition,
-                              F64,
-                              DRegister(rd),
-                              DRegister(rn),
-                              DRegister(rm));
-                        break;
-                      }
-                      case 0x00300000: {
-                        // 0x0e300a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VADD{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A2
-                        vadd(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00300040: {
-                        // 0x0e300a40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VSUB{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A2
-                        vsub(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00300100: {
-                        // 0x0e300b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VADD{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A2
-                        vadd(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00300140: {
-                        // 0x0e300b40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VSUB{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A2
-                        vsub(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00800000: {
-                        // 0x0e800a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VDIV{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A1
-                        vdiv(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00800100: {
-                        // 0x0e800b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VDIV{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A1
-                        vdiv(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00900000: {
-                        // 0x0e900a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VFNMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
-                        vfnms(condition,
-                              F32,
-                              SRegister(rd),
-                              SRegister(rn),
-                              SRegister(rm));
-                        break;
-                      }
-                      case 0x00900040: {
-                        // 0x0e900a40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VFNMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
-                        vfnma(condition,
-                              F32,
-                              SRegister(rd),
-                              SRegister(rn),
-                              SRegister(rm));
-                        break;
-                      }
-                      case 0x00900100: {
-                        // 0x0e900b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VFNMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
-                        vfnms(condition,
-                              F64,
-                              DRegister(rd),
-                              DRegister(rn),
-                              DRegister(rm));
-                        break;
-                      }
-                      case 0x00900140: {
-                        // 0x0e900b40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VFNMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
-                        vfnma(condition,
-                              F64,
-                              DRegister(rd),
-                              DRegister(rn),
-                              DRegister(rm));
-                        break;
-                      }
-                      case 0x00a00000: {
-                        // 0x0ea00a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VFMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
-                        vfma(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00a00040: {
-                        // 0x0ea00a40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        unsigned rn = ExtractSRegister(instr, 7, 16);
-                        unsigned rm = ExtractSRegister(instr, 5, 0);
-                        // VFMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A2
-                        vfms(condition,
-                             F32,
-                             SRegister(rd),
-                             SRegister(rn),
-                             SRegister(rm));
-                        break;
-                      }
-                      case 0x00a00100: {
-                        // 0x0ea00b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VFMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
-                        vfma(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00a00140: {
-                        // 0x0ea00b40
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        unsigned rn = ExtractDRegister(instr, 7, 16);
-                        unsigned rm = ExtractDRegister(instr, 5, 0);
-                        // VFMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A2
-                        vfms(condition,
-                             F64,
-                             DRegister(rd),
-                             DRegister(rn),
-                             DRegister(rm));
-                        break;
-                      }
-                      case 0x00b00000: {
-                        // 0x0eb00a00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractSRegister(instr, 22, 12);
-                        uint32_t encoded_imm =
-                            (instr & 0xf) | ((instr >> 12) & 0xf0);
-                        NeonImmediate imm =
-                            ImmediateVFP::Decode<float>(encoded_imm);
-                        // VMOV{<c>}{<q>}.F32 <Sd>, #<imm> ; A2
-                        vmov(condition, F32, SRegister(rd), imm);
-                        if (((instr & 0xfb00ff0) != 0xeb00a00)) {
+                        unsigned rd = ExtractQRegister(instr, 7, 16);
+                        unsigned rt = (instr >> 12) & 0xf;
+                        // VDUP{<c>}{<q>}.<dt> <Qd>, <Rt> ; A1
+                        vdup(condition, dt, QRegister(rd), Register(rt));
+                        if (((instr & 0xfb00f5f) != 0xea00b10)) {
                           UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00b00040: {
-                        // 0x0eb00a40
-                        switch (instr & 0x000e0000) {
-                          case 0x00000000: {
-                            // 0x0eb00a40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb00a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VMOV{<c>}{<q>}.F32 <Sd>, <Sm> ; A2
-                                vmov(condition,
-                                     F32,
-                                     SRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb00ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VABS{<c>}{<q>}.F32 <Sd>, <Sm> ; A2
-                                vabs(condition,
-                                     F32,
-                                     SRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb10a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VNEG{<c>}{<q>}.F32 <Sd>, <Sm> ; A2
-                                vneg(condition,
-                                     F32,
-                                     SRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb10ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VSQRT{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
-                                vsqrt(condition,
-                                      F32,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00020000: {
-                            // 0x0eb20a40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb20a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTB{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; A1
-                                vcvtb(condition,
-                                      F32,
-                                      F16,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb20ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTT{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; A1
-                                vcvtt(condition,
-                                      F32,
-                                      F16,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb30a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTB{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; A1
-                                vcvtb(condition,
-                                      F16,
-                                      F32,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb30ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTT{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; A1
-                                vcvtt(condition,
-                                      F16,
-                                      F32,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00040000: {
-                            // 0x0eb40a40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb40a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCMP{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
-                                vcmp(condition,
-                                     F32,
-                                     SRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb40ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCMPE{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
-                                vcmpe(condition,
-                                      F32,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb50a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                // VCMP{<c>}{<q>}.F32 <Sd>, #0.0 ; A2
-                                vcmp(condition, F32, SRegister(rd), 0.0);
-                                if (((instr & 0xfbf0fff) != 0xeb50a40)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb50ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                // VCMPE{<c>}{<q>}.F32 <Sd>, #0.0 ; A2
-                                vcmpe(condition, F32, SRegister(rd), 0.0);
-                                if (((instr & 0xfbf0fff) != 0xeb50ac0)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00060000: {
-                            // 0x0eb60a40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb60a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VRINTR{<c>}{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                                vrintr(condition,
-                                       F32,
-                                       F32,
-                                       SRegister(rd),
-                                       SRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb60ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VRINTZ{<c>}{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                                vrintz(condition,
-                                       F32,
-                                       F32,
-                                       SRegister(rd),
-                                       SRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb70a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VRINTX{<c>}{<q>}.F32.F32 <Sd>, <Sm> ; A1
-                                vrintx(condition,
-                                       F32,
-                                       F32,
-                                       SRegister(rd),
-                                       SRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb70ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVT{<c>}{<q>}.F64.F32 <Dd>, <Sm> ; A1
-                                vcvt(condition,
-                                     F64,
-                                     F32,
-                                     DRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00080000: {
-                            // 0x0eb80a40
-                            if ((instr & 0x00010000) == 0x00000000) {
-                              if (((instr & 0xf0000000) == 0xf0000000)) {
-                                UnallocatedA32(instr);
-                                return;
-                              }
-                              Condition condition((instr >> 28) & 0xf);
-                              DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                              if (dt.Is(kDataTypeValueInvalid)) {
-                                UnallocatedA32(instr);
-                                return;
-                              }
-                              unsigned rd = ExtractSRegister(instr, 22, 12);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VCVT{<c>}{<q>}.F32.<dt> <Sd>, <Sm> ; A1
-                              vcvt(condition,
-                                   F32,
-                                   dt,
-                                   SRegister(rd),
-                                   SRegister(rm));
-                            } else {
-                              UnallocatedA32(instr);
-                            }
-                            break;
-                          }
-                          case 0x000a0000: {
-                            // 0x0eba0a40
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            DataType dt = Dt_U_sx_1_Decode(
-                                ((instr >> 7) & 0x1) | ((instr >> 15) & 0x2));
-                            if (dt.Is(kDataTypeValueInvalid)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            unsigned rd = ExtractSRegister(instr, 22, 12);
-                            unsigned offset = 32;
-                            if (dt.Is(S16) || dt.Is(U16)) {
-                              offset = 16;
-                            }
-                            uint32_t fbits = offset - (((instr >> 5) & 0x1) |
-                                                       ((instr << 1) & 0x1e));
-                            // VCVT{<c>}{<q>}.F32.<dt> <Sdm>, <Sdm>, #<fbits> ; A1 NOLINT(whitespace/line_length)
-                            vcvt(condition,
-                                 F32,
-                                 dt,
-                                 SRegister(rd),
-                                 SRegister(rd),
-                                 fbits);
-                            break;
-                          }
-                          case 0x000c0000: {
-                            // 0x0ebc0a40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0ebc0a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTR{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; A1
-                                vcvtr(condition,
-                                      U32,
-                                      F32,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0ebc0ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVT{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; A1
-                                vcvt(condition,
-                                     U32,
-                                     F32,
-                                     SRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0ebd0a40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTR{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; A1
-                                vcvtr(condition,
-                                      S32,
-                                      F32,
-                                      SRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0ebd0ac0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVT{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; A1
-                                vcvt(condition,
-                                     S32,
-                                     F32,
-                                     SRegister(rd),
-                                     SRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x000e0000: {
-                            // 0x0ebe0a40
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            DataType dt = Dt_U_sx_1_Decode(
-                                ((instr >> 7) & 0x1) | ((instr >> 15) & 0x2));
-                            if (dt.Is(kDataTypeValueInvalid)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            unsigned rd = ExtractSRegister(instr, 22, 12);
-                            unsigned offset = 32;
-                            if (dt.Is(S16) || dt.Is(U16)) {
-                              offset = 16;
-                            }
-                            uint32_t fbits = offset - (((instr >> 5) & 0x1) |
-                                                       ((instr << 1) & 0x1e));
-                            // VCVT{<c>}{<q>}.<dt>.F32 <Sdm>, <Sdm>, #<fbits> ; A1 NOLINT(whitespace/line_length)
-                            vcvt(condition,
-                                 dt,
-                                 F32,
-                                 SRegister(rd),
-                                 SRegister(rd),
-                                 fbits);
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                      case 0x00b00100: {
-                        // 0x0eb00b00
-                        if (((instr & 0xf0000000) == 0xf0000000)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        Condition condition((instr >> 28) & 0xf);
-                        unsigned rd = ExtractDRegister(instr, 22, 12);
-                        uint32_t encoded_imm =
-                            (instr & 0xf) | ((instr >> 12) & 0xf0);
-                        NeonImmediate imm =
-                            ImmediateVFP::Decode<double>(encoded_imm);
-                        // VMOV{<c>}{<q>}.F64 <Dd>, #<imm> ; A2
-                        vmov(condition, F64, DRegister(rd), imm);
-                        if (((instr & 0xfb00ff0) != 0xeb00b00)) {
-                          UnpredictableA32(instr);
-                        }
-                        break;
-                      }
-                      case 0x00b00140: {
-                        // 0x0eb00b40
-                        switch (instr & 0x000e0000) {
-                          case 0x00000000: {
-                            // 0x0eb00b40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb00b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VMOV{<c>}{<q>}.F64 <Dd>, <Dm> ; A2
-                                vmov(condition,
-                                     F64,
-                                     DRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb00bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VABS{<c>}{<q>}.F64 <Dd>, <Dm> ; A2
-                                vabs(condition,
-                                     F64,
-                                     DRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb10b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VNEG{<c>}{<q>}.F64 <Dd>, <Dm> ; A2
-                                vneg(condition,
-                                     F64,
-                                     DRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb10bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VSQRT{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
-                                vsqrt(condition,
-                                      F64,
-                                      DRegister(rd),
-                                      DRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00020000: {
-                            // 0x0eb20b40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb20b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTB{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; A1
-                                vcvtb(condition,
-                                      F64,
-                                      F16,
-                                      DRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb20bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractSRegister(instr, 5, 0);
-                                // VCVTT{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; A1
-                                vcvtt(condition,
-                                      F64,
-                                      F16,
-                                      DRegister(rd),
-                                      SRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb30b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVTB{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; A1
-                                vcvtb(condition,
-                                      F16,
-                                      F64,
-                                      SRegister(rd),
-                                      DRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb30bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVTT{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; A1
-                                vcvtt(condition,
-                                      F16,
-                                      F64,
-                                      SRegister(rd),
-                                      DRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00040000: {
-                            // 0x0eb40b40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb40b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCMP{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
-                                vcmp(condition,
-                                     F64,
-                                     DRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb40bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCMPE{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
-                                vcmpe(condition,
-                                      F64,
-                                      DRegister(rd),
-                                      DRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb50b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                // VCMP{<c>}{<q>}.F64 <Dd>, #0.0 ; A2
-                                vcmp(condition, F64, DRegister(rd), 0.0);
-                                if (((instr & 0xfbf0fff) != 0xeb50b40)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb50bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                // VCMPE{<c>}{<q>}.F64 <Dd>, #0.0 ; A2
-                                vcmpe(condition, F64, DRegister(rd), 0.0);
-                                if (((instr & 0xfbf0fff) != 0xeb50bc0)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00060000: {
-                            // 0x0eb60b40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0eb60b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VRINTR{<c>}{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                                vrintr(condition,
-                                       F64,
-                                       F64,
-                                       DRegister(rd),
-                                       DRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0eb60bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VRINTZ{<c>}{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                                vrintz(condition,
-                                       F64,
-                                       F64,
-                                       DRegister(rd),
-                                       DRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0eb70b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractDRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VRINTX{<c>}{<q>}.F64.F64 <Dd>, <Dm> ; A1
-                                vrintx(condition,
-                                       F64,
-                                       F64,
-                                       DRegister(rd),
-                                       DRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0eb70bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVT{<c>}{<q>}.F32.F64 <Sd>, <Dm> ; A1
-                                vcvt(condition,
-                                     F32,
-                                     F64,
-                                     SRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x00080000: {
-                            // 0x0eb80b40
-                            if ((instr & 0x00010000) == 0x00000000) {
-                              if (((instr & 0xf0000000) == 0xf0000000)) {
-                                UnallocatedA32(instr);
-                                return;
-                              }
-                              Condition condition((instr >> 28) & 0xf);
-                              DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
-                              if (dt.Is(kDataTypeValueInvalid)) {
-                                UnallocatedA32(instr);
-                                return;
-                              }
-                              unsigned rd = ExtractDRegister(instr, 22, 12);
-                              unsigned rm = ExtractSRegister(instr, 5, 0);
-                              // VCVT{<c>}{<q>}.F64.<dt> <Dd>, <Sm> ; A1
-                              vcvt(condition,
-                                   F64,
-                                   dt,
-                                   DRegister(rd),
-                                   SRegister(rm));
-                            } else {
-                              UnallocatedA32(instr);
-                            }
-                            break;
-                          }
-                          case 0x000a0000: {
-                            // 0x0eba0b40
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            DataType dt = Dt_U_sx_1_Decode(
-                                ((instr >> 7) & 0x1) | ((instr >> 15) & 0x2));
-                            if (dt.Is(kDataTypeValueInvalid)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            unsigned rd = ExtractDRegister(instr, 22, 12);
-                            unsigned offset = 32;
-                            if (dt.Is(S16) || dt.Is(U16)) {
-                              offset = 16;
-                            }
-                            uint32_t fbits = offset - (((instr >> 5) & 0x1) |
-                                                       ((instr << 1) & 0x1e));
-                            // VCVT{<c>}{<q>}.F64.<dt> <Ddm>, <Ddm>, #<fbits> ; A1 NOLINT(whitespace/line_length)
-                            vcvt(condition,
-                                 F64,
-                                 dt,
-                                 DRegister(rd),
-                                 DRegister(rd),
-                                 fbits);
-                            break;
-                          }
-                          case 0x000c0000: {
-                            // 0x0ebc0b40
-                            switch (instr & 0x00010080) {
-                              case 0x00000000: {
-                                // 0x0ebc0b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVTR{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; A1
-                                vcvtr(condition,
-                                      U32,
-                                      F64,
-                                      SRegister(rd),
-                                      DRegister(rm));
-                                break;
-                              }
-                              case 0x00000080: {
-                                // 0x0ebc0bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVT{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; A1
-                                vcvt(condition,
-                                     U32,
-                                     F64,
-                                     SRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                              case 0x00010000: {
-                                // 0x0ebd0b40
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVTR{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; A1
-                                vcvtr(condition,
-                                      S32,
-                                      F64,
-                                      SRegister(rd),
-                                      DRegister(rm));
-                                break;
-                              }
-                              case 0x00010080: {
-                                // 0x0ebd0bc0
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rd = ExtractSRegister(instr, 22, 12);
-                                unsigned rm = ExtractDRegister(instr, 5, 0);
-                                // VCVT{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; A1
-                                vcvt(condition,
-                                     S32,
-                                     F64,
-                                     SRegister(rd),
-                                     DRegister(rm));
-                                break;
-                              }
-                            }
-                            break;
-                          }
-                          case 0x000e0000: {
-                            // 0x0ebe0b40
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            DataType dt = Dt_U_sx_1_Decode(
-                                ((instr >> 7) & 0x1) | ((instr >> 15) & 0x2));
-                            if (dt.Is(kDataTypeValueInvalid)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            unsigned rd = ExtractDRegister(instr, 22, 12);
-                            unsigned offset = 32;
-                            if (dt.Is(S16) || dt.Is(U16)) {
-                              offset = 16;
-                            }
-                            uint32_t fbits = offset - (((instr >> 5) & 0x1) |
-                                                       ((instr << 1) & 0x1e));
-                            // VCVT{<c>}{<q>}.<dt>.F64 <Ddm>, <Ddm>, #<fbits> ; A1 NOLINT(whitespace/line_length)
-                            vcvt(condition,
-                                 dt,
-                                 F64,
-                                 DRegister(rd),
-                                 DRegister(rd),
-                                 fbits);
-                            break;
-                          }
                         }
                         break;
                       }
@@ -67700,298 +65958,1236 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     }
                     break;
                   }
-                  default: {
-                    if (((instr & 0xf0000000) == 0xf0000000) ||
-                        ((instr & 0xe00) == 0xa00)) {
+                }
+                break;
+              }
+              case 0x00000e10: {
+                // 0x0e000e10
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                UnimplementedA32("MCR", instr);
+                break;
+              }
+              case 0x00100a00: {
+                // 0x0e100a00
+                switch (instr & 0x00a00140) {
+                  case 0x00000000: {
+                    // 0x0e100a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
                       UnallocatedA32(instr);
                       return;
                     }
-                    UnimplementedA32("CDP", instr);
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VNMLS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
+                    vnmls(condition,
+                          F32,
+                          SRegister(rd),
+                          SRegister(rn),
+                          SRegister(rm));
+                    break;
+                  }
+                  case 0x00000040: {
+                    // 0x0e100a40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VNMLA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
+                    vnmla(condition,
+                          F32,
+                          SRegister(rd),
+                          SRegister(rn),
+                          SRegister(rm));
+                    break;
+                  }
+                  case 0x00000100: {
+                    // 0x0e100b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VNMLS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
+                    vnmls(condition,
+                          F64,
+                          DRegister(rd),
+                          DRegister(rn),
+                          DRegister(rm));
+                    break;
+                  }
+                  case 0x00000140: {
+                    // 0x0e100b40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VNMLA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
+                    vnmla(condition,
+                          F64,
+                          DRegister(rd),
+                          DRegister(rn),
+                          DRegister(rm));
+                    break;
+                  }
+                  case 0x00200000: {
+                    // 0x0e300a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VADD{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A2
+                    vadd(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00200040: {
+                    // 0x0e300a40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VSUB{<c>}{<q>}.F32 {<Sd>}, <Sn>, <Sm> ; A2
+                    vsub(condition,
+                         F32,
+                         SRegister(rd),
+                         SRegister(rn),
+                         SRegister(rm));
+                    break;
+                  }
+                  case 0x00200100: {
+                    // 0x0e300b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VADD{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A2
+                    vadd(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00200140: {
+                    // 0x0e300b40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VSUB{<c>}{<q>}.F64 {<Dd>}, <Dn>, <Dm> ; A2
+                    vsub(condition,
+                         F64,
+                         DRegister(rd),
+                         DRegister(rn),
+                         DRegister(rm));
+                    break;
+                  }
+                  case 0x00800000: {
+                    // 0x0e900a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VFNMS{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
+                    vfnms(condition,
+                          F32,
+                          SRegister(rd),
+                          SRegister(rn),
+                          SRegister(rm));
+                    break;
+                  }
+                  case 0x00800040: {
+                    // 0x0e900a40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    unsigned rn = ExtractSRegister(instr, 7, 16);
+                    unsigned rm = ExtractSRegister(instr, 5, 0);
+                    // VFNMA{<c>}{<q>}.F32 <Sd>, <Sn>, <Sm> ; A1
+                    vfnma(condition,
+                          F32,
+                          SRegister(rd),
+                          SRegister(rn),
+                          SRegister(rm));
+                    break;
+                  }
+                  case 0x00800100: {
+                    // 0x0e900b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VFNMS{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
+                    vfnms(condition,
+                          F64,
+                          DRegister(rd),
+                          DRegister(rn),
+                          DRegister(rm));
+                    break;
+                  }
+                  case 0x00800140: {
+                    // 0x0e900b40
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    unsigned rm = ExtractDRegister(instr, 5, 0);
+                    // VFNMA{<c>}{<q>}.F64 <Dd>, <Dn>, <Dm> ; A1
+                    vfnma(condition,
+                          F64,
+                          DRegister(rd),
+                          DRegister(rn),
+                          DRegister(rm));
+                    break;
+                  }
+                  case 0x00a00000: {
+                    // 0x0eb00a00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractSRegister(instr, 22, 12);
+                    uint32_t encoded_imm =
+                        (instr & 0xf) | ((instr >> 12) & 0xf0);
+                    NeonImmediate imm =
+                        ImmediateVFP::Decode<float>(encoded_imm);
+                    // VMOV{<c>}{<q>}.F32 <Sd>, #<imm> ; A2
+                    vmov(condition, F32, SRegister(rd), imm);
+                    if (((instr & 0xfb00ff0) != 0xeb00a00)) {
+                      UnpredictableA32(instr);
+                    }
+                    break;
+                  }
+                  case 0x00a00040: {
+                    // 0x0eb00a40
+                    switch (instr & 0x000e0000) {
+                      case 0x00000000: {
+                        // 0x0eb00a40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb00a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VMOV{<c>}{<q>}.F32 <Sd>, <Sm> ; A2
+                            vmov(condition, F32, SRegister(rd), SRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb00ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VABS{<c>}{<q>}.F32 <Sd>, <Sm> ; A2
+                            vabs(condition, F32, SRegister(rd), SRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb10a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VNEG{<c>}{<q>}.F32 <Sd>, <Sm> ; A2
+                            vneg(condition, F32, SRegister(rd), SRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb10ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VSQRT{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
+                            vsqrt(condition, F32, SRegister(rd), SRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00020000: {
+                        // 0x0eb20a40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb20a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTB{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; A1
+                            vcvtb(condition,
+                                  F32,
+                                  F16,
+                                  SRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb20ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTT{<c>}{<q>}.F32.F16 <Sd>, <Sm> ; A1
+                            vcvtt(condition,
+                                  F32,
+                                  F16,
+                                  SRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb30a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTB{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; A1
+                            vcvtb(condition,
+                                  F16,
+                                  F32,
+                                  SRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb30ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTT{<c>}{<q>}.F16.F32 <Sd>, <Sm> ; A1
+                            vcvtt(condition,
+                                  F16,
+                                  F32,
+                                  SRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00040000: {
+                        // 0x0eb40a40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb40a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCMP{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
+                            vcmp(condition, F32, SRegister(rd), SRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb40ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCMPE{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
+                            vcmpe(condition, F32, SRegister(rd), SRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb50a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            // VCMP{<c>}{<q>}.F32 <Sd>, #0.0 ; A2
+                            vcmp(condition, F32, SRegister(rd), 0.0);
+                            if (((instr & 0xfbf0fff) != 0xeb50a40)) {
+                              UnpredictableA32(instr);
+                            }
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb50ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            // VCMPE{<c>}{<q>}.F32 <Sd>, #0.0 ; A2
+                            vcmpe(condition, F32, SRegister(rd), 0.0);
+                            if (((instr & 0xfbf0fff) != 0xeb50ac0)) {
+                              UnpredictableA32(instr);
+                            }
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00060000: {
+                        // 0x0eb60a40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb60a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTR{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
+                            vrintr(condition,
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb60ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTZ{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
+                            vrintz(condition,
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb70a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VRINTX{<c>}{<q>}.F32 <Sd>, <Sm> ; A1
+                            vrintx(condition,
+                                   F32,
+                                   SRegister(rd),
+                                   SRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb70ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.F64.F32 <Dd>, <Sm> ; A1
+                            vcvt(condition,
+                                 F64,
+                                 F32,
+                                 DRegister(rd),
+                                 SRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00080000: {
+                        // 0x0eb80a40
+                        if ((instr & 0x00010000) == 0x00000000) {
+                          if (((instr & 0xf0000000) == 0xf0000000)) {
+                            UnallocatedA32(instr);
+                            return;
+                          }
+                          Condition condition((instr >> 28) & 0xf);
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedA32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractSRegister(instr, 22, 12);
+                          unsigned rm = ExtractSRegister(instr, 5, 0);
+                          // VCVT{<c>}{<q>}.F32.<dt> <Sd>, <Sm> ; A1
+                          vcvt(condition,
+                               F32,
+                               dt,
+                               SRegister(rd),
+                               SRegister(rm));
+                        } else {
+                          UnallocatedA32(instr);
+                        }
+                        break;
+                      }
+                      case 0x000a0000: {
+                        // 0x0eba0a40
+                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        Condition condition((instr >> 28) & 0xf);
+                        DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                       ((instr >> 15) & 0x2));
+                        if (dt.Is(kDataTypeValueInvalid)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        unsigned rd = ExtractSRegister(instr, 22, 12);
+                        unsigned offset = 32;
+                        if (dt.Is(S16) || dt.Is(U16)) {
+                          offset = 16;
+                        }
+                        uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                   ((instr << 1) & 0x1e));
+                        // VCVT{<c>}{<q>}.F32.<dt> <Sdm>, <Sdm>, #<fbits> ; A1
+                        vcvt(condition,
+                             F32,
+                             dt,
+                             SRegister(rd),
+                             SRegister(rd),
+                             fbits);
+                        break;
+                      }
+                      case 0x000c0000: {
+                        // 0x0ebc0a40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0ebc0a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTR{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; A1
+                            vcvtr(condition,
+                                  U32,
+                                  F32,
+                                  SRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0ebc0ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.U32.F32 <Sd>, <Sm> ; A1
+                            vcvt(condition,
+                                 U32,
+                                 F32,
+                                 SRegister(rd),
+                                 SRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0ebd0a40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTR{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; A1
+                            vcvtr(condition,
+                                  S32,
+                                  F32,
+                                  SRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0ebd0ac0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.S32.F32 <Sd>, <Sm> ; A1
+                            vcvt(condition,
+                                 S32,
+                                 F32,
+                                 SRegister(rd),
+                                 SRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x000e0000: {
+                        // 0x0ebe0a40
+                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        Condition condition((instr >> 28) & 0xf);
+                        DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                       ((instr >> 15) & 0x2));
+                        if (dt.Is(kDataTypeValueInvalid)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        unsigned rd = ExtractSRegister(instr, 22, 12);
+                        unsigned offset = 32;
+                        if (dt.Is(S16) || dt.Is(U16)) {
+                          offset = 16;
+                        }
+                        uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                   ((instr << 1) & 0x1e));
+                        // VCVT{<c>}{<q>}.<dt>.F32 <Sdm>, <Sdm>, #<fbits> ; A1
+                        vcvt(condition,
+                             dt,
+                             F32,
+                             SRegister(rd),
+                             SRegister(rd),
+                             fbits);
+                        break;
+                      }
+                    }
+                    break;
+                  }
+                  case 0x00a00100: {
+                    // 0x0eb00b00
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned rd = ExtractDRegister(instr, 22, 12);
+                    uint32_t encoded_imm =
+                        (instr & 0xf) | ((instr >> 12) & 0xf0);
+                    NeonImmediate imm =
+                        ImmediateVFP::Decode<double>(encoded_imm);
+                    // VMOV{<c>}{<q>}.F64 <Dd>, #<imm> ; A2
+                    vmov(condition, F64, DRegister(rd), imm);
+                    if (((instr & 0xfb00ff0) != 0xeb00b00)) {
+                      UnpredictableA32(instr);
+                    }
+                    break;
+                  }
+                  case 0x00a00140: {
+                    // 0x0eb00b40
+                    switch (instr & 0x000e0000) {
+                      case 0x00000000: {
+                        // 0x0eb00b40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb00b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VMOV{<c>}{<q>}.F64 <Dd>, <Dm> ; A2
+                            vmov(condition, F64, DRegister(rd), DRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb00bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VABS{<c>}{<q>}.F64 <Dd>, <Dm> ; A2
+                            vabs(condition, F64, DRegister(rd), DRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb10b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VNEG{<c>}{<q>}.F64 <Dd>, <Dm> ; A2
+                            vneg(condition, F64, DRegister(rd), DRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb10bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VSQRT{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
+                            vsqrt(condition, F64, DRegister(rd), DRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00020000: {
+                        // 0x0eb20b40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb20b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTB{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; A1
+                            vcvtb(condition,
+                                  F64,
+                                  F16,
+                                  DRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb20bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractSRegister(instr, 5, 0);
+                            // VCVTT{<c>}{<q>}.F64.F16 <Dd>, <Sm> ; A1
+                            vcvtt(condition,
+                                  F64,
+                                  F16,
+                                  DRegister(rd),
+                                  SRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb30b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVTB{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; A1
+                            vcvtb(condition,
+                                  F16,
+                                  F64,
+                                  SRegister(rd),
+                                  DRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb30bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVTT{<c>}{<q>}.F16.F64 <Sd>, <Dm> ; A1
+                            vcvtt(condition,
+                                  F16,
+                                  F64,
+                                  SRegister(rd),
+                                  DRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00040000: {
+                        // 0x0eb40b40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb40b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCMP{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
+                            vcmp(condition, F64, DRegister(rd), DRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb40bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCMPE{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
+                            vcmpe(condition, F64, DRegister(rd), DRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb50b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            // VCMP{<c>}{<q>}.F64 <Dd>, #0.0 ; A2
+                            vcmp(condition, F64, DRegister(rd), 0.0);
+                            if (((instr & 0xfbf0fff) != 0xeb50b40)) {
+                              UnpredictableA32(instr);
+                            }
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb50bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            // VCMPE{<c>}{<q>}.F64 <Dd>, #0.0 ; A2
+                            vcmpe(condition, F64, DRegister(rd), 0.0);
+                            if (((instr & 0xfbf0fff) != 0xeb50bc0)) {
+                              UnpredictableA32(instr);
+                            }
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00060000: {
+                        // 0x0eb60b40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0eb60b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTR{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
+                            vrintr(condition,
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0eb60bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTZ{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
+                            vrintz(condition,
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0eb70b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractDRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VRINTX{<c>}{<q>}.F64 <Dd>, <Dm> ; A1
+                            vrintx(condition,
+                                   F64,
+                                   DRegister(rd),
+                                   DRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0eb70bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.F32.F64 <Sd>, <Dm> ; A1
+                            vcvt(condition,
+                                 F32,
+                                 F64,
+                                 SRegister(rd),
+                                 DRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x00080000: {
+                        // 0x0eb80b40
+                        if ((instr & 0x00010000) == 0x00000000) {
+                          if (((instr & 0xf0000000) == 0xf0000000)) {
+                            UnallocatedA32(instr);
+                            return;
+                          }
+                          Condition condition((instr >> 28) & 0xf);
+                          DataType dt = Dt_op_2_Decode((instr >> 7) & 0x1);
+                          if (dt.Is(kDataTypeValueInvalid)) {
+                            UnallocatedA32(instr);
+                            return;
+                          }
+                          unsigned rd = ExtractDRegister(instr, 22, 12);
+                          unsigned rm = ExtractSRegister(instr, 5, 0);
+                          // VCVT{<c>}{<q>}.F64.<dt> <Dd>, <Sm> ; A1
+                          vcvt(condition,
+                               F64,
+                               dt,
+                               DRegister(rd),
+                               SRegister(rm));
+                        } else {
+                          UnallocatedA32(instr);
+                        }
+                        break;
+                      }
+                      case 0x000a0000: {
+                        // 0x0eba0b40
+                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        Condition condition((instr >> 28) & 0xf);
+                        DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                       ((instr >> 15) & 0x2));
+                        if (dt.Is(kDataTypeValueInvalid)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        unsigned rd = ExtractDRegister(instr, 22, 12);
+                        unsigned offset = 32;
+                        if (dt.Is(S16) || dt.Is(U16)) {
+                          offset = 16;
+                        }
+                        uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                   ((instr << 1) & 0x1e));
+                        // VCVT{<c>}{<q>}.F64.<dt> <Ddm>, <Ddm>, #<fbits> ; A1
+                        vcvt(condition,
+                             F64,
+                             dt,
+                             DRegister(rd),
+                             DRegister(rd),
+                             fbits);
+                        break;
+                      }
+                      case 0x000c0000: {
+                        // 0x0ebc0b40
+                        switch (instr & 0x00010080) {
+                          case 0x00000000: {
+                            // 0x0ebc0b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVTR{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; A1
+                            vcvtr(condition,
+                                  U32,
+                                  F64,
+                                  SRegister(rd),
+                                  DRegister(rm));
+                            break;
+                          }
+                          case 0x00000080: {
+                            // 0x0ebc0bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.U32.F64 <Sd>, <Dm> ; A1
+                            vcvt(condition,
+                                 U32,
+                                 F64,
+                                 SRegister(rd),
+                                 DRegister(rm));
+                            break;
+                          }
+                          case 0x00010000: {
+                            // 0x0ebd0b40
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVTR{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; A1
+                            vcvtr(condition,
+                                  S32,
+                                  F64,
+                                  SRegister(rd),
+                                  DRegister(rm));
+                            break;
+                          }
+                          case 0x00010080: {
+                            // 0x0ebd0bc0
+                            if (((instr & 0xf0000000) == 0xf0000000)) {
+                              UnallocatedA32(instr);
+                              return;
+                            }
+                            Condition condition((instr >> 28) & 0xf);
+                            unsigned rd = ExtractSRegister(instr, 22, 12);
+                            unsigned rm = ExtractDRegister(instr, 5, 0);
+                            // VCVT{<c>}{<q>}.S32.F64 <Sd>, <Dm> ; A1
+                            vcvt(condition,
+                                 S32,
+                                 F64,
+                                 SRegister(rd),
+                                 DRegister(rm));
+                            break;
+                          }
+                        }
+                        break;
+                      }
+                      case 0x000e0000: {
+                        // 0x0ebe0b40
+                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        Condition condition((instr >> 28) & 0xf);
+                        DataType dt = Dt_U_sx_1_Decode(((instr >> 7) & 0x1) |
+                                                       ((instr >> 15) & 0x2));
+                        if (dt.Is(kDataTypeValueInvalid)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        unsigned rd = ExtractDRegister(instr, 22, 12);
+                        unsigned offset = 32;
+                        if (dt.Is(S16) || dt.Is(U16)) {
+                          offset = 16;
+                        }
+                        uint32_t fbits = offset - (((instr >> 5) & 0x1) |
+                                                   ((instr << 1) & 0x1e));
+                        // VCVT{<c>}{<q>}.<dt>.F64 <Ddm>, <Ddm>, #<fbits> ; A1
+                        vcvt(condition,
+                             dt,
+                             F64,
+                             DRegister(rd),
+                             DRegister(rd),
+                             fbits);
+                        break;
+                      }
+                    }
                     break;
                   }
                 }
                 break;
               }
-              case 0x00000010: {
-                // 0x0e000010
-                switch (instr & 0x00100000) {
+              case 0x00100a10: {
+                // 0x0e100a10
+                switch (instr & 0x00000100) {
                   case 0x00000000: {
-                    // 0x0e000010
-                    switch (instr & 0x00000e00) {
-                      case 0x00000a00: {
-                        // 0x0e000a10
-                        switch (instr & 0x00800100) {
-                          case 0x00000000: {
-                            // 0x0e000a10
-                            if ((instr & 0x00600000) == 0x00000000) {
-                              if (((instr & 0xf0000000) == 0xf0000000)) {
-                                UnallocatedA32(instr);
-                                return;
-                              }
-                              Condition condition((instr >> 28) & 0xf);
-                              unsigned rn = ExtractSRegister(instr, 7, 16);
-                              unsigned rt = (instr >> 12) & 0xf;
-                              // VMOV{<c>}{<q>} <Sn>, <Rt> ; A1
-                              vmov(condition, SRegister(rn), Register(rt));
-                              if (((instr & 0xff00f7f) != 0xe000a10)) {
-                                UnpredictableA32(instr);
-                              }
-                            } else {
-                              UnallocatedA32(instr);
-                            }
-                            break;
-                          }
-                          case 0x00000100: {
-                            // 0x0e000b10
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned lane;
-                            DataType dt =
-                                Dt_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
-                                                          ((instr >> 19) & 0xc),
-                                                      &lane);
-                            if (dt.Is(kDataTypeValueInvalid)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            unsigned rd = ExtractDRegister(instr, 7, 16);
-                            unsigned rt = (instr >> 12) & 0xf;
-                            // VMOV{<c>}{<q>}{.<size>} <Dd[x]>, <Rt> ; A1
-                            vmov(condition,
-                                 dt,
-                                 DRegisterLane(rd, lane),
-                                 Register(rt));
-                            if (((instr & 0xf900f1f) != 0xe000b10)) {
+                    // 0x0e100a10
+                    switch (instr & 0x00e00000) {
+                      case 0x00000000: {
+                        // 0x0e100a10
+                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        Condition condition((instr >> 28) & 0xf);
+                        unsigned rt = (instr >> 12) & 0xf;
+                        unsigned rn = ExtractSRegister(instr, 7, 16);
+                        // VMOV{<c>}{<q>} <Rt>, <Sn> ; A1
+                        vmov(condition, Register(rt), SRegister(rn));
+                        if (((instr & 0xff00f7f) != 0xe100a10)) {
+                          UnpredictableA32(instr);
+                        }
+                        break;
+                      }
+                      case 0x00e00000: {
+                        // 0x0ef00a10
+                        if (((instr & 0xf0000000) == 0xf0000000)) {
+                          UnallocatedA32(instr);
+                          return;
+                        }
+                        Condition condition((instr >> 28) & 0xf);
+                        unsigned rt = (instr >> 12) & 0xf;
+                        unsigned spec_reg = (instr >> 16) & 0xf;
+                        switch (spec_reg) {
+                          case 0x0:
+                          case 0x1:
+                          case 0x5:
+                          case 0x6:
+                          case 0x7:
+                          case 0x8: {
+                            // VMRS{<c>}{<q>} <Rt>, <spec_reg> ; A1
+                            vmrs(condition,
+                                 RegisterOrAPSR_nzcv(rt),
+                                 SpecialFPRegister(spec_reg));
+                            if (((instr & 0xff00fff) != 0xef00a10)) {
                               UnpredictableA32(instr);
                             }
                             break;
                           }
-                          case 0x00800000: {
-                            // 0x0e800a10
-                            if ((instr & 0x00600000) == 0x00600000) {
-                              if (((instr & 0xf0000000) == 0xf0000000)) {
-                                UnallocatedA32(instr);
-                                return;
-                              }
-                              Condition condition((instr >> 28) & 0xf);
-                              unsigned spec_reg = (instr >> 16) & 0xf;
-                              unsigned rt = (instr >> 12) & 0xf;
-                              switch (spec_reg) {
-                                case 0x0:
-                                case 0x1:
-                                case 0x8: {
-                                  // VMSR{<c>}{<q>} <spec_reg>, <Rt> ; A1
-                                  vmsr(condition,
-                                       SpecialFPRegister(spec_reg),
-                                       Register(rt));
-                                  if (((instr & 0xff00fff) != 0xee00a10)) {
-                                    UnpredictableA32(instr);
-                                  }
-                                  break;
-                                }
-                                default:
-                                  UnallocatedA32(instr);
-                                  break;
-                              }
-                            } else {
-                              UnallocatedA32(instr);
-                            }
+                          default:
+                            UnallocatedA32(instr);
                             break;
-                          }
-                          case 0x00800100: {
-                            // 0x0e800b10
-                            switch (instr & 0x00200040) {
-                              case 0x00000000: {
-                                // 0x0e800b10
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                DataType dt =
-                                    Dt_B_E_1_Decode(((instr >> 5) & 0x1) |
-                                                    ((instr >> 21) & 0x2));
-                                if (dt.Is(kDataTypeValueInvalid)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                unsigned rd = ExtractDRegister(instr, 7, 16);
-                                unsigned rt = (instr >> 12) & 0xf;
-                                // VDUP{<c>}{<q>}.<dt> <Dd>, <Rt> ; A1
-                                vdup(condition,
-                                     dt,
-                                     DRegister(rd),
-                                     Register(rt));
-                                if (((instr & 0xfb00f5f) != 0xe800b10)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                              case 0x00200000: {
-                                // 0x0ea00b10
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                DataType dt =
-                                    Dt_B_E_1_Decode(((instr >> 5) & 0x1) |
-                                                    ((instr >> 21) & 0x2));
-                                if (dt.Is(kDataTypeValueInvalid)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                if (((instr >> 16) & 1) != 0) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                unsigned rd = ExtractQRegister(instr, 7, 16);
-                                unsigned rt = (instr >> 12) & 0xf;
-                                // VDUP{<c>}{<q>}.<dt> <Qd>, <Rt> ; A1
-                                vdup(condition,
-                                     dt,
-                                     QRegister(rd),
-                                     Register(rt));
-                                if (((instr & 0xfb00f5f) != 0xea00b10)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                              default:
-                                UnallocatedA32(instr);
-                                break;
-                            }
-                            break;
-                          }
                         }
                         break;
                       }
-                      default: {
-                        if (((instr & 0xf0000000) == 0xf0000000) ||
-                            ((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("MCR", instr);
+                      default:
+                        UnallocatedA32(instr);
                         break;
-                      }
                     }
                     break;
                   }
-                  case 0x00100000: {
-                    // 0x0e100010
-                    switch (instr & 0x00000e00) {
-                      case 0x00000a00: {
-                        // 0x0e100a10
-                        switch (instr & 0x00000100) {
-                          case 0x00000000: {
-                            // 0x0e100a10
-                            switch (instr & 0x00e00000) {
-                              case 0x00000000: {
-                                // 0x0e100a10
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rt = (instr >> 12) & 0xf;
-                                unsigned rn = ExtractSRegister(instr, 7, 16);
-                                // VMOV{<c>}{<q>} <Rt>, <Sn> ; A1
-                                vmov(condition, Register(rt), SRegister(rn));
-                                if (((instr & 0xff00f7f) != 0xe100a10)) {
-                                  UnpredictableA32(instr);
-                                }
-                                break;
-                              }
-                              case 0x00e00000: {
-                                // 0x0ef00a10
-                                if (((instr & 0xf0000000) == 0xf0000000)) {
-                                  UnallocatedA32(instr);
-                                  return;
-                                }
-                                Condition condition((instr >> 28) & 0xf);
-                                unsigned rt = (instr >> 12) & 0xf;
-                                unsigned spec_reg = (instr >> 16) & 0xf;
-                                switch (spec_reg) {
-                                  case 0x0:
-                                  case 0x1:
-                                  case 0x5:
-                                  case 0x6:
-                                  case 0x7:
-                                  case 0x8: {
-                                    // VMRS{<c>}{<q>} <Rt>, <spec_reg> ; A1
-                                    vmrs(condition,
-                                         RegisterOrAPSR_nzcv(rt),
-                                         SpecialFPRegister(spec_reg));
-                                    if (((instr & 0xff00fff) != 0xef00a10)) {
-                                      UnpredictableA32(instr);
-                                    }
-                                    break;
-                                  }
-                                  default:
-                                    UnallocatedA32(instr);
-                                    break;
-                                }
-                                break;
-                              }
-                              default:
-                                UnallocatedA32(instr);
-                                break;
-                            }
-                            break;
-                          }
-                          case 0x00000100: {
-                            // 0x0e100b10
-                            if (((instr & 0xf0000000) == 0xf0000000)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            Condition condition((instr >> 28) & 0xf);
-                            unsigned lane;
-                            DataType dt =
-                                Dt_U_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
-                                                            ((instr >> 19) &
-                                                             0xc) |
-                                                            ((instr >> 19) &
-                                                             0x10),
-                                                        &lane);
-                            if (dt.Is(kDataTypeValueInvalid)) {
-                              UnallocatedA32(instr);
-                              return;
-                            }
-                            unsigned rt = (instr >> 12) & 0xf;
-                            unsigned rn = ExtractDRegister(instr, 7, 16);
-                            // VMOV{<c>}{<q>}{.<dt>} <Rt>, <Dn[x]> ; A1
-                            vmov(condition,
-                                 dt,
-                                 Register(rt),
-                                 DRegisterLane(rn, lane));
-                            if (((instr & 0xf100f1f) != 0xe100b10)) {
-                              UnpredictableA32(instr);
-                            }
-                            break;
-                          }
-                        }
-                        break;
-                      }
-                      default: {
-                        if (((instr & 0xf0000000) == 0xf0000000) ||
-                            ((instr & 0xe00) == 0xa00)) {
-                          UnallocatedA32(instr);
-                          return;
-                        }
-                        UnimplementedA32("MRC", instr);
-                        break;
-                      }
+                  case 0x00000100: {
+                    // 0x0e100b10
+                    if (((instr & 0xf0000000) == 0xf0000000)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    Condition condition((instr >> 28) & 0xf);
+                    unsigned lane;
+                    DataType dt =
+                        Dt_U_opc1_opc2_1_Decode(((instr >> 5) & 0x3) |
+                                                    ((instr >> 19) & 0xc) |
+                                                    ((instr >> 19) & 0x10),
+                                                &lane);
+                    if (dt.Is(kDataTypeValueInvalid)) {
+                      UnallocatedA32(instr);
+                      return;
+                    }
+                    unsigned rt = (instr >> 12) & 0xf;
+                    unsigned rn = ExtractDRegister(instr, 7, 16);
+                    // VMOV{<c>}{<q>}{.<dt>} <Rt>, <Dn[x]> ; A1
+                    vmov(condition, dt, Register(rt), DRegisterLane(rn, lane));
+                    if (((instr & 0xf100f1f) != 0xe100b10)) {
+                      UnpredictableA32(instr);
                     }
                     break;
                   }
                 }
                 break;
               }
+              case 0x00100e10: {
+                // 0x0e100e10
+                if (((instr & 0xf0000000) == 0xf0000000)) {
+                  UnallocatedA32(instr);
+                  return;
+                }
+                UnimplementedA32("MRC", instr);
+                break;
+              }
+              default:
+                UnallocatedA32(instr);
+                break;
             }
             break;
           }

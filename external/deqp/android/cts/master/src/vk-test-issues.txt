@@ -1,7 +1,5 @@
 # Issue 217: Built-in function precision test issues
 dEQP-VK.glsl.builtin.precision.dot.highp_compute.*
-dEQP-VK.glsl.builtin.precision.smoothstep.mediump_compute.*
-dEQP-VK.glsl.builtin.precision.smoothstep.highp_compute.*
 dEQP-VK.glsl.builtin.precision.atan2.highp_compute.*
 dEQP-VK.glsl.builtin.precision.acosh.highp_compute.*
 dEQP-VK.glsl.builtin.precision.atanh.highp_compute.*
@@ -25,3 +23,10 @@ dEQP-VK.pipeline.sampler.view_type.cube.format.r5g6b5_unorm_pack16.mag_filter.li
 # Issue 702: Tests use invalid conversion operations
 dEQP-VK.spirv_assembly.instruction.*.indexing.*u32*
 dEQP-VK.spirv_assembly.instruction.*.indexing.*s32*
+
+# b/112540895: Compile time is still unreasonable on low-end parts, revisit for Q
+dEQP-VK.ubo.random.all_shared_buffer.48
+
+# Not in 1.1.3 khronos mustpass
+dEQP-VK.glsl.texture_functions.texturegrad.sparse_samplercubeshadow_fragment
+dEQP-VK.glsl.texture_functions.texturegrad.sparse_samplercubeshadow_vertex

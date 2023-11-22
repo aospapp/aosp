@@ -16,35 +16,6 @@
 
 package com.android.volley.toolbox;
 
-import com.android.volley.Cache;
-import com.android.volley.Header;
-import com.android.volley.toolbox.DiskBasedCache.CacheHeader;
-import com.android.volley.toolbox.DiskBasedCache.CountingInputStream;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
@@ -61,19 +32,43 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import com.android.volley.Cache;
+import com.android.volley.Header;
+import com.android.volley.toolbox.DiskBasedCache.CacheHeader;
+import com.android.volley.toolbox.DiskBasedCache.CountingInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
+
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest="src/main/AndroidManifest.xml", sdk=16)
+@Config(manifest = "src/main/AndroidManifest.xml", sdk = 16)
 public class DiskBasedCacheTest {
 
     private static final int MAX_SIZE = 1024 * 1024;
 
     private Cache cache;
 
-    @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+    @Rule public ExpectedException exception = ExpectedException.none();
 
     @Before
     public void setup() throws IOException {
@@ -171,34 +166,131 @@ public class DiskBasedCacheTest {
     }
 
     @Test
-    public void testTrim() {
-        Cache.Entry entry = randomData(2 * MAX_SIZE);
+    public void testTooLargeEntry() {
+        Cache.Entry entry = randomData(MAX_SIZE - getEntrySizeOnDisk("oversize"));
         cache.put("oversize", entry);
 
-        assertThatEntriesAreEqual(cache.get("oversize"), entry);
-
-        entry = randomData(1024);
-        cache.put("kilobyte", entry);
-
         assertThat(cache.get("oversize"), is(nullValue()));
-        assertThatEntriesAreEqual(cache.get("kilobyte"), entry);
+    }
 
-        Cache.Entry entry2 = randomData(1024);
-        cache.put("kilobyte2", entry2);
-        Cache.Entry entry3 = randomData(1024);
-        cache.put("kilobyte3", entry3);
+    @Test
+    public void testMaxSizeEntry() {
+        Cache.Entry entry = randomData(MAX_SIZE - getEntrySizeOnDisk("maxsize") - 1);
+        cache.put("maxsize", entry);
 
-        assertThatEntriesAreEqual(cache.get("kilobyte"), entry);
-        assertThatEntriesAreEqual(cache.get("kilobyte2"), entry2);
-        assertThatEntriesAreEqual(cache.get("kilobyte3"), entry3);
+        assertThatEntriesAreEqual(cache.get("maxsize"), entry);
+    }
 
-        entry = randomData(MAX_SIZE);
+    @Test
+    public void testTrimAtThreshold() {
+        // Start with the largest possible entry.
+        Cache.Entry entry = randomData(MAX_SIZE - getEntrySizeOnDisk("maxsize") - 1);
+        cache.put("maxsize", entry);
+
+        assertThatEntriesAreEqual(cache.get("maxsize"), entry);
+
+        // Now any new entry should cause the first one to be cleared.
+        entry = randomData(0);
+        cache.put("bit", entry);
+
+        assertThat(cache.get("goodsize"), is(nullValue()));
+        assertThatEntriesAreEqual(cache.get("bit"), entry);
+    }
+
+    @Test
+    public void testTrimWithMultipleEvictions_underHysteresisThreshold() {
+        Cache.Entry entry1 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry1") - 1);
+        cache.put("entry1", entry1);
+        Cache.Entry entry2 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry2") - 1);
+        cache.put("entry2", entry2);
+        Cache.Entry entry3 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry3") - 1);
+        cache.put("entry3", entry3);
+
+        assertThatEntriesAreEqual(cache.get("entry1"), entry1);
+        assertThatEntriesAreEqual(cache.get("entry2"), entry2);
+        assertThatEntriesAreEqual(cache.get("entry3"), entry3);
+
+        Cache.Entry entry =
+                randomData(
+                        (int) (DiskBasedCache.HYSTERESIS_FACTOR * MAX_SIZE)
+                                - getEntrySizeOnDisk("max"));
         cache.put("max", entry);
 
-        assertThat(cache.get("kilobyte"), is(nullValue()));
-        assertThat(cache.get("kilobyte2"), is(nullValue()));
-        assertThat(cache.get("kilobyte3"), is(nullValue()));
+        assertThat(cache.get("entry1"), is(nullValue()));
+        assertThat(cache.get("entry2"), is(nullValue()));
+        assertThat(cache.get("entry3"), is(nullValue()));
         assertThatEntriesAreEqual(cache.get("max"), entry);
+    }
+
+    @Test
+    public void testTrimWithMultipleEvictions_atHysteresisThreshold() {
+        Cache.Entry entry1 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry1") - 1);
+        cache.put("entry1", entry1);
+        Cache.Entry entry2 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry2") - 1);
+        cache.put("entry2", entry2);
+        Cache.Entry entry3 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry3") - 1);
+        cache.put("entry3", entry3);
+
+        assertThatEntriesAreEqual(cache.get("entry1"), entry1);
+        assertThatEntriesAreEqual(cache.get("entry2"), entry2);
+        assertThatEntriesAreEqual(cache.get("entry3"), entry3);
+
+        Cache.Entry entry =
+                randomData(
+                        (int) (DiskBasedCache.HYSTERESIS_FACTOR * MAX_SIZE)
+                                - getEntrySizeOnDisk("max")
+                                + 1);
+        cache.put("max", entry);
+
+        assertThat(cache.get("entry1"), is(nullValue()));
+        assertThat(cache.get("entry2"), is(nullValue()));
+        assertThat(cache.get("entry3"), is(nullValue()));
+        assertThat(cache.get("max"), is(nullValue()));
+    }
+
+    @Test
+    public void testTrimWithPartialEvictions() {
+        Cache.Entry entry1 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry1") - 1);
+        cache.put("entry1", entry1);
+        Cache.Entry entry2 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry2") - 1);
+        cache.put("entry2", entry2);
+        Cache.Entry entry3 = randomData(MAX_SIZE / 3 - getEntrySizeOnDisk("entry3") - 1);
+        cache.put("entry3", entry3);
+
+        assertThatEntriesAreEqual(cache.get("entry1"), entry1);
+        assertThatEntriesAreEqual(cache.get("entry2"), entry2);
+        assertThatEntriesAreEqual(cache.get("entry3"), entry3);
+
+        Cache.Entry entry4 = randomData((MAX_SIZE - getEntrySizeOnDisk("entry4") - 1) / 2);
+        cache.put("entry4", entry4);
+
+        assertThat(cache.get("entry1"), is(nullValue()));
+        assertThat(cache.get("entry2"), is(nullValue()));
+        assertThatEntriesAreEqual(cache.get("entry3"), entry3);
+        assertThatEntriesAreEqual(cache.get("entry4"), entry4);
+    }
+
+    @Test
+    public void testLargeEntryDoesntClearCache() {
+        // Writing a large entry to an empty cache should succeed
+        Cache.Entry largeEntry = randomData(MAX_SIZE - getEntrySizeOnDisk("largeEntry") - 1);
+        cache.put("largeEntry", largeEntry);
+
+        assertThatEntriesAreEqual(cache.get("largeEntry"), largeEntry);
+
+        // Reset and fill up ~half the cache.
+        cache.clear();
+        Cache.Entry entry = randomData(MAX_SIZE / 2 - getEntrySizeOnDisk("entry") - 1);
+        cache.put("entry", entry);
+
+        assertThatEntriesAreEqual(cache.get("entry"), entry);
+
+        // Writing the large entry should no-op, because otherwise the pruning algorithm would clear
+        // the whole cache, since the large entry is above the hysteresis threshold.
+        cache.put("largeEntry", largeEntry);
+
+        assertThat(cache.get("largeEntry"), is(nullValue()));
+        assertThatEntriesAreEqual(cache.get("entry"), entry);
     }
 
     @Test
@@ -280,6 +372,33 @@ public class DiskBasedCacheTest {
     }
 
     @Test
+    public void testReadHeaderListWithNegativeSize() throws IOException {
+        // If a cached header list is corrupted and begins with a negative size,
+        // verify that readHeaderList will throw an IOException.
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DiskBasedCache.writeInt(baos, -1); // negative size
+        CountingInputStream cis =
+                new CountingInputStream(
+                        new ByteArrayInputStream(baos.toByteArray()), Integer.MAX_VALUE);
+        // Expect IOException due to negative size
+        exception.expect(IOException.class);
+        DiskBasedCache.readHeaderList(cis);
+    }
+
+    @Test
+    public void testReadHeaderListWithGinormousSize() throws IOException {
+        // If a cached header list is corrupted and begins with 2GB size, verify
+        // that readHeaderList will throw EOFException rather than OutOfMemoryError.
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DiskBasedCache.writeInt(baos, Integer.MAX_VALUE); // 2GB size
+        CountingInputStream cis =
+                new CountingInputStream(new ByteArrayInputStream(baos.toByteArray()), baos.size());
+        // Expect EOFException when end of stream is reached
+        exception.expect(EOFException.class);
+        DiskBasedCache.readHeaderList(cis);
+    }
+
+    @Test
     public void testFileIsDeletedWhenWriteHeaderFails() throws IOException {
         // Create DataOutputStream that throws IOException
         OutputStream mockedOutputStream = spy(OutputStream.class);
@@ -314,8 +433,7 @@ public class DiskBasedCacheTest {
         doThrow(IOException.class).when(mockedInputStream).read();
 
         // Create broken cache that fails to read anything
-        DiskBasedCache broken =
-                spy(new DiskBasedCache(temporaryFolder.getRoot()));
+        DiskBasedCache broken = spy(new DiskBasedCache(temporaryFolder.getRoot()));
         doReturn(mockedInputStream).when(broken).createInputStream(any(File.class));
 
         // Attempt to initialize
@@ -379,13 +497,15 @@ public class DiskBasedCacheTest {
 
     /* Serialization tests */
 
-    @Test public void testEmptyReadThrowsEOF() throws IOException {
-        ByteArrayInputStream empty = new ByteArrayInputStream(new byte[]{});
+    @Test
+    public void testEmptyReadThrowsEOF() throws IOException {
+        ByteArrayInputStream empty = new ByteArrayInputStream(new byte[] {});
         exception.expect(EOFException.class);
         DiskBasedCache.readInt(empty);
     }
 
-    @Test public void serializeInt() throws IOException {
+    @Test
+    public void serializeInt() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DiskBasedCache.writeInt(baos, 0);
         DiskBasedCache.writeInt(baos, 19791214);
@@ -400,7 +520,8 @@ public class DiskBasedCacheTest {
         assertEquals(DiskBasedCache.readInt(bais), Integer.MAX_VALUE);
     }
 
-    @Test public void serializeLong() throws Exception {
+    @Test
+    public void serializeLong() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DiskBasedCache.writeLong(baos, 0);
         DiskBasedCache.writeLong(baos, 31337);
@@ -419,7 +540,8 @@ public class DiskBasedCacheTest {
         assertEquals(DiskBasedCache.readLong(bais), Long.MAX_VALUE);
     }
 
-    @Test public void serializeString() throws Exception {
+    @Test
+    public void serializeString() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DiskBasedCache.writeString(baos, "");
         DiskBasedCache.writeString(baos, "This is a string.");
@@ -431,7 +553,8 @@ public class DiskBasedCacheTest {
         assertEquals(DiskBasedCache.readString(cis), "ファイカス");
     }
 
-    @Test public void serializeHeaders() throws Exception {
+    @Test
+    public void serializeHeaders() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         List<Header> empty = new ArrayList<>();
         DiskBasedCache.writeHeaderList(empty, baos);
@@ -491,5 +614,16 @@ public class DiskBasedCacheTest {
 
     private File[] listCachedFiles() {
         return temporaryFolder.getRoot().listFiles();
+    }
+
+    private int getEntrySizeOnDisk(String key) {
+        // Header size is:
+        // 4 bytes for magic int
+        // 8 + len(key) bytes for key (long length)
+        // 8 bytes for etag (long length + 0 characters)
+        // 32 bytes for serverDate, lastModified, ttl, and softTtl longs
+        // 4 bytes for length of header list int
+        // == 56 + len(key) bytes total.
+        return 56 + key.length();
     }
 }

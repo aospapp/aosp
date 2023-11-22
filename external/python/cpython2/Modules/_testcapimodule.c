@@ -10,6 +10,14 @@
 #include "structmember.h"
 #include "datetime.h"
 #include "marshal.h"
+#include <signal.h>
+#ifdef MS_WINDOWS
+#  include <crtdbg.h>
+#endif
+
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>           /* For W_STOPCODE */
+#endif
 
 #ifdef WITH_THREAD
 #include "pythread.h"
@@ -179,8 +187,7 @@ test_dict_iteration(PyObject* self)
  *   PyType_Ready if it hasn't already been called
  */
 static PyTypeObject _HashInheritanceTester_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0,                          /* Number of items for varobject */
+    PyVarObject_HEAD_INIT(NULL, 0)
     "hashinheritancetester",            /* Name of this type */
     sizeof(PyObject),           /* Basic object size */
     0,                          /* Item size for varobject */
@@ -307,8 +314,7 @@ static PyBufferProcs memoryviewtester_as_buffer = {
 };
 
 static PyTypeObject _MemoryViewTester_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0,                          /* Number of items for varobject */
+    PyVarObject_HEAD_INIT(NULL, 0)
     "memoryviewtester",         /* Name of this type */
     sizeof(PyObject),           /* Basic object size */
     0,                          /* Item size for varobject */
@@ -903,8 +909,9 @@ test_L_code(PyObject *self)
     PyTuple_SET_ITEM(tuple, 0, num);
 
     value = -1;
-    if (PyArg_ParseTuple(tuple, "L:test_L_code", &value) < 0)
+    if (!PyArg_ParseTuple(tuple, "L:test_L_code", &value)) {
         return NULL;
+    }
     if (value != 42)
         return raiseTestError("test_L_code",
             "L code returned wrong value for long 42");
@@ -917,8 +924,9 @@ test_L_code(PyObject *self)
     PyTuple_SET_ITEM(tuple, 0, num);
 
     value = -1;
-    if (PyArg_ParseTuple(tuple, "L:test_L_code", &value) < 0)
+    if (!PyArg_ParseTuple(tuple, "L:test_L_code", &value)) {
         return NULL;
+    }
     if (value != 42)
         return raiseTestError("test_L_code",
             "L code returned wrong value for int 42");
@@ -1199,8 +1207,9 @@ test_k_code(PyObject *self)
     PyTuple_SET_ITEM(tuple, 0, num);
 
     value = 0;
-    if (PyArg_ParseTuple(tuple, "k:test_k_code", &value) < 0)
+    if (!PyArg_ParseTuple(tuple, "k:test_k_code", &value)) {
         return NULL;
+    }
     if (value != ULONG_MAX)
         return raiseTestError("test_k_code",
             "k code returned wrong value for long 0xFFF...FFF");
@@ -1218,8 +1227,9 @@ test_k_code(PyObject *self)
     PyTuple_SET_ITEM(tuple, 0, num);
 
     value = 0;
-    if (PyArg_ParseTuple(tuple, "k:test_k_code", &value) < 0)
+    if (!PyArg_ParseTuple(tuple, "k:test_k_code", &value)) {
         return NULL;
+    }
     if (value != (unsigned long)-0x42)
         return raiseTestError("test_k_code",
             "k code returned wrong value for long -0xFFF..000042");
@@ -1549,6 +1559,89 @@ getargs_et_hash(PyObject *self, PyObject *args)
     return result;
 }
 
+static PyObject *
+get_indices(PyObject *self, PyObject *args)
+{
+    int result;
+    PySliceObject *slice;
+    Py_ssize_t length, start, stop, step;
+
+    if (!PyArg_ParseTuple(args, "On", &slice, &length))
+        return NULL;
+
+    result = PySlice_GetIndices(slice, length, &start, &stop, &step);
+
+    if (PyErr_Occurred()) {
+        assert(result == -1);
+        return NULL;
+    }
+
+    if (result == -1) {
+        Py_RETURN_NONE;
+    }
+    return Py_BuildValue("innn", result, start, stop, step);
+}
+
+static PyObject *
+parse_tuple_and_keywords(PyObject *self, PyObject *args)
+{
+    PyObject *sub_args;
+    PyObject *sub_kwargs;
+    const char *sub_format;
+    PyObject *sub_keywords;
+
+    Py_ssize_t i, size;
+    char *keywords[8 + 1]; /* space for NULL at end */
+    PyObject *o;
+
+    int result;
+    PyObject *return_value = NULL;
+
+    double buffers[8][4]; /* double ensures alignment where necessary */
+
+    if (!PyArg_ParseTuple(args, "OOsO:parse_tuple_and_keywords",
+        &sub_args, &sub_kwargs,
+        &sub_format, &sub_keywords))
+        return NULL;
+
+    if (!(PyList_CheckExact(sub_keywords) || PyTuple_CheckExact(sub_keywords))) {
+        PyErr_SetString(PyExc_ValueError,
+            "parse_tuple_and_keywords: sub_keywords must be either list or tuple");
+        return NULL;
+    }
+
+    memset(buffers, 0, sizeof(buffers));
+    memset(keywords, 0, sizeof(keywords));
+
+    size = PySequence_Fast_GET_SIZE(sub_keywords);
+    if (size > 8) {
+        PyErr_SetString(PyExc_ValueError,
+            "parse_tuple_and_keywords: too many keywords in sub_keywords");
+        goto exit;
+    }
+
+    for (i = 0; i < size; i++) {
+        o = PySequence_Fast_GET_ITEM(sub_keywords, i);
+        keywords[i] = PyString_AsString(o);
+        if (keywords[i] == NULL) {
+            goto exit;
+        }
+    }
+
+    result = PyArg_ParseTupleAndKeywords(sub_args, sub_kwargs,
+        sub_format, keywords,
+        buffers + 0, buffers + 1, buffers + 2, buffers + 3,
+        buffers + 4, buffers + 5, buffers + 6, buffers + 7);
+
+    if (result) {
+        return_value = Py_None;
+        Py_INCREF(Py_None);
+    }
+
+exit:
+    return return_value;
+}
+
 #ifdef Py_USING_UNICODE
 
 static volatile int x;
@@ -1579,14 +1672,16 @@ test_u_code(PyObject *self)
     PyTuple_SET_ITEM(tuple, 0, obj);
 
     value = 0;
-    if (PyArg_ParseTuple(tuple, "u:test_u_code", &value) < 0)
+    if (!PyArg_ParseTuple(tuple, "u:test_u_code", &value)) {
         return NULL;
+    }
     if (value != PyUnicode_AS_UNICODE(obj))
         return raiseTestError("test_u_code",
             "u code returned wrong value for u'test'");
     value = 0;
-    if (PyArg_ParseTuple(tuple, "u#:test_u_code", &value, &len) < 0)
+    if (!PyArg_ParseTuple(tuple, "u#:test_u_code", &value, &len)) {
         return NULL;
+    }
     if (value != PyUnicode_AS_UNICODE(obj) ||
         len != PyUnicode_GET_SIZE(obj))
         return raiseTestError("test_u_code",
@@ -1684,8 +1779,9 @@ test_empty_argparse(PyObject *self)
     tuple = PyTuple_New(0);
     if (!tuple)
         return NULL;
-    if ((result = PyArg_ParseTuple(tuple, "|:test_empty_argparse")) < 0)
+    if (!(result = PyArg_ParseTuple(tuple, "|:test_empty_argparse"))) {
         goto done;
+    }
     dict = PyDict_New();
     if (!dict)
         goto done;
@@ -1693,8 +1789,9 @@ test_empty_argparse(PyObject *self)
   done:
     Py_DECREF(tuple);
     Py_XDECREF(dict);
-    if (result < 0)
+    if (!result) {
         return NULL;
+    }
     else {
         Py_RETURN_NONE;
     }
@@ -1949,7 +2046,8 @@ static int _pending_callback(void *arg)
 /* The following requests n callbacks to _pending_callback.  It can be
  * run from any python thread.
  */
-PyObject *pending_threadfunc(PyObject *self, PyObject *arg)
+static PyObject *
+pending_threadfunc(PyObject *self, PyObject *arg)
 {
     PyObject *callable;
     int r;
@@ -2481,6 +2579,92 @@ pymarshal_read_object_from_file(PyObject* self, PyObject *args)
     return Py_BuildValue("Nl", obj, pos);
 }
 
+static PyObject*
+test_raise_signal(PyObject* self, PyObject *args)
+{
+    int signum, err;
+
+    if (!PyArg_ParseTuple(args, "i:raise_signal", &signum)) {
+        return NULL;
+    }
+
+    err = raise(signum);
+    if (err)
+        return PyErr_SetFromErrno(PyExc_OSError);
+
+    if (PyErr_CheckSignals() < 0)
+        return NULL;
+
+    Py_RETURN_NONE;
+}
+
+
+#ifdef MS_WINDOWS
+static PyObject*
+msvcrt_CrtSetReportMode(PyObject* self, PyObject *args)
+{
+    int type, mode;
+    int res;
+
+    if (!PyArg_ParseTuple(args, "ii:CrtSetReportMode", &type, &mode)) {
+        return NULL;
+    }
+
+    res = _CrtSetReportMode(type, mode);
+    if (res == -1) {
+        PyErr_SetFromErrno(PyExc_OSError);
+        return NULL;
+    }
+    return PyInt_FromLong(res);
+}
+
+
+static PyObject*
+msvcrt_CrtSetReportFile(PyObject* self, PyObject *args)
+{
+    int type, file;
+    long res;
+
+    if (!PyArg_ParseTuple(args, "ii:CrtSetReportFile", &type, &file)) {
+        return NULL;
+    }
+
+    res = (long)_CrtSetReportFile(type, (_HFILE)file);
+
+    return PyInt_FromLong(res);
+}
+#endif
+
+
+#ifdef W_STOPCODE
+static PyObject*
+py_w_stopcode(PyObject *self, PyObject *args)
+{
+    int sig, status;
+    if (!PyArg_ParseTuple(args, "i", &sig)) {
+        return NULL;
+    }
+    status = W_STOPCODE(sig);
+    return PyLong_FromLong(status);
+}
+#endif
+
+
+/* Read memory from NULL (address 0) to raise a SIGSEGV or SIGBUS signal
+   depending on the platform. This function is used by
+   test.support._crash_python() to "crash" Python. */
+static PyObject *
+read_null(PyObject *self, PyObject *args)
+{
+    volatile int *x;
+    volatile int y;
+
+    x = NULL;
+    y = *x;
+    return PyLong_FromLong(y);
+
+}
+
 
 static PyMethodDef TestMethods[] = {
     {"raise_exception",         raise_exception,                 METH_VARARGS},
@@ -2503,6 +2687,8 @@ static PyMethodDef TestMethods[] = {
 #ifdef Py_USING_UNICODE
     {"test_empty_argparse", (PyCFunction)test_empty_argparse,METH_NOARGS},
 #endif
+    {"get_indices", get_indices, METH_VARARGS},
+    {"parse_tuple_and_keywords", parse_tuple_and_keywords, METH_VARARGS},
     {"test_null_strings",       (PyCFunction)test_null_strings,  METH_NOARGS},
     {"test_string_from_format", (PyCFunction)test_string_from_format, METH_NOARGS},
     {"test_with_docstring", (PyCFunction)test_with_docstring, METH_NOARGS,
@@ -2593,6 +2779,15 @@ static PyMethodDef TestMethods[] = {
         pymarshal_read_last_object_from_file, METH_VARARGS},
     {"pymarshal_read_object_from_file",
         pymarshal_read_object_from_file, METH_VARARGS},
+    {"raise_signal", (PyCFunction)test_raise_signal, METH_VARARGS},
+#ifdef MS_WINDOWS
+    {"CrtSetReportMode", (PyCFunction)msvcrt_CrtSetReportMode, METH_VARARGS},
+    {"CrtSetReportFile", (PyCFunction)msvcrt_CrtSetReportFile, METH_VARARGS},
+#endif
+#ifdef W_STOPCODE
+    {"W_STOPCODE", py_w_stopcode, METH_VARARGS},
+#endif
+    {"_read_null", (PyCFunction)read_null, METH_NOARGS},
     {NULL, NULL} /* sentinel */
 };
 
@@ -2788,6 +2983,14 @@ init_testcapi(void)
     PyModule_AddObject(m, "PY_SSIZE_T_MAX", PyInt_FromSsize_t(PY_SSIZE_T_MAX));
     PyModule_AddObject(m, "PY_SSIZE_T_MIN", PyInt_FromSsize_t(PY_SSIZE_T_MIN));
     PyModule_AddObject(m, "SIZEOF_PYGC_HEAD", PyInt_FromSsize_t(sizeof(PyGC_Head)));
+
+#ifdef MS_WINDOWS
+    PyModule_AddIntConstant(m, "CRT_WARN", _CRT_WARN);
+    PyModule_AddIntConstant(m, "CRT_ERROR", _CRT_ERROR);
+    PyModule_AddIntConstant(m, "CRT_ASSERT", _CRT_ASSERT);
+    PyModule_AddIntConstant(m, "CRTDBG_MODE_FILE", _CRTDBG_MODE_FILE);
+    PyModule_AddIntConstant(m, "CRTDBG_FILE_STDERR", (int)_CRTDBG_FILE_STDERR);
+#endif
 
     TestError = PyErr_NewException("_testcapi.error", NULL, NULL);
     Py_INCREF(TestError);

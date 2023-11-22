@@ -14,6 +14,7 @@ Tests that SYNC_COUNT schedules 2 hosts.
 """
 
 from autotest_lib.server import utils as server_utils
+from autotest_lib.server import site_utils
 
 
 def run(ntuple):
@@ -22,8 +23,9 @@ def run(ntuple):
 ntuples, failures = server_utils.form_ntuples_from_machines(
     machines, SYNC_COUNT)
 
-for failure in failures:
-  job.record('FAIL', None, str(failure))
+for machine, failure in failures:
+  hostname = site_utils.get_hostname_from_machine(machine)
+  job.record('FAIL', None, '%s:%s' % (hostname, failure))
 
 # Use log=False in parallel_simple to avoid an exception in setting up
 # the incremental parser when SYNC_COUNT > 1.

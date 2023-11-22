@@ -28,9 +28,11 @@
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
 #include "vkMemUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkPlatform.hpp"
+#include "vkCmdUtil.hpp"
 #include "deUniquePtr.hpp"
 #include "tcuTestLog.hpp"
 #include "vktSynchronizationUtil.hpp"
@@ -132,8 +134,8 @@ public:
 				&context.getDeviceFeatures()									//const VkPhysicalDeviceFeatures*	pEnabledFeatures;
 			};
 
-			m_logicalDevice	= createDevice(instance, physicalDevice, &deviceInfo);
-			m_deviceDriver	= MovePtr<DeviceDriver>(new DeviceDriver(instance, *m_logicalDevice));
+			m_logicalDevice	= createDevice(context.getPlatformInterface(), context.getInstance(), instance, physicalDevice, &deviceInfo);
+			m_deviceDriver	= MovePtr<DeviceDriver>(new DeviceDriver(context.getPlatformInterface(), context.getInstance(), *m_logicalDevice));
 			m_allocator		= MovePtr<Allocator>(new SimpleAllocator(*m_deviceDriver, *m_logicalDevice, getPhysicalDeviceMemoryProperties(instance, physicalDevice)));
 
 			for (std::map<deUint32, QueueData>::iterator it = m_queues.begin(); it != m_queues.end(); ++it)
@@ -232,40 +234,36 @@ void createBarrierMultiQueue (const DeviceInterface&	vk,
 {
 	if (resource.getType() == RESOURCE_TYPE_IMAGE)
 	{
-		VkImageMemoryBarrier barrier = makeImageMemoryBarrier(writeSync.accessMask, readSync.accessMask,
+		VkImageMemoryBarrier barrier = makeImageMemoryBarrier(secondQueue ? 0u : writeSync.accessMask, !secondQueue ? 0u : readSync.accessMask,
 			writeSync.imageLayout, readSync.imageLayout, resource.getImage().handle, resource.getImage().subresourceRange);
 
 		if (writeFamily != readFamily && VK_SHARING_MODE_EXCLUSIVE == sharingMode)
 		{
 			barrier.srcQueueFamilyIndex = writeFamily;
 			barrier.dstQueueFamilyIndex = readFamily;
-			if (secondQueue)
-			{
-				barrier.oldLayout		= barrier.newLayout;
-				barrier.srcAccessMask	= barrier.dstAccessMask;
-			}
-			vk.cmdPipelineBarrier(cmdBuffer, writeSync.stageMask, readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &barrier);
+			vk.cmdPipelineBarrier(cmdBuffer, secondQueue ? VkPipelineStageFlags(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT) : writeSync.stageMask,
+					!secondQueue ? VkPipelineStageFlags(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT) : readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL,
+					0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &barrier);
 		}
 		else if (!secondQueue)
-			vk.cmdPipelineBarrier(cmdBuffer, writeSync.stageMask, readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &barrier);
-	}
-	else if ((resource.getType() == RESOURCE_TYPE_BUFFER || isIndirectBuffer(resource.getType()))	&&
-			 writeFamily != readFamily																&&
-			 VK_SHARING_MODE_EXCLUSIVE == sharingMode)
-	{
-		const VkBufferMemoryBarrier barrier =
 		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType	sType;
-			DE_NULL,									// const void*		pNext;
-			writeSync.accessMask ,						// VkAccessFlags	srcAccessMask;
-			readSync.accessMask,						// VkAccessFlags	dstAccessMask;
-			writeFamily,								// deUint32			srcQueueFamilyIndex;
-			readFamily,									// deUint32			destQueueFamilyIndex;
-			resource.getBuffer().handle,				// VkBuffer			buffer;
-			resource.getBuffer().offset,				// VkDeviceSize		offset;
-			resource.getBuffer().size,					// VkDeviceSize		size;
-		};
-		vk.cmdPipelineBarrier(cmdBuffer, writeSync.stageMask, readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 1u, (const VkBufferMemoryBarrier*)&barrier, 0u, (const VkImageMemoryBarrier *)DE_NULL);
+			vk.cmdPipelineBarrier(cmdBuffer, secondQueue ? VkPipelineStageFlags(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT) : writeSync.stageMask,
+					!secondQueue ? VkPipelineStageFlags(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT) : readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL,
+					0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &barrier);
+		}
+	}
+	else if (resource.getType() == RESOURCE_TYPE_BUFFER || isIndirectBuffer(resource.getType()))
+	{
+		VkBufferMemoryBarrier barrier = makeBufferMemoryBarrier(secondQueue ? 0u : writeSync.accessMask, !secondQueue ? 0u : readSync.accessMask,
+			resource.getBuffer().handle, resource.getBuffer().offset, resource.getBuffer().size);
+
+		if (writeFamily != readFamily && VK_SHARING_MODE_EXCLUSIVE == sharingMode)
+		{
+			barrier.srcQueueFamilyIndex = writeFamily;
+			barrier.dstQueueFamilyIndex = readFamily;
+		}
+
+		vk.cmdPipelineBarrier(cmdBuffer, secondQueue ? VkPipelineStageFlags(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT) : writeSync.stageMask, !secondQueue ? VkPipelineStageFlags(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT) : readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 1u, (const VkBufferMemoryBarrier*)&barrier, 0u, (const VkImageMemoryBarrier *)DE_NULL);
 	}
 }
 

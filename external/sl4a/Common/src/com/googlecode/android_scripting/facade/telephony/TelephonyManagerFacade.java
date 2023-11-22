@@ -47,6 +47,8 @@ import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .CallStateChangeListener;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
+                                                   .ActiveDataSubIdChangeListener;
+import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .CellInfoChangeListener;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .DataConnectionRealTimeInfoChangeListener;
@@ -67,6 +69,7 @@ import com.googlecode.android_scripting.rpc.RpcParameter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /**
  * Exposes TelephonyManager functionality.
@@ -235,7 +238,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mCallStateChangeListener,
             CallStateChangeListener.sListeningStates);
         return true;
@@ -257,9 +260,31 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mCellInfoChangeListener,
             PhoneStateListener.LISTEN_CELL_INFO);
+        return true;
+    }
+
+    @Rpc(description = "Starts tracking active opportunistic data change" +
+                       "for default subscription ID.")
+    public Boolean telephonyStartTrackingActiveDataChange() {
+        return telephonyStartTrackingActiveDataChangeForSubscription(
+                              SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+    }
+
+    @Rpc(description = "Starts tracking active opportunistic data change" +
+                       "for specified subscription ID.")
+    public Boolean telephonyStartTrackingActiveDataChangeForSubscription(
+                @RpcParameter(name = "subId") Integer subId) {
+        StateChangeListener listener = getStateChangeListenerForSubscription(subId, true);
+        if(listener == null) {
+            Log.e("Invalid subscription ID");
+            return false;
+        }
+        mTelephonyManager.createForSubscriptionId(subId).listen(
+            listener.mActiveDataSubIdChangeListener,
+            PhoneStateListener.LISTEN_ACTIVE_DATA_SUBSCRIPTION_ID_CHANGE);
         return true;
     }
 
@@ -313,11 +338,34 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mCellInfoChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
     }
+
+    @Rpc(description = "Stops tracking active opportunistic data " +
+            "for default subscription ID.")
+    public Boolean telephonyStopTrackingActiveDataChange() {
+        return telephonyStopTrackingActiveDataChangeForSubscription(
+                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+    }
+
+    @Rpc(description = "Stops tracking active opportunistic data " +
+                       "for specified subscription ID.")
+    public Boolean telephonyStopTrackingActiveDataChangeForSubscription(
+                   @RpcParameter(name = "subId") Integer subId) {
+        StateChangeListener listener = getStateChangeListenerForSubscription(subId, false);
+        if(listener == null) {
+            Log.e("Invalid subscription ID");
+            return false;
+        }
+        mTelephonyManager.createForSubscriptionId(subId).listen(
+            listener.mActiveDataSubIdChangeListener,
+            PhoneStateListener.LISTEN_NONE);
+        return true;
+    }
+
     @Rpc(description = "Stops tracking call state change " +
             "for default voice subscription ID.")
     public Boolean telephonyStopTrackingCallStateChange() {
@@ -334,7 +382,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mCallStateChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
@@ -356,7 +404,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mDataConnectionRTInfoChangeListener,
             DataConnectionRealTimeInfoChangeListener.sListeningStates);
         return true;
@@ -378,7 +426,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mDataConnectionRTInfoChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
@@ -400,7 +448,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mDataConnectionStateChangeListener,
             DataConnectionStateChangeListener.sListeningStates);
         return true;
@@ -422,7 +470,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mDataConnectionStateChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
@@ -444,7 +492,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mServiceStateChangeListener,
             ServiceStateChangeListener.sListeningStates);
         return true;
@@ -466,7 +514,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mServiceStateChangeListener,
             PhoneStateListener.LISTEN_NONE);
             return true;
@@ -488,7 +536,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mSignalStrengthChangeListener,
             SignalStrengthChangeListener.sListeningStates);
         return true;
@@ -510,7 +558,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mSignalStrengthChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
@@ -532,7 +580,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mVoiceMailStateChangeListener,
             VoiceMailStateChangeListener.sListeningStates);
         return true;
@@ -554,7 +602,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
             Log.e("Invalid subscription ID");
             return false;
         }
-        mTelephonyManager.listen(
+        mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mVoiceMailStateChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
@@ -689,6 +737,11 @@ public class TelephonyManagerFacade extends RpcReceiver {
             mTelephonyManager.getPhoneType());
     }
 
+    @Rpc(description = "Returns preferred opportunistic data subscription Id")
+    public Integer telephonyGetPreferredOpportunisticDataSubscription() {
+        return mTelephonyManager.getPreferredOpportunisticDataSubscription();
+    }
+
     /**
     * Get device phone type for a subscription.
     * @param subId the subscriber id
@@ -788,6 +841,28 @@ public class TelephonyManagerFacade extends RpcReceiver {
                   @RpcParameter(name = "slotId") Integer slotId) {
         return TelephonyUtils.getSimStateString(
             mTelephonyManager.getSimState(slotId));
+    }
+
+    /**
+     * Switch device mode multisim
+     *
+     * @param numOfSims (1: single sim, 2: multi sim)
+     **/
+    @Rpc(description = "Switch configs to enable multi-sim or switch back to single-sim")
+    public void telephonySwitchMultiSimConfig(
+            @RpcParameter(name = "numOfSims")
+            Integer numOfSims) {
+        mTelephonyManager.switchMultiSimConfig(numOfSims.intValue());
+    }
+
+    /**
+     * Gets device mode multisim
+     *
+     * @return phoneCount (1-single sim, 2-dual sim, 3-tri sim)
+     **/
+    @Rpc(description = "Returns if device is in Single, Dual, Tri SIM Mode")
+    public Integer telephonyGetPhoneCount() {
+        return mTelephonyManager.getPhoneCount();
     }
 
     @Rpc(description = "Get Authentication Challenge Response from a " +
@@ -989,10 +1064,57 @@ public class TelephonyManagerFacade extends RpcReceiver {
         mTelephonyManager.setCellInfoListRate(rate);
     }
 
-    @Rpc(description = "Returns all observed cell information from all radios"+
-                       "on the device including the primary and neighboring cells")
+    /**
+     * Request a list of the current (latest) CellInfo.
+     *
+     * <p>When invoked on a device running Q or later, this will only return cached info.
+     */
+    @Rpc(description = "Returns all observed cell information from all radios"
+                       + "on the device including the primary and neighboring cells.")
     public List<CellInfo> telephonyGetAllCellInfo() {
         return mTelephonyManager.getAllCellInfo();
+    }
+
+    private abstract class FacadeCellInfoCallback extends TelephonyManager.CellInfoCallback {
+        public List<CellInfo> cellInfo;
+    }
+
+    /** Request an asynchronous update for the latest CellInfo */
+    @Rpc(description = "Request updated CellInfo scan information for"
+                       + " primary and neighboring cells.")
+    public List<CellInfo> telephonyRequestCellInfoUpdate() {
+        FacadeCellInfoCallback tmCiCb = new FacadeCellInfoCallback() {
+            @Override
+            public void onCellInfo(List<CellInfo> ci) {
+                synchronized (this) {
+                    this.cellInfo = ci;
+                    notifyAll();
+                }
+            }
+
+            @Override
+            public void onError(int errorCode, Throwable detail) {
+                Log.d("Error in telephonyRequestCellInfoUpdate(): errorCode=" + errorCode
+                        + "detail=" + detail);
+            }
+        };
+
+        synchronized (tmCiCb) {
+            mTelephonyManager.requestCellInfoUpdate(
+                    new Executor() {
+                        public void execute(Runnable r) {
+                            Log.d("Running cellInfo Executor");
+                            r.run();
+                        }
+                    }, tmCiCb);
+            try {
+                tmCiCb.wait(3000 /* millis */);
+            } catch (InterruptedException e) {
+                Log.d("Timed out waiting for cellInfo Executor");
+                return null;
+            }
+        }
+        return tmCiCb.cellInfo;
     }
 
     @Rpc(description = "Returns True if cellular data is enabled for" +
@@ -1109,12 +1231,10 @@ public class TelephonyManagerFacade extends RpcReceiver {
                @RpcOptional Integer subId) {
         //TODO: b/26273471 Need to find out how to get Number of APNs for specific subId
         int result = 0;
-        String where = "numeric=\"" + android.os.SystemProperties.get(
-                        TelephonyProperties.PROPERTY_ICC_OPERATOR_NUMERIC, "") + "\"";
 
         Cursor cursor = mService.getContentResolver().query(
-                Telephony.Carriers.CONTENT_URI,
-                new String[] {"_id", "name", "apn", "type"}, where, null,
+                Telephony.Carriers.SIM_APN_URI,
+                new String[] {"_id", "name", "apn", "type"}, null, null,
                 Telephony.Carriers.DEFAULT_SORT_ORDER);
 
         if (cursor != null) {
@@ -1235,16 +1355,15 @@ public class TelephonyManagerFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Returns the service state string for default subscription ID")
-    public String telephonyGetServiceState() {
+    public ServiceState telephonyGetServiceState() {
         return telephonyGetServiceStateForSubscription(
                                  SubscriptionManager.getDefaultSubscriptionId());
     }
 
     @Rpc(description = "Returns the service state string for specified subscription ID")
-    public String telephonyGetServiceStateForSubscription(
+    public ServiceState telephonyGetServiceStateForSubscription(
                   @RpcParameter(name = "subId") Integer subId) {
-        ServiceState ss = mTelephonyManager.getServiceStateForSubscriber(subId);
-        return ServiceState.rilServiceStateToString(ss.getState());
+        return mTelephonyManager.getServiceStateForSubscriber(subId);
     }
 
     @Rpc(description = "Returns the call state for default subscription ID")
@@ -1325,6 +1444,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
         public CallStateChangeListener mCallStateChangeListener;
         public CellInfoChangeListener mCellInfoChangeListener;
         public DataConnectionStateChangeListener mDataConnectionStateChangeListener;
+        public ActiveDataSubIdChangeListener mActiveDataSubIdChangeListener;
         public DataConnectionRealTimeInfoChangeListener mDataConnectionRTInfoChangeListener;
         public VoiceMailStateChangeListener mVoiceMailStateChangeListener;
 
@@ -1335,6 +1455,9 @@ public class TelephonyManagerFacade extends RpcReceiver {
                 new SignalStrengthChangeListener(mEventFacade, subId, mService.getMainLooper());
             mDataConnectionStateChangeListener =
                 new DataConnectionStateChangeListener(
+                        mEventFacade, mTelephonyManager, subId, mService.getMainLooper());
+            mActiveDataSubIdChangeListener =
+                new ActiveDataSubIdChangeListener(
                         mEventFacade, mTelephonyManager, subId, mService.getMainLooper());
             mCallStateChangeListener =
                 new CallStateChangeListener(mEventFacade, subId, mService.getMainLooper());
@@ -1356,6 +1479,9 @@ public class TelephonyManagerFacade extends RpcReceiver {
                     PhoneStateListener.LISTEN_NONE);
             mTelephonyManager.listen(
                     mCallStateChangeListener,
+                    PhoneStateListener.LISTEN_NONE);
+            mTelephonyManager.listen(
+                    mActiveDataSubIdChangeListener,
                     PhoneStateListener.LISTEN_NONE);
             mTelephonyManager.listen(
                     mCellInfoChangeListener,

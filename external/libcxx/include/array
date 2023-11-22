@@ -72,6 +72,9 @@ struct array
     const T* data() const noexcept;
 };
 
+  template <class T, class... U>
+    array(T, U...) -> array<T, 1 + sizeof...(U)>;
+
 template <class T, size_t N>
   bool operator==(const array<T,N>& x, const array<T,N>& y);
 template <class T, size_t N>
@@ -86,9 +89,9 @@ template <class T, size_t N>
   bool operator>=(const array<T,N>& x, const array<T,N>& y);
 
 template <class T, size_t N >
-  void swap(array<T,N>& x, array<T,N>& y) noexcept(noexcept(x.swap(y)));
+  void swap(array<T,N>& x, array<T,N>& y) noexcept(noexcept(x.swap(y))); // C++17
 
-template <class T> class tuple_size;
+template <class T> struct tuple_size;
 template <size_t I, class T> class tuple_element;
 template <class T, size_t N> struct tuple_size<array<T, N>>;
 template <size_t I, class T, size_t N> struct tuple_element<I, array<T, N>>;
@@ -109,6 +112,7 @@ template <size_t I, class T, size_t N> const T&& get(const array<T, N>&&) noexce
 #include <algorithm>
 #include <stdexcept>
 #include <cstdlib> // for _LIBCPP_UNREACHABLE
+#include <version>
 #include <__debug>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -244,10 +248,11 @@ struct _LIBCPP_TEMPLATE_VIS array<_Tp, 0>
     typedef std::reverse_iterator<iterator>       reverse_iterator;
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
-
     typedef typename conditional<is_const<_Tp>::value, const char,
                                 char>::type _CharType;
-    _ALIGNAS(alignment_of<_Tp[1]>::value) _CharType __elems_[sizeof(_Tp[1])];
+
+    struct  _ArrayInStructT { _Tp __data_[1]; };
+    _ALIGNAS_TYPE(_ArrayInStructT) _CharType __elems_[sizeof(_ArrayInStructT)];
 
     // No explicit construct/copy/destroy for aggregate type
     _LIBCPP_INLINE_VISIBILITY void fill(const value_type&) {
@@ -353,9 +358,17 @@ struct _LIBCPP_TEMPLATE_VIS array<_Tp, 0>
 };
 
 
+#ifndef _LIBCPP_HAS_NO_DEDUCTION_GUIDES
+template<class _Tp, class... _Args,
+         class = typename enable_if<(is_same_v<_Tp, _Args> && ...), void>::type
+         >
+array(_Tp, _Args...)
+  -> array<_Tp, 1 + sizeof...(_Args)>;
+#endif
+
 template <class _Tp, size_t _Size>
 inline _LIBCPP_INLINE_VISIBILITY
-bool
+_LIBCPP_CONSTEXPR_AFTER_CXX17 bool
 operator==(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 {
     return _VSTD::equal(__x.begin(), __x.end(), __y.begin());
@@ -363,7 +376,7 @@ operator==(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 
 template <class _Tp, size_t _Size>
 inline _LIBCPP_INLINE_VISIBILITY
-bool
+_LIBCPP_CONSTEXPR_AFTER_CXX17 bool
 operator!=(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 {
     return !(__x == __y);
@@ -371,7 +384,7 @@ operator!=(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 
 template <class _Tp, size_t _Size>
 inline _LIBCPP_INLINE_VISIBILITY
-bool
+_LIBCPP_CONSTEXPR_AFTER_CXX17 bool
 operator<(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 {
     return _VSTD::lexicographical_compare(__x.begin(), __x.end(),
@@ -380,7 +393,7 @@ operator<(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 
 template <class _Tp, size_t _Size>
 inline _LIBCPP_INLINE_VISIBILITY
-bool
+_LIBCPP_CONSTEXPR_AFTER_CXX17 bool
 operator>(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 {
     return __y < __x;
@@ -388,7 +401,7 @@ operator>(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 
 template <class _Tp, size_t _Size>
 inline _LIBCPP_INLINE_VISIBILITY
-bool
+_LIBCPP_CONSTEXPR_AFTER_CXX17 bool
 operator<=(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 {
     return !(__y < __x);
@@ -396,7 +409,7 @@ operator<=(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 
 template <class _Tp, size_t _Size>
 inline _LIBCPP_INLINE_VISIBILITY
-bool
+_LIBCPP_CONSTEXPR_AFTER_CXX17 bool
 operator>=(const array<_Tp, _Size>& __x, const array<_Tp, _Size>& __y)
 {
     return !(__x < __y);
@@ -417,7 +430,7 @@ swap(array<_Tp, _Size>& __x, array<_Tp, _Size>& __y)
 }
 
 template <class _Tp, size_t _Size>
-class _LIBCPP_TEMPLATE_VIS tuple_size<array<_Tp, _Size> >
+struct _LIBCPP_TEMPLATE_VIS tuple_size<array<_Tp, _Size> >
     : public integral_constant<size_t, _Size> {};
 
 template <size_t _Ip, class _Tp, size_t _Size>

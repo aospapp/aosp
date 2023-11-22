@@ -6,8 +6,11 @@
 
 import time
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.client.cros.audio import cras_configs
+from autotest_lib.client.cros.audio import audio_spec
 from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
@@ -44,6 +47,10 @@ class audio_InternalCardNodes(audio_test.AudioTest):
                 ['MIC', 'POST_DSP_LOOPBACK',
                  'POST_MIX_LOOPBACK'])
 
+        # Modify expected nodes for special boards.
+        board_name = host.get_board().split(':')[1]
+        model_name = host.get_platform()
+
         if audio_test_utils.has_internal_speaker(host):
             expected_plugged_nodes_without_audio_jack[0].append(
                     'INTERNAL_SPEAKER')
@@ -51,21 +58,33 @@ class audio_InternalCardNodes(audio_test.AudioTest):
                     'INTERNAL_SPEAKER')
 
         if audio_test_utils.has_internal_microphone(host):
-            expected_plugged_nodes_without_audio_jack[1].append(
-                    'INTERNAL_MIC')
-            expected_plugged_nodes_with_audio_jack[1].append(
-                    'INTERNAL_MIC')
-
-        # Modify expected nodes for special boards.
-        board_name = host.get_board().split(':')[1]
+            expected_internal_mics = cras_configs.get_plugged_internal_mics(
+                    board_name, model_name)
+            expected_plugged_nodes_without_audio_jack[1].extend(
+                    expected_internal_mics)
+            expected_plugged_nodes_with_audio_jack[1].extend(
+                    expected_internal_mics)
 
         if board_name == 'link':
             expected_plugged_nodes_without_audio_jack[1].append('KEYBOARD_MIC')
             expected_plugged_nodes_with_audio_jack[1].append('KEYBOARD_MIC')
 
-        if board_name in ['samus', 'kevin', 'eve', 'pyro']:
+        if audio_spec.has_hotwording(board_name, model_name):
             expected_plugged_nodes_without_audio_jack[1].append('HOTWORD')
             expected_plugged_nodes_with_audio_jack[1].append('HOTWORD')
+
+        # If there is no jack plugger, check the nodes without plugging.
+        host_info = host.host_info_store.get()
+        if jack_plugger is None:
+            if 'audio_box' in host_info.labels:
+                raise error.TestError("Failed to detect jack plugger.")
+            hp_jack_node_type = audio_test_utils.check_hp_or_lineout_plugged(
+                    audio_facade)
+            expected_plugged_nodes_with_audio_jack[0].append(hp_jack_node_type)
+
+            audio_test_utils.check_plugged_nodes(
+                    audio_facade, expected_plugged_nodes_with_audio_jack)
+            return
 
         audio_test_utils.check_plugged_nodes(
                 audio_facade, expected_plugged_nodes_without_audio_jack)

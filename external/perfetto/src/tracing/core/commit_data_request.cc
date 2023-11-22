@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #include "perfetto/tracing/core/commit_data_request.h"
@@ -38,6 +38,15 @@ CommitDataRequest& CommitDataRequest::operator=(const CommitDataRequest&) =
     default;
 CommitDataRequest::CommitDataRequest(CommitDataRequest&&) noexcept = default;
 CommitDataRequest& CommitDataRequest::operator=(CommitDataRequest&&) = default;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool CommitDataRequest::operator==(const CommitDataRequest& other) const {
+  return (chunks_to_move_ == other.chunks_to_move_) &&
+         (chunks_to_patch_ == other.chunks_to_patch_) &&
+         (flush_request_id_ == other.flush_request_id_);
+}
+#pragma GCC diagnostic pop
 
 void CommitDataRequest::FromProto(
     const perfetto::protos::CommitDataRequest& proto) {
@@ -92,6 +101,15 @@ CommitDataRequest::ChunksToMove::ChunksToMove(
 CommitDataRequest::ChunksToMove& CommitDataRequest::ChunksToMove::operator=(
     CommitDataRequest::ChunksToMove&&) = default;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool CommitDataRequest::ChunksToMove::operator==(
+    const CommitDataRequest::ChunksToMove& other) const {
+  return (page_ == other.page_) && (chunk_ == other.chunk_) &&
+         (target_buffer_ == other.target_buffer_);
+}
+#pragma GCC diagnostic pop
+
 void CommitDataRequest::ChunksToMove::FromProto(
     const perfetto::protos::CommitDataRequest_ChunksToMove& proto) {
   static_assert(sizeof(page_) == sizeof(proto.page()), "size mismatch");
@@ -133,6 +151,17 @@ CommitDataRequest::ChunkToPatch::ChunkToPatch(
     CommitDataRequest::ChunkToPatch&&) noexcept = default;
 CommitDataRequest::ChunkToPatch& CommitDataRequest::ChunkToPatch::operator=(
     CommitDataRequest::ChunkToPatch&&) = default;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool CommitDataRequest::ChunkToPatch::operator==(
+    const CommitDataRequest::ChunkToPatch& other) const {
+  return (target_buffer_ == other.target_buffer_) &&
+         (writer_id_ == other.writer_id_) && (chunk_id_ == other.chunk_id_) &&
+         (patches_ == other.patches_) &&
+         (has_more_patches_ == other.has_more_patches_);
+}
+#pragma GCC diagnostic pop
 
 void CommitDataRequest::ChunkToPatch::FromProto(
     const perfetto::protos::CommitDataRequest_ChunkToPatch& proto) {
@@ -199,6 +228,14 @@ CommitDataRequest::ChunkToPatch::Patch::Patch(
     CommitDataRequest::ChunkToPatch::Patch&&) noexcept = default;
 CommitDataRequest::ChunkToPatch::Patch& CommitDataRequest::ChunkToPatch::Patch::
 operator=(CommitDataRequest::ChunkToPatch::Patch&&) = default;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool CommitDataRequest::ChunkToPatch::Patch::operator==(
+    const CommitDataRequest::ChunkToPatch::Patch& other) const {
+  return (offset_ == other.offset_) && (data_ == other.data_);
+}
+#pragma GCC diagnostic pop
 
 void CommitDataRequest::ChunkToPatch::Patch::FromProto(
     const perfetto::protos::CommitDataRequest_ChunkToPatch_Patch& proto) {

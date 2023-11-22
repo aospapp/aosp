@@ -13,7 +13,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_vp8"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,6 +24,6 @@ This test verifies VP8 resolution-changing video decode acceleration works.
 """
 
 video = ('http://commondatastorage.googleapis.com/'
-            'chromiumos-test-assets-public/MSE/switch_1080p_720p.webm')
-job.run_test('video_ChromeVidResChangeHWDecode', video_file=video, video_len=30,
-             tag='vp8')
+            'chromiumos-test-assets-public/MSE/frame_size_change.webm')
+job.run_test('video_ChromeVidResChangeHWDecode', video_file=video, video_len=11,
+             tag='vp8', capability='hw_dec_vp8_1080_30')

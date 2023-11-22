@@ -18,8 +18,16 @@ class network_WiFi_OverlappingBSSScan(wifi_cell_test_base.WiFiCellTestBase):
     OBSS_SCAN_SAMPLE_PERIOD_SECONDS = 100
     NO_OBSS_SCAN_SAMPLE_PERIOD_SECONDS = 10
     PING_INTERVAL_SECONDS = 0.1
-    LATENCY_MARGIN_MS = 150
+
+    # Dwell time for scanning is usually configured to be around 100 ms (some
+    # are higher, around 150 ms), since this is also the standard beacon
+    # interval. Tolerate spikes in latency up to 250 ms as a way of asking that
+    # our PHY be servicing foreground traffic regularly during background
+    # scans.
+    # See also network_WiFi_BgscanBackoff for similar parameters.
+    LATENCY_MARGIN_MS = 250
     THRESHOLD_BASELINE_LATENCY_MS = 100
+
     WIFI_FREQUENCY = 2437
 
 
@@ -87,10 +95,6 @@ class network_WiFi_OverlappingBSSScan(wifi_cell_test_base.WiFiCellTestBase):
 
         self.context.client.shill.disconnect(self.context.router.get_ssid())
         self.context.router.deconfig()
-        # Dwell time for scanning is usually configured to be around 100 ms,
-        # since this is also the standard beacon interval.  Tolerate spikes in
-        # latency up to 200 ms as a way of asking that our PHY be servicing
-        # foreground traffic regularly during background scans.
         if (result_obss_scan.max_latency >
                 self.LATENCY_MARGIN_MS + result_no_obss_scan.avg_latency):
             raise error.TestFail('Significant difference in rtt due to OBSS: '

@@ -528,6 +528,10 @@ class InputDevice:
                 (not BTN_TOOL_FINGER in self.events[EV_KEY]) and
                 (EV_ABS in self.events))
 
+    def is_lid(self):
+        return ((EV_SW in self.events) and
+                (SW_LID in self.events[EV_SW]))
+
     def is_mt_b(self):
         return self.is_mt() and ABS_MT_SLOT in self.events[EV_ABS]
 

@@ -31,11 +31,12 @@ OUTFILE=mc_commo_out
 TCID=mc_commo
 TST_TOTAL=2
 
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 do_setup()
 {
-	tst_check_cmds netstat pgrep
+	tst_test_cmds netstat pgrep
 
 	OCTET=$(ps -ewf | grep [m]c_commo | wc -l | awk '{print $1}')
 	GROUP_ADDR=224.0.0.$OCTET

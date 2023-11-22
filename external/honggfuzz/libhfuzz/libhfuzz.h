@@ -39,25 +39,7 @@ size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
  * len_ptr: will be set to the size of the input fuzzing data
  */
 void HF_ITER(const uint8_t** buf_ptr, size_t* len_ptr);
-
-/*
- * Update comparison map:
- *
- * addr: address of original comparison
- * n: new value (only if better than the old/current value)
- */
-void instrumentUpdateCmpMap(void* addr, unsigned int n);
-
-/*
- * Instrumented comparison functions
- */
-int hfuzz_strcmp(const char* s1, const char* s2, void* addr);
-int hfuzz_strcasecmp(const char* s1, const char* s2, void* addr);
-int hfuzz_strncmp(const char* s1, const char* s2, size_t n, void* addr);
-int hfuzz_strncasecmp(const char* s1, const char* s2, size_t n, void* addr);
-char* hfuzz_strstr(const char* haystack, const char* needle, void* addr);
-char* hfuzz_strcasestr(const char* haystack, const char* needle, void* addr);
-int hfuzz_memcmp(const void* m1, const void* m2, size_t n, void* addr);
+void HonggfuzzFetchData(const uint8_t** buf_ptr, size_t* len_ptr);
 
 #if defined(__linux__)
 

@@ -1,8 +1,7 @@
 # Installation directories.
-PREFIX ?= $(DESTDIR)/usr
-INCLUDEDIR ?= $(PREFIX)/include
+LINGUAS ?= ru
+PREFIX ?= /usr
 BINDIR ?= $(PREFIX)/bin
-LIBDIR ?= $(PREFIX)/lib
 MANDIR ?= $(PREFIX)/share/man
 
 CFLAGS ?= -Werror -Wall -W
@@ -13,10 +12,16 @@ all: semodule_expand
 semodule_expand:  semodule_expand.o 
 
 install: all
-	-mkdir -p $(BINDIR)
-	install -m 755 semodule_expand $(BINDIR)
-	test -d $(MANDIR)/man8 || install -m 755 -d $(MANDIR)/man8
-	install -m 644 semodule_expand.8 $(MANDIR)/man8/
+	-mkdir -p $(DESTDIR)$(BINDIR)
+	install -m 755 semodule_expand $(DESTDIR)$(BINDIR)
+	test -d $(DESTDIR)$(MANDIR)/man8 || install -m 755 -d $(DESTDIR)$(MANDIR)/man8
+	install -m 644 semodule_expand.8 $(DESTDIR)$(MANDIR)/man8/
+	for lang in $(LINGUAS) ; do \
+		if [ -e $${lang} ] ; then \
+			test -d $(DESTDIR)$(MANDIR)/$${lang}/man8 || install -m 755 -d $(DESTDIR)$(MANDIR)/$${lang}/man8 ; \
+			install -m 644 $${lang}/*.8 $(DESTDIR)$(MANDIR)/$${lang}/man8/ ; \
+		fi ; \
+	done
 
 relabel:
 

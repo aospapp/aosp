@@ -22,7 +22,8 @@ class firmware_CorruptFwSigA(FirmwareTest):
 
     def cleanup(self):
         try:
-            self.restore_firmware()
+            if self.is_firmware_saved():
+                self.restore_firmware()
         except ConnectionError:
             logging.error("ERROR: DUT did not come up.  Need to cleanup!")
         super(firmware_CorruptFwSigA, self).cleanup()

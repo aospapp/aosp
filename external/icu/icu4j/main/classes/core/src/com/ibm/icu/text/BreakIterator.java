@@ -81,10 +81,7 @@ import com.ibm.icu.util.ULocale;
  *
  * BreakIterator accesses the text it analyzes through a CharacterIterator, which makes
  * it possible to use BreakIterator to analyze text in any text-storage vehicle that
- * provides a CharacterIterator interface. When BreakIterator.setText(CharacterIterator) or
- * getText() was called, the CharacterIterator must not be modified, or else the BreakIterator
- * behavior is undefined. In particular, call BreakIterator.setText(),
- * not CharacterIterator.setText().
+ * provides a CharacterIterator interface.
  *
  * <b>Note:</b>  Some types of BreakIterator can take a long time to create, and
  * instances of BreakIterator are not currently cached by the system.  For
@@ -448,14 +445,13 @@ public abstract class BreakIterator implements Cloneable
 
     /**
      * For RuleBasedBreakIterators, return the status tag from the
-     * break rule that determined the most recently
-     * returned break position.
+     * break rule that determined the boundary at the current iteration position.
      * <p>
      * For break iterator types that do not support a rule status,
      * a default value of 0 is returned.
      * <p>
-     * @return The status from the break rule that determined the most recently
-     *         returned break position.
+     * @return The status from the break rule that determined the boundary
+     * at the current iteration position.
      *
      * @stable ICU 52
      */
@@ -466,7 +462,7 @@ public abstract class BreakIterator implements Cloneable
 
     /**
      * For RuleBasedBreakIterators, get the status (tag) values from the break rule(s)
-     * that determined the most recently returned break position.
+     * that determined the the boundary at the current iteration position.
      * <p>
      * For break iterator types that do not support rule status,
      * no values are returned.
@@ -477,7 +473,7 @@ public abstract class BreakIterator implements Cloneable
      *
      * @param fillInArray an array to be filled in with the status values.
      * @return          The number of rule status values from rules that determined
-     *                  the most recent boundary returned by the break iterator.
+     *                  the the boundary at the current iteration position.
      *                  In the event that the array is too small, the return value
      *                  is the total number of status values that were available,
      *                  not the reduced number that were actually returned.
@@ -492,12 +488,19 @@ public abstract class BreakIterator implements Cloneable
 
     /**
      * Returns a CharacterIterator over the text being analyzed.
-     * For at least some subclasses of BreakIterator, this is a reference
-     * to the <b>actual iterator being used</b> by the BreakIterator,
-     * and therefore, this function's return value should be treated as
-     * <tt>const</tt>.  No guarantees are made about the current position
-     * of this iterator when it is returned.  If you need to move that
+     * <p>
+     * <b><i>Caution:</i></b>The state of the returned CharacterIterator
+     * must not be modified in any way while the BreakIterator is still in use.
+     * Doing so will lead to undefined behavior of the BreakIterator.
+     * Clone the returned CharacterIterator first and work with that.
+     * <p>
+     * The returned CharacterIterator is a reference
+     * to the <b>actual iterator being used</b> by the BreakIterator.
+     * No guarantees are made about the current position
+     * of this iterator when it is returned; it may differ from the
+     * BreakIterators current position.  If you need to move that
      * position to examine the text, clone this function's return value first.
+     *
      * @return A CharacterIterator over the text being analyzed.
      * @stable ICU 2.0
      */
@@ -522,20 +525,28 @@ public abstract class BreakIterator implements Cloneable
      * piece of text is passed in as a CharSequence, and the current
      * iteration position is reset to the beginning of the text.
      * (The old text is dropped.)
+     * <p>
+     * The text underlying the CharSequence must not be be modified while
+     * the BreakIterator holds a references to it. (As could possibly occur
+     * with a StringBuilder, for example).
      * @param newText A CharSequence containing the text to analyze with
      * this BreakIterator.
-     * @draft ICU 60
+     * @stable ICU 60
      */
     public void setText(CharSequence newText) {
         setText(new CSCharacterIterator(newText));
     }
 
     /**
-     * Sets the iterator to analyze a new piece of text.  The
-     * BreakIterator is passed a CharacterIterator through which
-     * it will access the text itself.  The current iteration
-     * position is reset to the CharacterIterator's start index.
+     * Sets the iterator to analyze a new piece of text. This function resets
+     * the current iteration position to the beginning of the text.
      * (The old iterator is dropped.)
+     * <p>
+     * <b><i>Caution:</i></b> The supplied CharacterIterator is used
+     * directly by the BreakIterator, and must not be altered in any
+     * way by code outside of the BreakIterator.
+     * Doing so will lead to undefined behavior of the BreakIterator.
+     *
      * @param newText A CharacterIterator referring to the text
      * to analyze with this BreakIterator (the iterator's current
      * position is ignored, but its other state is significant).
@@ -886,10 +897,6 @@ s     */
 
         BreakIteratorCache cache = new BreakIteratorCache(where, result);
         iterCache[kind] = CacheValue.getInstance(cache);
-        if (result instanceof RuleBasedBreakIterator) {
-            RuleBasedBreakIterator rbbi = (RuleBasedBreakIterator)result;
-            rbbi.setBreakType(kind);
-        }
 
         return result;
     }

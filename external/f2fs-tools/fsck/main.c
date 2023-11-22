@@ -28,6 +28,8 @@ struct f2fs_fsck gfsck;
 extern struct sparse_file *f2fs_sparse_file;
 #endif
 
+INIT_FEATURE_TABLE;
+
 static char *absolute_path(const char *file)
 {
 	char *ret;
@@ -53,11 +55,14 @@ void fsck_usage()
 	MSG(0, "  -a check/fix potential corruption, reported by f2fs\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -f check/fix entire partition\n");
+	MSG(0, "  -g add default options\n");
+	MSG(0, "  -O feature1[feature2,feature3,...] e.g. \"encrypt\"\n");
 	MSG(0, "  -p preen mode [default:0 the same as -a [0|1]]\n");
 	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -t show directory tree\n");
 	MSG(0, "  -q preserve quota limits\n");
 	MSG(0, "  -y fix all the time\n");
+	MSG(0, "  -V print the version number and exit\n");
 	MSG(0, "  --dry-run do not really fix corruptions\n");
 	exit(1);
 }
@@ -68,11 +73,12 @@ void dump_usage()
 	MSG(0, "[options]:\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -i inode no (hex)\n");
-	MSG(0, "  -n [NAT dump segno from #1~#2 (decimal), for all 0~-1]\n");
+	MSG(0, "  -n [NAT dump nid from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -s [SIT dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -a [SSA dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -b blk_addr (in 4KB)\n");
+	MSG(0, "  -V print the version number and exit\n");
 
 	exit(1);
 }
@@ -87,6 +93,7 @@ void defrag_usage()
 	MSG(0, "  -l length [default:512 (2MB)]\n");
 	MSG(0, "  -t target block address [default: main_blkaddr + 2MB]\n");
 	MSG(0, "  -i set direction as shrink [default: expand]\n");
+	MSG(0, "  -V print the version number and exit\n");
 	exit(1);
 }
 
@@ -95,7 +102,9 @@ void resize_usage()
 	MSG(0, "\nUsage: resize.f2fs [options] device\n");
 	MSG(0, "[options]:\n");
 	MSG(0, "  -d debug level [default:0]\n");
+	MSG(0, "  -s safe resize (Does not resize metadata)");
 	MSG(0, "  -t target sectors [default: device size]\n");
+	MSG(0, "  -V print the version number and exit\n");
 	exit(1);
 }
 
@@ -111,6 +120,7 @@ void sload_usage()
 	MSG(0, "  -t mount point [prefix of target fs path, default:/]\n");
 	MSG(0, "  -T timestamp\n");
 	MSG(0, "  -d debug level [default:0]\n");
+	MSG(0, "  -V print the version number and exit\n");
 	exit(1);
 }
 
@@ -137,7 +147,22 @@ static void error_out(char *prog)
 	else if (!strcmp("sload.f2fs", prog))
 		sload_usage();
 	else
-		MSG(0, "\nWrong progam.\n");
+		MSG(0, "\nWrong program.\n");
+}
+
+static void __add_fsck_options(void)
+{
+	/* -a */
+	c.auto_fix = 1;
+}
+
+static void add_default_options(void)
+{
+	switch (c.defset) {
+	case CONF_ANDROID:
+		__add_fsck_options();
+	}
+	c.quota_fix = 1;
 }
 
 void f2fs_parse_options(int argc, char *argv[])
@@ -160,7 +185,7 @@ void f2fs_parse_options(int argc, char *argv[])
 	}
 
 	if (!strcmp("fsck.f2fs", prog)) {
-		const char *option_string = ":ad:fp:q:Sty";
+		const char *option_string = ":ad:fg:O:p:q:StyV";
 		int opt = 0;
 		struct option long_opt[] = {
 			{"dry-run", no_argument, 0, 1},
@@ -179,17 +204,27 @@ void f2fs_parse_options(int argc, char *argv[])
 				c.auto_fix = 1;
 				MSG(0, "Info: Fix the reported corruption.\n");
 				break;
+			case 'g':
+				if (!strcmp(optarg, "android"))
+					c.defset = CONF_ANDROID;
+				break;
+			case 'O':
+				if (parse_feature(feature_table, optarg))
+					fsck_usage();
+				break;
 			case 'p':
 				/* preen mode has different levels:
 				 *  0: default level, the same as -a
 				 *  1: check meta
+				 *  2: same as 0, but will skip some
+				 *     check for old kernel
 				 */
-				if (optarg[0] == '-') {
+				if (optarg[0] == '-' || !is_digits(optarg) ||
+							optind == argc) {
+					MSG(0, "Info: Use default preen mode\n");
 					c.preen_mode = PREEN_MODE_0;
+					c.auto_fix = 1;
 					optind--;
-					break;
-				} else if (!is_digits(optarg)) {
-					err = EWRONG_OPT;
 					break;
 				}
 				c.preen_mode = atoi(optarg);
@@ -197,7 +232,8 @@ void f2fs_parse_options(int argc, char *argv[])
 					c.preen_mode = PREEN_MODE_0;
 				else if (c.preen_mode >= PREEN_MODE_MAX)
 					c.preen_mode = PREEN_MODE_MAX - 1;
-				if (c.preen_mode == PREEN_MODE_0)
+				if (c.preen_mode == PREEN_MODE_0 ||
+					c.preen_mode == PREEN_MODE_2)
 					c.auto_fix = 1;
 				MSG(0, "Info: Fix the reported corruption in "
 					"preen mode %d\n", c.preen_mode);
@@ -216,6 +252,7 @@ void f2fs_parse_options(int argc, char *argv[])
 			case 'f':
 			case 'y':
 				c.fix_on = 1;
+				c.force = 1;
 				MSG(0, "Info: Force to fix corruption\n");
 				break;
 			case 'q':
@@ -240,6 +277,9 @@ void f2fs_parse_options(int argc, char *argv[])
 					break;
 				}
 				break;
+			case 'V':
+				show_version(prog);
+				exit(0);
 			case '?':
 				option = optopt;
 			default:
@@ -250,7 +290,7 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 		}
 	} else if (!strcmp("dump.f2fs", prog)) {
-		const char *option_string = "d:i:n:s:Sa:b:";
+		const char *option_string = "d:i:n:s:Sa:b:V";
 		static struct dump_option dump_opt = {
 			.nid = 0,	/* default root ino */
 			.start_nat = -1,
@@ -275,6 +315,14 @@ void f2fs_parse_options(int argc, char *argv[])
 				c.dbg_lv = atoi(optarg);
 				MSG(0, "Info: Debug level = %d\n",
 							c.dbg_lv);
+				break;
+			case 'g':
+				if (!strcmp(optarg, "android")) {
+					c.defset = CONF_ANDROID;
+					MSG(0, "Info: Set conf for android\n");
+					break;
+				}
+				err = EWRONG_OPT;
 				break;
 			case 'i':
 				if (strncmp(optarg, "0x", 2))
@@ -310,6 +358,9 @@ void f2fs_parse_options(int argc, char *argv[])
 					ret = sscanf(optarg, "%x",
 							&dump_opt.blk_addr);
 				break;
+			case 'V':
+				show_version(prog);
+				exit(0);
 			default:
 				err = EUNKNOWN_OPT;
 				break;
@@ -321,7 +372,7 @@ void f2fs_parse_options(int argc, char *argv[])
 
 		c.private = &dump_opt;
 	} else if (!strcmp("defrag.f2fs", prog)) {
-		const char *option_string = "d:s:Sl:t:i";
+		const char *option_string = "d:s:Sl:t:iV";
 
 		c.func = DEFRAG;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
@@ -367,6 +418,9 @@ void f2fs_parse_options(int argc, char *argv[])
 			case 'i':
 				c.defrag_shrink = 1;
 				break;
+			case 'V':
+				show_version(prog);
+				exit(0);
 			default:
 				err = EUNKNOWN_OPT;
 				break;
@@ -376,7 +430,7 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 		}
 	} else if (!strcmp("resize.f2fs", prog)) {
-		const char *option_string = "d:t:";
+		const char *option_string = "d:st:V";
 
 		c.func = RESIZE;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
@@ -392,6 +446,9 @@ void f2fs_parse_options(int argc, char *argv[])
 				MSG(0, "Info: Debug level = %d\n",
 							c.dbg_lv);
 				break;
+			case 's':
+				c.safe_resize = 1;
+				break;
 			case 't':
 				if (strncmp(optarg, "0x", 2))
 					ret = sscanf(optarg, "%"PRIu64"",
@@ -400,6 +457,9 @@ void f2fs_parse_options(int argc, char *argv[])
 					ret = sscanf(optarg, "%"PRIx64"",
 							&c.target_sectors);
 				break;
+			case 'V':
+				show_version(prog);
+				exit(0);
 			default:
 				err = EUNKNOWN_OPT;
 				break;
@@ -409,7 +469,7 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 		}
 	} else if (!strcmp("sload.f2fs", prog)) {
-		const char *option_string = "C:d:f:p:s:St:T:";
+		const char *option_string = "C:d:f:p:s:St:T:V";
 #ifdef HAVE_LIBSELINUX
 		int max_nr_opt = (int)sizeof(c.seopt_file) /
 			sizeof(c.seopt_file[0]);
@@ -467,6 +527,9 @@ void f2fs_parse_options(int argc, char *argv[])
 			case 'T':
 				c.fixed_time = strtoul(optarg, &p, 0);
 				break;
+			case 'V':
+				show_version(prog);
+				exit(0);
 			default:
 				err = EUNKNOWN_OPT;
 				break;
@@ -475,6 +538,8 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 		}
 	}
+
+	add_default_options();
 
 	if (optind >= argc) {
 		MSG(0, "\tError: Device not specified\n");
@@ -517,6 +582,8 @@ static void do_fsck(struct f2fs_sb_info *sbi)
 	fsck_init(sbi);
 
 	print_cp_state(flag);
+
+	fsck_chk_curseg_info(sbi);
 
 	if (!c.fix_on && !c.bug_on) {
 		switch (c.preen_mode) {
@@ -583,7 +650,7 @@ static void do_dump(struct f2fs_sb_info *sbi)
 	if (opt->end_ssa == -1)
 		opt->end_ssa = SM_I(sbi)->main_segments;
 	if (opt->start_nat != -1)
-		nat_dump(sbi);
+		nat_dump(sbi, opt->start_nat, opt->end_nat);
 	if (opt->start_sit != -1)
 		sit_dump(sbi, opt->start_sit, opt->end_sit);
 	if (opt->start_ssa != -1)
@@ -648,8 +715,6 @@ out_range:
 
 static int do_resize(struct f2fs_sb_info *sbi)
 {
-	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
-
 	if (!c.target_sectors)
 		c.target_sectors = c.total_sectors;
 
@@ -659,12 +724,6 @@ static int do_resize(struct f2fs_sb_info *sbi)
 		return -1;
 	}
 
-	/* may different sector size */
-	if ((c.target_sectors * c.sector_size >>
-			get_sb(log_blocksize)) <= get_sb(block_count)) {
-		ASSERT_MSG("Nothing to resize, now only support resize to expand\n");
-		return -1;
-	}
 	return f2fs_resize(sbi);
 }
 
@@ -689,7 +748,7 @@ int main(int argc, char **argv)
 
 	f2fs_parse_options(argc, argv);
 
-	if (f2fs_devs_are_umounted() < 0) {
+	if (c.func != DUMP && f2fs_devs_are_umounted() < 0) {
 		if (errno == EBUSY)
 			return -1;
 		if (!c.ro || c.func == DEFRAG) {
@@ -763,7 +822,7 @@ fsck_again:
 	f2fs_do_umount(sbi);
 
 	if (c.func == FSCK && c.bug_on) {
-		if (!c.ro && c.fix_on == 0 && c.auto_fix == 0) {
+		if (!c.ro && c.fix_on == 0 && c.auto_fix == 0 && !c.dry_run) {
 			char ans[255] = {0};
 retry:
 			printf("Do you want to fix this partition? [Y/N] ");

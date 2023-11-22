@@ -4,6 +4,15 @@
 # include <stdlib.h>
 # include <stdint.h>
 
+#ifndef __GNUC_PREREQ
+#if defined(__GNUC__) && defined(__GNUC_MINOR__)
+#define __GNUC_PREREQ(maj, min) \
+	((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
+#else
+#define __GNUC_PREREQ(maj, min) 0
+#endif
+#endif
+
 struct ext2fs_hashmap {
 	uint32_t size;
 	uint32_t(*hash)(const void *key, size_t len);
@@ -17,7 +26,14 @@ struct ext2fs_hashmap {
 		struct ext2fs_hashmap_entry *next;
 		struct ext2fs_hashmap_entry *list_next;
 		struct ext2fs_hashmap_entry *list_prev;
+#if __GNUC_PREREQ (4, 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 	} *entries[0];
+#if __GNUC_PREREQ (4, 8)
+#pragma GCC diagnostic pop
+#endif
 };
 
 struct ext2fs_hashmap *ext2fs_hashmap_create(

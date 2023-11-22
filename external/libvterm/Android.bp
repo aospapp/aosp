@@ -4,14 +4,15 @@ cc_library_static {
     export_include_dirs: ["include"],
 
     srcs: [
-        "src/input.c",
-        "src/vterm.c",
         "src/encoding.c",
+        "src/input.c",
+        "src/keyboard.c",
         "src/parser.c",
-        "src/unicode.c",
         "src/pen.c",
         "src/screen.c",
         "src/state.c",
+        "src/unicode.c",
+        "src/vterm.c",
     ],
 
     cflags: [

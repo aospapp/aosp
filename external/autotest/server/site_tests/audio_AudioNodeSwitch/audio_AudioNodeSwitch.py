@@ -17,6 +17,7 @@ from autotest_lib.client.cros.chameleon import edid as edid_lib
 from autotest_lib.server.cros.audio import audio_test
 from autotest_lib.server.cros.multimedia import remote_facade_factory
 
+URL = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ'
 
 
 class audio_AudioNodeSwitch(audio_test.AudioTest):
@@ -29,6 +30,7 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
     version = 1
     _APPLY_EDID_DELAY = 5
     _PLUG_DELAY = 5
+    _WAIT_TO_LOAD_VIDEO = 5
     _VOLUMES = {'INTERNAL_SPEAKER': 100,
                 'HEADPHONE': 80,
                 'LINEOUT': 80,
@@ -86,7 +88,8 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
             self.check_active_node_volume(node)
 
 
-    def run_once(self, host, jack_node=False, hdmi_node=False, usb_node=False):
+    def run_once(self, host, jack_node=False, hdmi_node=False,
+                 usb_node=False, play_audio=False):
         self.host = host
         chameleon_board = host.chameleon
         audio_board = chameleon_board.get_audio_board()
@@ -104,7 +107,10 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
             nodes.append('INTERNAL_SPEAKER')
             self.switch_nodes_and_check_volume(nodes)
 
-
+        if play_audio:
+            self.browser_facade = factory.create_browser_facade()
+            self.browser_facade.new_tab(URL)
+            time.sleep(self._WAIT_TO_LOAD_VIDEO)
         if hdmi_node:
             edid_path = os.path.join(self.bindir,
                                      'test_data/edids/HDMI_DELL_U2410.txt')
@@ -118,7 +124,8 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
 
             audio_test_utils.check_audio_nodes(self.audio_facade,
                                                (['HDMI'], None))
-
+            if play_audio:
+                self.audio_facade.check_audio_stream_at_selected_device()
             self.set_active_volume_to_node_volume('HDMI')
             nodes.append('HDMI')
             self.switch_nodes_and_check_volume(nodes)

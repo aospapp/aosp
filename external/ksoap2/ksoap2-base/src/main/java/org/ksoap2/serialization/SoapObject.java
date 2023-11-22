@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2003,2004, Stefan Haustein, Oberhausen, Rhld., Germany
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -18,7 +18,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * 
+ *
  * Contributor(s): John D. Beatty, Dave Dash, Andre Gerard, F. Hunter, Renaud
  * Tognelli
  */
@@ -38,7 +38,7 @@ import java.util.*;
  * KvmSerializable interface.
  */
 
-public class SoapObject extends AttributeContainer implements KvmSerializable {
+public class SoapObject extends AttributeContainer implements KvmSerializable, HasInnerText {
 
     private static final String EMPTY_STRING = "";
     /**
@@ -53,6 +53,8 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * The Vector of properties (can contain PropertyInfo and SoapObject)
      */
     protected Vector properties = new Vector();
+
+    protected Object innerText;
 
     // TODO: accessing properties and attributes would work much better if we
     // kept a list of known properties instead of iterating through the list
@@ -69,10 +71,8 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
     /**
      * Creates a new <code>SoapObject</code> instance.
      *
-     * @param namespace
-     *            the namespace for the soap object
-     * @param name
-     *            the name of the soap object
+     * @param namespace the namespace for the soap object
+     * @param name      the name of the soap object
      */
 
     public SoapObject(String namespace, String name) {
@@ -112,8 +112,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Helper function for SoapObject.equals
      * Checks if a given property and index are the same as in this
      *
-     *  @param otherProp, index
-     *  @return
+     * @param otherProp, index
      */
     public boolean isPropertyEqual(Object otherProp, int index) {
         if (index >= getPropertyCount()) {
@@ -157,9 +156,6 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
 
     /**
      * Get the toString value of the property.
-     *
-     * @param index
-     * @return
      */
     public String getPropertyAsString(int index) {
         PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index);
@@ -169,8 +165,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
     /**
      * Get the property with the given name
      *
-     * @throws java.lang.RuntimeException
-     *             if the property does not exist
+     * @throws java.lang.RuntimeException if the property does not exist
      */
     public Object getProperty(String name) {
         Integer index = propertyIndex(name);
@@ -182,10 +177,223 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
     }
 
     /**
-     * Get the toString value of the property.
+     * Get the property with the given name
      *
-     * @param name
-     * @return
+     * return null
+     * if the property does not exist
+     */
+    public Object getProperty(String namespace, String name) {
+        Integer index = propertyIndex(namespace, name);
+        if (index != null) {
+            return getProperty(index.intValue());
+        } else {
+            throw new RuntimeException("illegal property: " + name);
+        }
+    }
+
+    /**
+     * Get a property using namespace and name without chance of throwing an exception
+     *
+     * @return the property if it exists; if not, {@link NullSoapObject} is
+     * returned
+     */
+    public Object getPropertyByNamespaceSafely(final String namespace, final String name) {
+        Integer i = propertyIndex(namespace, name);
+        if (i != null) {
+            return getProperty(i.intValue());
+        } else {
+            return new NullSoapObject();
+        }
+    }
+
+    /**
+     * Get the toString value of a property without chance of throwing an
+     * exception
+     *
+     * @return the string value of the property if it exists; if not, #EMPTY_STRING is
+     * returned
+     */
+    public String getPropertyByNamespaceSafelyAsString(final String namespace, final String name) {
+        Integer i = propertyIndex(namespace, name);
+        if (i != null) {
+            Object foo = getProperty(i.intValue());
+            if (foo == null) {
+                return EMPTY_STRING;
+            } else {
+                return foo.toString();
+            }
+        } else {
+            return EMPTY_STRING;
+        }
+    }
+
+    /**
+     * Get a property without chance of throwing an exception. An object can be
+     * provided to this method; if the property is not found, this object will
+     * be returned.
+     *
+     * @param defaultThing the object to return if the property is not found
+     * @return the property if it exists; defaultThing if the property does not
+     * exist
+     */
+    public Object getPropertySafely(final String namespace, final String name,
+            final Object defaultThing) {
+        Integer i = propertyIndex(namespace, name);
+        if (i != null) {
+            return getProperty(i.intValue());
+        } else {
+            return defaultThing;
+        }
+    }
+
+    /**
+     * Get the toString value of a property without chance of throwing an
+     * exception. An object can be provided to this method; if the property is
+     * not found, this object's string representation will be returned.
+     *
+     * @param defaultThing toString of the object to return if the property is not found
+     * @return the property toString if it exists; defaultThing toString if the
+     * property does not exist, if the defaultThing is null #EMPTY_STRING
+     * is returned
+     */
+    public String getPropertySafelyAsString(final String namespace, final String name,
+            final Object defaultThing) {
+        Integer i = propertyIndex(namespace, name);
+        if (i != null) {
+            Object property = getProperty(i.intValue());
+            if (property != null) {
+                return property.toString();
+            } else {
+                return EMPTY_STRING;
+            }
+        } else {
+            if (defaultThing != null) {
+                return defaultThing.toString();
+            } else {
+                return EMPTY_STRING;
+            }
+        }
+    }
+
+    /**
+     * Get the primitive property with the given name.
+     *
+     * @return PropertyInfo containing an empty string if property either complex or empty
+     */
+    public Object getPrimitiveProperty(final String namespace, final String name) {
+        Integer index = propertyIndex(namespace, name);
+        if (index != null) {
+            PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
+                return propertyInfo.getValue();
+            } else {
+                propertyInfo = new PropertyInfo();
+                propertyInfo.setType(String.class);
+                propertyInfo.setValue(EMPTY_STRING);
+                propertyInfo.setName(name);
+                propertyInfo.setNamespace(namespace);
+                return (Object) propertyInfo.getValue();
+            }
+        } else {
+            throw new RuntimeException("illegal property: " + name);
+        }
+    }
+
+    /**
+     * Get the toString value of the primitive property with the given name.
+     * Returns empty string if property either complex or empty
+     *
+     * @return the string value of the property
+     */
+    public String getPrimitivePropertyAsString(final String namespace, final String name) {
+        Integer index = propertyIndex(namespace, name);
+        if (index != null) {
+            PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
+                return propertyInfo.getValue().toString();
+            } else {
+                return EMPTY_STRING;
+            }
+        } else {
+            throw new RuntimeException("illegal property: " + name);
+        }
+    }
+
+    /**
+     * Get the toString value of a primitive property without chance of throwing an
+     * exception
+     *
+     * @return the string value of the property if it exists and is primitive; if not,
+     * #EMPTY_STRING is
+     * returned
+     */
+    public Object getPrimitivePropertySafely(final String namespace, final String name) {
+        Integer index = propertyIndex(namespace, name);
+        if (index != null) {
+            PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
+                return propertyInfo.getValue().toString();
+            } else {
+                propertyInfo = new PropertyInfo();
+                propertyInfo.setType(String.class);
+                propertyInfo.setValue(EMPTY_STRING);
+                propertyInfo.setName(name);
+                propertyInfo.setNamespace(namespace);
+                return (Object) propertyInfo.getValue();
+            }
+        } else {
+            return new NullSoapObject();
+        }
+    }
+
+    /**
+     * Get the toString value of a primitive property without chance of throwing an
+     * exception
+     *
+     * @return the string value of the property if it exists and is primitive; if not,
+     * #EMPTY_STRING is
+     * returned
+     */
+    public String getPrimitivePropertySafelyAsString(final String namespace, final String name) {
+        Integer index = propertyIndex(namespace, name);
+        if (index != null) {
+            PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
+                return propertyInfo.getValue().toString();
+            } else {
+                return EMPTY_STRING;
+            }
+        } else {
+            return EMPTY_STRING;
+        }
+    }
+
+    /**
+     * Knows whether the given property exists
+     */
+    public boolean hasProperty(final String namespace, final String name) {
+        if (propertyIndex(namespace, name) != null) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Get the toString value of the property.
+     */
+
+    public String getPropertyAsString(String namespace, String name) {
+        Integer index = propertyIndex(namespace, name);
+        if (index != null) {
+            return getProperty(index.intValue()).toString();
+        } else {
+            throw new RuntimeException("illegal property: " + name);
+        }
+    }
+
+    /**
+     * Get the toString value of the property.
      */
 
     public String getPropertyAsString(String name) {
@@ -212,7 +420,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Get a property without chance of throwing an exception
      *
      * @return the property if it exists; if not, {@link NullSoapObject} is
-     *         returned
+     * returned
      */
     public Object getPropertySafely(final String name) {
         Integer i = propertyIndex(name);
@@ -228,7 +436,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * exception
      *
      * @return the string value of the property if it exists; if not, #EMPTY_STRING is
-     *         returned
+     * returned
      */
     public String getPropertySafelyAsString(final String name) {
         Integer i = propertyIndex(name);
@@ -249,10 +457,9 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * provided to this method; if the property is not found, this object will
      * be returned.
      *
-     * @param defaultThing
-     *            the object to return if the property is not found
+     * @param defaultThing the object to return if the property is not found
      * @return the property if it exists; defaultThing if the property does not
-     *         exist
+     * exist
      */
     public Object getPropertySafely(final String name, final Object defaultThing) {
         Integer i = propertyIndex(name);
@@ -268,11 +475,10 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * exception. An object can be provided to this method; if the property is
      * not found, this object's string representation will be returned.
      *
-     * @param defaultThing
-     *            toString of the object to return if the property is not found
+     * @param defaultThing toString of the object to return if the property is not found
      * @return the property toString if it exists; defaultThing toString if the
-     *         property does not exist, if the defaultThing is null #EMPTY_STRING
-     *         is returned
+     * property does not exist, if the defaultThing is null #EMPTY_STRING
+     * is returned
      */
     public String getPropertySafelyAsString(final String name,
             final Object defaultThing) {
@@ -296,14 +502,13 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
     /**
      * Get the primitive property with the given name.
      *
-     * @param name
      * @return PropertyInfo containing an empty string if property either complex or empty
      */
     public Object getPrimitiveProperty(final String name) {
         Integer index = propertyIndex(name);
         if (index != null) {
             PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
-            if (propertyInfo.getType() != SoapObject.class) {
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
                 return propertyInfo.getValue();
             } else {
                 propertyInfo = new PropertyInfo();
@@ -321,14 +526,13 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Get the toString value of the primitive property with the given name.
      * Returns empty string if property either complex or empty
      *
-     * @param name
      * @return the string value of the property
      */
     public String getPrimitivePropertyAsString(final String name) {
         Integer index = propertyIndex(name);
         if (index != null) {
             PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
-            if (propertyInfo.getType() != SoapObject.class) {
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
                 return propertyInfo.getValue().toString();
             } else {
                 return EMPTY_STRING;
@@ -342,15 +546,15 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Get the toString value of a primitive property without chance of throwing an
      * exception
      *
-     * @param name
-     * @return the string value of the property if it exists and is primitive; if not, #EMPTY_STRING is
-     *         returned
+     * @return the string value of the property if it exists and is primitive; if not,
+     * #EMPTY_STRING is
+     * returned
      */
     public Object getPrimitivePropertySafely(final String name) {
         Integer index = propertyIndex(name);
         if (index != null) {
             PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
-            if (propertyInfo.getType() != SoapObject.class) {
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
                 return propertyInfo.getValue().toString();
             } else {
                 propertyInfo = new PropertyInfo();
@@ -368,15 +572,15 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Get the toString value of a primitive property without chance of throwing an
      * exception
      *
-     * @param name
-     * @return the string value of the property if it exists and is primitive; if not, #EMPTY_STRING is
-     *         returned
+     * @return the string value of the property if it exists and is primitive; if not,
+     * #EMPTY_STRING is
+     * returned
      */
     public String getPrimitivePropertySafelyAsString(final String name) {
         Integer index = propertyIndex(name);
         if (index != null) {
             PropertyInfo propertyInfo = (PropertyInfo) properties.elementAt(index.intValue());
-            if (propertyInfo.getType() != SoapObject.class) {
+            if (propertyInfo.getType() != SoapObject.class && propertyInfo.getValue() != null) {
                 return propertyInfo.getValue().toString();
             } else {
                 return EMPTY_STRING;
@@ -397,6 +601,19 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
         return null;
     }
 
+
+    private Integer propertyIndex(String namespace, String name) {
+        if (name != null && namespace != null) {
+            for (int i = 0; i < properties.size(); i++) {
+                PropertyInfo info = (PropertyInfo) properties.elementAt(i);
+                if (name.equals(info.getName()) && namespace.equals(info.getNamespace())) {
+                    return new Integer(i);
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Returns the number of properties
      *
@@ -410,12 +627,9 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Places PropertyInfo of desired property into a designated PropertyInfo
      * object. Just calls #getPropertyInfo and discards any provided properties.
      *
-     * @param index
-     *            index of desired property
-     * @param properties
-     *            this parameter is ignored
-     * @param propertyInfo
-     *            designated retainer of desired property
+     * @param index        index of desired property
+     * @param properties   this parameter is ignored
+     * @param propertyInfo designated retainer of desired property
      */
     public void getPropertyInfo(int index, Hashtable properties, PropertyInfo propertyInfo) {
         getPropertyInfo(index, propertyInfo);
@@ -425,10 +639,8 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Places PropertyInfo of desired property into a designated PropertyInfo
      * object
      *
-     * @param index
-     *            index of desired property
-     * @param propertyInfo
-     *            designated retainer of desired property
+     * @param index        index of desired property
+     * @param propertyInfo designated retainer of desired property
      */
     public void getPropertyInfo(int index, PropertyInfo propertyInfo) {
         Object element = properties.elementAt(index);
@@ -450,6 +662,17 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
             propertyInfo.elementType = null;
             propertyInfo.value = element;
             propertyInfo.multiRef = false;
+        }
+    }
+
+    public PropertyInfo getPropertyInfo(int index) {
+        Object element = properties.elementAt(index);
+        if (element instanceof PropertyInfo) {
+            PropertyInfo p = (PropertyInfo) element;
+            return p;
+        } else {
+            // SoapObject
+            return null;
         }
     }
 
@@ -476,7 +699,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
             AttributeInfo newAI = new AttributeInfo();
             getAttributeInfo(attribIndex, newAI);
             AttributeInfo attributeInfo = newAI; // (AttributeInfo)
-                                                 // attributes.elementAt(attribIndex);
+            // attributes.elementAt(attribIndex);
             o.addAttribute(attributeInfo);
         }
         return o;
@@ -485,27 +708,24 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
     /**
      * Sets a specified property to a certain value.
      *
-     * @param index
-     *            the index of the specified property
-     * @param value
-     *            the new value of the property
+     * @param index the index of the specified property
+     * @param value the new value of the property
      */
     public void setProperty(int index, Object value) {
         Object prop = properties.elementAt(index);
         if (prop instanceof PropertyInfo) {
             ((PropertyInfo) prop).setValue(value);
         }
-        // TODO: not sure how you want to handle an exception here if the index points to a SoapObject
+        // TODO: not sure how you want to handle an exception here if the index points to a
+        // SoapObject
     }
 
     /**
      * Adds a property (parameter) to the object. This is essentially a sub
      * element.
      *
-     * @param name
-     *            The name of the property
-     * @param value
-     *            the value of the property
+     * @param name  The name of the property
+     * @param value the value of the property
      */
     public SoapObject addProperty(String name, Object value) {
         PropertyInfo propertyInfo = new PropertyInfo();
@@ -513,17 +733,44 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
         propertyInfo.type = value == null ? PropertyInfo.OBJECT_CLASS : value
                 .getClass();
         propertyInfo.value = value;
+        return addProperty(propertyInfo);
+    }
+
+    /**
+     * Adds a property (parameter) to the object. This is essentially a sub
+     * element.
+     *
+     * @param namespace The namespace of the property
+     * @param name      The name of the property
+     * @param value     the value of the property
+     */
+    public SoapObject addProperty(String namespace, String name, Object value) {
+        PropertyInfo propertyInfo = new PropertyInfo();
+        propertyInfo.name = name;
         propertyInfo.namespace = namespace;
-        ///M: HS20 modify by Jungo
+        propertyInfo.type = value == null ? PropertyInfo.OBJECT_CLASS : value
+                .getClass();
+        propertyInfo.value = value;
         return addProperty(propertyInfo);
     }
 
     /**
      * Add a property only if the value is not null.
      *
-     * @param name
-     * @param value
-     * @return
+     * @param namespace The namespace of the property
+     * @param name      The name of the property
+     * @param value     the value of the property
+     */
+    public SoapObject addPropertyIfValue(String namespace, String name, Object value) {
+        if (value != null) {
+            return addProperty(namespace, name, value);
+        } else {
+            return this;
+        }
+    }
+
+    /**
+     * Add a property only if the value is not null.
      */
     public SoapObject addPropertyIfValue(String name, Object value) {
         if (value != null) {
@@ -535,10 +782,6 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
 
     /**
      * Add a property only if the value is not null.
-     *
-     * @param propertyInfo
-     * @param value
-     * @return
      */
     public SoapObject addPropertyIfValue(PropertyInfo propertyInfo, Object value) {
         if (value != null) {
@@ -553,8 +796,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Adds a property (parameter) to the object. This is essentially a sub
      * element.
      *
-     * @param propertyInfo
-     *            designated retainer of desired property
+     * @param propertyInfo designated retainer of desired property
      */
     public SoapObject addProperty(PropertyInfo propertyInfo) {
         properties.addElement(propertyInfo);
@@ -563,9 +805,6 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
 
     /**
      * Ad the propertyInfo only if the value of it is not null.
-     *
-     * @param propertyInfo
-     * @return
      */
     public SoapObject addPropertyIfValue(PropertyInfo propertyInfo) {
         if (propertyInfo.value != null) {
@@ -580,8 +819,7 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
      * Adds a SoapObject the properties array. This is a sub element to
      * allow nested SoapObjects
      *
-     * @param soapObject
-     *            to be added as a property of the current object
+     * @param soapObject to be added as a property of the current object
      */
     public SoapObject addSoapObject(SoapObject soapObject) {
         properties.addElement(soapObject);
@@ -590,8 +828,6 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
 
     /**
      * Generate a {@code String} describing this object.
-     *
-     * @return
      */
     public String toString() {
         StringBuffer buf = new StringBuffer(EMPTY_STRING + name + "{");
@@ -609,5 +845,17 @@ public class SoapObject extends AttributeContainer implements KvmSerializable {
         }
         buf.append("}");
         return buf.toString();
+    }
+
+    public Object getInnerText() {
+        return innerText;
+    }
+
+    public void setInnerText(Object innerText) {
+        this.innerText = innerText;
+    }
+
+    public void removePropertyInfo(Object info) {
+        properties.remove(info);
     }
 }

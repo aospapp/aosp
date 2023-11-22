@@ -8,6 +8,9 @@
 //===----------------------------------------------------------------------===//
 //
 // XFAIL: apple-darwin
+//
+// NetBSD does not support LC_MONETARY at the moment
+// XFAIL: netbsd
 
 // REQUIRES: locale.fr_FR.UTF-8
 
@@ -25,6 +28,7 @@
 #include "test_iterators.h"
 
 #include "platform_support.h" // locale name macros
+#include "test_macros.h"
 
 typedef std::money_put<char, output_iterator<char*> > Fn;
 
@@ -45,6 +49,35 @@ public:
     explicit my_facetw(std::size_t refs = 0)
         : Fw(refs) {}
 };
+
+
+// GLIBC 2.27 and newer use U2027 (narrow non-breaking space) as a thousands sep.
+// this function converts the spaces in string inputs to that character if need
+// be.
+static std::wstring convert_thousands_sep(std::wstring const& in) {
+#ifndef TEST_GLIBC_PREREQ
+#define TEST_GLIBC_PREREQ(x, y) 0
+#endif
+#if TEST_GLIBC_PREREQ(2,27)
+  std::wstring out;
+  unsigned I = 0;
+  bool seen_num_start = false;
+  bool seen_decimal = false;
+  for (; I < in.size(); ++I) {
+    seen_decimal |= in[I] == L',';
+    seen_num_start |= in[I] == '-' || std::iswdigit(in[I]);
+    if (seen_decimal || !seen_num_start || in[I] != L' ') {
+      out.push_back(in[I]);
+      continue;
+    }
+    assert(in[I] == L' ');
+    out.push_back(L'\u202F');
+  }
+  return out;
+#else
+  return in;
+#endif
+}
 
 int main()
 {
@@ -301,7 +334,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"1 234 567,89");
+        assert(ex == convert_thousands_sep(L"1 234 567,89"));
     }
     {   // negative
         long double v = -123456789;
@@ -309,7 +342,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89"));
     }
     {   // zero, showbase
         long double v = 0;
@@ -336,7 +369,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"1 234 567,89 \u20ac");
+        assert(ex == convert_thousands_sep(L"1 234 567,89 \u20ac"));
     }
     {   // negative, showbase
         long double v = -123456789;
@@ -345,7 +378,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89 \u20ac");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89 \u20ac"));
     }
     {   // negative, showbase, left
         long double v = -123456789;
@@ -356,7 +389,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, ' ', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89 \u20ac     ");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89 \u20ac     "));
         assert(ios.width() == 0);
     }
     {   // negative, showbase, internal
@@ -368,7 +401,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, ' ', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89      \u20ac");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89      \u20ac"));
         assert(ios.width() == 0);
     }
     {   // negative, showbase, right
@@ -380,7 +413,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             false, ios, ' ', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"     -1 234 567,89 \u20ac");
+        assert(ex == convert_thousands_sep(L"     -1 234 567,89 \u20ac"));
         assert(ios.width() == 0);
     }
 
@@ -409,7 +442,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"1 234 567,89");
+        assert(ex == convert_thousands_sep(L"1 234 567,89"));
     }
     {   // negative
         long double v = -123456789;
@@ -417,7 +450,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89"));
     }
     {   // zero, showbase
         long double v = 0;
@@ -444,7 +477,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"1 234 567,89 EUR");
+        assert(ex == convert_thousands_sep(L"1 234 567,89 EUR"));
     }
     {   // negative, showbase
         long double v = -123456789;
@@ -453,7 +486,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, '*', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89 EUR");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89 EUR"));
     }
     {   // negative, showbase, left
         long double v = -123456789;
@@ -464,7 +497,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, ' ', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89 EUR   ");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89 EUR   "));
         assert(ios.width() == 0);
     }
     {   // negative, showbase, internal
@@ -476,7 +509,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, ' ', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"-1 234 567,89    EUR");
+        assert(ex == convert_thousands_sep(L"-1 234 567,89    EUR"));
         assert(ios.width() == 0);
     }
     {   // negative, showbase, right
@@ -488,7 +521,7 @@ int main()
         output_iterator<wchar_t*> iter = f.put(output_iterator<wchar_t*>(str),
                                             true, ios, ' ', v);
         std::wstring ex(str, iter.base());
-        assert(ex == L"   -1 234 567,89 EUR");
+        assert(ex == convert_thousands_sep(L"   -1 234 567,89 EUR"));
         assert(ios.width() == 0);
     }
 }

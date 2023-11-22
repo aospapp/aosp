@@ -396,6 +396,8 @@ TEST(AlsaUcm, GetDeviceNameForDevice) {
   ASSERT_EQ(2, snd_use_case_get_called);
   EXPECT_EQ(snd_use_case_get_id[0], id_1);
   EXPECT_EQ(snd_use_case_get_id[1], id_2);
+  free((void *)input_dev_name);
+  free((void *)output_dev_name);
 }
 
 TEST(AlsaUcm, GetDeviceRateForDevice) {
@@ -456,6 +458,24 @@ TEST(AlsaUcm, GetCaptureChannelMapForDevice) {
   EXPECT_EQ(channel_layout[10], -1);
 }
 
+TEST(AlsaUcm, GetEchoReferenceDev) {
+  struct cras_use_case_mgr *mgr = &cras_ucm_mgr;
+  const char *echo_ref_dev;
+
+  ResetStubData();
+
+  std::string id_1 = "=EchoReferenceDev/Dev1/HiFi";
+  std::string value_1 = "Echo Ref";
+
+  snd_use_case_get_value[id_1] = value_1;
+  echo_ref_dev = ucm_get_echo_reference_dev_name_for_dev(mgr, "Dev1");
+
+  ASSERT_EQ(1, snd_use_case_get_called);
+  EXPECT_EQ(snd_use_case_get_id[0], id_1);
+  EXPECT_EQ(0, strcmp(echo_ref_dev, value_1.c_str()));
+  free((void *)echo_ref_dev);
+}
+
 TEST(AlsaUcm, GetHotwordModels) {
   struct cras_use_case_mgr *mgr = &cras_ucm_mgr;
   const char *models;
@@ -477,6 +497,7 @@ TEST(AlsaUcm, GetHotwordModels) {
   models = ucm_get_hotword_models(mgr);
   ASSERT_TRUE(models);
   EXPECT_EQ(0, strcmp(models, "en,jp,de"));
+  free((void *)models);
 }
 
 TEST(AlsaUcm, SetHotwordModel) {
@@ -784,6 +805,31 @@ TEST(AlsaUcm, MaxSoftwareGain) {
   ASSERT_TRUE(ret);
 }
 
+TEST(AlsaUcm, MinSoftwareGain) {
+  struct cras_use_case_mgr *mgr = &cras_ucm_mgr;
+  long min_software_gain;
+  int ret;
+  std::string id = "=MinSoftwareGain/Internal Mic/HiFi";
+  std::string value = "2000";
+
+  ResetStubData();
+
+  /* Value can be found in UCM. */
+  snd_use_case_get_value[id] = value;
+
+  ret = ucm_get_min_software_gain(mgr, "Internal Mic", &min_software_gain);
+
+  EXPECT_EQ(0, ret);
+  EXPECT_EQ(2000, min_software_gain);
+
+  ResetStubData();
+
+  /* Value can not be found in UCM. */
+  ret = ucm_get_min_software_gain(mgr, "Internal Mic", &min_software_gain);
+
+  ASSERT_TRUE(ret);
+}
+
 TEST(AlsaUcm, DefaultNodeGain) {
   struct cras_use_case_mgr *mgr = &cras_ucm_mgr;
   long default_node_gain;
@@ -875,6 +921,8 @@ TEST(AlsaUcm, GetMixerNameForDevice) {
 
   EXPECT_EQ(0, strcmp(mixer_name_1, value_1.c_str()));
   EXPECT_EQ(0, strcmp(mixer_name_2, value_2.c_str()));
+  free((void *)mixer_name_1);
+  free((void *)mixer_name_2);
 }
 
 TEST(AlsaUcm, GetMainVolumeMixerName) {
@@ -978,6 +1026,9 @@ TEST(AlsaUcm, GetJackNameForDevice) {
 
   EXPECT_EQ(0, strcmp(jack_name_1, value_1.c_str()));
   EXPECT_EQ(NULL, jack_name_2);
+
+  free((void *)jack_name_1);
+  free((void *)jack_name_2);
 }
 
 TEST(AlsaUcm, GetJackTypeForDevice) {
@@ -1013,6 +1064,11 @@ TEST(AlsaUcm, GetJackTypeForDevice) {
   EXPECT_EQ(0, strcmp(jack_type_2, value_2.c_str()));
   EXPECT_EQ(NULL, jack_type_3);
   EXPECT_EQ(NULL, jack_type_4);
+
+  free((void *)jack_type_1);
+  free((void *)jack_type_2);
+  free((void *)jack_type_3);
+  free((void *)jack_type_4);
 }
 
 TEST(AlsaUcm, GetPeriodFramesForDevice) {

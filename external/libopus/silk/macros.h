@@ -33,6 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "opus_types.h"
+#include "typedef.h"
 #include "opus_defines.h"
 #include "arch.h"
 
@@ -96,13 +97,31 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 /* add/subtract with output saturated */
-#define silk_ADD_SAT32(a, b)             ((((opus_uint32)(a) + (opus_uint32)(b)) & 0x80000000) == 0 ?                              \
-                                        ((((a) & (b)) & 0x80000000) != 0 ? silk_int32_MIN : (a)+(b)) :   \
-                                        ((((a) | (b)) & 0x80000000) == 0 ? silk_int32_MAX : (a)+(b)) )
+/* use clang builtin overflow detectors */
+static OPUS_INLINE opus_int32 silk_ADD_SAT32(opus_int32 a, opus_int32 b) {
+    opus_int32 c;
+    if (__builtin_add_overflow(a, b, &c)) {
+        // overflowed
+        if (a < 0)      // neg+X can only overflow towards -inf
+            c = silk_int32_MIN;
+        else
+            c = silk_int32_MAX;
+    }
+    return c;
+}
 
-#define silk_SUB_SAT32(a, b)             ((((opus_uint32)(a)-(opus_uint32)(b)) & 0x80000000) == 0 ?                                        \
-                                        (( (a) & ((b)^0x80000000) & 0x80000000) ? silk_int32_MIN : (a)-(b)) :    \
-                                        ((((a)^0x80000000) & (b)  & 0x80000000) ? silk_int32_MAX : (a)-(b)) )
+/* use clang builtin overflow detectors */
+static OPUS_INLINE opus_int32 silk_SUB_SAT32(opus_int32 a, opus_int32 b) {
+    opus_int32 c;
+    if (__builtin_sub_overflow(a, b, &c)) {
+        // overflowed,
+        if (a < 0) // neg-X only overflows towards -inf
+            c = silk_int32_MIN;
+        else
+            c = silk_int32_MAX;
+    }
+    return c;
+}
 
 #if defined(MIPSr1_ASM)
 #include "mips/macros_mipsr1.h"

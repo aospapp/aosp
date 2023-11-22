@@ -13,7 +13,9 @@ extern "C" {
 #include <stdint.h>
 
 #include "dumper.h"
+#include "cras_audio_format.h"
 #include "cras_dsp_ini.h"
+#include "cras_dsp_module.h"
 
 /* These are the functions to create and use dsp pipelines. A dsp
  * pipeline is a collection of dsp plugins that process audio
@@ -100,6 +102,15 @@ float *cras_dsp_pipeline_get_source_buffer(struct pipeline *pipeline,
  */
 float *cras_dsp_pipeline_get_sink_buffer(struct pipeline *pipeline, int index);
 
+/*
+ * Connects |ext_module| to the sink of given dsp pipeline.
+ * Args:
+ *    pipeline - The pipeline whose sink should connect to ext_module.
+ *    ext_module - The external dsp module to connect to pipeline sink.
+ */
+void cras_dsp_pipeline_set_sink_ext_module(struct pipeline *pipeline,
+					   struct ext_dsp_module *ext_module);
+
 /* Returns the number of internal audio buffers allocated by the
  * pipeline. This is used by the unit test only */
 int cras_dsp_pipeline_get_peak_audio_buffers(struct pipeline *pipeline);
@@ -127,10 +138,13 @@ void cras_dsp_pipeline_add_statistic(struct pipeline *pipeline,
  * Args:
  *    pipeline - The pipeline to run.
  *    buf - The samples to be processed, interleaved.
+ *    format - Sample format of the buffer.
  *    frames - the numver of samples in the buffer.
+ * Returns:
+ *    Negative code if error, otherwise 0.
  */
-void cras_dsp_pipeline_apply(struct pipeline *pipeline,
-			     uint8_t *buf, unsigned int frames);
+int cras_dsp_pipeline_apply(struct pipeline *pipeline, uint8_t *buf,
+			    snd_pcm_format_t format, unsigned int frames);
 
 /* Dumps the current state of the pipeline. For debugging only */
 void cras_dsp_pipeline_dump(struct dumper *d, struct pipeline *pipeline);

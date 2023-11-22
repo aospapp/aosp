@@ -1,6 +1,6 @@
 #!/usr/bin/python
+# pylint: disable=missing-docstring
 
-import gc
 import time
 import unittest
 
@@ -12,9 +12,10 @@ from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.database import database_connection
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import agent_task
+from autotest_lib.scheduler import luciferlib
 from autotest_lib.scheduler import monitor_db, drone_manager
 from autotest_lib.scheduler import pidfile_monitor
-from autotest_lib.scheduler import scheduler_config, gc_stats
+from autotest_lib.scheduler import scheduler_config
 from autotest_lib.scheduler import scheduler_lib
 from autotest_lib.scheduler import scheduler_models
 
@@ -419,21 +420,6 @@ class DispatcherSchedulingTest(BaseSchedulerTest):
         self._check_for_extra_schedulings()
 
 
-    def test_garbage_collection(self):
-        self.god.stub_with(self._dispatcher, '_seconds_between_garbage_stats',
-                           999999)
-        self.god.stub_function(gc, 'collect')
-        self.god.stub_function(gc_stats, '_log_garbage_collector_stats')
-        gc.collect.expect_call().and_return(0)
-        gc_stats._log_garbage_collector_stats.expect_call()
-        # Force a garbage collection run
-        self._dispatcher._last_garbage_stats_time = 0
-        self._dispatcher._garbage_collection()
-        # The previous call should have reset the time, it won't do anything
-        # the second time.  If it does, we'll get an unexpected call.
-        self._dispatcher._garbage_collection()
-
-
 class DispatcherThrottlingTest(BaseSchedulerTest):
     """
     Test that the dispatcher throttles:
@@ -757,7 +743,7 @@ class AgentTest(unittest.TestCase):
 
 class JobSchedulingTest(BaseSchedulerTest):
     def _test_run_helper(self, expect_agent=True, expect_starting=False,
-                         expect_pending=False):
+                         expect_pending=False, lucifer=False):
         if expect_starting:
             expected_status = models.HostQueueEntry.Status.STARTING
         elif expect_pending:
@@ -772,11 +758,15 @@ class JobSchedulingTest(BaseSchedulerTest):
         self.god.check_playback()
 
         self._dispatcher._schedule_running_host_queue_entries()
-        agent = self._dispatcher._agents[0]
 
         actual_status = models.HostQueueEntry.smart_get(1).status
         self.assertEquals(expected_status, actual_status)
 
+        if lucifer:
+            # TODO(ayatane): Lucifer ruins the fragile expectations
+            # here.  In particular, there won't be any agents.
+            return
+        agent = self._dispatcher._agents[0]
         if not expect_agent:
             self.assertEquals(agent, None)
             return
@@ -787,15 +777,10 @@ class JobSchedulingTest(BaseSchedulerTest):
 
 
     def test_run_synchronous_ready(self):
-        self._create_job(hosts=[1, 2], synchronous=True)
+        job = self._create_job(hosts=[1, 2], synchronous=True)
         self._update_hqe("status='Pending', execution_subdir=''")
-
-        queue_task = self._test_run_helper(expect_starting=True)
-
-        self.assert_(isinstance(queue_task, monitor_db.QueueTask))
-        self.assertEquals(queue_task.job.id, 1)
-        hqe_ids = [hqe.id for hqe in queue_task.queue_entries]
-        self.assertEquals(hqe_ids, [1, 2])
+        self._test_run_helper(expect_starting=True, lucifer=True)
+        self._assert_lucifer_called_with(job)
 
 
     def test_schedule_running_host_queue_entries_fail(self):
@@ -836,13 +821,24 @@ class JobSchedulingTest(BaseSchedulerTest):
         self._dispatcher._schedule_new_jobs()
 
         self.assertEqual(models.HostQueueEntry.Status.STARTING, hqe.status)
-        self.assertEqual(1, len(self._dispatcher._agents))
+        self._assert_lucifer_called_with(job)
 
-        self._dispatcher._schedule_new_jobs()
 
-        # No change to previously schedule hostless job, and no additional agent
-        self.assertEqual(models.HostQueueEntry.Status.STARTING, hqe.status)
-        self.assertEqual(1, len(self._dispatcher._agents))
+    def _assert_lucifer_called_with(self, job):
+        calls = []
+        # Create a thing we can assign attributes on.
+        fake_drone = lambda: None
+        fake_drone.hostname = lambda: 'localhost'
+        def fake(manager, job):
+            calls.append((manager, job))
+            return fake_drone
+        old = luciferlib.spawn_starting_job_handler
+        try:
+            luciferlib.spawn_starting_job_handler = fake
+            self._dispatcher._send_to_lucifer()
+        finally:
+            luciferlib.spawn_starting_job_handler = old
+        self.assertEqual(calls[0][1], job)
 
 
 class TopLevelFunctionsTest(unittest.TestCase):

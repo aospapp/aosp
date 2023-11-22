@@ -84,14 +84,14 @@
 
 char *TCID = "mremap03";
 int TST_TOTAL = 1;
-char *addr;			/* addr of memory mapped region */
+static char *bad_addr;
+static char *addr;		/* addr of memory mapped region */
 int memsize;			/* memory mapped size */
 int newsize;			/* new size of virtual memory block */
 
 void setup();			/* Main setup function of test */
 void cleanup();			/* cleanup function for the test */
 
-#if !defined(UCLINUX)
 int main(int ac, char **av)
 {
 	int lc;
@@ -107,11 +107,11 @@ int main(int ac, char **av)
 		/*
 		 * Attempt to expand the existing mapped
 		 * memory region (memsize) by newsize limits
-		 * using mremap() should fail as specifed old
+		 * using mremap() should fail as specified old
 		 * virtual address was not mapped.
 		 */
 		errno = 0;
-		addr = mremap(addr, memsize, newsize, MREMAP_MAYMOVE);
+		addr = mremap(bad_addr, memsize, newsize, MREMAP_MAYMOVE);
 		TEST_ERRNO = errno;
 
 		/* Check for the return value of mremap() */
@@ -173,7 +173,7 @@ void setup(void)
 	 * Set the old virtual address point to some address
 	 * which is not mapped.
 	 */
-	addr = (char *)get_high_address();
+	bad_addr = tst_get_bad_addr(cleanup);
 }
 
 /*
@@ -186,13 +186,3 @@ void cleanup(void)
 	/* Exit the program */
 
 }
-
-#else
-
-int main(void)
-{
-	tst_resm(TINFO, "test is not available on uClinux");
-	tst_exit();
-}
-
-#endif /* if !defined(UCLINUX) */

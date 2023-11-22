@@ -4,8 +4,8 @@
 Import("env")
 
 env.NanopbProto(["alltypes", "alltypes.options"])
-enc = env.Program(["encode_alltypes.c", "alltypes.pb.c", "$COMMON/pb_encode.o"])
-dec = env.Program(["decode_alltypes.c", "alltypes.pb.c", "$COMMON/pb_decode.o"])
+enc = env.Program(["encode_alltypes.c", "alltypes.pb.c", "$COMMON/pb_encode.o", "$COMMON/pb_common.o"])
+dec = env.Program(["decode_alltypes.c", "alltypes.pb.c", "$COMMON/pb_decode.o", "$COMMON/pb_common.o"])
 
 # Test the round-trip from nanopb encoder to nanopb decoder
 env.RunTest(enc)
@@ -32,4 +32,14 @@ env.Encode("optionals.output.recoded",
            MESSAGE='AllTypes')
 env.Compare(["optionals.output", "optionals.output.recoded"])
 
+# And for the _zero initializer
+env.RunTest("zeroinit.output", enc, ARGS = ['2'])
+env.RunTest("zeroinit.decout", [dec, "zeroinit.output"], ARGS = ['2'])
+env.Decode("zeroinit.output.decoded",
+           ["zeroinit.output", "alltypes.proto"],
+           MESSAGE='AllTypes')
+env.Encode("zeroinit.output.recoded",
+           ["zeroinit.output.decoded", "alltypes.proto"],
+           MESSAGE='AllTypes')
+env.Compare(["zeroinit.output", "zeroinit.output.recoded"])
 

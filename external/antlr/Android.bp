@@ -14,7 +14,10 @@
 
 java_library_host {
     name: "antlr-runtime",
-    srcs: ["antlr-3.4/runtime/Java/src/main/java/**/*.java"],
+    srcs: ["runtime/Java/src/main/java/**/*.java"],
     //Remove DOTTreeGenerator.java, so that we don't have the StringTemplate library as a dependency
-    exclude_srcs: ["antlr-3.4/runtime/Java/src/main/java/org/antlr/runtime/tree/DOTTreeGenerator.java"],
+    exclude_srcs: ["runtime/Java/src/main/java/org/antlr/runtime/tree/DOTTreeGenerator.java"],
+    errorprone: {
+        javacflags: ["-Xep:MissingOverride:OFF"],  // b/73499927
+    },
 }

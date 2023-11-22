@@ -9,7 +9,6 @@ GetPhysicalDeviceImageFormatPropertiesFunc				getPhysicalDeviceImageFormatProper
 GetPhysicalDevicePropertiesFunc							getPhysicalDeviceProperties;
 GetPhysicalDeviceQueueFamilyPropertiesFunc				getPhysicalDeviceQueueFamilyProperties;
 GetPhysicalDeviceMemoryPropertiesFunc					getPhysicalDeviceMemoryProperties;
-GetDeviceProcAddrFunc									getDeviceProcAddr;
 CreateDeviceFunc										createDevice;
 EnumerateDeviceExtensionPropertiesFunc					enumerateDeviceExtensionProperties;
 EnumerateDeviceLayerPropertiesFunc						enumerateDeviceLayerProperties;
@@ -61,6 +60,10 @@ GetPhysicalDeviceExternalSemaphorePropertiesKHRFunc		getPhysicalDeviceExternalSe
 GetPhysicalDeviceExternalFencePropertiesKHRFunc			getPhysicalDeviceExternalFencePropertiesKHR;
 GetPhysicalDeviceSurfaceCapabilities2KHRFunc			getPhysicalDeviceSurfaceCapabilities2KHR;
 GetPhysicalDeviceSurfaceFormats2KHRFunc					getPhysicalDeviceSurfaceFormats2KHR;
+GetPhysicalDeviceDisplayProperties2KHRFunc				getPhysicalDeviceDisplayProperties2KHR;
+GetPhysicalDeviceDisplayPlaneProperties2KHRFunc			getPhysicalDeviceDisplayPlaneProperties2KHR;
+GetDisplayModeProperties2KHRFunc						getDisplayModeProperties2KHR;
+GetDisplayPlaneCapabilities2KHRFunc						getDisplayPlaneCapabilities2KHR;
 CreateDebugReportCallbackEXTFunc						createDebugReportCallbackEXT;
 DestroyDebugReportCallbackEXTFunc						destroyDebugReportCallbackEXT;
 DebugReportMessageEXTFunc								debugReportMessageEXT;

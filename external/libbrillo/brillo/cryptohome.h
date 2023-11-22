@@ -42,6 +42,12 @@ BRILLO_EXPORT base::FilePath GetRootPath(const std::string& username);
 BRILLO_EXPORT base::FilePath GetDaemonPath(const std::string& username,
                                            const std::string& daemon);
 
+// Returns the path at which the daemon |daemon| should store per-user data
+// when the user's home was mounted with mount_hidden.
+BRILLO_EXPORT base::FilePath GetDaemonPathForHiddenUserHome(
+    const std::string& username,
+    const std::string& daemon);
+
 // Checks whether |sanitized| has the format of a sanitized username.
 BRILLO_EXPORT bool IsSanitizedUserName(const std::string& sanitized);
 

@@ -39,11 +39,9 @@ TESTS = (('bvt-inline', 'HWTest'), ('bvt-cq', 'HWTest'), ('security', 'HWTest'),
 # The main waterfall builders, IN THE ORDER IN WHICH WE WANT THEM
 # LISTED IN THE REPORT.
 WATERFALL_BUILDERS = [
-    'amd64-gcc-toolchain', 'arm-gcc-toolchain', 'arm64-gcc-toolchain',
-    'x86-gcc-toolchain', 'amd64-llvm-toolchain', 'arm-llvm-toolchain',
-    'arm64-llvm-toolchain', 'x86-llvm-toolchain', 'amd64-llvm-next-toolchain',
-    'arm-llvm-next-toolchain', 'arm64-llvm-next-toolchain',
-    'x86-llvm-next-toolchain'
+    'amd64-llvm-next-toolchain',
+    'arm-llvm-next-toolchain',
+    'arm64-llvm-next-toolchain',
 ]
 
 DATA_DIR = '/google/data/rw/users/mo/mobiletc-prebuild/waterfall-report-data/'
@@ -81,11 +79,10 @@ def format_date(int_date):
   return date_str
 
 
-def EmailReport(report_file, report_type, date):
+def EmailReport(report_file, report_type, date, email_to):
   subject = '%s Waterfall Summary report, %s' % (report_type, date)
-  email_to = getpass.getuser()
   sendgmr_path = '/google/data/ro/projects/gws-sre/sendgmr'
-  command = ('%s --to=%s@google.com --subject="%s" --body_file=%s' %
+  command = ('%s --to=%s --subject="%s" --body_file=%s' %
              (sendgmr_path, email_to, subject, report_file))
   command_executer.GetCommandExecuter().RunCommand(command)
 
@@ -526,6 +523,7 @@ def ParseLogFile(log_file, test_data_dict, failure_dict, test, builder,
      and calls RecordFailures, to update our test failure data.
   """
 
+  print('Parsing file %s' % log_file)
   lines = []
   with open(log_file, 'r') as infile:
     lines = infile.readlines()
@@ -705,7 +703,13 @@ def ValidOptions(parser, options):
     conflicting_failure_options = True
     parser.error('Cannot specify both --failures_report and --omit_failures.')
 
-  return not too_many_options and not conflicting_failure_options
+  email_ok = True
+  if options.email and options.email.find('@') == -1:
+    email_ok = False
+    parser.error('"%s" is not a valid email address; it must contain "@..."' %
+                 options.email)
+
+  return not too_many_options and not conflicting_failure_options and email_ok
 
 
 def Main(argv):
@@ -748,6 +752,11 @@ def Main(argv):
       default=0,
       type=int,
       help='The date YYYYMMDD of waterfall report.')
+  parser.add_argument(
+      '--email',
+      dest='email',
+      default='',
+      help='Email address to use for sending the report.')
 
   options = parser.parse_args(argv)
 
@@ -793,6 +802,8 @@ def Main(argv):
         test_summary, report_date, board, tmp_date, color = ParseLogFile(
             target, test_data_dict, failure_dict, test, builder, buildnum,
             build_link)
+        if not test_summary:
+          continue
 
         if tmp_date != 0:
           int_date = tmp_date
@@ -806,20 +817,25 @@ def Main(argv):
 
   PruneOldFailures(failure_dict, int_date)
 
+  if options.email:
+    email_to = options.email
+  else:
+    email_to = getpass.getuser()
+
   if waterfall_report_dict and not rotating_only and not failures_report:
     main_report = GenerateWaterfallReport(waterfall_report_dict, failure_dict,
                                           'main', int_date, omit_failures)
-    EmailReport(main_report, 'Main', format_date(int_date))
+    EmailReport(main_report, 'Main', format_date(int_date), email_to)
     shutil.copy(main_report, ARCHIVE_DIR)
   if rotating_report_dict and not main_only and not failures_report:
     rotating_report = GenerateWaterfallReport(
         rotating_report_dict, failure_dict, 'rotating', int_date, omit_failures)
-    EmailReport(rotating_report, 'Rotating', format_date(int_date))
+    EmailReport(rotating_report, 'Rotating', format_date(int_date), email_to)
     shutil.copy(rotating_report, ARCHIVE_DIR)
 
   if failures_report:
     failures_report = GenerateFailuresReport(failure_dict, int_date)
-    EmailReport(failures_report, 'Failures', format_date(int_date))
+    EmailReport(failures_report, 'Failures', format_date(int_date), email_to)
     shutil.copy(failures_report, ARCHIVE_DIR)
 
   if not options.no_update:

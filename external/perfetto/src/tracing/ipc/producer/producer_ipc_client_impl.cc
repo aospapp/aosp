@@ -37,24 +37,29 @@
 namespace perfetto {
 
 // static. (Declared in include/tracing/ipc/producer_ipc_client.h).
-std::unique_ptr<Service::ProducerEndpoint> ProducerIPCClient::Connect(
+std::unique_ptr<TracingService::ProducerEndpoint> ProducerIPCClient::Connect(
     const char* service_sock_name,
     Producer* producer,
     const std::string& producer_name,
-    base::TaskRunner* task_runner) {
-  return std::unique_ptr<Service::ProducerEndpoint>(new ProducerIPCClientImpl(
-      service_sock_name, producer, producer_name, task_runner));
+    base::TaskRunner* task_runner,
+    TracingService::ProducerSMBScrapingMode smb_scraping_mode) {
+  return std::unique_ptr<TracingService::ProducerEndpoint>(
+      new ProducerIPCClientImpl(service_sock_name, producer, producer_name,
+                                task_runner, smb_scraping_mode));
 }
 
-ProducerIPCClientImpl::ProducerIPCClientImpl(const char* service_sock_name,
-                                             Producer* producer,
-                                             const std::string& producer_name,
-                                             base::TaskRunner* task_runner)
+ProducerIPCClientImpl::ProducerIPCClientImpl(
+    const char* service_sock_name,
+    Producer* producer,
+    const std::string& producer_name,
+    base::TaskRunner* task_runner,
+    TracingService::ProducerSMBScrapingMode smb_scraping_mode)
     : producer_(producer),
       task_runner_(task_runner),
       ipc_channel_(ipc::Client::CreateInstance(service_sock_name, task_runner)),
       producer_port_(this /* event_listener */),
-      name_(producer_name) {
+      name_(producer_name),
+      smb_scraping_mode_(smb_scraping_mode) {
   ipc_channel_->BindService(producer_port_.GetWeakPtr());
   PERFETTO_DCHECK_THREAD(thread_checker_);
 }
@@ -76,6 +81,20 @@ void ProducerIPCClientImpl::OnConnect() {
       });
   protos::InitializeConnectionRequest req;
   req.set_producer_name(name_);
+  switch (smb_scraping_mode_) {
+    case TracingService::ProducerSMBScrapingMode::kDefault:
+      // No need to set the mode, it defaults to use the service default if
+      // unspecified.
+      break;
+    case TracingService::ProducerSMBScrapingMode::kEnabled:
+      req.set_smb_scraping_mode(
+          protos::InitializeConnectionRequest::SMB_SCRAPING_ENABLED);
+      break;
+    case TracingService::ProducerSMBScrapingMode::kDisabled:
+      req.set_smb_scraping_mode(
+          protos::InitializeConnectionRequest::SMB_SCRAPING_DISABLED);
+      break;
+  }
   producer_port_.InitializeConnection(req, std::move(on_init));
 
   // Create the back channel to receive commands from the Service.
@@ -94,6 +113,7 @@ void ProducerIPCClientImpl::OnDisconnect() {
   PERFETTO_DLOG("Tracing service connection failure");
   connected_ = false;
   producer_->OnDisconnect();
+  data_sources_setup_.clear();
 }
 
 void ProducerIPCClientImpl::OnConnectionInitialized(bool connection_succeeded) {
@@ -108,18 +128,37 @@ void ProducerIPCClientImpl::OnConnectionInitialized(bool connection_succeeded) {
 void ProducerIPCClientImpl::OnServiceRequest(
     const protos::GetAsyncCommandResponse& cmd) {
   PERFETTO_DCHECK_THREAD(thread_checker_);
+
+  // This message is sent only when connecting to a service running Android Q+.
+  // See comment below in kStartDataSource.
+  if (cmd.cmd_case() == protos::GetAsyncCommandResponse::kSetupDataSource) {
+    const auto& req = cmd.setup_data_source();
+    const DataSourceInstanceID dsid = req.new_instance_id();
+    DataSourceConfig cfg;
+    cfg.FromProto(req.config());
+    data_sources_setup_.insert(dsid);
+    producer_->SetupDataSource(dsid, cfg);
+    return;
+  }
+
   if (cmd.cmd_case() == protos::GetAsyncCommandResponse::kStartDataSource) {
     const auto& req = cmd.start_data_source();
     const DataSourceInstanceID dsid = req.new_instance_id();
     DataSourceConfig cfg;
     cfg.FromProto(req.config());
-    producer_->CreateDataSourceInstance(dsid, cfg);
+    if (!data_sources_setup_.count(dsid)) {
+      // When connecting with an older (Android P) service, the service will not
+      // send a SetupDataSource message. We synthesize it here in that case.
+      producer_->SetupDataSource(dsid, cfg);
+    }
+    producer_->StartDataSource(dsid, cfg);
     return;
   }
 
   if (cmd.cmd_case() == protos::GetAsyncCommandResponse::kStopDataSource) {
     const DataSourceInstanceID dsid = cmd.stop_data_source().instance_id();
-    producer_->TearDownDataSourceInstance(dsid);
+    producer_->StopDataSource(dsid);
+    data_sources_setup_.erase(dsid);
     return;
   }
 
@@ -143,17 +182,30 @@ void ProducerIPCClientImpl::OnServiceRequest(
     // uint64 and not stdint's uint64_t. On some 64 bit archs they differ on the
     // type (long vs long long) even though they have the same size.
     const auto* data_source_ids = cmd.flush().data_source_ids().data();
-    static_assert(sizeof(data_source_ids[0]) == sizeof(FlushRequestID),
+    static_assert(sizeof(data_source_ids[0]) == sizeof(DataSourceInstanceID),
                   "data_source_ids should be 64-bit");
-    producer_->Flush(cmd.flush().request_id(),
-                     reinterpret_cast<const FlushRequestID*>(data_source_ids),
-                     static_cast<size_t>(cmd.flush().data_source_ids().size()));
+    producer_->Flush(
+        cmd.flush().request_id(),
+        reinterpret_cast<const DataSourceInstanceID*>(data_source_ids),
+        static_cast<size_t>(cmd.flush().data_source_ids().size()));
     return;
   }
 
-  PERFETTO_DLOG("Unknown async request %d received from tracing service",
-                cmd.cmd_case());
-  PERFETTO_DCHECK(false);
+  if (cmd.cmd_case() ==
+      protos::GetAsyncCommandResponse::kClearIncrementalState) {
+    const auto* data_source_ids =
+        cmd.clear_incremental_state().data_source_ids().data();
+    static_assert(sizeof(data_source_ids[0]) == sizeof(DataSourceInstanceID),
+                  "data_source_ids should be 64-bit");
+    producer_->ClearIncrementalState(
+        reinterpret_cast<const DataSourceInstanceID*>(data_source_ids),
+        static_cast<size_t>(
+            cmd.clear_incremental_state().data_source_ids().size()));
+    return;
+  }
+
+  PERFETTO_DFATAL("Unknown async request %d received from tracing service",
+                  cmd.cmd_case());
 }
 
 void ProducerIPCClientImpl::RegisterDataSource(
@@ -187,6 +239,34 @@ void ProducerIPCClientImpl::UnregisterDataSource(const std::string& name) {
       req, ipc::Deferred<protos::UnregisterDataSourceResponse>());
 }
 
+void ProducerIPCClientImpl::RegisterTraceWriter(uint32_t writer_id,
+                                                uint32_t target_buffer) {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  if (!connected_) {
+    PERFETTO_DLOG(
+        "Cannot RegisterTraceWriter(), not connected to tracing service");
+    return;
+  }
+  protos::RegisterTraceWriterRequest req;
+  req.set_trace_writer_id(writer_id);
+  req.set_target_buffer(target_buffer);
+  producer_port_.RegisterTraceWriter(
+      req, ipc::Deferred<protos::RegisterTraceWriterResponse>());
+}
+
+void ProducerIPCClientImpl::UnregisterTraceWriter(uint32_t writer_id) {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  if (!connected_) {
+    PERFETTO_DLOG(
+        "Cannot UnregisterTraceWriter(), not connected to tracing service");
+    return;
+  }
+  protos::UnregisterTraceWriterRequest req;
+  req.set_trace_writer_id(writer_id);
+  producer_port_.UnregisterTraceWriter(
+      req, ipc::Deferred<protos::UnregisterTraceWriterResponse>());
+}
+
 void ProducerIPCClientImpl::CommitData(const CommitDataRequest& req,
                                        CommitDataCallback callback) {
   PERFETTO_DCHECK_THREAD(thread_checker_);
@@ -212,11 +292,58 @@ void ProducerIPCClientImpl::CommitData(const CommitDataRequest& req,
   producer_port_.CommitData(proto_req, std::move(async_response));
 }
 
+void ProducerIPCClientImpl::NotifyDataSourceStarted(DataSourceInstanceID id) {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  if (!connected_) {
+    PERFETTO_DLOG(
+        "Cannot NotifyDataSourceStarted(), not connected to tracing service");
+    return;
+  }
+  protos::NotifyDataSourceStartedRequest req;
+  req.set_data_source_id(id);
+  producer_port_.NotifyDataSourceStarted(
+      req, ipc::Deferred<protos::NotifyDataSourceStartedResponse>());
+}
+
+void ProducerIPCClientImpl::NotifyDataSourceStopped(DataSourceInstanceID id) {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  if (!connected_) {
+    PERFETTO_DLOG(
+        "Cannot NotifyDataSourceStopped(), not connected to tracing service");
+    return;
+  }
+  protos::NotifyDataSourceStoppedRequest req;
+  req.set_data_source_id(id);
+  producer_port_.NotifyDataSourceStopped(
+      req, ipc::Deferred<protos::NotifyDataSourceStoppedResponse>());
+}
+
+void ProducerIPCClientImpl::ActivateTriggers(
+    const std::vector<std::string>& triggers) {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  if (!connected_) {
+    PERFETTO_DLOG(
+        "Cannot ActivateTriggers(), not connected to tracing service");
+    return;
+  }
+  protos::ActivateTriggersRequest proto_req;
+  for (const auto& name : triggers) {
+    *proto_req.add_trigger_names() = name;
+  }
+  producer_port_.ActivateTriggers(
+      proto_req, ipc::Deferred<protos::ActivateTriggersResponse>());
+}
+
 std::unique_ptr<TraceWriter> ProducerIPCClientImpl::CreateTraceWriter(
     BufferID target_buffer) {
   // This method can be called by different threads. |shared_memory_arbiter_| is
   // thread-safe but be aware of accessing any other state in this function.
   return shared_memory_arbiter_->CreateTraceWriter(target_buffer);
+}
+
+SharedMemoryArbiter* ProducerIPCClientImpl::GetInProcessShmemArbiter() {
+  PERFETTO_DLOG("Cannot GetInProcessShmemArbiter() via the IPC layer.");
+  return nullptr;
 }
 
 void ProducerIPCClientImpl::NotifyFlushComplete(FlushRequestID req_id) {

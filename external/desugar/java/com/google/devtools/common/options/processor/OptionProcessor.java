@@ -15,7 +15,6 @@ package com.google.devtools.common.options.processor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.ExpansionFunction;
@@ -27,7 +26,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -36,7 +35,6 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -74,7 +72,6 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({"com.google.devtools.common.options.Option"})
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class OptionProcessor extends AbstractProcessor {
 
   private Types typeUtils;
@@ -82,6 +79,11 @@ public final class OptionProcessor extends AbstractProcessor {
   private Messager messager;
   private ImmutableMap<TypeMirror, Converter<?>> defaultConverters;
   private ImmutableMap<Class<?>, PrimitiveType> primitiveTypeMap;
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -93,18 +95,19 @@ public final class OptionProcessor extends AbstractProcessor {
     // Because of the discrepancies between the java.lang and javax.lang type models, we can't
     // directly use the get() method for the default converter map. Instead, we'll convert it once,
     // to be more usable, and with the boxed type return values of convert() as the keys.
-    ImmutableMap.Builder<TypeMirror, Converter<?>> converterMapBuilder = new Builder<>();
+    ImmutableMap.Builder<TypeMirror, Converter<?>> converterMapBuilder =
+        new ImmutableMap.Builder<>();
 
     // Create a link from the primitive Classes to their primitive types. This intentionally
     // only contains the types in the DEFAULT_CONVERTERS map.
-    ImmutableMap.Builder<Class<?>, PrimitiveType> builder = new Builder<>();
+    ImmutableMap.Builder<Class<?>, PrimitiveType> builder = new ImmutableMap.Builder<>();
     builder.put(int.class, typeUtils.getPrimitiveType(TypeKind.INT));
     builder.put(double.class, typeUtils.getPrimitiveType(TypeKind.DOUBLE));
     builder.put(boolean.class, typeUtils.getPrimitiveType(TypeKind.BOOLEAN));
     builder.put(long.class, typeUtils.getPrimitiveType(TypeKind.LONG));
     primitiveTypeMap = builder.build();
 
-    for (Entry<Class<?>, Converter<?>> entry : Converters.DEFAULT_CONVERTERS.entrySet()) {
+    for (Map.Entry<Class<?>, Converter<?>> entry : Converters.DEFAULT_CONVERTERS.entrySet()) {
       Class<?> converterClass = entry.getKey();
       String typeName = converterClass.getCanonicalName();
       TypeElement typeElement = elementUtils.getTypeElement(typeName);
@@ -476,38 +479,10 @@ public final class OptionProcessor extends AbstractProcessor {
     }
 
     if (isExpansion || hasImplicitRequirements) {
-      if (annotation.wrapperOption()) {
-        throw new OptionProcessorException(
-            optionField, "Wrapper options cannot have expansions or implicit requirements.");
-      }
       if (annotation.allowMultiple()) {
         throw new OptionProcessorException(
             optionField,
             "Can't set an option to accumulate multiple values and let it expand to other flags.");
-      }
-    }
-  }
-
-  /**
-   * Some flags wrap other flags. They are objectively useless, as there is no difference between
-   * passing --wrapper=--foo and --foo other than the "source" information tracked. This
-   * functionality comes from requiring compatibility at some past point in time, but is actively
-   * being deprecated. No non-deprecated flag can use this feature.
-   */
-  private void checkWrapperOptions(VariableElement optionField) throws OptionProcessorException {
-    Option annotation = optionField.getAnnotation(Option.class);
-    if (annotation.wrapperOption()) {
-      if (annotation.deprecationWarning().isEmpty()) {
-        throw new OptionProcessorException(
-            optionField,
-            "Can't have non deprecated wrapper options, this feature is deprecated. "
-                + "Please add a deprecationWarning.");
-      }
-      if (!ImmutableList.copyOf(annotation.metadataTags()).contains(OptionMetadataTag.DEPRECATED)) {
-        throw new OptionProcessorException(
-            optionField,
-            "Can't have non deprecated wrapper options, this feature is deprecated. "
-                + "Please add the metadata tag DEPRECATED.");
       }
     }
   }
@@ -528,7 +503,6 @@ public final class OptionProcessor extends AbstractProcessor {
         checkConverter(optionField);
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);
-        checkWrapperOptions(optionField);
       } catch (OptionProcessorException e) {
         error(e.getElementInError(), e.getMessage());
       }

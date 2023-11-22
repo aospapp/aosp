@@ -16,7 +16,9 @@ class network_WiFi_ChaosConfigSniffer(test.test):
     version = 1
 
 
-    def run_once(self, wifi_client=None, ssids=[]):
+    def run_once(self, wifi_client=None, ssids=None):
+        if ssids is None:
+            ssids = []
         missing_ssids = []
         for ssid in ssids:
             logging.info('Scanning for SSID: %s', ssid)

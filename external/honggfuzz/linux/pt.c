@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2016 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -21,18 +21,66 @@
  *
  */
 
-#include "libcommon/common.h"
+#include "libhfcommon/common.h"
 
 #include <inttypes.h>
 #include <linux/perf_event.h>
+#include <stdio.h>
 
-#include "libcommon/log.h"
-#include "libcommon/util.h"
+#include "libhfcommon/log.h"
+#include "libhfcommon/util.h"
 #include "pt.h"
 
 #ifdef _HF_LINUX_INTEL_PT_LIB
 
 #include <intel-pt.h>
+
+struct pt_cpu ptCpu = {
+    .vendor = pcv_unknown,
+    .family = 0,
+    .model = 0,
+    .stepping = 0,
+};
+
+void perf_ptInit(void) {
+    FILE* f = fopen("/proc/cpuinfo", "rb");
+    if (!f) {
+        PLOG_E("Couldn't open '/proc/cpuinfo'");
+        return;
+    }
+    for (;;) {
+        char k[1024], t[1024], v[1024];
+        int ret = fscanf(f, "%1023[^\t]%1023[\t]: %1023[^\n]\n", k, t, v);
+        if (ret == EOF) {
+            break;
+        }
+        if (ret != 3) {
+            break;
+        }
+        if (strcmp(k, "vendor_id") == 0) {
+            if (strcmp(v, "GenuineIntel") == 0) {
+                ptCpu.vendor = pcv_intel;
+                LOG_D("IntelPT vendor: Intel");
+            } else {
+                ptCpu.vendor = pcv_unknown;
+                LOG_D("Current processor is not Intel, IntelPT will not work");
+            }
+        }
+        if (strcmp(k, "cpu family") == 0) {
+            ptCpu.family = atoi(v);
+            LOG_D("IntelPT family: %" PRIu16, ptCpu.family);
+        }
+        if (strcmp(k, "model") == 0) {
+            ptCpu.model = atoi(v);
+            LOG_D("IntelPT model: %" PRIu8, ptCpu.model);
+        }
+        if (strcmp(k, "stepping") == 0) {
+            ptCpu.stepping = atoi(v);
+            LOG_D("IntelPT stepping: %" PRIu8, ptCpu.stepping);
+        }
+    }
+    fclose(f);
+}
 
 /* Sign-extend a uint64_t value. */
 inline static uint64_t sext(uint64_t val, uint8_t sign) {
@@ -70,8 +118,12 @@ __attribute__((hot)) inline static void perf_ptAnalyzePkt(run_t* run, struct pt_
             return;
     }
 
+    if (ip >= run->global->linux.dynamicCutOffAddr) {
+        return;
+    }
+
     ip &= _HF_PERF_BITMAP_BITSZ_MASK;
-    register uint8_t prev = ATOMIC_BTS(run->global->feedback->bbMapPc, ip);
+    register uint8_t prev = ATOMIC_BTS(run->global->feedback.feedbackMap->bbMapPc, ip);
     if (!prev) {
         run->linux.hwCnts.newBBCnt++;
     }
@@ -84,25 +136,31 @@ void arch_ptAnalyze(run_t* run) {
     uint64_t aux_tail = ATOMIC_GET(pem->aux_tail);
     uint64_t aux_head = ATOMIC_GET(pem->aux_head);
 
+    /* smp_rmb() required as per /usr/include/linux/perf_event.h */
+    rmb();
+
     struct pt_config ptc;
     pt_config_init(&ptc);
     ptc.begin = &run->linux.perfMmapAux[aux_tail];
-    ptc.end = &run->linux.perfMmapAux[aux_head - 1];
+    ptc.end = &run->linux.perfMmapAux[aux_head];
+    ptc.cpu = ptCpu;
 
     int errcode = pt_cpu_errata(&ptc.errata, &ptc.cpu);
     if (errcode < 0) {
-        LOG_F("pt_errata() failed: %s", pt_errstr(errcode));
+        LOG_F("pt_errata() failed: %s", pt_errstr(-errcode));
     }
 
     struct pt_packet_decoder* ptd = pt_pkt_alloc_decoder(&ptc);
     if (ptd == NULL) {
         LOG_F("pt_pkt_alloc_decoder() failed");
     }
-    defer { pt_pkt_free_decoder(ptd); };
+    defer {
+        pt_pkt_free_decoder(ptd);
+    };
 
     errcode = pt_pkt_sync_forward(ptd);
     if (errcode < 0) {
-        LOG_W("pt_pkt_sync_forward() failed: %s", pt_errstr(errcode));
+        LOG_W("pt_pkt_sync_forward() failed: %s", pt_errstr(-errcode));
         return;
     }
 
@@ -113,7 +171,7 @@ void arch_ptAnalyze(run_t* run) {
             break;
         }
         if (errcode < 0) {
-            LOG_W("pt_pkt_next() failed: %s", pt_errstr(errcode));
+            LOG_W("pt_pkt_next() failed: %s", pt_errstr(-errcode));
             break;
         }
         perf_ptAnalyzePkt(run, &packet);
@@ -122,7 +180,11 @@ void arch_ptAnalyze(run_t* run) {
 
 #else /* _HF_LINUX_INTEL_PT_LIB */
 
-void arch_ptAnalyze(run_t* fuzzer UNUSED) {
+void perf_ptInit(void) {
+    return;
+}
+
+void arch_ptAnalyze(run_t* fuzzer HF_ATTR_UNUSED) {
     LOG_F(
         "The program has not been linked against the Intel's Processor Trace Library (libipt.so)");
 }

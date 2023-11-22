@@ -27,4 +27,5 @@ those devices with hardware acceleration support.
 VIDEO_NAME = 'video_tests/perf/fallout4_1080_hfr.vp9.webm'
 VIDEO_DESCRIPTION = 'vp9_1080p_hfr'
 job.run_test('video_PlaybackPerf', video_name=VIDEO_NAME,
-             video_description=VIDEO_DESCRIPTION)
+             video_description=VIDEO_DESCRIPTION,
+             capability='hw_dec_vp9_1080_60')

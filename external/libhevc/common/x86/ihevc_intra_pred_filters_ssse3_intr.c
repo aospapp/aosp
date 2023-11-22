@@ -2890,7 +2890,7 @@ void ihevc_intra_pred_luma_mode_11_to_17_ssse3(UWORD8 *pu1_ref,
     __m128i row_4x32b, two_nt_4x32b, ref_main_idx_4x32b, res_temp5_4x32b, sm3;
 
 
-    UWORD8 ref_tmp[2 * MAX_CU_SIZE + 2];
+    UWORD8 ref_tmp[2 * MAX_CU_SIZE + 2] = {0};
     UWORD8 *ref_main;
     UWORD8 *ref_temp;
     UNUSED(src_strd);
@@ -3723,7 +3723,7 @@ void ihevc_intra_pred_luma_mode_19_to_25_ssse3(UWORD8 *pu1_ref,
     WORD32 inv_ang, inv_ang_sum;
     //WORD32 ref_main_idx, pos, fract, idx;
     WORD32 ref_idx;
-    UWORD8 ref_tmp[(2 * MAX_CU_SIZE) + 2];
+    UWORD8 ref_tmp[(2 * MAX_CU_SIZE) + 2] = {0};
     UWORD8 *ref_main, *ref_temp;
 
     __m128i  /*fract_8x16b,*/ const_temp_8x16b, sm3;

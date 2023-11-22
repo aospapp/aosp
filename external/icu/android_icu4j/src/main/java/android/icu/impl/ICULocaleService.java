@@ -162,6 +162,7 @@ public class ICULocaleService extends ICUService {
      * <p>Canonicalization adjusts the locale string so that the
      * section before the first understore is in lower case, and the rest
      * is in upper case, with no trailing underscores.</p>
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class LocaleKey extends ICUService.Key {
         private int kind;
@@ -349,6 +350,7 @@ public class ICULocaleService extends ICUService {
     /**
      * A subclass of Factory that uses LocaleKeys.  If 'visible' the
      * factory reports its IDs.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static abstract class LocaleKeyFactory implements Factory {
         protected final String name;
@@ -478,6 +480,7 @@ public class ICULocaleService extends ICUService {
 
     /**
      * A LocaleKeyFactory that just returns a single object for a kind/locale.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class SimpleLocaleKeyFactory extends LocaleKeyFactory {
         private final Object obj;
@@ -548,6 +551,7 @@ public class ICULocaleService extends ICUService {
      * with a constructor that takes a bundle name, which determines the supported
      * IDs.  Subclasses then override handleCreate to create the actual service
      * object.  The default implementation returns a resource bundle.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class ICUResourceBundleFactory extends LocaleKeyFactory {
         protected final String bundleName;

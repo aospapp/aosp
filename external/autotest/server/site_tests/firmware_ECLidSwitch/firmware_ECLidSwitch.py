@@ -69,11 +69,15 @@ class firmware_ECLidSwitch(FirmwareTest):
     def long_delayed_wake(self):
         """Delay for LONG_WAKE_DELAY and then wake DUT with lid switch."""
         time.sleep(self.LONG_WAKE_DELAY)
+        if self.check_ec_capability(['x86'], suppress_warning=True):
+            self.check_shutdown_power_state("G3", pwr_retries=5)
         self._wake_by_lid_switch()
 
     def short_delayed_wake(self):
         """Delay for SHORT_WAKE_DELAY and then wake DUT with lid switch."""
         time.sleep(self.SHORT_WAKE_DELAY)
+        if self.check_ec_capability(['x86'], suppress_warning=True):
+            self.check_shutdown_power_state("G3", pwr_retries=5)
         self._wake_by_lid_switch()
 
     def shutdown_and_wake(self, wake_func):
@@ -121,6 +125,10 @@ class firmware_ECLidSwitch(FirmwareTest):
         Returns:
           True if no power button keycode is captured. Otherwise, False.
         """
+        # Don't check the keycode if we don't have a keyboard.
+        if not self.check_ec_capability(['keyboard'], suppress_warning=True):
+            return True
+
         self._open_lid()
         self.delayed_close_lid()
         if self.faft_client.system.check_keys([]) < 0:

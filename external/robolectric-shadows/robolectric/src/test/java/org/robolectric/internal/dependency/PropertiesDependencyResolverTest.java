@@ -1,7 +1,7 @@
 package org.robolectric.internal.dependency;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -78,7 +78,7 @@ public class PropertiesDependencyResolverTest {
 
   private FsFile propsFile(String contents) throws IOException {
     File file = temporaryFolder.newFile("file.properties");
-    Files.write(contents, file, Charsets.UTF_8);
+    Files.asCharSink(file, Charsets.UTF_8).write(contents);
     return Fs.newFile(file);
   }
 }

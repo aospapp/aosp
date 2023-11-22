@@ -3,7 +3,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import mock
 import unittest
 
 import common
@@ -29,9 +28,10 @@ class MockConnectivity(object):
     def __init__(self, hostname, **args):
         pass
 
+    def run(self, *args, **kwargs):
+        pass
 
     def close(self):
-        """Only method called by factory."""
         pass
 
 
@@ -75,7 +75,6 @@ class CreateHostUnittests(unittest.TestCase):
         """Prevent use of real Host and connectivity objects due to potential
         side effects.
         """
-        self._orig_ssh_engine = factory.SSH_ENGINE
         self._orig_types = factory.host_types
         self._orig_dict = factory.OS_HOST_DICT
         self._orig_cros_host = factory.cros_host.CrosHost
@@ -91,7 +90,6 @@ class CreateHostUnittests(unittest.TestCase):
 
     def tearDown(self):
         """Clean up mocks."""
-        factory.SSH_ENGINE = self._orig_ssh_engine
         factory.host_types = self._orig_types
         factory.OS_HOST_DICT = self._orig_dict
         factory.cros_host.CrosHost = self._orig_cros_host
@@ -100,15 +98,13 @@ class CreateHostUnittests(unittest.TestCase):
 
 
     def test_use_specified(self):
-        """Confirm that the specified host and connectivity classes are used."""
+        """Confirm that the specified host class is used."""
         machine = _gen_machine_dict()
         host_obj = factory.create_host(
                 machine,
                 _gen_mock_host('specified'),
-                _gen_mock_conn('specified')
         )
         self.assertEqual(host_obj._host_cls_name, 'specified')
-        self.assertEqual(host_obj._conn_cls_name, 'specified')
 
 
     def test_detect_host_by_os_label(self):
@@ -164,19 +160,9 @@ class CreateHostUnittests(unittest.TestCase):
         """Confirm ssh connectivity class used when configured and hostname
         is not localhost.
         """
-        factory.SSH_ENGINE = 'raw_ssh'
         machine = _gen_machine_dict(hostname='somehost')
         host_obj = factory.create_host(machine)
         self.assertEqual(host_obj._conn_cls_name, 'ssh')
-
-
-    def test_choose_connectivity_unsupported(self):
-        """Confirm exception when configured for unsupported ssh engine.
-        """
-        factory.SSH_ENGINE = 'unsupported'
-        machine = _gen_machine_dict(hostname='somehost')
-        with self.assertRaises(error.AutoservError):
-            factory.create_host(machine)
 
 
     def test_argument_passthrough(self):
@@ -227,73 +213,6 @@ class CreateHostUnittests(unittest.TestCase):
         self.assertEqual(host_obj._init_args['port'], 100)
         self.assertEqual(host_obj._init_args['ssh_verbosity_flag'], 'verb')
         self.assertEqual(host_obj._init_args['ssh_options'], 'options')
-
-
-class CreateTestbedUnittests(unittest.TestCase):
-    """Tests for create_testbed function."""
-
-    def setUp(self):
-        """Mock out TestBed class to eliminate side effects.
-        """
-        self._orig_testbed = factory.testbed.TestBed
-        factory.testbed.TestBed = _gen_mock_host('testbed')
-
-
-    def tearDown(self):
-        """Clean up mock.
-        """
-        factory.testbed.TestBed = self._orig_testbed
-
-
-    def test_argument_passthrough(self):
-        """Confirm that detected and specified arguments are passed through to
-        the testbed object.
-        """
-        machine = _gen_machine_dict(hostname='localhost')
-        testbed_obj = factory.create_testbed(machine, foo='bar')
-        self.assertEqual(testbed_obj._init_args['hostname'], 'localhost')
-        self.assertTrue('afe_host' in testbed_obj._init_args)
-        self.assertTrue('host_info_store' in testbed_obj._init_args)
-        self.assertEqual(testbed_obj._init_args['foo'], 'bar')
-
-
-    def test_global_ssh_params(self):
-        """Confirm passing of ssh parameters set as globals.
-        """
-        factory.ssh_user = 'foo'
-        factory.ssh_pass = 'bar'
-        factory.ssh_port = 1
-        factory.ssh_verbosity_flag = 'baz'
-        factory.ssh_options = 'zip'
-        machine = _gen_machine_dict()
-        try:
-            testbed_obj = factory.create_testbed(machine)
-            self.assertEqual(testbed_obj._init_args['user'], 'foo')
-            self.assertEqual(testbed_obj._init_args['password'], 'bar')
-            self.assertEqual(testbed_obj._init_args['port'], 1)
-            self.assertEqual(testbed_obj._init_args['ssh_verbosity_flag'],
-                             'baz')
-            self.assertEqual(testbed_obj._init_args['ssh_options'], 'zip')
-        finally:
-            del factory.ssh_user
-            del factory.ssh_pass
-            del factory.ssh_port
-            del factory.ssh_verbosity_flag
-            del factory.ssh_options
-
-
-    def test_host_attribute_ssh_params(self):
-        """Confirm passing of ssh parameters from host attributes.
-        """
-        machine = _gen_machine_dict(attributes={'ssh_user': 'somebody',
-                                                'ssh_port': 100,
-                                                'ssh_verbosity_flag': 'verb',
-                                                'ssh_options': 'options'})
-        testbed_obj = factory.create_testbed(machine)
-        self.assertEqual(testbed_obj._init_args['user'], 'somebody')
-        self.assertEqual(testbed_obj._init_args['port'], 100)
-        self.assertEqual(testbed_obj._init_args['ssh_verbosity_flag'], 'verb')
-        self.assertEqual(testbed_obj._init_args['ssh_options'], 'options')
 
 
 if __name__ == '__main__':

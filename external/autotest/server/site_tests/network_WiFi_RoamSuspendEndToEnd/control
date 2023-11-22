@@ -6,7 +6,7 @@ AUTHOR = 'bmahadev, krisr, harpreet'
 TIME = 'SHORT'
 NAME = 'network_WiFi_RoamSuspendEndToEnd'
 TEST_TYPE = 'Server'
-ATTRIBUTES = 'suite:wifi_endtoend, suite:wifi_matfunc_bcm4371'
+ATTRIBUTES = 'suite:wifi_endtoend'
 DEPENDENCIES = 'servo, wificell'
 
 DOC = """

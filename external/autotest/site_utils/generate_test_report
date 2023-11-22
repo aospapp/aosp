@@ -588,6 +588,186 @@ class ReportGenerator(object):
             tests = sorted(self._results, key=operator.itemgetter('testdir'))
         return tests
 
+    # TODO(zamorzaev): reuse this method in _GetResultsForHTMLReport to avoid
+    # code copying.
+    def _GetDedupedResults(self):
+        """Aggregate results from multiple retries of the same test."""
+        deduped_results = {}
+        for test in self._GetSortedTests():
+            test_details_matched = re.search(r'(.*)results-(\d[0-9]*)-(.*)',
+                                             test['testdir'])
+            if not test_details_matched:
+                continue
+
+            log_dir, test_number, test_name = test_details_matched.groups()
+            if (test_name in deduped_results and
+                deduped_results[test_name].get('status')):
+                # Already have a successfull (re)try.
+                continue
+
+            deduped_results[test_name] = test
+        return deduped_results.values()
+
+    def _GetResultsForHTMLReport(self):
+        """Return cleaned results for HTML report.!"""
+        import copy
+        tests = copy.deepcopy(self._GetSortedTests())
+        pass_tag = "Pass"
+        fail_tag = "Fail"
+        na_tag = "NA"
+        count = 0
+        html_results = {}
+        for test_status in tests:
+            individual_tc_results = {}
+            test_details_matched = re.search(r'(.*)results-(\d[0-9]*)-(.*)',
+                                             test_status['testdir'])
+            if not test_details_matched:
+                continue
+            log_dir = test_details_matched.group(1)
+            test_number = test_details_matched.group(2)
+            test_name = test_details_matched.group(3)
+            if '/' in test_name:
+                test_name = test_name.split('/')[0]
+            if test_status['error_msg'] is None:
+                test_status['error_msg'] = ''
+            if not html_results.has_key(test_name):
+                count = count + 1
+                # Arranging the results in an order
+                individual_tc_results['status'] = test_status['status']
+                individual_tc_results['error_msg'] = test_status['error_msg']
+                individual_tc_results['s_no'] = count
+                individual_tc_results['crashes'] = test_status['crashes']
+
+                # Add <b> and </b> tag for the good format in the report.
+                individual_tc_results['attempts'] = \
+                    '<b>test_result_number: %s - %s</b> : %s' % (
+                        test_number, log_dir, test_status['error_msg'])
+                html_results[test_name] = individual_tc_results
+            else:
+
+                # If test found already then we are using the previous data
+                # instead of creating two different html rows. If existing
+                # status is False then needs to be updated
+                if html_results[test_name]['status'] is False:
+                    html_results[test_name]['status'] = test_status['status']
+                    html_results[test_name]['error_msg'] = test_status[
+                        'error_msg']
+                    html_results[test_name]['crashes'] = \
+                        html_results[test_name]['crashes'] + test_status[
+                            'crashes']
+                    html_results[test_name]['attempts'] = \
+                        html_results[test_name]['attempts'] + \
+                        '</br><b>test_result_number : %s - %s</b> : %s' % (
+                            test_number, log_dir, test_status['error_msg'])
+
+        # Re-formating the dictionary as s_no as key. So that we can have
+        # ordered data at the end
+        sorted_html_results = {}
+        for key in html_results.keys():
+            sorted_html_results[str(html_results[key]['s_no'])] = \
+                    html_results[key]
+            sorted_html_results[str(html_results[key]['s_no'])]['test'] = key
+
+        # Mapping the Test case status if True->Pass, False->Fail and if
+        # True and the error message then NA
+        for key in sorted_html_results.keys():
+            if sorted_html_results[key]['status']:
+                if sorted_html_results[key]['error_msg'] != '':
+                    sorted_html_results[key]['status'] = na_tag
+                else:
+                    sorted_html_results[key]['status'] = pass_tag
+            else:
+                sorted_html_results[key]['status'] = fail_tag
+
+        return sorted_html_results
+
+    def GenerateReportHTML(self):
+        """Generate clean HTMl report for the results."""
+
+        results = self._GetResultsForHTMLReport()
+        html_table_header = """ <th>S.No</th>
+                                <th>Test</th>
+                                <th>Status</th>
+                                <th>Error Message</th>
+                                <th>Crashes</th>
+                                <th>Attempts</th>
+                            """
+        passed_tests = len([key for key in results.keys() if results[key][
+                'status'].lower() == 'pass'])
+        failed_tests = len([key for key in results.keys() if results[key][
+            'status'].lower() == 'fail'])
+        na_tests = len([key for key in results.keys() if results[key][
+            'status'].lower() == 'na'])
+        total_tests = passed_tests + failed_tests + na_tests
+
+        # Sort the keys
+        ordered_keys = sorted([int(key) for key in results.keys()])
+        html_table_body = ''
+        for key in ordered_keys:
+            key = str(key)
+            if results[key]['status'].lower() == 'pass':
+                color = 'LimeGreen'
+            elif results[key]['status'].lower() == 'na':
+                color = 'yellow'
+            else:
+                color = 'red'
+            html_table_body = html_table_body + """<tr>
+                                                    <td>%s</td>
+                                                    <td>%s</td>
+                                                    <td
+                                                    style="background-color:%s;">
+                                                    %s</td>
+                                                    <td>%s</td>
+                                                    <td>%s</td>
+                                                    <td>%s</td></tr>""" % \
+                                                (key, results[key]['test'],
+                                                 color,
+                                                 results[key]['status'],
+                                                 results[key]['error_msg'],
+                                                 results[key]['crashes'],
+                                                 results[key]['attempts'])
+        html_page = """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <title>Automation Results</title>
+                            <meta charset="utf-8">
+                            <meta name="viewport" content="width=device-width,initial-scale=1">
+                            <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+                            <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+                            <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <h2>Automation Report</h2>
+                                <table class="table table-bordered" border="1">
+                                    <thead>
+                                        <tr style="background-color:LightSkyBlue;">
+                                        \n%s
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    \n%s
+                                    </tbody>
+                                </table>
+                                <div class="row">
+                                    <div class="col-sm-4">Passed: <b>%d</b></div>
+                                    <div class="col-sm-4">Failed: <b>%d</b></div>
+                                    <div class="col-sm-4">NA: <b>%d</b></div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-4">Total: <b>%d</b></div>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+
+                """ % (html_table_header, html_table_body, passed_tests,
+                       failed_tests, na_tests, total_tests)
+        with open(os.path.join(self._options.html_report_dir,
+                               "test_report.html"), 'w') as html_file:
+            html_file.write(html_page)
+
     def _GenerateReportText(self):
         """Prints a result report to stdout.
 
@@ -679,8 +859,15 @@ class ReportGenerator(object):
     def Run(self):
         """Runs report generation."""
         self._CollectAllResults()
-        self._GenerateReportText()
-        for d in self._results:
+        if not self._options.just_status_code:
+            self._GenerateReportText()
+            if self._options.html:
+                print "\nLogging the data into test_report.html file."
+                try:
+                    self.GenerateReportHTML()
+                except Exception as e:
+                    print "Failed to generate HTML report %s" % str(e)
+        for d in self._GetDedupedResults():
             if d['experimental'] and self._options.ignore_experimental_tests:
                 continue
             if not d['status'] or (
@@ -702,6 +889,12 @@ def main():
     parser.add_option('--csv', dest='csv', action='store_true',
                       help='Output test result in CSV format.  '
                       'Implies --no-debug --no-crash-detection.')
+    parser.add_option('--html', dest='html', action='store_true',
+                      help='To generate HTML File.  '
+                           'Implies --no-debug --no-crash-detection.')
+    parser.add_option('--html-report-dir', dest='html_report_dir',
+                      action='store', default=None, help='Path to generate '
+                                                          'html report')
     parser.add_option('--info', dest='info', action='store_true',
                       default=False,
                       help='Include info keyvals in the report')
@@ -731,6 +924,10 @@ def main():
                       action='store_true', default=False,
                       help='If set, experimental test results will not '
                            'influence the exit code.')
+    parser.add_option('--just_status_code',
+                      dest='just_status_code',
+                      action='store_true', default=False,
+                      help='Skip generating a report, just return status code.')
 
     (options, args) = parser.parse_args()
 
@@ -742,6 +939,13 @@ def main():
         Warning('Forcing --no-debug --no-crash-detection')
         options.print_debug = False
         options.crash_detection = False
+
+    report_options = ['color', 'csv', 'info', 'escape_error', 'perf', 'attr',
+                      'sort_chron', 'print_debug', 'html', 'html_report_dir']
+    if options.just_status_code and any(
+        getattr(options, opt) for opt in report_options):
+        Warning('Passed --just_status_code and incompatible options %s' %
+                ' '.join(opt for opt in report_options if getattr(options,opt)))
 
     generator = ReportGenerator(options, args)
     generator.Run()

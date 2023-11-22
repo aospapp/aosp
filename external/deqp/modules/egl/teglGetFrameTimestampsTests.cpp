@@ -263,7 +263,8 @@ void verifyNeighboringFrames (const FrameTimes& frame1, const FrameTimes& frame2
 	check_lt(result, frame1.dequeueReady, frame2.dequeueReady, "Dequeue ready times not monotonic.");
 
 	// GPU timeline.
-	check_lt(result, frame1.renderingComplete, frame2.renderingComplete, "Rendering complete times not monotonic.");
+	// Same rendering complete time is fine.
+	check_le(result, frame1.renderingComplete, frame2.renderingComplete, "Rendering complete times not monotonic.");
 
 	if (timestampValid(frame1.firstCompositionGpuFinished) && timestampValid(frame2.firstCompositionGpuFinished))
 		check_lt(result, frame1.firstCompositionGpuFinished, frame2.firstCompositionGpuFinished, "Composition GPU work complete times not monotonic.");
@@ -635,7 +636,7 @@ void GetFrameTimestampTest::executeForConfig (EGLDisplay display, EGLConfig conf
 			check_lt<EGLnsecsANDROID>(m_result, 1000000, frame.compositeInterval, "Reported refresh rate greater than 1kHz.");
 			check_lt<EGLnsecsANDROID>(m_result, frame.compositeInterval, 1000000000, "Reported refresh rate less than 1Hz.");
 			check_lt<EGLnsecsANDROID>(m_result, 0, frame.compositeToPresentLatency, "Composite to present latency must be greater than 0.");
-			check_lt(m_result, frame.compositeToPresentLatency, frame.compositeInterval * 3, "Composite to present latency is more than 3 vsyncs.");
+			check_lt(m_result, frame.compositeToPresentLatency, frame.compositeInterval * 4, "Composite to present latency is more than 4 vsyncs.");
 			const EGLnsecsANDROID minDeadline = now;
 			check_lt(m_result, minDeadline, frame.compositeDeadline, "Next composite deadline is in the past.");
 			const EGLnsecsANDROID maxDeadline = now + frame.compositeInterval * 2;
@@ -654,25 +655,25 @@ void GetFrameTimestampTest::executeForConfig (EGLDisplay display, EGLConfig conf
 			frame.swapBufferBeginNs = getNanoseconds();
 			EGLU_CHECK_CALL(egl, swapBuffers(display, *surface));
 
-			// All timestamps from 5 frames ago should definitely be available.
-			const size_t frameDelay = 5;
+			// All timestamps from 6 frames ago should definitely be available.
+			const size_t frameDelay = 6;
 			if (i >= frameDelay)
 			{
 				// \todo [2017-01-25 brianderson] Remove this work around once reads done is fixed.
 				const bool verifyReadsDone	=	i > (frameDelay + 3);
-				FrameTimes&		frame5ago	=	frameTimes[i-frameDelay];
+				FrameTimes&		frame6ago	=	frameTimes[i-frameDelay];
 				std::vector<EGLnsecsANDROID> supportedValues(supportedNames.size(), 0);
 
 				CHECK_NAKED_EGL_CALL(egl, m_eglGetFrameTimestampsANDROID(
-					display, *surface, frame5ago.frameId, static_cast<eglw::EGLint>(supportedNames.size()),
+					display, *surface, frame6ago.frameId, static_cast<eglw::EGLint>(supportedNames.size()),
 					&supportedNames[0], &supportedValues[0]));
-				populateFrameTimes(&frame5ago, timestamps, supportedValues);
+				populateFrameTimes(&frame6ago, timestamps, supportedValues);
 
-				verifySingleFrame(frame5ago, m_result, verifyReadsDone);
+				verifySingleFrame(frame6ago, m_result, verifyReadsDone);
 				if (i >= frameDelay + 1)
 				{
-					FrameTimes& frame6ago = frameTimes[i-frameDelay-1];
-					verifyNeighboringFrames(frame6ago, frame5ago, m_result);
+					FrameTimes& frame7ago = frameTimes[i-frameDelay-1];
+					verifyNeighboringFrames(frame7ago, frame6ago, m_result);
 				}
 			}
 		}

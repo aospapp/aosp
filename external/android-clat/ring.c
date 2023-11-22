@@ -16,13 +16,13 @@
  * ring.c - packet ring buffer functions
  */
 
-#include <errno.h>
-#include <string.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/mman.h>
+#include <errno.h>
 #include <linux/if.h>
 #include <linux/if_packet.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
 
 #include "logging.h"
 #include "ring.h"
@@ -30,33 +30,33 @@
 #include "tun.h"
 
 int ring_create(struct tun_data *tunnel) {
-  int packetsock = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IPV6));
+  int packetsock = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC, htons(ETH_P_IPV6));
   if (packetsock < 0) {
     logmsg(ANDROID_LOG_FATAL, "packet socket failed: %s", strerror(errno));
     return -1;
   }
 
   int ver = TPACKET_V2;
-  if (setsockopt(packetsock, SOL_PACKET, PACKET_VERSION, (void *) &ver, sizeof(ver))) {
+  if (setsockopt(packetsock, SOL_PACKET, PACKET_VERSION, (void *)&ver, sizeof(ver))) {
     logmsg(ANDROID_LOG_FATAL, "setsockopt(PACKET_VERSION, %d) failed: %s", ver, strerror(errno));
     return -1;
   }
 
   int on = 1;
-  if (setsockopt(packetsock, SOL_PACKET, PACKET_LOSS, (void *) &on, sizeof(on))) {
+  if (setsockopt(packetsock, SOL_PACKET, PACKET_LOSS, (void *)&on, sizeof(on))) {
     logmsg(ANDROID_LOG_WARN, "PACKET_LOSS failed: %s", strerror(errno));
   }
 
   struct packet_ring *ring = &tunnel->ring;
-  ring->numblocks = TP_NUM_BLOCKS;
+  ring->numblocks          = TP_NUM_BLOCKS;
 
   int total_frames = TP_FRAMES * ring->numblocks;
 
   struct tpacket_req req = {
-      .tp_frame_size = TP_FRAME_SIZE,  // Frame size.
-      .tp_block_size = TP_BLOCK_SIZE,  // Frames per block.
-      .tp_block_nr = ring->numblocks,  // Number of blocks.
-      .tp_frame_nr = total_frames,     // Total frames.
+    .tp_frame_size = TP_FRAME_SIZE,    // Frame size.
+    .tp_block_size = TP_BLOCK_SIZE,    // Frames per block.
+    .tp_block_nr   = ring->numblocks,  // Number of blocks.
+    .tp_frame_nr   = total_frames,     // Total frames.
   };
 
   if (setsockopt(packetsock, SOL_PACKET, PACKET_RX_RING, &req, sizeof(req)) < 0) {
@@ -65,20 +65,20 @@ int ring_create(struct tun_data *tunnel) {
   }
 
   size_t buflen = TP_BLOCK_SIZE * ring->numblocks;
-  ring->base = mmap(NULL, buflen, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED|MAP_POPULATE,
+  ring->base    = mmap(NULL, buflen, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED | MAP_POPULATE,
                     packetsock, 0);
   if (ring->base == MAP_FAILED) {
     logmsg(ANDROID_LOG_FATAL, "mmap %lu failed: %s", buflen, strerror(errno));
     return -1;
   }
 
-  ring->block = 0;
-  ring->slot = 0;
+  ring->block    = 0;
+  ring->slot     = 0;
   ring->numslots = TP_BLOCK_SIZE / TP_FRAME_SIZE;
-  ring->next = (struct tpacket2_hdr *) ring->base;
+  ring->next     = (struct tpacket2_hdr *)ring->base;
 
-  logmsg(ANDROID_LOG_INFO, "Using ring buffer with %d frames (%d bytes) at %p",
-         total_frames, buflen, ring->base);
+  logmsg(ANDROID_LOG_INFO, "Using ring buffer with %d frames (%d bytes) at %p", total_frames,
+         buflen, ring->base);
 
   return packetsock;
 }
@@ -87,8 +87,8 @@ int ring_create(struct tun_data *tunnel) {
  * advances to the next position in the packet ring
  * ring - packet ring buffer
  */
-static struct tpacket2_hdr* ring_advance(struct packet_ring *ring) {
-  uint8_t *next = (uint8_t *) ring->next;
+static struct tpacket2_hdr *ring_advance(struct packet_ring *ring) {
+  uint8_t *next = (uint8_t *)ring->next;
 
   ring->slot++;
   next += TP_FRAME_SIZE;
@@ -101,11 +101,11 @@ static struct tpacket2_hdr* ring_advance(struct packet_ring *ring) {
       next += TP_FRAME_GAP;
     } else {
       ring->block = 0;
-      next = (uint8_t *) ring->base;
+      next        = (uint8_t *)ring->base;
     }
   }
 
-  ring->next = (struct tpacket2_hdr *) next;
+  ring->next = (struct tpacket2_hdr *)next;
   return ring->next;
 }
 
@@ -118,9 +118,9 @@ static struct tpacket2_hdr* ring_advance(struct packet_ring *ring) {
 void ring_read(struct packet_ring *ring, int write_fd, int to_ipv6) {
   struct tpacket2_hdr *tp = ring->next;
   if (tp->tp_status & TP_STATUS_USER) {
-    uint8_t *packet = ((uint8_t *) tp) + tp->tp_net;
+    uint8_t *packet = ((uint8_t *)tp) + tp->tp_net;
     translate_packet(write_fd, to_ipv6, packet, tp->tp_len);
     tp->tp_status = TP_STATUS_KERNEL;
-    tp = ring_advance(ring);
+    tp            = ring_advance(ring);
   }
 }

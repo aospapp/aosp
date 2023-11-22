@@ -1,0 +1,21 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+
+AUTHOR = "chromeos-security@google.com"
+NAME = "security_SELinux"
+TIME = "SHORT"
+TEST_CATEGORY = "Functional"
+TEST_CLASS = "security"
+TEST_TYPE = "client"
+ATTRIBUTES = "suite:bvt-perbuild"
+JOB_RETRIES = 2
+
+DOC = """
+This is a simple test to check whether the SELinux
+configuration is reflected correctly in the running
+system.
+"""
+
+job.run_test('security_SELinux')

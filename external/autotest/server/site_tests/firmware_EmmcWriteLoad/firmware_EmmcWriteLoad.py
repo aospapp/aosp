@@ -34,14 +34,15 @@ class firmware_EmmcWriteLoad(FirmwareTest):
             r'mmc[0-9]+: Timeout waiting for hardware interrupt', re.MULTILINE)
 
     def initialize(self, host, cmdline_args, ec_wp=None):
+        """Initialize the test"""
         dict_args = utils.args_to_dict(cmdline_args)
         self.minutes_to_run = int(dict_args.get('minutes_to_run', 5))
         super(firmware_EmmcWriteLoad, self).initialize(
             host, cmdline_args, ec_wp=ec_wp)
 
-        self.assert_test_image_in_usb_disk()
         self.switcher.setup_mode('dev')
-        self.setup_usbkey(usbkey=True, host=False)
+        # Use the USB key for Ctrl-U dev boot, not recovery.
+        self.setup_usbkey(usbkey=True, host=False, used_for_recovery=False)
 
         self.original_dev_boot_usb = self.faft_client.system.get_dev_boot_usb()
         logging.info('Original dev_boot_usb value: %s',
@@ -96,6 +97,7 @@ class firmware_EmmcWriteLoad(FirmwareTest):
             time.sleep(poll_seconds)
 
     def cleanup(self):
+        """Cleanup the test"""
         try:
             self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         except Exception as e:
@@ -103,6 +105,7 @@ class firmware_EmmcWriteLoad(FirmwareTest):
         super(firmware_EmmcWriteLoad, self).cleanup()
 
     def run_once(self):
+        """Main test logic"""
         self.faft_client.system.set_dev_boot_usb(1)
         self.switcher.simple_reboot()
         self.switcher.bypass_dev_boot_usb()

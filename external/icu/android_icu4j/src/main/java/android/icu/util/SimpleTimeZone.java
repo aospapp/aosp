@@ -523,14 +523,15 @@ public class SimpleTimeZone extends BasicTimeZone {
      * Sets the amount of time in ms that the clock is advanced during DST.
      * @param millisSavedDuringDST the number of milliseconds the time is
      * advanced with respect to standard time when the daylight savings rules
-     * are in effect. A positive number, typically one hour (3600000).
+     * are in effect. Typically one hour (+3600000). The amount could be negative,
+     * but not 0.
      */
     public void setDSTSavings(int millisSavedDuringDST) {
         if (isFrozen()) {
             throw new UnsupportedOperationException("Attempt to modify a frozen SimpleTimeZone instance.");
         }
 
-        if (millisSavedDuringDST <= 0) {
+        if (millisSavedDuringDST == 0) {
             throw new IllegalArgumentException();
         }
         dst = millisSavedDuringDST;
@@ -542,7 +543,8 @@ public class SimpleTimeZone extends BasicTimeZone {
      * Returns the amount of time in ms that the clock is advanced during DST.
      * @return the number of milliseconds the time is
      * advanced with respect to standard time when the daylight savings rules
-     * are in effect. A positive number, typically one hour (3600000).
+     * are in effect. Typically one hour (3600000). The amount could be negative,
+     * but not 0.
      */
     @Override
     public int getDSTSavings() {
@@ -991,7 +993,7 @@ public class SimpleTimeZone extends BasicTimeZone {
 
         decodeRules();
 
-        if (_dst <= 0) {
+        if (_dst == 0) {
             throw new IllegalArgumentException();
         }
     }
@@ -1153,6 +1155,7 @@ public class SimpleTimeZone extends BasicTimeZone {
 
     /**
      * Overrides hashCode.
+     * @return a hash code value for this object.
      */
     @Override
     public int hashCode(){

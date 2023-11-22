@@ -525,5 +525,11 @@ class InputPlayback(object):
             self._emulated_device = None
 
 
-    def __exit__(self):
+    def __enter__(self):
+        """Allow usage in 'with' statements."""
+        return self
+
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Release resources on completion of a 'with' statement."""
         self.close()

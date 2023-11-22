@@ -9,6 +9,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Security"
 TEST_CLASS = "functional"
 TEST_TYPE = "client"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 Performs functional tests for cryptohome multi-mount.

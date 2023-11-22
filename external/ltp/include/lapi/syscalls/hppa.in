@@ -1,3 +1,4 @@
+_sysctl 149
 openat 275
 mkdirat (__NR_openat + 1)
 mknodat (__NR_openat + 2)
@@ -15,5 +16,12 @@ faccessat (__NR_openat + 12)
 splice 291
 tee 293
 vmsplice 294
+process_vm_readv 330
+process_vm_writev 331
 memfd_create 340
+membarrier 343
+execveat 342
+mlock2 345
 copy_file_range 346
+preadv2 347
+pwritev2 348

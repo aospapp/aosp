@@ -15,10 +15,21 @@
  */
 package com.android.dx;
 
-import android.support.test.InstrumentationRegistry;
+import static com.android.dx.TypeId.*;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
+import android.os.Build;
+
+import androidx.test.InstrumentationRegistry;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import static java.lang.reflect.Modifier.PUBLIC;
 
 import java.io.File;
 import java.lang.annotation.*;
@@ -26,11 +37,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.android.dx.TypeId.*;
-import static java.lang.reflect.Modifier.PUBLIC;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 public final class AnnotationIdTest {
 
@@ -227,6 +233,8 @@ public final class AnnotationIdTest {
      */
     @Test
     public void addMethodAnnotationWithEnumElement() throws Exception {
+        assumeTrue(Build.VERSION.SDK_INT >= 21);
+
         MethodId<?, Void> methodId = generateVoidMethod(TypeId.get(Enum.class));
         AnnotationId.Element element = new AnnotationId.Element("elementEnum", ElementEnum.INSTANCE_1);
         addAnnotationToMethod(methodId, element);
@@ -259,6 +267,8 @@ public final class AnnotationIdTest {
      */
     @Test
     public void addMethodAnnotationWithMultiElements() throws Exception {
+        assumeTrue(Build.VERSION.SDK_INT >= 21);
+
         MethodId<?, Void> methodId = generateVoidMethod();
         AnnotationId.Element element1 = new AnnotationId.Element("elementClass", AnnotationId.class);
         AnnotationId.Element element2 = new AnnotationId.Element("elementEnum", ElementEnum.INSTANCE_1);
@@ -280,6 +290,8 @@ public final class AnnotationIdTest {
      */
     @Test
     public void addMethodAnnotationWithDuplicateElements() throws Exception {
+        assumeTrue(Build.VERSION.SDK_INT >= 21);
+
         MethodId<?, Void> methodId = generateVoidMethod();
         AnnotationId.Element element1 = new AnnotationId.Element("elementEnum", ElementEnum.INSTANCE_1);
         AnnotationId.Element element2 = new AnnotationId.Element("elementEnum", ElementEnum.INSTANCE_0);

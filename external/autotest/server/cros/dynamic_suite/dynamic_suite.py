@@ -210,7 +210,6 @@ class _SuiteSpec(object):
     _VERSION_PREFIXES = frozenset((
             provision.CROS_VERSION_PREFIX,
             provision.CROS_ANDROID_VERSION_PREFIX,
-            provision.ANDROID_BUILD_VERSION_PREFIX,
     ))
 
     def __init__(
@@ -379,10 +378,7 @@ class _SuiteSpec(object):
 
     def _init_devserver(self, devserver_url):
         """Initialize devserver attribute."""
-        if provision.ANDROID_BUILD_VERSION_PREFIX in self.builds:
-            self.devserver = dev_server.AndroidBuildServer(devserver_url)
-        else:
-            self.devserver = dev_server.ImageServer(devserver_url)
+        self.devserver = dev_server.ImageServer(devserver_url)
 
     def _init_test_source_build(self, test_source_build):
         """Initialize test_source_build attribute."""
@@ -450,7 +446,7 @@ def run_provision_suite(**dargs):
     try:
         my_job_id = int(tko_utils.get_afe_job_id(spec.job.tag))
         logging.debug('Determined own job id: %d', my_job_id)
-    except ValueError:
+    except (TypeError, ValueError):
         my_job_id = None
         logging.warning('Could not determine own job id.')
 
@@ -510,7 +506,7 @@ def reimage_and_run(**dargs):
     try:
         my_job_id = int(tko_utils.get_afe_job_id(dargs['job'].tag))
         logging.debug('Determined own job id: %d', my_job_id)
-    except ValueError:
+    except (TypeError, ValueError):
         my_job_id = None
         logging.warning('Could not determine own job id.')
 

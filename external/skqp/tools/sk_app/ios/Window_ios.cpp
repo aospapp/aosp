@@ -71,10 +71,22 @@ bool Window_ios::initWindow() {
     fWindowID = SDL_GetWindowID(fWindow);
     gWindowMap.add(this);
 
+    fGLContext = SDL_GL_CreateContext(fWindow);
+    if (!fGLContext) {
+        SkDebugf("%s\n", SDL_GetError());
+        this->closeWindow();
+        return false;
+    }
+
     return true;
 }
 
 void Window_ios::closeWindow() {
+    if (fGLContext) {
+        SDL_GL_DeleteContext(fGLContext);
+        fGLContext = nullptr;
+    }
+
     if (fWindow) {
         gWindowMap.remove(fWindowID);
         SDL_DestroyWindow(fWindow);
@@ -182,27 +194,22 @@ bool Window_ios::handleEvent(const SDL_Event& event) {
             }
             break;
 
-        case SDL_MOUSEBUTTONDOWN:
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                this->onMouse(event.button.x, event.button.y,
-                              Window::kDown_InputState, get_modifiers(event));
-            }
+        case SDL_FINGERDOWN:
+            this->onTouch(event.tfinger.fingerId, Window::kDown_InputState,
+                          (int)(this->width()*event.tfinger.x),
+                          (int)(this->height()*event.tfinger.y));
             break;
 
-        case SDL_MOUSEBUTTONUP:
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                this->onMouse(event.button.x, event.button.y,
-                              Window::kUp_InputState, get_modifiers(event));
-            }
+        case SDL_FINGERUP:
+            this->onTouch(event.tfinger.fingerId, Window::kUp_InputState,
+                          (int)(this->width()*event.tfinger.x),
+                          (int)(this->height()*event.tfinger.y));
             break;
 
-        case SDL_MOUSEMOTION:
-            this->onMouse(event.motion.x, event.motion.y,
-                          Window::kMove_InputState, get_modifiers(event));
-            break;
-
-        case SDL_MOUSEWHEEL:
-            this->onMouseWheel(event.wheel.y, get_modifiers(event));
+        case SDL_FINGERMOTION:
+            this->onTouch(event.tfinger.fingerId, Window::kMove_InputState,
+                          (int)(this->width()*event.tfinger.x),
+                          (int)(this->height()*event.tfinger.y));
             break;
 
         case SDL_KEYDOWN: {
@@ -251,6 +258,7 @@ bool Window_ios::attach(BackendType attachType) {
 
     window_context_factory::IOSWindowInfo info;
     info.fWindow = fWindow;
+    info.fGLContext = fGLContext;
     switch (attachType) {
         case kRaster_BackendType:
             fWindowContext = NewRasterForIOS(info, fRequestedDisplayParams);

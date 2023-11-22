@@ -28,6 +28,7 @@ class firmware_InvalidUSB(FirmwareTest):
         self.restore_usb_kernel(usb_dev)
 
     def initialize(self, host, cmdline_args):
+        """Initialize the test"""
         super(firmware_InvalidUSB, self).initialize(host, cmdline_args)
         self.servo.switch_usbkey('host')
         usb_dev = self.servo.probe_host_usb_dev()
@@ -37,6 +38,7 @@ class firmware_InvalidUSB(FirmwareTest):
         self.servo.switch_usbkey('dut')
 
     def cleanup(self):
+        """Cleanup the test"""
         try:
             self.restore_usb()
         except Exception as e:
@@ -44,6 +46,7 @@ class firmware_InvalidUSB(FirmwareTest):
         super(firmware_InvalidUSB, self).cleanup()
 
     def run_once(self):
+        """Main test logic"""
         logging.info("Turn on the recovery boot. Remove and insert the"
                      "corrupted USB stick, a boot failure is expected."
                      "Restore the USB image and boot it again.")
@@ -51,10 +54,15 @@ class firmware_InvalidUSB(FirmwareTest):
                           'devsw_boot': '0',
                           'mainfw_type': 'normal',
                           }))
+
+        # Switch servo v4 (if present) as a SNK. Make sure USB key is bootable.
+        self.set_servo_v4_role_to_snk()
+
         self.switcher.reboot_to_mode(to_mode='rec', wait_for_dut_up=False)
         logging.info('Wait to ensure the USB image is unable to boot...')
         try:
-            self.switcher.wait_for_client(timeout=self.faft_config.usb_image_boot_timeout)
+            self.switcher.wait_for_client(
+                    timeout=self.faft_config.usb_image_boot_timeout)
             raise error.TestFail('Should not boot from the invalid USB image.')
         except ConnectionError:
             logging.info(

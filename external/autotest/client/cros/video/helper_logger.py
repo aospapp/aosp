@@ -12,7 +12,8 @@ def chrome_vmodule_flag():
     logging_patterns = ['*/media/gpu/*video_decode_accelerator.cc=2',
                         '*/media/gpu/*video_encode_accelerator.cc=2',
                         '*/media/gpu/*jpeg_decode_accelerator.cc=2',
-                        '*/media/gpu/v4l2_image_processor.cc=2']
+                        '*/media/gpu/*image_processor.cc=2',
+                        '*/media/gpu/v4l2/v4l2_device.cc=2']
     chrome_video_vmodule_flag = '--vmodule=' + ','.join(logging_patterns)
     logging.info('chrome video vmodule flag: %s', chrome_video_vmodule_flag)
     return chrome_video_vmodule_flag

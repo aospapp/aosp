@@ -22,7 +22,7 @@ public class ResName {
   public ResName(@Nonnull String packageName, @Nonnull String type, @Nonnull String name) {
     this.packageName = packageName;
     this.type = type.trim();
-    this.name = name.indexOf('.') != -1 ? name.replace('.', '_').trim() : name.trim();
+    this.name = name.trim();
 
     hashCode = computeHashCode();
   }
@@ -34,8 +34,7 @@ public class ResName {
     }
     packageName = matcher.group(NAMESPACE);
     type = matcher.group(TYPE).trim();
-    String nameStr = matcher.group(NAME);
-    name = nameStr.indexOf('.') != -1 ? nameStr.replace('.', '_') : nameStr;
+    name = matcher.group(NAME).trim();
 
     hashCode = computeHashCode();
     if (packageName.equals("xmlns")) throw new IllegalStateException("\"" + fullyQualifiedName + "\" unexpected");
@@ -77,7 +76,14 @@ public class ResName {
       return null;
     }
 
-    return new ResName(packageName == null ? defaultPackageName : packageName,
+    if (packageName == null) {
+      packageName = defaultPackageName;
+    } else if ("*android".equals(packageName)) {
+      packageName = "android";
+    }
+
+    return new ResName(
+        packageName,
         type == null ? defaultType : type,
         name);
   }
@@ -102,7 +108,7 @@ public class ResName {
 
   public static ResName qualifyFromFilePath(@Nonnull final String packageName, @Nonnull final String filePath) {
     final FileFsFile filePathFile = new FileFsFile(new File(filePath));
-    final String type = filePathFile.getParent().getName().split("-")[0];
+    final String type = filePathFile.getParent().getName().split("-", 0)[0];
     final String name = filePathFile.getBaseName();
 
     return new ResName(packageName, type, name);

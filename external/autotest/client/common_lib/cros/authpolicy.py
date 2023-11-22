@@ -13,6 +13,7 @@ import dbus
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
+from autotest_lib.client.cros import upstart
 
 
 class AuthPolicy(object):
@@ -38,12 +39,10 @@ class AuthPolicy(object):
     _DBUS_SERVICE_NAME = 'org.chromium.AuthPolicy'
     _DBUS_SERVICE_PATH = '/org/chromium/AuthPolicy'
     _DBUS_INTERFACE_NAME = 'org.chromium.AuthPolicy'
+    _DBUS_ERROR_SERVICE_UNKNOWN = 'org.freedesktop.DBus.Error.ServiceUnknown'
 
     # Default timeout in seconds for D-Bus calls.
     _DEFAULT_TIMEOUT = 120
-
-    # Chronos user ID.
-    _CHRONOS_UID = 1000
 
     def __init__(self, bus_loop, proto_binding_location):
         """
@@ -60,27 +59,42 @@ class AuthPolicy(object):
         # Pull in protobuf bindings.
         sys.path.append(proto_binding_location)
 
-        try:
-            # Get the interface as Chronos since only they are allowed to send
-            # D-Bus messages to authpolicyd.
-            os.setresuid(self._CHRONOS_UID, self._CHRONOS_UID, 0)
-            bus = dbus.SystemBus(bus_loop)
+        self._bus_loop = bus_loop
+        self.restart()
 
-            proxy = bus.get_object(self._DBUS_SERVICE_NAME,
-                                   self._DBUS_SERVICE_PATH)
-            self._authpolicyd = dbus.Interface(proxy, self._DBUS_INTERFACE_NAME)
-        finally:
-            os.setresuid(0, 0, 0)
-
-    def __del__(self):
+    def restart(self):
         """
-        Destructor
+        Restarts authpolicyd and rebinds to D-Bus interface.
+        """
+        logging.info('restarting authpolicyd')
+        upstart.restart_job('authpolicyd')
+        bus = dbus.SystemBus(self._bus_loop)
+        proxy = bus.get_object(self._DBUS_SERVICE_NAME,
+                               self._DBUS_SERVICE_PATH)
+        self._authpolicyd = dbus.Interface(proxy, self._DBUS_INTERFACE_NAME)
 
+    def stop(self):
+        """
         Turns debug logs off.
 
+        Stops authpolicyd.
         """
+        logging.info('stopping authpolicyd')
 
-        self.set_default_log_level(0)
+        # Reset log level and stop. Ignore errors that occur when authpolicy is
+        # already down.
+        try:
+            self.set_default_log_level(0)
+        except dbus.exceptions.DBusException as ex:
+            if ex.get_dbus_name() != self._DBUS_ERROR_SERVICE_UNKNOWN:
+                raise
+        try:
+            upstart.stop_job('authpolicyd')
+        except error.CmdError as ex:
+            if (ex.result_obj.exit_status == 0):
+                raise
+
+        self._authpolicyd = None
 
     def join_ad_domain(self,
                        user_principal_name,
@@ -119,10 +133,10 @@ class AuthPolicy(object):
 
         with self.PasswordFd(password) as password_fd:
             return self._authpolicyd.JoinADDomain(
-                dbus.ByteArray(request.SerializeToString()),
-                dbus.types.UnixFd(password_fd),
-                timeout=self._DEFAULT_TIMEOUT,
-                byte_arrays=True)
+                    dbus.ByteArray(request.SerializeToString()),
+                    dbus.types.UnixFd(password_fd),
+                    timeout=self._DEFAULT_TIMEOUT,
+                    byte_arrays=True)
 
     def authenticate_user(self, user_principal_name, account_id, password):
         """
@@ -149,10 +163,10 @@ class AuthPolicy(object):
 
         with self.PasswordFd(password) as password_fd:
             error_value, account_info_blob = self._authpolicyd.AuthenticateUser(
-                dbus.ByteArray(request.SerializeToString()),
-                dbus.types.UnixFd(password_fd),
-                timeout=self._DEFAULT_TIMEOUT,
-                byte_arrays=True)
+                    dbus.ByteArray(request.SerializeToString()),
+                    dbus.types.UnixFd(password_fd),
+                    timeout=self._DEFAULT_TIMEOUT,
+                    byte_arrays=True)
             account_info = ActiveDirectoryAccountInfo()
             if error_value == ERROR_NONE:
                 account_info.ParseFromString(account_info_blob)
@@ -169,9 +183,9 @@ class AuthPolicy(object):
         """
 
         return self._authpolicyd.RefreshUserPolicy(
-            dbus.String(account_id),
-            timeout=self._DEFAULT_TIMEOUT,
-            byte_arrays=True)
+                dbus.String(account_id),
+                timeout=self._DEFAULT_TIMEOUT,
+                byte_arrays=True)
 
     def refresh_device_policy(self):
         """
@@ -182,7 +196,17 @@ class AuthPolicy(object):
         """
 
         return self._authpolicyd.RefreshDevicePolicy(
-            timeout=self._DEFAULT_TIMEOUT, byte_arrays=True)
+                timeout=self._DEFAULT_TIMEOUT, byte_arrays=True)
+
+    def change_machine_password(self):
+        """
+        Changes machine password.
+
+        @return ErrorType from the D-Bus call.
+
+        """
+        return self._authpolicyd.ChangeMachinePasswordForTesting(
+                timeout=self._DEFAULT_TIMEOUT, byte_arrays=True)
 
     def set_default_log_level(self, level):
         """
@@ -216,7 +240,7 @@ class AuthPolicy(object):
         """
 
         # Exit code 253 is minijail's marker for seccomp failures.
-        cmd = 'grep -q "failed: exit code 253" %s' % self._LOG_FILE
+        cmd = 'grep -q "exit code 253" %s' % self._LOG_FILE
         if utils.run(cmd, ignore_status=True).exit_status == 0:
             logging.error('Seccomp failure detected!')
             cmd = 'grep -oE "blocked syscall: \\w+" %s | tail -1' % \
@@ -224,13 +248,13 @@ class AuthPolicy(object):
             try:
                 logging.error(utils.run(cmd).stdout)
                 logging.error(
-                    'This can happen if you changed a dependency of '
-                    'authpolicyd. Consider whitelisting this syscall in '
-                    'the appropriate -seccomp.policy file in authpolicyd.'
-                    '\n')
+                        'This can happen if you changed a dependency of '
+                        'authpolicyd. Consider whitelisting this syscall in '
+                        'the appropriate -seccomp.policy file in authpolicyd.'
+                        '\n')
             except error.CmdError as ex:
                 logging.error(
-                    'Failed to determine reason for seccomp issue: %s', ex)
+                        'Failed to determine reason for seccomp issue: %s', ex)
 
     def clear_log(self):
         """

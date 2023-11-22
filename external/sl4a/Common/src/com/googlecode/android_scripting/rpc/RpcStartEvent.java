@@ -24,12 +24,11 @@ import java.lang.annotation.Target;
 
 /**
  * Use this annotation to mark an RPC as one that starts generating events.
- *
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 @Documented
 public @interface RpcStartEvent {
-  /** The name of the event that is generated. */
-  public String value();
+    /** The name of the event that is generated. */
+    String value();
 }

@@ -12,9 +12,8 @@ TEST_CLASS = "suite"
 TEST_TYPE = "Server"
 
 DOC = """
-Smoke tests suite is a subset of BVT able to run in VMs. All of these tests
-run on all buildbot builds. A test which runs as part of the smoke suite
-should also be a member of the bvt-inline suite to run on real hardware.
+The smoke suite is a subset of tests specifically chosen to run in virtual
+machines, primarily for early testing on dedicated lab builders.
 
 @param build: The name of the image to test.
               Ex: x86-mario-release/R17-1412.33.0-a1-b29
@@ -26,12 +25,10 @@ should also be a member of the bvt-inline suite to run on real hardware.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 args_dict['name'] = 'smoke'
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['job'] = job
 
 dynamic_suite.reimage_and_run(**args_dict)

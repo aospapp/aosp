@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -55,6 +56,12 @@ static int pin_device_id;
 static int play_short_sound = 0;
 static int play_short_sound_periods = 0;
 static int play_short_sound_periods_left = 0;
+
+static int effect_aec = 0;
+static int effect_ns = 0;
+static int effect_agc = 0;
+static int effect_vad = 0;
+static char *aecdump_file = NULL;
 
 /* Conditional so the client thread can signal that main should exit. */
 static pthread_mutex_t done_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -148,21 +155,6 @@ static int got_samples(struct cras_client *client,
 	ret = write(*fd, captured_samples, write_size);
 	if (ret != write_size)
 		printf("Error writing file\n");
-	return frames;
-}
-
-/* Run from callback thread. */
-static int got_hotword(struct cras_client *client,
-		       cras_stream_id_t stream_id,
-		       uint8_t *captured_samples,
-		       uint8_t *playback_samples,
-		       unsigned int frames,
-		       const struct timespec *captured_time,
-		       const struct timespec *playback_time,
-		       void *user_arg)
-{
-	printf("got hotword %u frames\n", frames);
-
 	return frames;
 }
 
@@ -536,6 +528,10 @@ static void show_alog_tag(const struct audio_thread_event_log *log,
 		printf("%-30s dev:%u hw_level:%u target:%u\n",
 		       "DEFAULT_NO_STREAMS", data1, data2, data3);
 		break;
+	case AUDIO_THREAD_UNDERRUN:
+		printf("%-30s dev:%u hw_level:%u total_written:%u\n",
+		       "UNDERRUN", data1, data2, data3);
+		break;
 	case AUDIO_THREAD_SEVERE_UNDERRUN:
 		printf("%-30s dev:%u\n", "SEVERE_UNDERRUN", data1);
 		break;
@@ -545,15 +541,9 @@ static void show_alog_tag(const struct audio_thread_event_log *log,
 	}
 }
 
-static void audio_debug_info(struct cras_client *client)
+static void print_audio_debug_info(const struct audio_debug_info *info)
 {
-	const struct audio_debug_info *info;
 	int i, j;
-
-	info = cras_client_get_audio_debug_info(client);
-	if (!info)
-		return;
-
 	printf("Audio Debug Stats:\n");
 	printf("-------------devices------------\n");
 	if (info->num_devs > MAX_DEBUG_DEVS)
@@ -572,7 +562,8 @@ static void audio_debug_info(struct cras_client *client)
 		       "num_channels: %u\n"
 		       "est_rate_ratio: %lf\n"
 		       "num_underruns: %u\n"
-		       "num_severe_underruns: %u\n",
+		       "num_severe_underruns: %u\n"
+		       "highest_hw_level: %u\n",
 		       (unsigned int)info->devs[i].buffer_size,
 		       (unsigned int)info->devs[i].min_buffer_level,
 		       (unsigned int)info->devs[i].min_cb_level,
@@ -581,7 +572,8 @@ static void audio_debug_info(struct cras_client *client)
 		       (unsigned int)info->devs[i].num_channels,
 		       info->devs[i].est_rate_ratio,
 		       (unsigned int)info->devs[i].num_underruns,
-		       (unsigned int)info->devs[i].num_severe_underruns);
+		       (unsigned int)info->devs[i].num_severe_underruns,
+		       (unsigned int)info->devs[i].highest_hw_level);
 		printf("\n");
 	}
 
@@ -591,7 +583,7 @@ static void audio_debug_info(struct cras_client *client)
 
 	for (i = 0; i < info->num_streams; i++) {
 		int channel;
-		printf("stream: %llx dev: %u\n",
+		printf("stream: %llu dev: %u\n",
 		       (unsigned long long)info->streams[i].stream_id,
 		       (unsigned int)info->streams[i].dev_idx);
 		printf("direction: %s\n",
@@ -601,12 +593,14 @@ static void audio_debug_info(struct cras_client *client)
 		       cras_stream_type_str(info->streams[i].stream_type));
 		printf("buffer_frames: %u\n"
 		       "cb_threshold: %u\n"
+		       "effects: 0x%.4x\n"
 		       "frame_rate: %u\n"
 		       "num_channels: %u\n"
 		       "longest_fetch_sec: %u.%09u\n"
 		       "num_overruns: %u\n",
 		       (unsigned int)info->streams[i].buffer_frames,
 		       (unsigned int)info->streams[i].cb_threshold,
+		       (unsigned int)info->streams[i].effects,
 		       (unsigned int)info->streams[i].frame_rate,
 		       (unsigned int)info->streams[i].num_channels,
 		       (unsigned int)info->streams[i].longest_fetch_sec,
@@ -628,6 +622,72 @@ static void audio_debug_info(struct cras_client *client)
 		j++;
 		j %= info->log.len;
 	}
+}
+
+static void audio_debug_info(struct cras_client *client)
+{
+	const struct audio_debug_info *info;
+	info = cras_client_get_audio_debug_info(client);
+	if (!info)
+		return;
+	print_audio_debug_info(info);
+
+	/* Signal main thread we are done after the last chunk. */
+	pthread_mutex_lock(&done_mutex);
+	pthread_cond_signal(&done_cond);
+	pthread_mutex_unlock(&done_mutex);
+}
+
+static void print_cras_audio_thread_snapshot(
+	const struct cras_audio_thread_snapshot *snapshot)
+{
+	printf("-------------snapshot------------\n");
+	printf("Event time: %" PRId64 ".%ld\n",
+	       (int64_t)snapshot->timestamp.tv_sec,
+	       snapshot->timestamp.tv_nsec);
+
+	printf("Event type: ");
+	switch(snapshot->event_type) {
+	case AUDIO_THREAD_EVENT_BUSYLOOP:
+		printf("busyloop\n");
+		break;
+	case AUDIO_THREAD_EVENT_UNDERRUN:
+		printf("underrun\n");
+		break;
+	case AUDIO_THREAD_EVENT_SEVERE_UNDERRUN:
+		printf("severe underrun\n");
+		break;
+	case AUDIO_THREAD_EVENT_DEBUG:
+		printf("debug\n");
+		break;
+	default:
+		printf("no such type\n");
+	}
+	print_audio_debug_info(&snapshot->audio_debug_info);
+}
+
+static void audio_thread_snapshots(struct cras_client *client)
+{
+	const struct cras_audio_thread_snapshot_buffer *snapshot_buffer;
+	uint32_t i;
+	int j;
+	int count = 0;
+
+	snapshot_buffer = cras_client_get_audio_thread_snapshot_buffer(client);
+	i = snapshot_buffer->pos;
+	for(j = 0; j < CRAS_MAX_AUDIO_THREAD_SNAPSHOTS; j++)
+	{
+		if(snapshot_buffer->snapshots[i].timestamp.tv_sec ||
+		   snapshot_buffer->snapshots[i].timestamp.tv_nsec)
+		{
+			print_cras_audio_thread_snapshot(
+				&snapshot_buffer->snapshots[i]);
+			count++;
+		}
+		i++;
+		i %= CRAS_MAX_AUDIO_THREAD_SNAPSHOTS;
+	}
+	printf("There are %d, snapshots.\n", count);
 
 	/* Signal main thread we are done after the last chunk. */
 	pthread_mutex_lock(&done_mutex);
@@ -669,6 +729,27 @@ static int parse_channel_layout(char *channel_layout_str,
 	return 0;
 }
 
+static void run_aecdump(struct cras_client *client, uint64_t stream_id,
+			int start)
+{
+	int aecdump_fd;
+	if (start) {
+		aecdump_fd = open(aecdump_file, O_CREAT | O_RDWR | O_TRUNC,
+				  0666);
+		if (aecdump_fd == -1) {
+			printf("Fail to open file %s", aecdump_file);
+			return;
+		}
+
+		printf("Dumping AEC info to %s, stream %" PRId64 ", fd %d\n",
+		       aecdump_file, stream_id, aecdump_fd);
+		cras_client_set_aec_dump(client, stream_id, 1, aecdump_fd);
+	} else {
+		cras_client_set_aec_dump(client, stream_id, 0, -1);
+		printf("Close AEC dump file %s\n", aecdump_file);
+	}
+}
+
 static int run_file_io_stream(struct cras_client *client,
 			      int fd,
 			      enum CRAS_STREAM_DIRECTION direction,
@@ -677,7 +758,8 @@ static int run_file_io_stream(struct cras_client *client,
 			      size_t rate,
 			      size_t num_channels,
 			      uint32_t flags,
-			      int is_loopback)
+			      int is_loopback,
+			      int is_post_dsp)
 {
 	int rc, tty;
 	struct cras_stream_params *params;
@@ -709,14 +791,10 @@ static int run_file_io_stream(struct cras_client *client,
 	total_rms_sqr_sum = 0;
 	total_rms_size = 0;
 
-	if (direction == CRAS_STREAM_INPUT) {
-		if (flags == HOTWORD_STREAM)
-			aud_cb = got_hotword;
-		else
-			aud_cb = got_samples;
-	} else {
+	if (direction == CRAS_STREAM_INPUT)
+		aud_cb = got_samples;
+	else
 		aud_cb = put_samples;
-	}
 
 	if (fd == 0) {
 		if (direction != CRAS_STREAM_OUTPUT)
@@ -746,12 +824,24 @@ static int run_file_io_stream(struct cras_client *client,
 	if (params == NULL)
 		return -ENOMEM;
 
+	if (effect_aec)
+		cras_client_stream_params_enable_aec(params);
+	if (effect_ns)
+		cras_client_stream_params_enable_ns(params);
+	if (effect_agc)
+		cras_client_stream_params_enable_agc(params);
+	if (effect_vad)
+		cras_client_stream_params_enable_vad(params);
+
 	cras_client_run_thread(client);
 	if (is_loopback) {
+		enum CRAS_NODE_TYPE type = (is_post_dsp ?
+					    CRAS_NODE_TYPE_POST_DSP :
+					    CRAS_NODE_TYPE_POST_MIX_PRE_DSP);
+
 		cras_client_connected_wait(client);
-		pin_device_id = cras_client_get_first_dev_type_idx(client,
-				CRAS_NODE_TYPE_POST_MIX_PRE_DSP,
-				CRAS_STREAM_INPUT);
+		pin_device_id = cras_client_get_first_dev_type_idx(
+				client, type, CRAS_STREAM_INPUT);
 	}
 
 	stream_playing =
@@ -904,7 +994,9 @@ static int run_capture(struct cras_client *client,
 		       enum CRAS_STREAM_TYPE stream_type,
 		       size_t rate,
 		       size_t num_channels,
-		       int is_loopback)
+		       uint32_t flags,
+		       int is_loopback,
+		       int is_post_dsp)
 {
 	int fd = open(file, O_CREAT | O_RDWR | O_TRUNC, 0666);
 	if (fd == -1) {
@@ -913,7 +1005,8 @@ static int run_capture(struct cras_client *client,
 	}
 
 	run_file_io_stream(client, fd, CRAS_STREAM_INPUT, block_size,
-			   stream_type, rate, num_channels, 0, is_loopback);
+			   stream_type, rate, num_channels, flags, is_loopback,
+			   is_post_dsp);
 
 	close(fd);
 	return 0;
@@ -935,21 +1028,12 @@ static int run_playback(struct cras_client *client,
 	}
 
 	run_file_io_stream(client, fd, CRAS_STREAM_OUTPUT, block_size,
-			   stream_type, rate, num_channels, 0, 0);
+			   stream_type, rate, num_channels, 0, 0, 0);
 
 	close(fd);
 	return 0;
 }
 
-static int run_hotword(struct cras_client *client,
-		       size_t block_size,
-		       size_t rate)
-{
-	run_file_io_stream(client, -1, CRAS_STREAM_INPUT, block_size,
-			   CRAS_STREAM_TYPE_DEFAULT, rate, 1, HOTWORD_STREAM,
-			   0);
-	return 0;
-}
 static void print_server_info(struct cras_client *client)
 {
 	cras_client_run_thread(client);
@@ -961,7 +1045,24 @@ static void print_server_info(struct cras_client *client)
 	print_active_stream_info(client);
 }
 
-static void print_audio_debug_info(struct cras_client *client)
+static void show_audio_thread_snapshots(struct cras_client *client)
+{
+	struct timespec wait_time;
+
+	cras_client_run_thread(client);
+	cras_client_connected_wait(client); /* To synchronize data. */
+	cras_client_update_audio_thread_snapshots(client,
+						  audio_thread_snapshots);
+
+	clock_gettime(CLOCK_REALTIME, &wait_time);
+	wait_time.tv_sec += 2;
+
+	pthread_mutex_lock(&done_mutex);
+	pthread_cond_timedwait(&done_cond, &done_mutex, &wait_time);
+	pthread_mutex_unlock(&done_mutex);
+}
+
+static void show_audio_debug_info(struct cras_client *client)
 {
 	struct timespec wait_time;
 
@@ -1035,6 +1136,7 @@ static struct option long_options[] = {
 	{"block_size",		required_argument,	0, 'b'},
 	{"capture_file",	required_argument,	0, 'c'},
 	{"duration_seconds",	required_argument,	0, 'd'},
+	{"dump_events",	        no_argument,            0, 'e'},
 	{"dump_dsp",            no_argument,            0, 'f'},
 	{"capture_gain",        required_argument,      0, 'g'},
 	{"help",                no_argument,            0, 'h'},
@@ -1063,7 +1165,7 @@ static struct option long_options[] = {
 	{"version",             no_argument,            0, '4'},
 	{"add_test_dev",        required_argument,      0, '5'},
 	{"test_hotword_file",   required_argument,      0, '6'},
-	{"listen_for_hotword",  no_argument,            0, '7'},
+	{"listen_for_hotword",  required_argument,      0, '7'},
 	{"pin_device",		required_argument,	0, '8'},
 	{"suspend",		required_argument,	0, '9'},
 	{"set_node_gain",	required_argument,	0, ':'},
@@ -1071,6 +1173,12 @@ static struct option long_options[] = {
 	{"config_global_remix", required_argument,	0, ';'},
 	{"set_hotword_model",	required_argument,	0, '<'},
 	{"get_hotword_models",	required_argument,	0, '>'},
+	{"post_dsp",            required_argument,	0, 'A'},
+	{"stream_id",		required_argument,	0, 'B'},
+	{"aecdump",		required_argument,	0, 'C'},
+	{"reload_aec_config",	no_argument,		0, 'D'},
+	{"effects",		required_argument,	0, 'E'},
+	{"get_aec_supported",	no_argument,		0, 'F'},
 	{"syslog_mask",		required_argument,	0, 'L'},
 	{"mute_loop_test",	required_argument,	0, 'M'},
 	{"stream_type",		required_argument,	0, 'T'},
@@ -1096,8 +1204,8 @@ static void show_usage()
 	printf("--duration_seconds <N> - Seconds to record or playback.\n");
 	printf("--get_hotword_models <N>:<M> - Get the supported hotword models of node\n");
 	printf("--help - Print this message.\n");
-	printf("--listen_for_hotword - Listen for a hotword if supported\n");
-	printf("--loopback_file <name> - Name of file to record loopback to.\n");
+	printf("--listen_for_hotword <name> - Listen and capture hotword stream if supported\n");
+	printf("--loopback_file <name> - Name of file to record from loopback device.\n");
 	printf("--mute <0|1> - Set system mute state.\n");
 	printf("--mute_loop_test <0|1> - Continuously loop mute/umute. Argument: 0 - stop on error.\n"
 	       "                         1 - automatically reconnect to CRAS.\n");
@@ -1119,6 +1227,9 @@ static void show_usage()
 	printf("--select_output <N>:<M> - Select the ionode with the given id as preferred output\n");
 	printf("--set_hotword_model <N>:<M>:<model> - Set the model to node\n");
 	printf("--playback_delay_us <N> - Set the time in us to delay a reply for playback when i is pressed\n");
+	printf("--post_dsp <0|1> - Use this flag with --loopback_file. The default value is 0.\n"
+	       "                   Argument: 0 - Record from post-mix, pre-DSP loopback device.\n"
+	       "                             1 - Record from post-DSP loopback device.\n");
 	printf("--set_node_volume <N>:<M>:<0-100> - Set the volume of the ionode with the given id\n");
 	printf("--show_latency - Display latency while playing or recording.\n");
 	printf("--show_rms - Display RMS value of loopback stream.\n");
@@ -1146,8 +1257,11 @@ int main(int argc, char **argv)
 	const char *capture_file = NULL;
 	const char *playback_file = NULL;
 	const char *loopback_file = NULL;
+	int post_dsp = 0;
 	enum CRAS_STREAM_TYPE stream_type = CRAS_STREAM_TYPE_DEFAULT;
 	int rc = 0;
+	uint32_t stream_flags = 0;
+	cras_stream_id_t stream_id = 0;
 
 	option_index = 0;
 	openlog("cras_test_client", LOG_PERROR, LOG_USER);
@@ -1179,6 +1293,9 @@ int main(int argc, char **argv)
 			break;
 		case 'l':
 			loopback_file = optarg;
+			break;
+		case 'A':
+			post_dsp = atoi(optarg);
 			break;
 		case 'b':
 			block_size = atoi(optarg);
@@ -1337,8 +1454,11 @@ int main(int argc, char **argv)
 			}
 			break;
 		}
+		case 'e':
+			show_audio_thread_snapshots(client);
+			break;
 		case 'm':
-			print_audio_debug_info(client);
+			show_audio_debug_info(client);
 			break;
 		case 'o':
 			channel_layout = optarg;
@@ -1369,7 +1489,8 @@ int main(int argc, char **argv)
 			break;
 		}
 		case '7': {
-			run_hotword(client, 4096, 16000);
+			stream_flags = HOTWORD_STREAM;
+			capture_file = optarg;
 			break;
 		}
 		case '8':
@@ -1451,6 +1572,37 @@ int main(int argc, char **argv)
 		case 'T':
 			stream_type = atoi(optarg);
 			break;
+		case 'E': {
+			char *s;
+
+			s = strtok(optarg, ",");
+			while (s) {
+				if (strcmp("aec", s) == 0)
+					effect_aec = 1;
+				else if (strcmp("ns", s) == 0)
+					effect_ns = 1;
+				else if (strcmp("agc", s) == 0)
+					effect_agc = 1;
+				else if (strcmp("vad", s) == 0)
+					effect_vad = 1;
+				else
+					printf("Unknown effect %s\n", s);
+				s = strtok(NULL, ",");
+			}
+			break;
+		}
+		case 'B':
+			stream_id = atoi(optarg);
+			break;
+		case 'C':
+			aecdump_file = optarg;
+			break;
+		case 'D':
+			cras_client_reload_aec_config(client);
+			break;
+		case 'F':
+			printf("AEC supported %d\n",
+			       !!cras_client_get_aec_supported(client));
 		default:
 			break;
 		}
@@ -1464,21 +1616,27 @@ int main(int argc, char **argv)
 		if (strcmp(capture_file, "-") == 0)
 			rc = run_file_io_stream(client, 1, CRAS_STREAM_INPUT,
 					block_size, stream_type, rate,
-					num_channels, 0, 0);
+					num_channels, stream_flags, 0, 0);
 		else
 			rc = run_capture(client, capture_file, block_size,
-					 stream_type, rate, num_channels, 0);
+					 stream_type, rate, num_channels,
+					 stream_flags, 0, 0);
 	} else if (playback_file != NULL) {
 		if (strcmp(playback_file, "-") == 0)
 			rc = run_file_io_stream(client, 0, CRAS_STREAM_OUTPUT,
 					block_size, stream_type, rate,
-					num_channels, 0, 0);
+					num_channels, stream_flags, 0, 0);
 		else
 			rc = run_playback(client, playback_file, block_size,
 					  stream_type, rate, num_channels);
 	} else if (loopback_file != NULL) {
 		rc = run_capture(client, loopback_file, block_size,
-				 stream_type, rate, num_channels, 1);
+				 stream_type, rate, num_channels,
+				 stream_flags, 1, post_dsp);
+	} else if (aecdump_file != NULL) {
+		run_aecdump(client, stream_id, 1);
+		sleep(duration_seconds);
+		run_aecdump(client, stream_id, 0);
 	}
 
 destroy_exit:

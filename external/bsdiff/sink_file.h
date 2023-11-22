@@ -33,7 +33,7 @@ class SinkFile : public FileInterface {
 
  private:
   // The sink() function used to write data.
-  const sink_func& sink_;
+  const sink_func sink_;
 };
 
 }  // namespace bsdiff

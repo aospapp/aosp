@@ -1,7 +1,7 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
 // Copyright Bob Friesenhahn, 1999, 2000, 2001, 2002, 2003
-// Copyright Dirk Lemstra 2014-2015
+// Copyright Dirk Lemstra 2014-2017
 //
 // Implementation of Exception and derived classes
 //
@@ -42,8 +42,7 @@ Magick::Exception::Exception(const Magick::Exception& original_)
 
 Magick::Exception::~Exception() throw()
 {
-  if (_nested != (Exception *) NULL)
-    delete _nested;
+  delete _nested;
 }
 
 Magick::Exception& Magick::Exception::operator=(
@@ -842,6 +841,7 @@ MagickPPExport void Magick::throwException(ExceptionInfo *exception_,
 
   message=formatExceptionMessage(exception_);
   nestedException=(Exception *) NULL;
+  q=(Exception *) NULL;
   LockSemaphoreInfo(exception_->semaphore);
   if (exception_->exceptions != (void *) NULL)
     {
@@ -856,12 +856,18 @@ MagickPPExport void Magick::throwException(ExceptionInfo *exception_,
             exception_->description) != 0))
           {
             if (nestedException == (Exception *) NULL)
-              nestedException=createException(p);
+              {
+                nestedException=createException(p);
+                q=nestedException;
+              }
             else
               {
-                q=createException(p);
-                nestedException->nested(q);
-                nestedException=q;
+                Exception
+                  *r;
+
+                r=createException(p);
+                q->nested(r);
+                q=r;
               }
           }
       }

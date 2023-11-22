@@ -4,7 +4,7 @@
 #include <app_nugget.h>
 #include <application.h>
 #include <nos/debug.h>
-#include <nos/NuggetClientInterface.h>
+#include <nos/NuggetClient.h>
 
 #include <memory>
 #include <string>
@@ -18,11 +18,17 @@
 
 namespace nugget_tools {
 
+bool IsDirectDeviceClient();
+
 std::string GetCitadelUSBSerialNo();
 
 std::unique_ptr<nos::NuggetClientInterface> MakeNuggetClient();
 
+std::unique_ptr<nos::NuggetClient> MakeDirectNuggetClient();
+
 // Always does a hard reboot. Use WaitForSleep() if you just want deep sleep.
+bool RebootNuggetUnchecked(nos::NuggetClientInterface *client);
+// Does a hard reboot and checks the stats to make sure it happened.
 bool RebootNugget(nos::NuggetClientInterface *client);
 
 // Returns true if Citadel entered deep sleep

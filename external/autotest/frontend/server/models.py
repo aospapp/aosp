@@ -95,9 +95,22 @@ class Server(dbmodels.Model, model_logic.ModelExtensions):
 class ServerRole(dbmodels.Model, model_logic.ModelExtensions):
     """Role associated with hosts."""
     # Valid roles for a server.
-    ROLE_LIST = ['afe', 'scheduler', 'host_scheduler', 'drone', 'devserver',
-                 'database', 'database_slave', 'crash_server', 'shard',
-                 'golo_proxy', 'sentinel', 'reserve']
+    ROLE_LIST = [
+            'afe',
+            'crash_server',
+            'database',
+            'database_slave',
+            'devserver',
+            'drone',
+            'golo_proxy',
+            'host_scheduler',
+            'scheduler',
+            'sentinel',
+            'shard',
+            'skylab_drone',
+
+            'reserve',
+    ]
     ROLE = enum.Enum(*ROLE_LIST, string_values=True)
     # Roles that must be assigned to a single primary server in an Autotest
     # instance

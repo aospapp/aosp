@@ -9,7 +9,7 @@
 enum {
 	BLK_TC_READ	= 1 << 0,	/* reads */
 	BLK_TC_WRITE	= 1 << 1,	/* writes */
-	BLK_TC_BARRIER	= 1 << 2,	/* barrier */
+	BLK_TC_FLUSH	= 1 << 2,	/* flush */
 	BLK_TC_SYNC	= 1 << 3,	/* sync */
 	BLK_TC_QUEUE	= 1 << 4,	/* queueing/merging */
 	BLK_TC_REQUEUE	= 1 << 5,	/* requeueing */
@@ -22,8 +22,9 @@ enum {
 	BLK_TC_META	= 1 << 12,	/* metadata */
 	BLK_TC_DISCARD	= 1 << 13,	/* discard requests */
 	BLK_TC_DRV_DATA	= 1 << 14,	/* binary driver data */
+	BLK_TC_FUA	= 1 << 15,	/* fua requests */
 
-	BLK_TC_END	= 1 << 15,	/* only 16-bits, reminder */
+	BLK_TC_END	= 1 << 15,	/* we've run out of bits! */
 };
 
 #define BLK_TC_SHIFT		(16)

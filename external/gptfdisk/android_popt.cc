@@ -29,8 +29,10 @@ poptContext poptGetContext(const char *name, int argc, const char **argv,
     for (; options[count].longName; count++) {
     }
 
+    // getopt_long expects the last element to be null
+    // so allocate count + 1
     struct option *long_options = (struct option *)
-            calloc(count, sizeof(struct option));
+            calloc(count + 1, sizeof(struct option));
     for (int i = 0; options[i].longName; i++) {
         long_options[i].name = options[i].longName;
         long_options[i].flag = 0;

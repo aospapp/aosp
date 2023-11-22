@@ -230,9 +230,11 @@ class DeployConfigManager(object):
                               if 'mount' in c]
         tmp_append = os.path.join(self.container.rootfs,
                                   _APPEND_FOLDER.lstrip(os.path.sep))
+        commands = []
         if lxc_utils.path_exists(tmp_append):
-            utils.run('sudo rm -rf "%s"' % tmp_append)
-        utils.run('sudo mkdir -p "%s"' % tmp_append)
+            commands = ['rm -rf "%s"' % tmp_append]
+        commands.append('mkdir -p "%s"' % tmp_append)
+        lxc_utils.sudo_commands(commands)
 
 
     def _deploy_config_pre_start(self, deploy_config):

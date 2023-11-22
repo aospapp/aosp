@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
 Software License for The Fraunhofer FDK AAC Codec Library for Android
 
-© Copyright  1995 - 2018 Fraunhofer-Gesellschaft zur Förderung der angewandten
+© Copyright  1995 - 2019 Fraunhofer-Gesellschaft zur Förderung der angewandten
 Forschung e.V. All rights reserved.
 
  1.    INTRODUCTION
@@ -555,6 +555,11 @@ drcDec_SelectionProcess_SetParam(HANDLE_DRC_SELECTION_PROCESS hInstance,
       diff |= _compAssign(&pSelProcInput->loudnessMeasurementMethod,
                           requestValueInt);
       break;
+    case SEL_PROC_ALBUM_MODE:
+      if ((requestValueInt < 0) || (requestValueInt > 1))
+        return DRCDEC_SELECTION_PROCESS_PARAM_OUT_OF_RANGE;
+      diff |= _compAssign(&pSelProcInput->albumMode, requestValueInt);
+      break;
     case SEL_PROC_DOWNMIX_ID:
       diff |=
           _compAssign(&pSelProcInput->targetConfigRequestType, TCRT_DOWNMIX_ID);
@@ -598,14 +603,21 @@ drcDec_SelectionProcess_SetParam(HANDLE_DRC_SELECTION_PROCESS hInstance,
       if ((requestValue < (FIXP_DBL)0) ||
           (requestValue > FL2FXCONST_DBL(1.0f / (float)(1 << 1))))
         return DRCDEC_SELECTION_PROCESS_PARAM_OUT_OF_RANGE;
-      diff |= _compAssign(&pSelProcInput->boost, FX_DBL2FX_SGL(requestValue));
+      diff |= _compAssign(
+          &pSelProcInput->boost,
+          FX_DBL2FX_SGL(
+              requestValue +
+              (FIXP_DBL)(1 << 15))); /* convert to FIXP_SGL with rounding */
       break;
     case SEL_PROC_COMPRESS:
       if ((requestValue < (FIXP_DBL)0) ||
           (requestValue > FL2FXCONST_DBL(1.0f / (float)(1 << 1))))
         return DRCDEC_SELECTION_PROCESS_PARAM_OUT_OF_RANGE;
-      diff |=
-          _compAssign(&pSelProcInput->compress, FX_DBL2FX_SGL(requestValue));
+      diff |= _compAssign(
+          &pSelProcInput->compress,
+          FX_DBL2FX_SGL(
+              requestValue +
+              (FIXP_DBL)(1 << 15))); /* convert to FIXP_SGL with rounding */
       break;
     default:
       return DRCDEC_SELECTION_PROCESS_INVALID_PARAM;
@@ -1006,15 +1018,23 @@ static DRCDEC_SELECTION_PROCESS_RETURN _preSelectionRequirement7(
   return DRCDEC_SELECTION_PROCESS_NO_ERROR;
 }
 
-static void _setSelectionDataInfo(DRCDEC_SELECTION_DATA* pData,
-                                  FIXP_DBL loudness,
-                                  FIXP_DBL loudnessNormalizationGainDb,
-                                  FIXP_DBL loudnessNormalizationGainDbMax,
-                                  FIXP_DBL loudnessDeviationMax,
-                                  FIXP_DBL signalPeakLevel,
-                                  FIXP_DBL outputPeakLevelMax,
-                                  int applyAdjustment) {
-  FIXP_DBL adjustment = 0;
+static void _setSelectionDataInfo(
+    DRCDEC_SELECTION_DATA* pData, FIXP_DBL loudness, /* e = 7 */
+    FIXP_DBL loudnessNormalizationGainDb,            /* e = 7 */
+    FIXP_DBL loudnessNormalizationGainDbMax,         /* e = 7 */
+    FIXP_DBL loudnessDeviationMax,                   /* e = 7 */
+    FIXP_DBL signalPeakLevel,                        /* e = 7 */
+    FIXP_DBL outputPeakLevelMax,                     /* e = 7 */
+    int applyAdjustment) {
+  FIXP_DBL adjustment = 0; /* e = 8 */
+
+  /* use e = 8 for all function parameters to prevent overflow */
+  loudness >>= 1;
+  loudnessNormalizationGainDb >>= 1;
+  loudnessNormalizationGainDbMax >>= 1;
+  loudnessDeviationMax >>= 1;
+  signalPeakLevel >>= 1;
+  outputPeakLevelMax >>= 1;
 
   if (applyAdjustment) {
     adjustment =
@@ -1028,6 +1048,14 @@ static void _setSelectionDataInfo(DRCDEC_SELECTION_DATA* pData,
   pData->outputLoudness = loudness + pData->loudnessNormalizationGainDbAdjusted;
   pData->outputPeakLevel =
       signalPeakLevel + pData->loudnessNormalizationGainDbAdjusted;
+
+  /* shift back to e = 7 using saturation */
+  pData->loudnessNormalizationGainDbAdjusted = SATURATE_LEFT_SHIFT(
+      pData->loudnessNormalizationGainDbAdjusted, 1, DFRACT_BITS);
+  pData->outputLoudness =
+      SATURATE_LEFT_SHIFT(pData->outputLoudness, 1, DFRACT_BITS);
+  pData->outputPeakLevel =
+      SATURATE_LEFT_SHIFT(pData->outputPeakLevel, 1, DFRACT_BITS);
 }
 
 static int _targetLoudnessInRange(
@@ -2157,6 +2185,9 @@ static DRCDEC_SELECTION_PROCESS_RETURN _selectDownmixMatrix(
   if (hSelProcOutput->activeDownmixId != 0) {
     for (i = 0; i < hUniDrcConfig->downmixInstructionsCount; i++) {
       DOWNMIX_INSTRUCTIONS* pDown = &(hUniDrcConfig->downmixInstructions[i]);
+      if (pDown->targetChannelCount > 8) {
+        continue;
+      }
 
       if (hSelProcOutput->activeDownmixId == pDown->downmixId) {
         hSelProcOutput->targetChannelCount = pDown->targetChannelCount;
@@ -2809,6 +2840,8 @@ static int _downmixCoefficientsArePresent(HANDLE_UNI_DRC_CONFIG hUniDrcConfig,
   for (i = 0; i < hUniDrcConfig->downmixInstructionsCount; i++) {
     if (hUniDrcConfig->downmixInstructions[i].downmixId == downmixId) {
       if (hUniDrcConfig->downmixInstructions[i].downmixCoefficientsPresent) {
+        if (hUniDrcConfig->downmixInstructions[i].targetChannelCount > 8)
+          return 0;
         *pIndex = i;
         return 1;
       }

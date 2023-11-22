@@ -64,10 +64,12 @@ bspatch_src_files := \
 # Unit test files.
 bsdiff_common_unittests := \
     brotli_compressor_unittest.cc \
+    brotli_decompressor_unittest.cc \
     bsdiff_arguments.cc \
     bsdiff_arguments_unittest.cc \
     bsdiff_unittest.cc \
     bspatch_unittest.cc \
+    bz2_decompressor_unittest.cc \
     diff_encoder_unittest.cc \
     endsley_patch_writer_unittest.cc \
     extents_file_unittest.cc \

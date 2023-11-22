@@ -97,6 +97,15 @@ class iteration(models.iteration):
             if val_type == 'attr':
                 attr_dict[key] = value
             elif val_type == 'perf':
+                # first check if value is in the form of 'mean+-deviation'
+                if isinstance(value, str):
+                    r = re.compile('(\d+.?\d*)\+-(\d+.?\d*)')
+                    match = r.match(value)
+                    if match:
+                        perf_dict[key] = float(match.group(1))
+                        perf_dict['%s_dev' % key] = float(match.group(2))
+                        return
+                # otherwise try to interpret as a regular float
                 perf_dict[key] = float(value)
             else:
                 raise ValueError

@@ -9,7 +9,6 @@ from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.cros import constants
 from autotest_lib.server import test
-from autotest_lib.site_utils import lxc
 from autotest_lib.server.cros.network import wifi_test_context_manager
 
 class WiFiCellTestBase(test.test):
@@ -31,15 +30,14 @@ class WiFiCellTestBase(test.test):
     """
 
     def initialize(self, host):
-        if utils.host_could_be_in_afe(host.hostname):
-            # There are some DUTs that have different types of wifi modules.
-            # In order to generate separate performance graphs, a variant
-            # name is needed.  Writing this key will generate results with
-            # the name of <board>-<variant>.
-            info = host.host_info_store.get()
-            variant_name = info.get_label_value('variant')
-            if variant_name:
-                self.write_test_keyval({constants.VARIANT_KEY: variant_name})
+        # There are some DUTs that have different types of wifi modules.
+        # In order to generate separate performance graphs, a variant
+        # name is needed.  Writing this key will generate results with
+        # the name of <board>-<variant>.
+        info = host.host_info_store.get()
+        variant_name = info.get_label_value('variant')
+        if variant_name:
+            self.write_test_keyval({constants.VARIANT_KEY: variant_name})
 
     @property
     def context(self):
@@ -96,16 +94,16 @@ class WiFiCellTestBase(test.test):
             self._wifi_context.teardown()
 
 
-    def configure_and_connect_to_ap(self, configuration_parameters):
+    def configure_and_connect_to_ap(self, ap_config):
         """
-        Configure the router as an AP with the given parameters and connect
+        Configure the router as an AP with the given config and connect
         the DUT to it.
 
-        @param configuration_parameters HostapConfig object.
+        @param ap_config HostapConfig object.
 
         @return name of the configured AP
         """
-        self.context.configure(configuration_parameters)
+        self.context.configure(ap_config)
         ap_ssid = self.context.router.get_ssid()
         assoc_params = xmlrpc_datatypes.AssociationParameters(ssid=ap_ssid)
         self.context.assert_connect_wifi(assoc_params)

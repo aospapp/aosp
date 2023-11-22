@@ -76,6 +76,34 @@ bool RecordInfo::IsHeapAllocatedCollection() {
   return Config::IsGCCollection(name_);
 }
 
+bool RecordInfo::HasOptionalFinalizer() {
+  if (!IsHeapAllocatedCollection())
+    return false;
+  // Heap collections may have a finalizer but it is optional (i.e. may be
+  // delayed until FinalizeGarbageCollectedObject() gets called), unless there
+  // is an inline buffer. Vector, Deque, and ListHashSet can have an inline
+  // buffer.
+  if (name_ != "Vector" && name_ != "Deque" && name_ != "HeapVector" &&
+      name_ != "HeapDeque")
+    return true;
+  ClassTemplateSpecializationDecl* tmpl =
+      dyn_cast<ClassTemplateSpecializationDecl>(record_);
+  // These collections require template specialization so tmpl should always be
+  // non-null for valid code.
+  if (!tmpl)
+    return false;
+  const TemplateArgumentList& args = tmpl->getTemplateArgs();
+  if (args.size() < 2)
+    return true;
+  TemplateArgument arg = args[1];
+  // The second template argument must be void or 0 so there is no inline
+  // buffer.
+  return (arg.getKind() == TemplateArgument::Type &&
+          arg.getAsType()->isVoidType()) ||
+         (arg.getKind() == TemplateArgument::Integral &&
+          arg.getAsIntegral().getExtValue() == 0);
+}
+
 // Test if a record is derived from a garbage collected base.
 bool RecordInfo::IsGCDerived() {
   // If already computed, return the known result.
@@ -438,7 +466,6 @@ void RecordInfo::DetermineTracingMethods() {
   if (Config::IsGCBase(name_))
     return;
   CXXMethodDecl* trace = nullptr;
-  CXXMethodDecl* trace_impl = nullptr;
   CXXMethodDecl* trace_after_dispatch = nullptr;
   bool has_adjust_and_mark = false;
   bool has_is_heap_object_alive = false;
@@ -459,11 +486,6 @@ void RecordInfo::DetermineTracingMethods() {
       case Config::TRACE_AFTER_DISPATCH_METHOD:
         trace_after_dispatch = method;
         break;
-      case Config::TRACE_IMPL_METHOD:
-        trace_impl = method;
-        break;
-      case Config::TRACE_AFTER_DISPATCH_IMPL_METHOD:
-        break;
       case Config::NOT_TRACE_METHOD:
         if (method->getNameAsString() == kFinalizeName) {
           finalize_dispatch_method_ = method;
@@ -481,7 +503,7 @@ void RecordInfo::DetermineTracingMethods() {
       has_adjust_and_mark && has_is_heap_object_alive ? kTrue : kFalse;
   if (trace_after_dispatch) {
     trace_method_ = trace_after_dispatch;
-    trace_dispatch_method_ = trace_impl ? trace_impl : trace;
+    trace_dispatch_method_ = trace;
   } else {
     // TODO: Can we never have a dispatch method called trace without the same
     // class defining a traceAfterDispatch method?
@@ -509,6 +531,11 @@ void RecordInfo::DetermineTracingMethods() {
 // TODO: Add classes with a finalize() method that specialize FinalizerTrait.
 bool RecordInfo::NeedsFinalization() {
   if (does_need_finalization_ == kNotComputed) {
+    if (HasOptionalFinalizer()) {
+      does_need_finalization_ = kFalse;
+      return does_need_finalization_;
+    }
+
     // Rely on hasNonTrivialDestructor(), but if the only
     // identifiable reason for it being true is the presence
     // of a safely ignorable class as a direct base,
@@ -628,12 +655,6 @@ Edge* RecordInfo::CreateEdge(const Type* type) {
   if (Config::IsRefPtr(info->name()) && info->GetTemplateArgs(1, &args)) {
     if (Edge* ptr = CreateEdge(args[0]))
       return new RefPtr(ptr);
-    return 0;
-  }
-
-  if (Config::IsOwnPtr(info->name()) && info->GetTemplateArgs(1, &args)) {
-    if (Edge* ptr = CreateEdge(args[0]))
-      return new OwnPtr(ptr);
     return 0;
   }
 

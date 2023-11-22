@@ -17,15 +17,18 @@ limitations under the License.
 #include <unordered_set>
 
 #include "tensorflow/core/framework/attr_value.pb.h"
+#include "tensorflow/core/framework/memory_types.h"
 #include "tensorflow/core/framework/node_def.pb.h"
+#include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb.h"
+#include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/grappler/clusters/cluster.h"
 #include "tensorflow/core/grappler/devices.h"
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/op_types.h"
 #include "tensorflow/core/grappler/optimizers/layout_optimizer.h"
-#include "tensorflow/core/grappler/utils.h"
 #include "tensorflow/core/grappler/utils/frame.h"
 #include "tensorflow/core/lib/strings/numbers.h"
 #include "tensorflow/core/lib/strings/str_util.h"
@@ -115,6 +118,8 @@ std::set<string> GetOpsFormatAgnostic() {
                                           "Exit",
                                           "Exp",
                                           "Expm1",
+                                          "FakeQuantWithMinMaxVars",
+                                          "FakeQuantWithMinMaxArgs",
                                           "Fill",
                                           "Floor",
                                           "FloorDiv",
@@ -157,6 +162,8 @@ std::set<string> GetOpsFormatAgnostic() {
                                           "PreventGradient",
                                           "Prod",
                                           "Polygamma",
+                                          "QuantizeAndDequantizeV2",
+                                          "QuantizeAndDequantizeV3",
                                           "Pow",
                                           "Real",
                                           "RealDiv",
@@ -301,10 +308,6 @@ bool IsComparisonOp(const NodeDef& node) {
   return is_compare;
 }
 
-bool IsLogicalOp(const NodeDef& node) {
-  return IsLogicalAnd(node) || IsLogicalNot(node) || IsLogicalOr(node);
-}
-
 bool IsReduceOp(const NodeDef& node) {
   return IsSum(node) || IsMean(node) || IsProd(node) || IsMax(node) ||
          IsMin(node) || IsAll(node) || IsAny(node);
@@ -355,7 +358,7 @@ std::vector<int> DataInputPos(const NodeDef& node) {
   if (IsBetainc(node) || IsSelect(node)) {
     return {0, 1, 2};
   }
-  if (IsShapeN(node) || IsIdentityN(node) || IsAddN(node)) {
+  if (IsShapeN(node) || IsIdentityN(node) || IsAddN(node) || IsMerge(node)) {
     return NonControlInputs(node);
   }
   if (IsConcat(node)) {
@@ -365,6 +368,28 @@ std::vector<int> DataInputPos(const NodeDef& node) {
     return {0};
   }
   return {};
+}
+
+bool IsHostMemory(const NodeDef& node, int output_port) {
+  DeviceNameUtils::ParsedName parsed_name;
+  if (DeviceNameUtils::ParseFullName(node.device(), &parsed_name)) {
+    DeviceType device_type(parsed_name.type);
+    Status s = FindKernelDef(device_type, node, nullptr, nullptr);
+    if (s.ok()) {
+      tensorflow::MemoryTypeVector in_mtypes;
+      tensorflow::MemoryTypeVector out_mtypes;
+      s = tensorflow::MemoryTypesForNode(OpRegistry::Global(), device_type,
+                                         node, &in_mtypes, &out_mtypes);
+      if (s.ok()) {
+        if (out_mtypes[output_port] == HOST_MEMORY) {
+          return true;
+        }
+      }
+    } else {
+      return true;
+    }
+  }
+  return false;
 }
 
 class GraphProcessor {
@@ -477,6 +502,8 @@ class NodeProcessor : public GraphProcessor {
       UpdateAttrDataFormat();
       UpdateAttrKSize();
       UpdateAttrStrides();
+      UpdateAttrDilations();
+      UpdateAttrExplicitPaddings();
       UpdateAttrShape();
       TF_RETURN_IF_ERROR(AddLayoutTransposeToInputs());
       TF_RETURN_IF_ERROR(AddLayoutTransposeToOutputs());
@@ -551,8 +578,8 @@ class NodeProcessor : public GraphProcessor {
     string device;
     string not_used;
     if (DeviceNameUtils::SplitDeviceName(device_name, &not_used, &device) &&
-        (StringPiece(str_util::Lowercase(device)))
-            .contains(str_util::Lowercase(DEVICE_GPU))) {
+        str_util::StrContains(str_util::Lowercase(device),
+                              str_util::Lowercase(DEVICE_GPU))) {
       return true;
     }
     return false;
@@ -717,6 +744,35 @@ class NodeProcessor : public GraphProcessor {
     if (node_->attr().find("strides") != node_->attr().end()) {
       auto list = node_->mutable_attr()->at("strides").mutable_list();
       UpdateTuple(list);
+    }
+  }
+
+  void UpdateAttrDilations() {
+    if (node_->attr().find("dilations") != node_->attr().end()) {
+      auto list = node_->mutable_attr()->at("dilations").mutable_list();
+      UpdateTuple(list);
+    }
+  }
+
+  void UpdateAttrExplicitPaddings() {
+    if (node_->attr().find("explicit_paddings") != node_->attr().end()) {
+      auto list = node_->mutable_attr()->at("explicit_paddings").mutable_list();
+      int size = list->i_size();
+      if (size == 8) {
+        int64 height_before = list->i(2);
+        int64 height_after = list->i(3);
+        int64 width_before = list->i(4);
+        int64 width_after = list->i(5);
+        list->set_i(2, 0);
+        list->set_i(3, 0);
+        list->set_i(4, height_before);
+        list->set_i(5, height_after);
+        list->set_i(6, width_before);
+        list->set_i(7, width_after);
+      } else if (size != 0) {
+        LOG(ERROR) << "Cannot handle explicit_paddings attribute of size "
+                   << size;
+      }
     }
   }
 
@@ -887,6 +943,22 @@ class NodeProcessor : public GraphProcessor {
     list->set_i(3, w);
   }
 
+  bool IsInputOnHost(const string& input_name) const {
+    string device = node_->device();
+    DeviceNameUtils::ParsedName parsed_name;
+    if (DeviceNameUtils::ParseFullName(device, &parsed_name)) {
+      if (parsed_name.type != "CPU") {
+        NodeDef* input = node_map_->GetNode(input_name);
+        int port;
+        ParseNodeName(input_name, &port);
+        if (IsHostMemory(*input, port)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   NodeDef* AddNodeDataFormatOp(const string& name, const string& input_name,
                                const string& op, DataType dtype,
                                bool nhwc_to_nchw) {
@@ -895,6 +967,13 @@ class NodeProcessor : public GraphProcessor {
     added_node->set_op(op);
     node_map_->AddNode(added_node->name(), added_node);
     added_node->set_device(node_->device());
+    // The inputs of a DataFormat op could be in host memory for ops such as
+    // Reshape. In such cases, run the kernel on the host too.
+    if (IsInputOnHost(input_name)) {
+      AttrValue attr_kernel;
+      attr_kernel.set_s("host");
+      added_node->mutable_attr()->insert({"_kernel", attr_kernel});
+    }
     AttrValue attr_data_type;
     attr_data_type.set_type(dtype);
     added_node->mutable_attr()->insert({"T", attr_data_type});
@@ -1160,9 +1239,11 @@ class AgnosticNodeProcessor : public NodeProcessor {
     std::set<string> ops_format_agnostic = GetOpsFormatAgnostic();
     std::deque<NodeDef*> queue;
     auto data_node_pos = DataInputPos(node);
+    std::unordered_set<string> visited;
     for (const auto& pos : data_node_pos) {
       auto input_node = node_map_->GetNode(node.input(pos));
       queue.push_back(input_node);
+      visited.insert(input_node->name());
     }
     // The code will exit this while loop in one iteration in most cases, as the
     // graph is already topologically sorted.
@@ -1181,7 +1262,10 @@ class AgnosticNodeProcessor : public NodeProcessor {
         auto current_node_pos = DataInputPos(*current_node);
         for (const auto& pos : current_node_pos) {
           auto input_node = node_map_->GetNode(current_node->input(pos));
-          queue.push_back(input_node);
+          if (visited.find(input_node->name()) == visited.end()) {
+            queue.push_back(input_node);
+            visited.insert(input_node->name());
+          }
         }
       }
     }
@@ -1907,9 +1991,9 @@ class DataLayoutOptimizer : GraphProcessor {
   // Expand all nodes which is in NHWC, but supports NCHW or is layout agnostic.
   Status Expand() {
     int node_size_original = graph_->node_size();
-    std::unordered_map<const NodeDef*, std::vector<int>> frames;
-    int num_frames;
-    TF_RETURN_IF_ERROR(IdentifyFrames(*graph_, &frames, &num_frames));
+
+    FrameView frame_view;
+    TF_RETURN_IF_ERROR(frame_view.InferFromGraph(*graph_));
 
     // This is the first pass where we expand the nodes which support NCHW.
     std::set<string> ops_format_supported = GetOpsFormatSupported();
@@ -1921,7 +2005,7 @@ class DataLayoutOptimizer : GraphProcessor {
       if (ops_format_supported.find(graph_->node(i).op()) !=
           ops_format_supported.end()) {
         auto node = graph_->mutable_node(i);
-        bool is_in_frame = !frames[node].empty();
+        bool is_in_frame = frame_view.IsInFrame(*node);
         OptimizeContext opt_cxt(graph_, node, node_map_, graph_properties_,
                                 virtual_placer_, nodes_to_preserve_,
                                 is_in_frame);
@@ -1964,14 +2048,16 @@ class DataLayoutOptimizer : GraphProcessor {
     // only needs to be performed if at least one node in the previous pass is
     // expanded.
     if (graph_->node_size() > node_size_original) {
-      NodeDef* n = AddNodePermNHWCToNCHW();
-      n = AddNodePermNCHWToNHWC();
+      // Create Const nodes holding the permutation used by added Transposes of
+      // nodes not in a frame.
+      AddNodePermNHWCToNCHW();
+      AddNodePermNCHWToNHWC();
       std::set<string> ops_format_agnostic = GetOpsFormatAgnostic();
       for (int i = 0; i < graph_->node_size(); i++) {
         if (ops_format_agnostic.find(graph_->node(i).op()) !=
             ops_format_agnostic.end()) {
           auto node = graph_->mutable_node(i);
-          bool is_in_frame = !frames[node].empty();
+          bool is_in_frame = frame_view.IsInFrame(*node);
           OptimizeContext opt_cxt(graph_, node, node_map_, graph_properties_,
                                   virtual_placer_, nodes_to_preserve_,
                                   is_in_frame);
@@ -2085,14 +2171,7 @@ int GetNumGPUs(const Cluster& cluster) {
   int num_gpus = 0;
   for (const auto& device : devices) {
     if (device.second.type() == "GPU") {
-      if (device.second.environment().find("architecture") !=
-          device.second.environment().end()) {
-        const string arch = device.second.environment().at("architecture");
-        // TODO(yaozhang): Enable for Volta GPUs (compute capability version 7).
-        if (arch < "7") {
-          num_gpus++;
-        }
-      }
+      num_gpus++;
     }
   }
   return num_gpus;
@@ -2118,6 +2197,10 @@ Status LayoutOptimizer::Tune(const GrapplerItem& item,
 
 Status LayoutOptimizer::Optimize(Cluster* cluster, const GrapplerItem& item,
                                  GraphDef* output) {
+  if (cluster == nullptr) {
+    return errors::InvalidArgument("cluster == nullptr");
+  }
+
   if (GetNumGPUs(*cluster) < 1) {
     // LayoutOptimizer is currently only tuned for GPU.
     *output = item.graph;
@@ -2133,10 +2216,11 @@ Status LayoutOptimizer::Optimize(Cluster* cluster, const GrapplerItem& item,
     *output = item.graph;
     return status;
   }
+  GRAPPLER_RETURN_IF_DEADLINE_EXCEEDED();
 
   TuningConfig config;
   config.no_gemm = true;
-  // TODO(yaozhang): Enable tuning with various TuningConfig choices wtih
+  // TODO(yaozhang): Enable tuning with various TuningConfig choices with
   // the measurement-based estimator.
   status = Tune(item, graph_properties, config, output);
   if (!status.ok()) {

@@ -9,12 +9,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <base/files/file_util.h>
 #include <gflags/gflags.h>
 
 #include "png_helper.h"
 
-void abort_(const char * s, ...) {
+void abort_(const char* s, ...) {
   va_list args;
   va_start(args, s);
   vfprintf(stderr, s, args);
@@ -23,30 +22,33 @@ void abort_(const char * s, ...) {
   abort();
 }
 
-void write_png_file(const char* file_name, char* pixels, int width, int height)
-{
-  int         x, y;
-  png_bytep  *row_pointers;
+void write_png_file(const char* file_name,
+                    char* pixels,
+                    int width,
+                    int height) {
+  int x, y;
+  png_bytep* row_pointers;
   png_structp png_ptr;
-  png_infop   info_ptr;
-  png_byte    bit_depth = 8;  // 8 bits per channel RGBA
-  png_byte    color_type = 6; // RGBA
+  png_infop info_ptr;
+  png_byte bit_depth = 8;   // 8 bits per channel RGBA
+  png_byte color_type = 6;  // RGBA
 
-  row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
-  char *p = pixels;
-  for (y=height-1; y>=0; y--) {
-    row_pointers[y] = (png_byte*) malloc(4*width);
-    for (x=0; x<width; x++) {
-      png_byte* pixel = &(row_pointers[y][x*4]);
-      pixel[0] = *p; p++; // R
-      pixel[1] = *p; p++; // G
-      pixel[2] = *p; p++; // B
-      pixel[3] = *p; p++; // A
+  row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * height);
+  char* p = pixels;
+  for (y = height - 1; y >= 0; y--) {
+    row_pointers[y] = (png_byte*)malloc(4 * width);
+    for (x = 0; x < width; x++) {
+      png_byte* pixel = &(row_pointers[y][x * 4]);
+      pixel[0] = *(p);  // R
+      pixel[1] = *(p+1);  // G
+      pixel[2] = *(p+2);  // B
+      pixel[3] = *(p+3);  // A
+      p += 4;
     }
   }
 
   /* create file */
-  FILE *fp = fopen(file_name, "wb");
+  FILE* fp = fopen(file_name, "wb");
   if (!fp)
     abort_("[write_png_file] File %s could not be opened for writing",
            file_name);
@@ -64,9 +66,9 @@ void write_png_file(const char* file_name, char* pixels, int width, int height)
   /* write header */
   if (setjmp(png_jmpbuf(png_ptr)))
     abort_("[write_png_file] Error during writing header");
-  png_set_IHDR(png_ptr, info_ptr, width, height,
-               bit_depth, color_type, PNG_INTERLACE_NONE,
-               PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+  png_set_IHDR(png_ptr, info_ptr, width, height, bit_depth, color_type,
+               PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE,
+               PNG_FILTER_TYPE_BASE);
   png_write_info(png_ptr, info_ptr);
 
   /* write bytes */
@@ -80,7 +82,7 @@ void write_png_file(const char* file_name, char* pixels, int width, int height)
   png_write_end(png_ptr, NULL);
 
   /* cleanup heap allocation */
-  for (y=0; y<height; y++)
+  for (y = 0; y < height; y++)
     free(row_pointers[y]);
   free(row_pointers);
 

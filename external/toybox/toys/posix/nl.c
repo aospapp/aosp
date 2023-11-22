@@ -7,7 +7,7 @@
  * This implements a subset: only one logical page (-ip), no sections (-dfh).
  * todo: -lv
 
-USE_NL(NEWTOY(nl, "v#<1=1l#b:n:s:w#<0=6E", TOYFLAG_BIN))
+USE_NL(NEWTOY(nl, "v#<1=1l#w#<0=6Eb:n:s:", TOYFLAG_USR|TOYFLAG_BIN))
 
 config NL
   bool "nl"
@@ -18,9 +18,9 @@ config NL
     Number lines of input.
 
     -E	Use extended regex syntax (when doing -b pREGEX)
-    -b	which lines to number: a (all) t (non-empty, default) pREGEX (pattern)
+    -b	Which lines to number: a (all) t (non-empty, default) pREGEX (pattern)
     -l	Only count last of this many consecutive blank lines
-    -n	number STYLE: ln (left justified) rn (right justified) rz (zero pad)
+    -n	Number STYLE: ln (left justified) rn (right justified) rz (zero pad)
     -s	Separator to use between number and line (instead of TAB)
     -w	Width of line numbers (default 6)
 */
@@ -29,12 +29,8 @@ config NL
 #include "toys.h"
 
 GLOBALS(
-  long w;
-  char *s;
-  char *n;
-  char *b;
-  long l;
-  long v;
+  char *s, *n, *b;
+  long w, l, v;
 
   // Count of consecutive blank lines for -l has to persist between files
   long lcount;

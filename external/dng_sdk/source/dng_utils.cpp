@@ -302,25 +302,7 @@ real64 TickTimeInSeconds ()
 real64 TickCountInSeconds ()
 	{
 	
-	#if qWinOS
-	
-	return GetTickCount () * (1.0 / 1000.0);
-	
-	#elif qMacOS
-	
-	#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-	// TODO: Needs implementation.
-	ThrowProgramError ("TickCountInSeconds() not implemented on iOS");
-	return 0;
-	#else	
-	return TickCount () * (1.0 / 60.0);
-	#endif  // TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-	
-	#else
-	
 	return TickTimeInSeconds ();
-	
-	#endif
 	
 	}
 

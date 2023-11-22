@@ -8,11 +8,13 @@ from autotest_lib.client.common_lib.cros import crash_detector
 from autotest_lib.server import autotest, test
 from autotest_lib.client.common_lib import error
 
-_WAIT_DELAY = 15
+_CLIENT_TERMINATION_FILE_PATH = '/tmp/simple_login_exit'
 _LONG_TIMEOUT = 200
 _LOWER_USB_PORT = 'usb_mux_sel3'
 _SUSPEND_TIME = 30
 _UPPER_USB_PORT = 'usb_mux_sel1'
+_WAIT_DELAY = 15
+
 
 class platform_ExternalUsbPeripherals(test.test):
     """Uses servo to repeatedly connect/remove USB devices during boot."""
@@ -54,14 +56,36 @@ class platform_ExternalUsbPeripherals(test.test):
         self.pluged_status = on
 
 
-    def action_login(self):
+    def client_login(self, client_exit):
         """Login i.e. runs running client test
 
         @exception TestFail failed to login within timeout.
 
         """
         self.autotest_client.run_test(self.client_autotest,
-                                      exit_without_logout=True)
+                                      exit_without_logout=client_exit)
+
+
+    def action_login(self, login_client_exit=True):
+        """Login i.e. runs running client login
+
+        @param login_client_exit: Exit after login flag.
+
+        """
+        thread = threading.Thread(target=self.client_login,
+                                  args = (login_client_exit, ))
+        thread.start()
+        time.sleep(_WAIT_DELAY)
+
+
+    def action_logout(self):
+        """Logout i.e. runs running client test
+
+        @exception TestFail failed to logout within timeout.
+
+        """
+        self.host.run('touch %s' % _CLIENT_TERMINATION_FILE_PATH)
+        time.sleep(_WAIT_DELAY)
 
 
     def wait_for_cmd_output(self, cmd, check, timeout, timeout_msg):
@@ -124,6 +148,7 @@ class platform_ExternalUsbPeripherals(test.test):
         logging.debug('--- Resumed')
         self.suspend_status = False
 
+
     def close_lid(self):
         """Close lid through servo to suspend the device."""
         boot_id = self.host.get_boot_id()
@@ -140,6 +165,7 @@ class platform_ExternalUsbPeripherals(test.test):
         self.host.servo.lid_open()
         self.host.test_wait_for_resume(boot_id, _LONG_TIMEOUT)
         self.suspend_status = False
+
 
     def crash_not_detected(self):
         """Finds new crash files and adds to failures list if any
@@ -194,9 +220,14 @@ class platform_ExternalUsbPeripherals(test.test):
             if cmd.startswith('loggedin:'):
                 if not self.login_status:
                     continue
-                cmd = cmd.replace('loggedin:','')
+                cmd = cmd.replace('loggedin:', '')
+            board = self.host.get_board().split(':')[1].lower()
             # Run the usb check command
             for out_match in out_match_list:
+                # Skip running media_v4l2_test on hana boards
+                # crbug.com/820500
+                if 'media_v4l2_test' in cmd and board in ["hana"]:
+                    continue
                 match_result = self.wait_for_cmd_output(
                     cmd, out_match, _WAIT_DELAY * 4,
                     'USB CHECKS DETAILS failed at %s %s:' % (cmd, out_match))
@@ -287,6 +318,7 @@ class platform_ExternalUsbPeripherals(test.test):
     def cleanup(self):
         """Disconnect servo hub"""
         self.plug_peripherals(False)
+        self.action_logout()
         self.host.servo.set('dut_hub1_rst1','on')
         self.host.reboot()
 
@@ -345,8 +377,14 @@ class platform_ExternalUsbPeripherals(test.test):
                             logging.debug('Skipping login. Already logged in.')
                             continue
                         else:
-                            self.action_login()
+                            self.action_login('LOGOUT' not in actions)
                             self.login_status = True
+                    elif action == 'LOGOUT':
+                        if self.login_status:
+                            self.action_logout()
+                            self.login_status = False
+                        else:
+                            logging.debug('Skipping logout. Not logged in.')
                     elif action == 'REBOOT':
                         self.host.reboot()
                         time.sleep(_WAIT_DELAY * 3)

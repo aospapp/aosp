@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -330,6 +330,7 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Determine if this a PDB image file.
   */
+  (void) memset(&pdb_info,0,sizeof(pdb_info));
   count=ReadBlob(image,sizeof(pdb_info.name),(unsigned char *) pdb_info.name);
   if (count != sizeof(pdb_info.name))
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
@@ -412,6 +413,8 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       return(GetFirstImageInList(image));
     }
   status=SetImageExtent(image,image->columns,image->rows,exception);
+  if (status != MagickFalse)
+    status=ResetImagePixels(image,exception);
   if (status == MagickFalse)
     return(DestroyImageList(image));
   packets=(bits_per_pixel*image->columns+7)/8;
@@ -419,24 +422,36 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
     sizeof(*pixels));
   if (pixels == (unsigned char *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-  switch (pdb_image.version & 0x07) 
+  (void) memset(pixels,0,(packets+257UL)*image->rows*sizeof(*pixels));
+  switch (pdb_image.version & 0x07)
   {
     case 0:
     {
       image->compression=NoCompression;
-      count=(ssize_t) ReadBlob(image, packets * image -> rows, pixels);
+      count=(ssize_t) ReadBlob(image,packets*image->rows,pixels);
+      if (count != (ssize_t) (packets*image->rows))
+        {
+          pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+          ThrowReaderException(CorruptImageError,"RLEDecoderError");
+        }
       break;
     }
     case 1:
     {
       image->compression=RLECompression;
-      if (!DecodeImage(image, pixels, packets * image -> rows))
-        ThrowReaderException( CorruptImageError, "RLEDecoderError" );
+      if (DecodeImage(image,pixels,packets*image->rows) == MagickFalse)
+        {
+          pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+          ThrowReaderException(CorruptImageError,"RLEDecoderError");
+        }
       break;
     }
     default:
+    {
+      pixels=(unsigned char *) RelinquishMagickMemory(pixels);
       ThrowReaderException(CorruptImageError,
-         "UnrecognizedImageCompressionType" );
+        "UnrecognizedImageCompressionType");
+    }
   }
   p=pixels;
   switch (bits_per_pixel)
@@ -454,15 +469,18 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
         if (q == (Quantum *) NULL)
           break;
-        for (x=0; x < ((ssize_t) image->columns-7); x+=8)
+        bit=0;
+        for (x=0; x < (ssize_t) image->columns; x++)
         {
-          for (bit=0; bit < 8; bit++)
-          {
-            index=(Quantum) (*p & (0x80 >> bit) ? 0x00 : 0x01);
-            SetPixelIndex(image,index,q);
-            q+=GetPixelChannels(image);
-          }
-          p++;
+          index=(Quantum) (*p & (0x80 >> bit) ? 0x00 : 0x01);
+          SetPixelIndex(image,index,q);
+          q+=GetPixelChannels(image);
+          bit++;
+          if (bit == 8)
+            {
+              p++;
+              bit=0;
+            }
         }
         if (SyncAuthenticPixels(image,exception) == MagickFalse)
           break;
@@ -476,6 +494,9 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
     }
     case 2:
     {
+      unsigned int
+        shift;
+
       /*
         Read 2-bit PDB image.
       */
@@ -484,21 +505,19 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
         if (q == (Quantum *) NULL)
           break;
-        for (x=0; x < (ssize_t) image->columns-3; x+=4)
+        shift=8;
+        for (x=0; x < (ssize_t) image->columns; x++)
         {
-          index=ConstrainColormapIndex(image,3UL-((*p >> 6) & 0x03),exception);
+          shift-=2;
+          index=ConstrainColormapIndex(image,3UL-((*p >> shift) & 0x03),
+            exception);
           SetPixelIndex(image,index,q);
           q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,3UL-((*p >> 4) & 0x03),exception);
-          SetPixelIndex(image,index,q);
-          q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,3UL-((*p >> 2) & 0x03),exception);
-          SetPixelIndex(image,index,q);
-          q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,3UL-((*p) & 0x03),exception);
-          SetPixelIndex(image,index,q);
-          p++;
-          q+=GetPixelChannels(image);
+          if (shift == 0)
+            {
+              shift=8;
+              p++;
+            }
         }
         if (SyncAuthenticPixels(image,exception) == MagickFalse)
           break;
@@ -512,6 +531,9 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
     }
     case 4:
     {
+      unsigned int
+        shift;
+
       /*
         Read 4-bit PDB image.
       */
@@ -520,15 +542,19 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
         if (q == (Quantum *) NULL)
           break;
-        for (x=0; x < (ssize_t) image->columns-1; x+=2)
+        shift=8;
+        for (x=0; x < (ssize_t) image->columns; x++)
         {
-          index=ConstrainColormapIndex(image,15UL-((*p >> 4) & 0x0f),exception);
+          shift-=4;
+          index=ConstrainColormapIndex(image,15UL-((*p >> shift) & 0x0f),
+            exception);
           SetPixelIndex(image,index,q);
           q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,15UL-((*p) & 0x0f),exception);
-          SetPixelIndex(image,index,q);
-          p++;
-          q+=GetPixelChannels(image);
+          if (shift == 0)
+            {
+              shift=8;
+              p++;
+            }
         }
         if (SyncAuthenticPixels(image,exception) == MagickFalse)
           break;
@@ -541,7 +567,10 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       break;
     }
     default:
+    {
+      pixels=(unsigned char *) RelinquishMagickMemory(pixels);
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   }
   pixels=(unsigned char *) RelinquishMagickMemory(pixels);
   if (EOFBlob(image) != MagickFalse)
@@ -562,7 +591,15 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
         length;
 
       num_pad_bytes = (size_t) (comment_offset - TellBlob( image ));
-      while (num_pad_bytes--) ReadBlobByte( image );
+      while (num_pad_bytes-- != 0)
+      {
+        int
+          c;
+
+        c=ReadBlobByte(image);
+        if (c == EOF)
+          break;
+      }
 
       /*
         Read comment.
@@ -577,8 +614,8 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
             *p='\0';
             length<<=1;
             length+=MagickPathExtent;
-            comment=(char *) ResizeQuantumMemory(comment,length+MagickPathExtent,
-              sizeof(*comment));
+            comment=(char *) ResizeQuantumMemory(comment,length+
+              MagickPathExtent,sizeof(*comment));
             if (comment == (char *) NULL)
               break;
             p=comment+strlen(comment);
@@ -689,7 +726,7 @@ static unsigned char *EncodeRLE(unsigned char *destination,
 {
   if (literal > 0)
     *destination++=(unsigned char) (literal-1);
-  (void) CopyMagickMemory(destination,source,literal);
+  (void) memcpy(destination,source,literal);
   destination+=literal;
   if (repeat > 0)
     {
@@ -768,7 +805,8 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
   } else {
     bits_per_pixel=4;
   }
-  (void) ResetMagickMemory(&pdb_info,0,sizeof(pdb_info));
+  (void) memset(&pdb_info,0,sizeof(pdb_info));
+  (void) memset(&pdb_image,0,sizeof(pdb_image));
   (void) CopyMagickString(pdb_info.name,image_info->filename,
     sizeof(pdb_info.name));
   pdb_info.attributes=0;
@@ -779,8 +817,8 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
   pdb_info.modify_number=0;
   pdb_info.application_info=0;
   pdb_info.sort_info=0;
-  (void) CopyMagickMemory(pdb_info.type,"vIMG",4);
-  (void) CopyMagickMemory(pdb_info.id,"View",4);
+  (void) memcpy(pdb_info.type,"vIMG",4);
+  (void) memcpy(pdb_info.id,"View",4);
   pdb_info.seed=0;
   pdb_info.next_record=0;
   comment=GetImageProperty(image,"comment",exception);
@@ -819,18 +857,25 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
     pdb_image.width=(short) (16*(image->columns/16+1));
   pdb_image.height=(short) image->rows;
   packets=((bits_per_pixel*image->columns+7)/8);
+  packet_size=(size_t) (image->depth > 8 ? 2 : 1);
   runlength=(unsigned char *) AcquireQuantumMemory(9UL*packets,
     image->rows*sizeof(*runlength));
-  if (runlength == (unsigned char *) NULL)
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
   buffer=(unsigned char *) AcquireQuantumMemory(512,sizeof(*buffer));
-  if (buffer == (unsigned char *) NULL)
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
-  packet_size=(size_t) (image->depth > 8 ? 2: 1);
   scanline=(unsigned char *) AcquireQuantumMemory(image->columns,packet_size*
     sizeof(*scanline));
-  if (scanline == (unsigned char *) NULL)
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+  if ((runlength == (unsigned char *) NULL) ||
+      (buffer == (unsigned char *) NULL) ||
+      (scanline == (unsigned char *) NULL))
+    {
+      if (runlength != (unsigned char *) NULL)
+        runlength=(unsigned char *) RelinquishMagickMemory(runlength);
+      if (buffer != (unsigned char *) NULL)
+        buffer=(unsigned char *) RelinquishMagickMemory(buffer);
+      if (scanline != (unsigned char *) NULL)
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline);
+      ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+    }
+  (void) memset(buffer,0,512*sizeof(*buffer));
   if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
@@ -838,7 +883,16 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
   */
   quantum_info=AcquireQuantumInfo(image_info,image);
   if (quantum_info == (QuantumInfo *) NULL)
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+    {
+      if (runlength != (unsigned char *) NULL)
+        runlength=(unsigned char *) RelinquishMagickMemory(runlength);
+      if (buffer != (unsigned char *) NULL)
+        buffer=(unsigned char *) RelinquishMagickMemory(buffer);
+      if (scanline != (unsigned char *) NULL)
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline);
+      ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+    }
+  status=SetQuantumDepth(image,quantum_info,image->depth > 8 ? 16 : 8);
   bits=8/(int) bits_per_pixel-1;  /* start at most significant bits */
   literal=0;
   repeat=0;
@@ -890,7 +944,7 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
               if (0x7f < literal)
                 {
                   q=EncodeRLE(q,buffer,(literal < 0x80 ? literal : 0x80),0);
-                  (void) CopyMagickMemory(buffer,buffer+literal+repeat,0x80);
+                  (void) memmove(buffer,buffer+literal+repeat,0x80);
                   literal-=0x80;
                 }
             }

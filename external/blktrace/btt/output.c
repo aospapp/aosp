@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include "globals.h"
 
+static int base_y;
+
 typedef struct avg_info *ai_dip_t;
 ai_dip_t dip_q2q_dm_avg(struct d_info *dip) { return &dip->avgs.q2q_dm; }
 ai_dip_t dip_q2a_dm_avg(struct d_info *dip) { return &dip->avgs.q2a_dm; }
@@ -672,6 +674,34 @@ void output_actQ_info(FILE *ofp)
 	fprintf(ofp, "\n");
 }
 
+void __dip_output_p_live(struct d_info *dip, void *arg)
+{
+	char dev_info[15];
+	FILE *ofp = arg;
+	char *ttl = dip ? make_dev_hdr(dev_info, 15, dip, 1) : "Total Sys";
+	struct p_live_info *plip = p_live_get(dip, base_y);
+
+	fprintf(ofp, "%10s | %10lu %13.9lf %13.9lf %6.2lf\n", ttl,
+		plip->nlives, plip->avg_live, plip->avg_lull, plip->p_live);
+	if (plip->nlives)
+		base_y += 1;
+}
+
+void output_p_live(FILE *ofp)
+{
+	fprintf(ofp, "%10s | %10s %13s %13s %6s\n", "DEV",
+		"# Live", "Avg. Act", "Avg. !Act", "% Live");
+	fprintf(ofp, "---------- | ---------- "
+		     "------------- ------------- ------\n");
+	base_y = 1;
+	dip_foreach_out(__dip_output_p_live, ofp);
+	fprintf(ofp, "---------- | ---------- "
+		     "------------- ------------- ------\n");
+	base_y = 0;
+	__dip_output_p_live(NULL, ofp);
+	fprintf(ofp, "\n");
+}
+
 void output_histos(void)
 {
 	int i;
@@ -784,7 +814,11 @@ int output_avgs(FILE *ofp)
 	output_section_hdr(ofp, "Active Requests At Q Information");
 	output_actQ_info(ofp);
 
+	output_section_hdr(ofp, "I/O Active Period Information");
+	output_p_live(ofp);
+
 	output_histos();
+
 
 	if (output_all_data) {
 		output_section_hdr(ofp, "Q2D Histogram");

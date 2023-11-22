@@ -114,22 +114,19 @@ public class JCEECPrivateKey
         JCEECPublicKey          pubKey,
         ECParameterSpec         spec)
     {
-        ECDomainParameters      dp = params.getParameters();
-
         this.algorithm = algorithm;
         this.d = params.getD();
 
         if (spec == null)
         {
+            ECDomainParameters dp = params.getParameters();
             EllipticCurve ellipticCurve = EC5Util.convertCurve(dp.getCurve(), dp.getSeed());
 
             this.ecSpec = new ECParameterSpec(
-                            ellipticCurve,
-                            new ECPoint(
-                                    dp.getG().getAffineXCoord().toBigInteger(),
-                                    dp.getG().getAffineYCoord().toBigInteger()),
-                            dp.getN(),
-                            dp.getH().intValue());
+                ellipticCurve,
+                EC5Util.convertPoint(dp.getG()),
+                dp.getN(),
+                dp.getH().intValue());
         }
         else
         {
@@ -145,34 +142,29 @@ public class JCEECPrivateKey
         JCEECPublicKey          pubKey,
         org.bouncycastle.jce.spec.ECParameterSpec         spec)
     {
-        ECDomainParameters      dp = params.getParameters();
-
         this.algorithm = algorithm;
         this.d = params.getD();
 
         if (spec == null)
         {
+            ECDomainParameters dp = params.getParameters();
             EllipticCurve ellipticCurve = EC5Util.convertCurve(dp.getCurve(), dp.getSeed());
 
             this.ecSpec = new ECParameterSpec(
-                            ellipticCurve,
-                            new ECPoint(
-                                    dp.getG().getAffineXCoord().toBigInteger(),
-                                    dp.getG().getAffineYCoord().toBigInteger()),
-                            dp.getN(),
-                            dp.getH().intValue());
+                ellipticCurve,
+                EC5Util.convertPoint(dp.getG()),
+                dp.getN(),
+                dp.getH().intValue());
         }
         else
         {
             EllipticCurve ellipticCurve = EC5Util.convertCurve(spec.getCurve(), spec.getSeed());
             
             this.ecSpec = new ECParameterSpec(
-                                ellipticCurve,
-                                new ECPoint(
-                                    spec.getG().getAffineXCoord().toBigInteger(),
-                                    spec.getG().getAffineYCoord().toBigInteger()),
-                                spec.getN(),
-                                spec.getH().intValue());
+                ellipticCurve,
+                EC5Util.convertPoint(spec.getG()),
+                spec.getN(),
+                spec.getH().intValue());
         }
 
         publicKey = getPublicKeyDetails(pubKey);
@@ -212,13 +204,11 @@ public class JCEECPrivateKey
                 EllipticCurve ellipticCurve = EC5Util.convertCurve(gParam.getCurve(), gParam.getSeed());
 
                 ecSpec = new ECNamedCurveSpec(
-                        ECGOST3410NamedCurves.getName(oid),
-                        ellipticCurve,
-                        new ECPoint(
-                                gParam.getG().getAffineXCoord().toBigInteger(),
-                                gParam.getG().getAffineYCoord().toBigInteger()),
-                        gParam.getN(),
-                        gParam.getH());
+                    ECGOST3410NamedCurves.getName(oid),
+                    ellipticCurve,
+                    EC5Util.convertPoint(gParam.getG()),
+                    gParam.getN(),
+                    gParam.getH());
             }
             else
             */
@@ -227,13 +217,11 @@ public class JCEECPrivateKey
                 EllipticCurve ellipticCurve = EC5Util.convertCurve(ecP.getCurve(), ecP.getSeed());
 
                 ecSpec = new ECNamedCurveSpec(
-                        ECUtil.getCurveName(oid),
-                        ellipticCurve,
-                        new ECPoint(
-                                ecP.getG().getAffineXCoord().toBigInteger(),
-                                ecP.getG().getAffineYCoord().toBigInteger()),
-                        ecP.getN(),
-                        ecP.getH());
+                    ECUtil.getCurveName(oid),
+                    ellipticCurve,
+                    EC5Util.convertPoint(ecP.getG()),
+                    ecP.getN(),
+                    ecP.getH());
             }
         }
         else if (params.isImplicitlyCA())
@@ -247,9 +235,7 @@ public class JCEECPrivateKey
 
             this.ecSpec = new ECParameterSpec(
                 ellipticCurve,
-                new ECPoint(
-                        ecP.getG().getAffineXCoord().toBigInteger(),
-                        ecP.getG().getAffineYCoord().toBigInteger()),
+                EC5Util.convertPoint(ecP.getG()),
                 ecP.getN(),
                 ecP.getH().intValue());
         }

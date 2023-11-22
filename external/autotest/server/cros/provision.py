@@ -16,26 +16,18 @@ from autotest_lib.utils.labellib import Key
 ### Constants for label prefixes
 CROS_VERSION_PREFIX = Key.CROS_VERSION
 CROS_ANDROID_VERSION_PREFIX = Key.CROS_ANDROID_VERSION
-ANDROID_BUILD_VERSION_PREFIX = Key.ANDROID_BUILD_VERSION
-TESTBED_BUILD_VERSION_PREFIX = Key.TESTBED_VERSION
 FW_RW_VERSION_PREFIX = Key.FIRMWARE_RW_VERSION
 FW_RO_VERSION_PREFIX = Key.FIRMWARE_RO_VERSION
 
 # So far the word cheets is only way to distinguish between ARC and Android
 # build.
-_ANDROID_BUILD_REGEX = r'.+/(?!cheets).+/P?([0-9]+|LATEST)'
-_ANDROID_TESTBED_BUILD_REGEX = _ANDROID_BUILD_REGEX + '(,|(#[0-9]+))'
-_CROS_ANDROID_BUILD_REGEX = r'.+/(?=cheets).+/P?([0-9]+|LATEST)'
+_CROS_ANDROID_BUILD_REGEX = r'.+/cheets.*/P?([0-9]+|LATEST)'
 
 # Special label to skip provision and run reset instead.
 SKIP_PROVISION = 'skip_provision'
 
 # Postfix -cheetsth to distinguish ChromeOS build during Cheets provisioning.
 CHEETS_SUFFIX = '-cheetsth'
-
-# Default number of provisions attempts to try if we believe the devserver is
-# flaky.
-FLAKY_DEVSERVER_ATTEMPTS = 2
 
 
 _Action = collections.namedtuple('_Action', 'name, value')
@@ -71,24 +63,13 @@ def get_version_label_prefix(image):
         These images have names like `cave-release/R57-9030.0.0`.
       * `CROS_ANDROID_VERSION_PREFIX` for Chrome OS Android version strings.
         These images have names like `git_nyc-arc/cheets_x86-user/3512523`.
-      * `ANDROID_BUILD_VERSION_PREFIX` for Android build versions
-        These images have names like
-        `git_mnc-release/shamu-userdebug/2457013`.
-      * `TESTBED_BUILD_VERSION_PREFIX` for Android testbed version
-        specifications.  These are either comma separated lists of
-        Android versions, or an Android version with a suffix like
-        '#2', indicating two devices running the given build.
 
     @param image: The image name to be parsed.
     @returns: A string that is the prefix of version labels for the type
               of image identified by `image`.
 
     """
-    if re.match(_ANDROID_TESTBED_BUILD_REGEX, image, re.I):
-        return TESTBED_BUILD_VERSION_PREFIX
-    elif re.match(_ANDROID_BUILD_REGEX, image, re.I):
-        return ANDROID_BUILD_VERSION_PREFIX
-    elif re.match(_CROS_ANDROID_BUILD_REGEX, image, re.I):
+    if re.match(_CROS_ANDROID_BUILD_REGEX, image, re.I):
         return CROS_ANDROID_VERSION_PREFIX
     else:
         return CROS_VERSION_PREFIX
@@ -100,7 +81,7 @@ def image_version_to_label(image):
 
     The type of version label is as determined described for
     `get_version_label_prefix()`, meaning the label will identify a
-    CrOS, Android, or Testbed version.
+    CrOS or Android version.
 
     @param image: The image name to be parsed.
     @returns: A string that is the appropriate label name.
@@ -324,10 +305,6 @@ class Provision(_SpecialTaskAction):
                 'provision_FirmwareUpdate',
                 extra_kwargs={'rw_only': True,
                               'tag': 'rw_only'}),
-        ANDROID_BUILD_VERSION_PREFIX : actionables.TestActionable(
-                'provision_AndroidUpdate'),
-        TESTBED_BUILD_VERSION_PREFIX : actionables.TestActionable(
-                'provision_TestbedUpdate'),
     }
 
     name = 'provision'
@@ -346,6 +323,9 @@ class Cleanup(_SpecialTaskAction):
     name = 'cleanup'
 
 
+# TODO(ayatane): This class doesn't do anything.  It's safe to remove
+# after all references to it are removed (after some buffer time to be
+# safe, like a few release cycles).
 class Repair(_SpecialTaskAction):
     """
     Repair runs when one of the other special tasks fails.  It should be able
@@ -402,22 +382,3 @@ class SpecialTaskActionException(Exception):
 
     This is also a literally meaningless exception.  It's always just discarded.
     """
-
-
-def run_special_task_actions(job, host, labels, task):
-    """
-    Iterate through all `label`s and run any tests on `host` that `task` has
-    corresponding to the passed in labels.
-
-    Emits status lines for each run test, and INFO lines for each skipped label.
-
-    @param job: A job object from a control file.
-    @param host: The host to run actions on.
-    @param labels: The list of job labels to work on.
-    @param task: An instance of _SpecialTaskAction.
-    @returns: None
-    @raises: SpecialTaskActionException if a test fails.
-
-    """
-    warnings.warn('run_special_task_actions is deprecated', stacklevel=2)
-    task.run_task_actions(job, host, labels)

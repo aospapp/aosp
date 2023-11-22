@@ -60,6 +60,10 @@ class NetworkChroot(object):
             'wait\n'
             'ip addr add %(local-ip-and-prefix)s dev %(local-interface-name)s\n'
             'ip link set %(local-interface-name)s up\n'
+            # For running strongSwan VPN with flag --with-piddir=/run/ipsec. We
+            # want to use /run/ipsec for strongSwan runtime data dir instead of
+            # /run, and the cmdline flag applies to both client and server.
+            'mkdir -p /run/ipsec\n'
     }
     CONFIG_FILE_VALUES = {
         'sleeper-pidfile': STARTUP_SLEEPER_PID_FILE,

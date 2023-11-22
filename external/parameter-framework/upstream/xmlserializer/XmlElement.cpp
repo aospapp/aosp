@@ -28,9 +28,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "XmlElement.h"
+#include "PfError.hpp"
 #include <libxml/tree.h>
 #include "convert.hpp"
 #include <stdlib.h>
+#include <stdexcept>
 
 using std::string;
 
@@ -38,7 +40,7 @@ CXmlElement::CXmlElement(_xmlNode *pXmlElement) : _pXmlElement(pXmlElement)
 {
 }
 
-CXmlElement::CXmlElement() : _pXmlElement(NULL)
+CXmlElement::CXmlElement() : _pXmlElement(nullptr)
 {
 }
 
@@ -73,19 +75,15 @@ string CXmlElement::getPath() const
 
 bool CXmlElement::hasAttribute(const string &strAttributeName) const
 {
-    return xmlHasProp(_pXmlElement, (const xmlChar *)strAttributeName.c_str()) != NULL;
+    return xmlHasProp(_pXmlElement, (const xmlChar *)strAttributeName.c_str()) != nullptr;
 }
 
 template <>
 bool CXmlElement::getAttribute<std::string>(const string &name, string &value) const
 {
-    if (!hasAttribute(name)) {
-        return false;
-    }
-
     string backup = value;
     xmlChar *pucXmlValue = xmlGetProp((xmlNode *)_pXmlElement, (const xmlChar *)name.c_str());
-    if (pucXmlValue == NULL) {
+    if (pucXmlValue == nullptr) {
         value = backup;
         return false;
     }
@@ -108,7 +106,7 @@ bool CXmlElement::getAttribute(const std::string &name, T &value) const
     T backup = value;
     if (!convertTo<T>(rawValue, value)) {
         value = backup;
-        return false;
+        throw PfError("\'" + rawValue + "\' could not be parsed as the requested type.");
     }
 
     return true;
@@ -124,7 +122,7 @@ string CXmlElement::getNameAttribute() const
 string CXmlElement::getTextContent() const
 {
     xmlChar *pucXmlContent = xmlNodeGetContent(_pXmlElement);
-    if (pucXmlContent == NULL) {
+    if (pucXmlContent == nullptr) {
         return "";
     }
 
@@ -234,7 +232,7 @@ void CXmlElement::setTextContent(const string &strContent)
 void CXmlElement::createChild(CXmlElement &childElement, const string &strType)
 {
 #ifdef LIBXML_TREE_ENABLED
-    xmlNodePtr pChildNode = xmlNewChild(_pXmlElement, NULL, BAD_CAST strType.c_str(), NULL);
+    xmlNodePtr pChildNode = xmlNewChild(_pXmlElement, nullptr, BAD_CAST strType.c_str(), nullptr);
 
     childElement.setXmlElement(pChildNode);
 #endif
@@ -264,8 +262,9 @@ bool CXmlElement::CChildIterator::next(CXmlElement &xmlChildElement)
     return false;
 }
 
-template bool CXmlElement::getAttribute(const std::string &name, std::string &value) const;
 template bool CXmlElement::getAttribute(const std::string &name, bool &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, signed char &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, unsigned char &value) const;
 template bool CXmlElement::getAttribute(const std::string &name, short &value) const;
 template bool CXmlElement::getAttribute(const std::string &name, unsigned short &value) const;
 template bool CXmlElement::getAttribute(const std::string &name, int &value) const;
@@ -277,8 +276,8 @@ template bool CXmlElement::getAttribute(const std::string &name, unsigned long l
 template bool CXmlElement::getAttribute(const std::string &name, float &value) const;
 template bool CXmlElement::getAttribute(const std::string &name, double &value) const;
 
-template void CXmlElement::setAttribute(const std::string &name, const std::string &value);
-template void CXmlElement::setAttribute(const std::string &name, const bool &value);
+template void CXmlElement::setAttribute(const std::string &name, const signed char &value);
+template void CXmlElement::setAttribute(const std::string &name, const unsigned char &value);
 template void CXmlElement::setAttribute(const std::string &name, const short &value);
 template void CXmlElement::setAttribute(const std::string &name, const unsigned short &value);
 template void CXmlElement::setAttribute(const std::string &name, const int &value);

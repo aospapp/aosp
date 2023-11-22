@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/bind.h"
+#include <functional>
 
+#include "arraysize.h"
 #include "glinterfacetest.h"
 
 namespace glbench {
@@ -24,12 +25,12 @@ const char* kFragmentShader =
     "}";
 
 // Vertex arrays used to draw a diamond.
-const GLfloat kVertices[] = { 1.0, 0.0,
-                              0.0, -1.0,
-                              -1.0, 0.0,
-                              0.0, 1.0 };
-const GLushort kIndices[] = { 0, 1, 2,
-                              0, 2, 3 };
+const GLfloat kVertices[] = {1.0, 0.0,
+                             0.0, -1.0,
+                             -1.0, 0.0,
+                             0.0, 1.0};
+const GLushort kIndices[] = {0, 1, 2,
+                             0, 2, 3};
 
 }  // namespace
 
@@ -64,13 +65,14 @@ bool GLInterfaceTest::Run() {
 
   // Run test without GL commands.
   render_func_.Reset();
-  RunTest(this, (test_name_base + "nogl").c_str(), 1.0, g_width, g_height, false);
+  RunTest(this, (test_name_base + "nogl").c_str(), 1.0, g_width, g_height,
+          false);
 
   // Run main test with simple GL commands.
   SetupGLRendering();
-  render_func_ = base::Bind(&GLInterfaceTest::RenderGLSimple,
-                            base::Unretained(this));
-  RunTest(this, (test_name_base + "glsimple").c_str(), 1.0, g_width, g_height, false);
+  render_func_.Set(std::bind(&GLInterfaceTest::RenderGLSimple, this));
+  RunTest(this, (test_name_base + "glsimple").c_str(), 1.0, g_width, g_height,
+          false);
   CleanupGLRendering();
 
   // TODO(sque): Run with complex GL commands. See crosbug.com/36746.
@@ -81,4 +83,4 @@ void GLInterfaceTest::RenderGLSimple() {
   glDrawElements(GL_TRIANGLES, num_indices_, GL_UNSIGNED_SHORT, 0);
 }
 
-} // namespace glbench
+}  // namespace glbench

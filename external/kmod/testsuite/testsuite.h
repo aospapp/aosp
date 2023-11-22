@@ -89,6 +89,12 @@ struct test {
 		const char *err;
 
 		/*
+		 * whether to treat the correct files as regex to the real
+		 * output
+		 */
+		bool regex;
+
+		/*
 		 * Vector with pair of files
 		 * key = correct file
 		 * val = file to check
@@ -151,6 +157,8 @@ int test_run(const struct test *t);
 		arg = test_init(__start_kmod_tests, __stop_kmod_tests, argc, argv);		\
 		if (arg == 0)									\
 			return 0;								\
+		if (arg < 0)									\
+			return EXIT_FAILURE;							\
 												\
 		if (arg < argc) {								\
 			t = test_find(__start_kmod_tests, __stop_kmod_tests, argv[arg]);	\

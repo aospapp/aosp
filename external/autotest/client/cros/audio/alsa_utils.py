@@ -20,6 +20,8 @@ CLIENT_NUM_RE = re.compile(r'client (\d+):')
 DEV_NUM_RE = re.compile(r'.* \[.*\], device (\d+):')
 CONTROL_NAME_RE = re.compile(r"name='(.*)'")
 SCONTROL_NAME_RE = re.compile(r"Simple mixer control '(.*)'")
+AUDIO_DEVICE_STATUS_CMD = 'cat /proc/asound/card%s/pcm%sp/sub0/status'
+OUTPUT_DEVICE_CMD = 'cras_test_client --dump_audio_thread | grep "Output dev:"'
 
 CARD_PREF_RECORD_DEV_IDX = {
     'bxtda7219max': 3,
@@ -383,3 +385,38 @@ def convert_device_name(cras_device_name):
     '''
     tokens = cras_device_name.split(":")
     return "hw:%s" % tokens[2]
+
+def check_audio_stream_at_selected_device(device_name, device_type):
+    """Checks the audio output at expected node
+
+    @param device_name: Audio output device name, Ex: kbl_r5514_5663_max: :0,1
+    @param device_type: Audio output device type, Ex: INTERNAL_SPEAKER
+    """
+    if device_type == 'BLUETOOTH':
+        output_device_output = utils.system_output(OUTPUT_DEVICE_CMD).strip()
+        bt_device = output_device_output.split('Output dev:')[1].strip()
+        if bt_device != device_name:
+            raise error.TestFail("Audio is not routing through expected node")
+        logging.info('Audio is routing through %s', bt_device)
+    else:
+        card_device_search = re.search(r':(\d),(\d)', device_name)
+        if card_device_search:
+            card_num = card_device_search.group(1)
+            device_num = card_device_search.group(2)
+        logging.debug("Sound card number is %s", card_num)
+        logging.debug("Device number is %s", device_num)
+        if card_num is None or device_num is None:
+            raise error.TestError("Audio device name is not in expected format")
+        device_status_output = utils.system_output(AUDIO_DEVICE_STATUS_CMD %
+                                                   (card_num, device_num))
+        logging.debug("Selected output device status is %s",
+                      device_status_output)
+
+        if 'RUNNING' in device_status_output:
+            logging.info("Audio is routing through expected node!")
+        elif 'closed' in device_status_output:
+            raise error.TestFail("Audio is not routing through expected audio "
+                                 "node!")
+        else:
+            raise error.TestError("Audio routing error! Device may be "
+                                  "preparing")

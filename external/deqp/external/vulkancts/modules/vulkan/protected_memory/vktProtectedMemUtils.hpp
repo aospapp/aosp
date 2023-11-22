@@ -33,7 +33,9 @@
 #include "vkPlatform.hpp"
 #include "vkBufferWithMemory.hpp"
 #include "vkImageWithMemory.hpp"
+#include "vkCmdUtil.hpp"
 #include "tcuVector.hpp"
+#include "tcuTextureUtil.hpp"
 
 // enable the define to disable protected memory
 //#define NOT_PROTECTED	1
@@ -60,7 +62,9 @@ deUint32							chooseProtectedMemQueueFamilyIndex	(const vk::InstanceDriver&			v
 																		 vk::VkPhysicalDevice				physicalDevice,
 																		 vk::VkSurfaceKHR					surface = DE_NULL);
 
-vk::Move<vk::VkDevice>				makeProtectedMemDevice				(const vk::InstanceDriver&			vkd,
+vk::Move<vk::VkDevice>				makeProtectedMemDevice				(const vk::PlatformInterface&		vkp,
+																		 vk::VkInstance						instance,
+																		 const vk::InstanceDriver&			vkd,
 																		 vk::VkPhysicalDevice				physicalDevice,
 																		 const deUint32						queueFamilyIndex,
 																		 const deUint32						apiVersion,
@@ -109,8 +113,6 @@ void								beginSecondaryCommandBuffer			(const vk::DeviceInterface&			vk,
 																		 const vk::VkCommandBuffer			secondaryCmdBuffer,
 																		 const CmdBuffInheritance			secCmdBufInheritInfo);
 
-void								beginCommandBuffer					(const vk::DeviceInterface&			vk,
-																		 const vk::VkCommandBuffer			commandBuffer);
 vk::VkResult						queueSubmit							(ProtectedContext&					context,
 																		 ProtectionMode						protectionMode,
 																		 vk::VkQueue						queue,
@@ -160,6 +162,25 @@ vk::Move<vk::VkPipeline>			makeGraphicsPipeline				(const vk::DeviceInterface&		
 																		 const VertexAttribs&				vertexAttribs,
 																		 const tcu::UVec2&					renderSize,
 																		 const vk::VkPrimitiveTopology		topology);
+
+void								clearImage							(ProtectedContext&					ctx,
+																		 vk::VkImage						image);
+
+void								uploadImage							(ProtectedContext&					ctx,
+																		 vk::VkImage						image,
+																		 const tcu::Texture2D&				texture2D);
+
+void								copyToProtectedImage				(ProtectedContext&					ctx,
+																		 vk::VkImage						srcImage,
+																		 vk::VkImage						dstImage,
+																		 vk::VkImageLayout					dstImageLayout,
+																		 deUint32							width,
+																		 deUint32							height);
+
+void								fillWithRandomColorTiles			(const tcu::PixelBufferAccess&		dst,
+																		 const tcu::Vec4&					minVal,
+																		 const tcu::Vec4&					maxVal,
+																		 deUint32							seed);
 
 } // ProtectedMem
 } // vkt

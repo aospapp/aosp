@@ -124,6 +124,7 @@ class FlashromHandler(object):
             self.fum = flashrom_util_module.flashrom_util(
                     os_if, target_is_ec=False)
             self.fv_sections = {
+                'ro': FvSection(None, None, 'RO_FRID'),
                 'a': FvSection('VBOOTA', 'FVMAIN', 'RW_FWID_A'),
                 'b': FvSection('VBOOTB', 'FVMAINB', 'RW_FWID_B'),
                 'rec': FvSection(None, 'RECOVERY_MRC_CACHE'),

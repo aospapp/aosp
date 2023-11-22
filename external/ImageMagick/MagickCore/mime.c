@@ -15,13 +15,13 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/MagicksToolkit/script/license.php             %
+%    http://imagemagick.org/MagicksToolkit/script/license.php             %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -46,6 +46,7 @@
 #include "MagickCore/exception-private.h"
 #include "MagickCore/linked-list.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/mime.h"
 #include "MagickCore/mime-private.h"
 #include "MagickCore/option.h"
@@ -164,8 +165,6 @@ MagickExport LinkedListInfo *AcquireMimeCache(const char *filename,
     status;
 
   cache=NewLinkedList(0);
-  if (cache == (LinkedListInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   status=MagickTrue;
 #if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   {
@@ -826,7 +825,7 @@ static MagickBooleanType LoadMimeCache(LinkedListInfo *cache,const char *xml,
     attribute=GetXMLTreeAttribute(include,"file");
     if (attribute != (const char *) NULL)
       {
-        if (depth > 200)
+        if (depth > MagickMaxRecursionDepth)
           (void) ThrowMagickException(exception,GetMagickModule(),
             ConfigureError,"IncludeElementNestedTooDeeply","`%s'",filename);
         else
@@ -859,10 +858,8 @@ static MagickBooleanType LoadMimeCache(LinkedListInfo *cache,const char *xml,
     /*
       Process mime element.
     */
-    mime_info=(MimeInfo *) AcquireMagickMemory(sizeof(*mime_info));
-    if (mime_info == (MimeInfo *) NULL)
-      ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-    (void) ResetMagickMemory(mime_info,0,sizeof(*mime_info));
+    mime_info=(MimeInfo *) AcquireCriticalMemory(sizeof(*mime_info));
+    (void) memset(mime_info,0,sizeof(*mime_info));
     mime_info->path=ConstantString(filename);
     mime_info->signature=MagickCoreSignature;
     attribute=GetXMLTreeAttribute(mime,"data-type");

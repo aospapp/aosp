@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -111,6 +111,7 @@ extern WandExport MagickBooleanType
   MagickSetResolution(MagickWand *,const double,const double),
   MagickSetResourceLimit(const ResourceType type,const MagickSizeType limit),
   MagickSetSamplingFactors(MagickWand *,const size_t,const double *),
+  MagickSetSecurityPolicy(MagickWand *,const char *),
   MagickSetSize(MagickWand *,const size_t,const size_t),
   MagickSetSizeOffset(MagickWand *,const size_t,const size_t,const ssize_t),
   MagickSetType(MagickWand *,const ImageType);

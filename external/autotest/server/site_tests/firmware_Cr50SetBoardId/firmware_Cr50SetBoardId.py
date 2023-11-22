@@ -5,7 +5,7 @@
 import logging
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import cr50_utils, tpm_utils
+from autotest_lib.client.common_lib.cros import cr50_utils
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -25,7 +25,7 @@ class firmware_Cr50SetBoardId(Cr50Test):
     # Used when the flags were not initialized in the factory.
     UNKNOWN_FLAGS = 0xff00
     # Used for dev, proto, EVT, and DVT phases.
-    DEVELOPMENT_FLAGS = 0xff7f
+    DEVELOPMENT_FLAGS = 0x7f7f
     # Used for PVT and MP builds.
     RELEASE_FLAGS = 0x7f80
     PHASE_FLAGS_DICT = {
@@ -49,10 +49,10 @@ class firmware_Cr50SetBoardId(Cr50Test):
     ERROR_BID_SET_DIFFERENTLY = ['Board ID has been set differently.', 3]
     ERROR_FLAG_SET_DIFFERENTLY = ['Flag has been set differently.', 3]
 
-    def initialize(self, host, cmdline_args, dev_path='', bid=''):
+    def initialize(self, host, cmdline_args, full_args, dev_path='', bid=''):
         # Restore the original image, rlz code, and board id during cleanup.
         super(firmware_Cr50SetBoardId, self).initialize(host, cmdline_args,
-            restore_cr50_state=True, cr50_dev_path=dev_path)
+             full_args, restore_cr50_state=True, cr50_dev_path=dev_path)
         if self.cr50.using_ccd():
             raise error.TestNAError('Use a flex cable instead of CCD cable.')
 
@@ -75,12 +75,6 @@ class firmware_Cr50SetBoardId(Cr50Test):
         self.platform_brand = platform_brand
         self.erase_bid()
         cr50_utils.StopTrunksd(self.host)
-
-
-    def cleanup(self):
-        """Clear the TPM Owner"""
-        super(firmware_Cr50SetBoardId, self).cleanup()
-        tpm_utils.ClearTPMOwnerRequest(self.host)
 
 
     def erase_bid(self):

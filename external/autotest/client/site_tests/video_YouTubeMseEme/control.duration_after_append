@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "dunno@chromium.org"
-NAME = "video_YouTubeMseEme"
+NAME = "video_YouTubeMseEme.duration_after_append"
 PURPOSE = "Verify Chrome MSE/EME works for YouTube."
 CRITERIA = """
 This test will fail if media source duration after appending to the source

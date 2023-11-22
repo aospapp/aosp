@@ -146,7 +146,7 @@ import com.ibm.icu.util.VersionInfo;
  * Comparison:<ul>
  * <li> isUWhiteSpace=UCHAR_WHITE_SPACE: Unicode White_Space property;
  *       most of general categories "Z" (separators) + most whitespace ISO controls
- *       (including no-break spaces, but excluding IS1..IS4 and ZWSP)
+ *       (including no-break spaces, but excluding IS1..IS4)
  * <li> isWhitespace: Java isWhitespace; Z + whitespace ISO controls but excluding no-break spaces
  * <li> isSpaceChar: just Z (including no-break spaces)</ul>
  *
@@ -1177,6 +1177,31 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /** @stable ICU 60 */
         public static final int ZANABAZAR_SQUARE_ID = 280; /*[11A00]*/
 
+        // New blocks in Unicode 11.0
+
+        /** @stable ICU 62 */
+        public static final int CHESS_SYMBOLS_ID = 281; /*[1FA00]*/
+        /** @stable ICU 62 */
+        public static final int DOGRA_ID = 282; /*[11800]*/
+        /** @stable ICU 62 */
+        public static final int GEORGIAN_EXTENDED_ID = 283; /*[1C90]*/
+        /** @stable ICU 62 */
+        public static final int GUNJALA_GONDI_ID = 284; /*[11D60]*/
+        /** @stable ICU 62 */
+        public static final int HANIFI_ROHINGYA_ID = 285; /*[10D00]*/
+        /** @stable ICU 62 */
+        public static final int INDIC_SIYAQ_NUMBERS_ID = 286; /*[1EC70]*/
+        /** @stable ICU 62 */
+        public static final int MAKASAR_ID = 287; /*[11EE0]*/
+        /** @stable ICU 62 */
+        public static final int MAYAN_NUMERALS_ID = 288; /*[1D2E0]*/
+        /** @stable ICU 62 */
+        public static final int MEDEFAIDRIN_ID = 289; /*[16E40]*/
+        /** @stable ICU 62 */
+        public static final int OLD_SOGDIAN_ID = 290; /*[10F00]*/
+        /** @stable ICU 62 */
+        public static final int SOGDIAN_ID = 291; /*[10F30]*/
+
         /**
          * One more than the highest normal UnicodeBlock value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.BLOCK).
@@ -1184,7 +1209,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
          */
         @Deprecated
-        public static final int COUNT = 281;
+        public static final int COUNT = 292;
 
         // blocks objects ---------------------------------------------------
 
@@ -2464,6 +2489,39 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         public static final UnicodeBlock ZANABAZAR_SQUARE =
                 new UnicodeBlock("ZANABAZAR_SQUARE", ZANABAZAR_SQUARE_ID); /*[11A00]*/
 
+        // New blocks in Unicode 11.0
+
+        /** @stable ICU 62 */
+        public static final UnicodeBlock CHESS_SYMBOLS =
+                new UnicodeBlock("CHESS_SYMBOLS", CHESS_SYMBOLS_ID); /*[1FA00]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock DOGRA = new UnicodeBlock("DOGRA", DOGRA_ID); /*[11800]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock GEORGIAN_EXTENDED =
+                new UnicodeBlock("GEORGIAN_EXTENDED", GEORGIAN_EXTENDED_ID); /*[1C90]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock GUNJALA_GONDI =
+                new UnicodeBlock("GUNJALA_GONDI", GUNJALA_GONDI_ID); /*[11D60]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock HANIFI_ROHINGYA =
+                new UnicodeBlock("HANIFI_ROHINGYA", HANIFI_ROHINGYA_ID); /*[10D00]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock INDIC_SIYAQ_NUMBERS =
+                new UnicodeBlock("INDIC_SIYAQ_NUMBERS", INDIC_SIYAQ_NUMBERS_ID); /*[1EC70]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock MAKASAR = new UnicodeBlock("MAKASAR", MAKASAR_ID); /*[11EE0]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock MAYAN_NUMERALS =
+                new UnicodeBlock("MAYAN_NUMERALS", MAYAN_NUMERALS_ID); /*[1D2E0]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock MEDEFAIDRIN =
+                new UnicodeBlock("MEDEFAIDRIN", MEDEFAIDRIN_ID); /*[16E40]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock OLD_SOGDIAN =
+                new UnicodeBlock("OLD_SOGDIAN", OLD_SOGDIAN_ID); /*[10F00]*/
+        /** @stable ICU 62 */
+        public static final UnicodeBlock SOGDIAN = new UnicodeBlock("SOGDIAN", SOGDIAN_ID); /*[10F30]*/
+
         /**
          * @stable ICU 2.4
          */
@@ -2532,7 +2590,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
                 m = mref.get();
             }
             if (m == null) {
-                m = new HashMap<String, UnicodeBlock>(BLOCKS_.length);
+                m = new HashMap<>(BLOCKS_.length);
                 for (int i = 0; i < BLOCKS_.length; ++i) {
                     UnicodeBlock b = BLOCKS_[i];
                     String name = trimBlockName(
@@ -2540,7 +2598,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
                                     UProperty.NameChoice.LONG));
                     m.put(name, b);
                 }
-                mref = new SoftReference<Map<String, UnicodeBlock>>(m);
+                mref = new SoftReference<>(m);
             }
             UnicodeBlock b = m.get(trimBlockName(blockName));
             if (b == null) {
@@ -3092,6 +3150,11 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /** @stable ICU 60 */
         public static final int MALAYALAM_TTA = 99;
 
+        /** @stable ICU 62 */
+        public static final int HANIFI_ROHINGYA_KINNA_YA = 100;
+        /** @stable ICU 62 */
+        public static final int HANIFI_ROHINGYA_PA = 101;
+
         /**
          * One more than the highest normal JoiningGroup value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.JoiningGroup).
@@ -3099,7 +3162,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
          */
         @Deprecated
-        public static final int COUNT = 100;
+        public static final int COUNT = 102;
     }
 
     /**
@@ -3168,6 +3231,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         public static final int GLUE_AFTER_ZWJ = 16;  /*[GAZ]*/
         /** @stable ICU 58 */
         public static final int ZWJ = 17;             /*[ZWJ]*/
+
         /**
          * One more than the highest normal GraphemeClusterBreak value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.GRAPHEME_CLUSTER_BREAK).
@@ -3254,6 +3318,8 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         public static final int GLUE_AFTER_ZWJ = 20;   /*[GAZ]*/
         /** @stable ICU 58 */
         public static final int ZWJ = 21;              /*[ZWJ]*/
+        /** @stable ICU 62 */
+        public static final int WSEGSPACE = 22;        /*[WSEGSPACE]*/
         /**
          * One more than the highest normal WordBreak value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.WORD_BREAK).
@@ -3261,7 +3327,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
          */
         @Deprecated
-        public static final int COUNT = 22;
+        public static final int COUNT = 23;
     }
 
     /**
@@ -3626,6 +3692,143 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          */
         @Deprecated
         public static final int COUNT = 3;
+    }
+
+    /**
+     * Indic Positional Category constants.
+     *
+     * @see UProperty#INDIC_POSITIONAL_CATEGORY
+     * @stable ICU 63
+     */
+    public static interface IndicPositionalCategory {
+        /** @stable ICU 63 */
+        public static final int NA = 0;
+        /** @stable ICU 63 */
+        public static final int BOTTOM = 1;
+        /** @stable ICU 63 */
+        public static final int BOTTOM_AND_LEFT = 2;
+        /** @stable ICU 63 */
+        public static final int BOTTOM_AND_RIGHT = 3;
+        /** @stable ICU 63 */
+        public static final int LEFT = 4;
+        /** @stable ICU 63 */
+        public static final int LEFT_AND_RIGHT = 5;
+        /** @stable ICU 63 */
+        public static final int OVERSTRUCK = 6;
+        /** @stable ICU 63 */
+        public static final int RIGHT = 7;
+        /** @stable ICU 63 */
+        public static final int TOP = 8;
+        /** @stable ICU 63 */
+        public static final int TOP_AND_BOTTOM = 9;
+        /** @stable ICU 63 */
+        public static final int TOP_AND_BOTTOM_AND_RIGHT = 10;
+        /** @stable ICU 63 */
+        public static final int TOP_AND_LEFT = 11;
+        /** @stable ICU 63 */
+        public static final int TOP_AND_LEFT_AND_RIGHT = 12;
+        /** @stable ICU 63 */
+        public static final int TOP_AND_RIGHT = 13;
+        /** @stable ICU 63 */
+        public static final int VISUAL_ORDER_LEFT = 14;
+    }
+
+    /**
+     * Indic Syllabic Category constants.
+     *
+     * @see UProperty#INDIC_SYLLABIC_CATEGORY
+     * @stable ICU 63
+     */
+    public static interface IndicSyllabicCategory {
+        /** @stable ICU 63 */
+        public static final int OTHER = 0;
+        /** @stable ICU 63 */
+        public static final int AVAGRAHA = 1;
+        /** @stable ICU 63 */
+        public static final int BINDU = 2;
+        /** @stable ICU 63 */
+        public static final int BRAHMI_JOINING_NUMBER = 3;
+        /** @stable ICU 63 */
+        public static final int CANTILLATION_MARK = 4;
+        /** @stable ICU 63 */
+        public static final int CONSONANT = 5;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_DEAD = 6;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_FINAL = 7;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_HEAD_LETTER = 8;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_INITIAL_POSTFIXED = 9;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_KILLER = 10;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_MEDIAL = 11;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_PLACEHOLDER = 12;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_PRECEDING_REPHA = 13;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_PREFIXED = 14;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_SUBJOINED = 15;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_SUCCEEDING_REPHA = 16;
+        /** @stable ICU 63 */
+        public static final int CONSONANT_WITH_STACKER = 17;
+        /** @stable ICU 63 */
+        public static final int GEMINATION_MARK = 18;
+        /** @stable ICU 63 */
+        public static final int INVISIBLE_STACKER = 19;
+        /** @stable ICU 63 */
+        public static final int JOINER = 20;
+        /** @stable ICU 63 */
+        public static final int MODIFYING_LETTER = 21;
+        /** @stable ICU 63 */
+        public static final int NON_JOINER = 22;
+        /** @stable ICU 63 */
+        public static final int NUKTA = 23;
+        /** @stable ICU 63 */
+        public static final int NUMBER = 24;
+        /** @stable ICU 63 */
+        public static final int NUMBER_JOINER = 25;
+        /** @stable ICU 63 */
+        public static final int PURE_KILLER = 26;
+        /** @stable ICU 63 */
+        public static final int REGISTER_SHIFTER = 27;
+        /** @stable ICU 63 */
+        public static final int SYLLABLE_MODIFIER = 28;
+        /** @stable ICU 63 */
+        public static final int TONE_LETTER = 29;
+        /** @stable ICU 63 */
+        public static final int TONE_MARK = 30;
+        /** @stable ICU 63 */
+        public static final int VIRAMA = 31;
+        /** @stable ICU 63 */
+        public static final int VISARGA = 32;
+        /** @stable ICU 63 */
+        public static final int VOWEL = 33;
+        /** @stable ICU 63 */
+        public static final int VOWEL_DEPENDENT = 34;
+        /** @stable ICU 63 */
+        public static final int VOWEL_INDEPENDENT = 35;
+    }
+
+    /**
+     * Vertical Orientation constants.
+     *
+     * @see UProperty#VERTICAL_ORIENTATION
+     * @stable ICU 63
+     */
+    public static interface VerticalOrientation {
+        /** @stable ICU 63 */
+        public static final int ROTATED = 0;
+        /** @stable ICU 63 */
+        public static final int TRANSFORMED_ROTATED = 1;
+        /** @stable ICU 63 */
+        public static final int TRANSFORMED_UPRIGHT = 2;
+        /** @stable ICU 63 */
+        public static final int UPRIGHT = 3;
     }
 
     // public data members -----------------------------------------------
@@ -5124,37 +5327,6 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
     }
 
     /**
-     * Return a string with just the first word titlecased, for menus and UI, etc. This does not affect most of the string,
-     * and sometimes has no effect at all; the original string is returned whenever casing
-     * would not be appropriate for the first word (such as for CJK characters or initial numbers).
-     * Initial non-letters are skipped in order to find the character to change.
-     * Characters past the first affected are left untouched: see also TITLECASE_NO_LOWERCASE.
-     * <p>Examples:
-     * <table border='1'><tr><th>Source</th><th>Result</th><th>Locale</th></tr>
-     * <tr><td>anglo-American locale</td><td>Anglo-American locale</td></tr>
-     * <tr><td>“contact us”</td><td>“Contact us”</td></tr>
-     * <tr><td>49ers win!</td><td>49ers win!</td></tr>
-     * <tr><td>丰(abc)</td><td>丰(abc)</td></tr>
-     * <tr><td>«ijs»</td><td>«Ijs»</td></tr>
-     * <tr><td>«ijs»</td><td>«IJs»</td><td>nl-BE</td></tr>
-     * <tr><td>«ijs»</td><td>«İjs»</td><td>tr-DE</td></tr>
-     * </table>
-     * @param locale the locale for accessing exceptional behavior (eg for tr).
-     * @param str the source string to change
-     * @return the modified string, or the original if no modifications were necessary.
-     * @internal
-     * @deprecated ICU internal only
-     */
-    @Deprecated
-    public static String toTitleFirst(ULocale locale, String str) {
-        // TODO: Remove this function. Inline it where it is called in CLDR.
-        return TO_TITLE_WHOLE_STRING_NO_LOWERCASE.apply(locale.toLocale(), null, str);
-    }
-
-    private static final com.ibm.icu.text.CaseMap.Title TO_TITLE_WHOLE_STRING_NO_LOWERCASE =
-            com.ibm.icu.text.CaseMap.toTitle().wholeString().noLowercase();
-
-    /**
      * {@icu} <p>Returns the titlecase version of the argument string.
      * <p>Position for titlecasing is determined by the argument break
      * iterator, hence the user can customize his break iterator for
@@ -5526,7 +5698,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
     }
 
     /**
-     * {@icu} <p>Check a binary Unicode property for a code point.
+     * {@icu} Check a binary Unicode property for a code point.
      * <p>Unicode, especially in version 3.2, defines many more properties
      * than the original set in UnicodeData.txt.
      * <p>This API is intended to reflect Unicode properties as defined in
@@ -5548,6 +5720,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      *         Unicode version does not have data for the property at all, or
      *         not for this code point.
      * @see com.ibm.icu.lang.UProperty
+     * @see CharacterProperties#getBinaryPropertySet(int)
      * @stable ICU 2.6
      */
     public static boolean hasBinaryProperty(int ch, int property)
@@ -5605,7 +5778,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
     }
 
     /**
-     * {@icu} <p>Returns the property value for an Unicode property type of a code point.
+     * {@icu} Returns the property value for a Unicode property type of a code point.
      * Also returns binary and mask property values.
      * <p>Unicode, especially in version 3.2, defines many more properties than
      * the original set in UnicodeData.txt.
@@ -5629,8 +5802,9 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      *        UProperty.MASK_START &lt;= type &lt; UProperty.MASK_LIMIT.
      * @return numeric value that is directly the property value or,
      *         for enumerated properties, corresponds to the numeric value of
-     *         the enumerated constant of the respective property value
-     *         enumeration type (cast to enum type if necessary).
+     *         the enumerated constant of the respective property value type
+     *         ({@link ECharacterCategory}, {@link ECharacterDirection},
+     *         {@link DecompositionType}, etc.).
      *         Returns 0 or 1 (for false / true) for binary Unicode properties.
      *         Returns a bit-mask for mask properties.
      *         Returns 0 if 'type' is out of bounds or if the Unicode version
@@ -5640,6 +5814,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @see #hasBinaryProperty
      * @see #getIntPropertyMinValue
      * @see #getIntPropertyMaxValue
+     * @see CharacterProperties#getIntPropertyMap(int)
      * @see #getUnicodeVersion
      * @stable ICU 2.4
      */

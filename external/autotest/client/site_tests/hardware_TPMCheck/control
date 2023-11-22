@@ -10,7 +10,7 @@ CRITERIA = "Check that the TPM is in the expected state for use in Chrome OS."
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "Hardware"
-TEST_TYPE = "Client"
+TEST_TYPE = "client"
 
 DOC = """
     A basic sanity check of the state of the TPM (Trusted Platform Module)

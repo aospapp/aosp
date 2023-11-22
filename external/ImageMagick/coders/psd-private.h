@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,12 +38,15 @@ typedef struct _PSDInfo
     channels,
     depth,
     mode,
+    min_channels,
     version;
 } PSDInfo;
 
 extern ModuleExport MagickBooleanType
   ReadPSDLayers(Image *,const ImageInfo *,const PSDInfo *,
-    const MagickBooleanType,ExceptionInfo *);
+    ExceptionInfo *),
+  WritePSDLayers(Image *,const ImageInfo *,const PSDInfo *,
+    ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

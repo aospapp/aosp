@@ -15,6 +15,7 @@ TIME = 'MEDIUM'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'
+ATTRIBUTES = "suite:bvt-perbuild"
 
 job.run_test('platform_CryptohomeFio',
              script='surfing',

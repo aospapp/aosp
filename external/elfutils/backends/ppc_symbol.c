@@ -42,7 +42,8 @@
 
 /* Check for the simple reloc types.  */
 Elf_Type
-ppc_reloc_simple_type (Ebl *ebl __attribute__ ((unused)), int type)
+ppc_reloc_simple_type (Ebl *ebl __attribute__ ((unused)), int type,
+		       int *addsub __attribute__ ((unused)))
 {
   switch (type)
     {
@@ -57,6 +58,16 @@ ppc_reloc_simple_type (Ebl *ebl __attribute__ ((unused)), int type)
 }
 
 
+/* Check whether machine flags are valid.  */
+bool
+ppc_machine_flag_check (GElf_Word flags)
+{
+  return ((flags &~ (EF_PPC_EMB
+		     | EF_PPC_RELOCATABLE
+		     | EF_PPC_RELOCATABLE_LIB)) == 0);
+}
+
+
 const char *
 ppc_dynamic_tag_name (int64_t tag, char *buf __attribute__ ((unused)),
 		      size_t len __attribute__ ((unused)))
@@ -65,6 +76,8 @@ ppc_dynamic_tag_name (int64_t tag, char *buf __attribute__ ((unused)),
     {
     case DT_PPC_GOT:
       return "PPC_GOT";
+    case DT_PPC_OPT:
+      return "PPC_OPT";
     default:
       break;
     }
@@ -75,7 +88,8 @@ ppc_dynamic_tag_name (int64_t tag, char *buf __attribute__ ((unused)),
 bool
 ppc_dynamic_tag_check (int64_t tag)
 {
-  return tag == DT_PPC_GOT;
+  return (tag == DT_PPC_GOT
+	  || tag == DT_PPC_OPT);
 }
 
 
@@ -122,7 +136,7 @@ find_dyn_got (Elf *elf, GElf_Addr *addr)
 /* Check whether given symbol's st_value and st_size are OK despite failing
    normal checks.  */
 bool
-ppc_check_special_symbol (Elf *elf, GElf_Ehdr *ehdr, const GElf_Sym *sym,
+ppc_check_special_symbol (Elf *elf, const GElf_Sym *sym,
 			  const char *name, const GElf_Shdr *destshdr)
 {
   if (name == NULL)
@@ -139,7 +153,10 @@ ppc_check_special_symbol (Elf *elf, GElf_Ehdr *ehdr, const GElf_Sym *sym,
       return true;
     }
 
-  const char *sname = elf_strptr (elf, ehdr->e_shstrndx, destshdr->sh_name);
+  size_t shstrndx;
+  if (elf_getshdrstrndx (elf, &shstrndx) != 0)
+    return false;
+  const char *sname = elf_strptr (elf, shstrndx, destshdr->sh_name);
   if (sname == NULL)
     return false;
 

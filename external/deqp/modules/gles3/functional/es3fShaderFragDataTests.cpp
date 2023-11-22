@@ -61,6 +61,24 @@ enum IndexExprType
 	INDEX_EXPR_TYPE_LAST
 };
 
+static bool isExtensionSupported (const glu::RenderContext& renderCtx, const std::string& extension)
+{
+	const glw::Functions&	gl		= renderCtx.getFunctions();
+	int						numExts	= 0;
+
+	gl.getIntegerv(GL_NUM_EXTENSIONS, &numExts);
+
+	for (int ndx = 0; ndx < numExts; ndx++)
+	{
+		const char* curExt = (const char*)gl.getStringi(GL_EXTENSIONS, ndx);
+
+		if (extension == curExt)
+			return true;
+	}
+
+	return false;
+}
+
 static bool compareSingleColor (tcu::TestLog& log, const tcu::Surface& surface, tcu::RGBA expectedColor, tcu::RGBA threshold)
 {
 	const int	maxPrints			= 10;
@@ -227,7 +245,12 @@ public:
 
 	IterateResult iterate (void)
 	{
-		const glu::RenderContext&		renderCtx		= m_context.getRenderContext();
+		const glu::RenderContext&		renderCtx			= m_context.getRenderContext();
+
+		int								num_test_attachment	= 2;
+		if(!isExtensionSupported(renderCtx, "GL_EXT_draw_buffers") && !isExtensionSupported(renderCtx, "GL_NV_draw_buffers"))
+			num_test_attachment = 1;
+
 		const glu::ShaderProgram		program			(renderCtx, glu::ProgramSources()
 															<< glu::VertexSource(
 																"attribute highp vec4 a_position;\n"
@@ -281,7 +304,7 @@ public:
 			throw tcu::NotSupportedError("Dynamic indexing of gl_FragData[] not supported");
 
 		gl.bindFramebuffer(GL_FRAMEBUFFER, *fbo);
-		for (int ndx = 0; ndx < 2; ndx++)
+		for (int ndx = 0; ndx < num_test_attachment; ndx++)
 		{
 			const deUint32	rbo	= ndx == 0 ? *colorBuf0 : *colorBuf1;
 
@@ -296,44 +319,43 @@ public:
 			gl.drawBuffers(DE_LENGTH_OF_ARRAY(drawBuffers), &drawBuffers[0]);
 		}
 
-		gl.clearBufferfv(GL_COLOR, 0, tcu::RGBA::red().toVec().getPtr());
-		gl.clearBufferfv(GL_COLOR, 1, tcu::RGBA::red().toVec().getPtr());
-
 		gl.viewport		(0, 0, width, height);
 		gl.useProgram	(program.getProgram());
 
 		GLU_EXPECT_NO_ERROR(gl.getError(), "Setup failed");
 
-		m_testCtx.getLog() << TestLog::Message << "Drawing to attachments 0 and 1, expecting only attachment 0 to change." << TestLog::EndMessage;
+		bool			allOk		= true;
+		const tcu::RGBA threshold	= renderCtx.getRenderTarget().getPixelFormat().getColorThreshold() + tcu::RGBA(1,1,1,1);
 
-		for (int ndx = 0; ndx < 2; ndx++)
+		for (int ndx = 0; ndx < num_test_attachment; ndx++)
 		{
+			gl.clearBufferfv(GL_COLOR, 0, tcu::RGBA::red().toVec().getPtr());
+			gl.clearBufferfv(GL_COLOR, 1, tcu::RGBA::red().toVec().getPtr());
+
+			m_testCtx.getLog() << TestLog::Message << "Drawing to attachments " << ndx << TestLog::EndMessage;
+
 			gl.uniform1i(indexLoc, ndx);
 			glu::draw(renderCtx, program.getProgram(), DE_LENGTH_OF_ARRAY(vertexArrays), &vertexArrays[0],
 					  glu::pr::Triangles(DE_LENGTH_OF_ARRAY(indices), &indices[0]));
-		}
-		GLU_EXPECT_NO_ERROR(gl.getError(), "Rendering failed");
 
-		{
-			tcu::Surface		result		(width, height);
-			const tcu::RGBA		threshold	= renderCtx.getRenderTarget().getPixelFormat().getColorThreshold() + tcu::RGBA(1,1,1,1);
-			bool				allOk		= true;
+			GLU_EXPECT_NO_ERROR(gl.getError(), "Rendering failed");
 
-			for (int ndx = 0; ndx < 2; ndx++)
 			{
+				tcu::Surface result(width, height);
+
 				m_testCtx.getLog() << TestLog::Message << "Verifying attachment " << ndx << "..." << TestLog::EndMessage;
 
 				gl.readBuffer(GL_COLOR_ATTACHMENT0+ndx);
 				glu::readPixels(renderCtx, 0, 0, result.getAccess());
 				GLU_EXPECT_NO_ERROR(gl.getError(), "Reading pixels failed");
 
-				if (!compareSingleColor(m_testCtx.getLog(), result, ndx == 0 ? tcu::RGBA::green() : tcu::RGBA::red(), threshold))
+				if (!compareSingleColor(m_testCtx.getLog(), result, tcu::RGBA::green(), threshold))
 					allOk = false;
 			}
-
-			m_testCtx.setTestResult(allOk ? QP_TEST_RESULT_PASS	: QP_TEST_RESULT_FAIL,
-									allOk ? "Pass"				: "Image comparison failed");
 		}
+
+		m_testCtx.setTestResult(allOk ? QP_TEST_RESULT_PASS	: QP_TEST_RESULT_FAIL,
+								allOk ? "Pass"				: "Image comparison failed");
 
 		return STOP;
 	}

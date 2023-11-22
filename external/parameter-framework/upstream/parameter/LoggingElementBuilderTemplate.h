@@ -58,7 +58,7 @@ namespace details
  *
  */
 std::string PARAMETER_EXPORT getName(const CXmlElement &xmlElement);
-}
+} // namespace details
 
 /**
  * Builder for elements which need logger at construction
@@ -85,7 +85,7 @@ public:
      *
      * @return pointer to the generated element
      */
-    virtual CElement *createElement(const CXmlElement &xmlElement) const
+    CElement *createElement(const CXmlElement &xmlElement) const override
     {
         return new ElementType(details::getName(xmlElement), mLogger);
     }

@@ -1,0 +1,17 @@
+name: "cldr"
+description:
+    "CLDR data and tools"
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://www.unicode.org/"
+  }
+  url {
+    type: SVN
+    value: "https://unicode.org/repos/cldr"
+  }
+  version: ""
+  last_upgrade_date { year: 2018 month: 4 day: 20 }
+  license_type: NOTICE
+}

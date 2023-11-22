@@ -33,18 +33,24 @@ NAME_ATHEROS_AR9280 = 'Atheros AR9280'
 NAME_ATHEROS_AR9382 = 'Atheros AR9382'
 NAME_ATHEROS_AR9462 = 'Atheros AR9462'
 NAME_QUALCOMM_ATHEROS_QCA6174 = 'Qualcomm Atheros QCA6174'
-NAME_QUALCOMM_ATHEROS_NFA344A = 'Qualcomm Atheros NFA344A/QCA6174'
+NAME_QUALCOMM_WCN3990 = 'Qualcomm WCN3990'
 NAME_INTEL_7260 = 'Intel 7260'
 NAME_INTEL_7265 = 'Intel 7265'
 NAME_INTEL_9000 = 'Intel 9000'
 NAME_INTEL_9260 = 'Intel 9260'
+NAME_INTEL_22260 = 'Intel 22260'
 NAME_BROADCOM_BCM4354_SDIO = 'Broadcom BCM4354 SDIO'
 NAME_BROADCOM_BCM4356_PCIE = 'Broadcom BCM4356 PCIE'
 NAME_BROADCOM_BCM4371_PCIE = 'Broadcom BCM4371 PCIE'
 NAME_UNKNOWN = 'Unknown WiFi Device'
 
 DEVICE_INFO_ROOT = '/sys/class/net'
-DeviceInfo = collections.namedtuple('DeviceInfo', ['vendor', 'device'])
+
+DeviceInfo = collections.namedtuple('DeviceInfo', ['vendor', 'device',
+                                                   'compatible'])
+# Provide default values for parameters.
+DeviceInfo.__new__.__defaults__ = (None, None, None)
+
 DEVICE_NAME_LOOKUP = {
     DeviceInfo('0x02df', '0x9129'): NAME_MARVELL_88W8797_SDIO,
     DeviceInfo('0x02df', '0x912d'): NAME_MARVELL_88W8897_SDIO,
@@ -55,7 +61,7 @@ DEVICE_NAME_LOOKUP = {
     DeviceInfo('0x168c', '0x0030'): NAME_ATHEROS_AR9382,
     DeviceInfo('0x168c', '0x0034'): NAME_ATHEROS_AR9462,
     DeviceInfo('0x168c', '0x003e'): NAME_QUALCOMM_ATHEROS_QCA6174,
-    DeviceInfo('0x105b', '0xe09d'): NAME_QUALCOMM_ATHEROS_NFA344A,
+    DeviceInfo('0x105b', '0xe09d'): NAME_QUALCOMM_ATHEROS_QCA6174,
     DeviceInfo('0x8086', '0x08b1'): NAME_INTEL_7260,
     DeviceInfo('0x8086', '0x08b2'): NAME_INTEL_7260,
     DeviceInfo('0x8086', '0x095a'): NAME_INTEL_7265,
@@ -63,9 +69,12 @@ DEVICE_NAME_LOOKUP = {
     DeviceInfo('0x8086', '0x9df0'): NAME_INTEL_9000,
     DeviceInfo('0x8086', '0x31dc'): NAME_INTEL_9000,
     DeviceInfo('0x8086', '0x2526'): NAME_INTEL_9260,
+    DeviceInfo('0x8086', '0x2723'): NAME_INTEL_22260,
     DeviceInfo('0x02d0', '0x4354'): NAME_BROADCOM_BCM4354_SDIO,
     DeviceInfo('0x14e4', '0x43ec'): NAME_BROADCOM_BCM4356_PCIE,
     DeviceInfo('0x14e4', '0x440d'): NAME_BROADCOM_BCM4371_PCIE,
+
+    DeviceInfo(compatible='qcom,wcn3990-wifi'): NAME_QUALCOMM_WCN3990,
 }
 
 class Interface:
@@ -167,6 +176,44 @@ class Interface:
 
 
     @property
+    def wiphy_name(self):
+        """
+        @return name of the wiphy (e.g., 'phy0'), if available.
+        Otherwise None.
+        """
+        readlink_result = self._run('readlink "%s"' %
+                os.path.join(DEVICE_INFO_ROOT, self._name, 'phy80211'),
+                ignore_status=True)
+        if readlink_result.exit_status != 0:
+            return None
+
+        return os.path.basename(readlink_result.stdout.strip())
+
+
+    @property
+    def module_name(self):
+        """@return Name of kernel module in use by this interface."""
+        module_readlink_result = self._run('readlink "%s"' %
+                os.path.join(self.device_path, 'driver', 'module'),
+                ignore_status=True)
+        if module_readlink_result.exit_status != 0:
+            return None
+
+        return os.path.basename(module_readlink_result.stdout.strip())
+
+    @property
+    def parent_device_name(self):
+        """
+        @return Name of device at which wiphy device is present. For example,
+        for a wifi NIC present on a PCI bus, this would be the same as
+        PCI_SLOT_PATH. """
+        path_readlink_result = self._run('readlink "%s"' % self.device_path)
+        if path_readlink_result.exit_status != 0:
+            return None
+
+        return os.path.basename(path_readlink_result.stdout.strip())
+
+    @property
     def device_description(self):
         """@return DeviceDescription object for a WiFi interface, or None."""
         read_file = (lambda path: self._run('cat "%s"' % path).stdout.rstrip()
@@ -181,25 +228,31 @@ class Interface:
             logging.error('No device path found')
             return None
 
-        # TODO(benchan): The 'vendor' / 'device' files do not always exist
-        # under the device path. We probably need to figure out an alternative
-        # way to determine the vendor and device ID.
+        # Try to identify using either vendor/product ID, or using device tree
+        # "OF_COMPATIBLE_x".
         vendor_id = read_file(os.path.join(device_path, 'vendor'))
         product_id = read_file(os.path.join(device_path, 'device'))
-        driver_info = DeviceInfo(vendor_id, product_id)
-        if driver_info in DEVICE_NAME_LOOKUP:
-            device_name = DEVICE_NAME_LOOKUP[driver_info]
-            logging.debug('Device is %s',  device_name)
+        uevent = read_file(os.path.join(device_path, 'uevent'))
+
+        # Vendor/product ID.
+        infos = [DeviceInfo(vendor_id, product_id)]
+
+        # Compatible value(s).
+        for line in uevent.splitlines():
+            key, _, value = line.partition('=')
+            if re.match('^OF_COMPATIBLE_[0-9]+$', key):
+                infos += [DeviceInfo(compatible=value)]
+
+        for info in infos:
+            if info in DEVICE_NAME_LOOKUP:
+                device_name = DEVICE_NAME_LOOKUP[info]
+                logging.debug('Device is %s',  device_name)
+                break
         else:
-            logging.error('Device vendor/product pair %r for device %s is '
-                          'unknown!', driver_info, product_id)
+            logging.error('Device is unknown. Info: %r', infos)
             device_name = NAME_UNKNOWN
-        module_readlink_result = self._run('readlink "%s"' %
-                os.path.join(device_path, 'driver', 'module'),
-                ignore_status=True)
-        if module_readlink_result.exit_status == 0:
-            module_name = os.path.basename(
-                    module_readlink_result.stdout.strip())
+        module_name = self.module_name
+        if module_name is not None:
             kernel_release = self._run('uname -r').stdout.strip()
             module_path = self._run('find '
                                     '/lib/modules/%s/kernel/drivers/net '

@@ -246,6 +246,12 @@ L_CFLAGS += -DCONFIG_SUITEB192
 NEED_SHA384=y
 endif
 
+ifdef CONFIG_OCV
+L_CFLAGS += -DCONFIG_OCV
+OBJS += src/common/ocv.c
+CONFIG_IEEE80211W=y
+endif
+
 ifdef CONFIG_IEEE80211W
 L_CFLAGS += -DCONFIG_IEEE80211W
 NEED_SHA256=y
@@ -466,6 +472,7 @@ ifdef CONFIG_EAP_PWD
 L_CFLAGS += -DEAP_SERVER_PWD
 OBJS += src/eap_server/eap_server_pwd.c src/eap_common/eap_pwd_common.c
 NEED_SHA256=y
+NEED_ECC=y
 endif
 
 ifdef CONFIG_EAP_EKE
@@ -558,6 +565,9 @@ NEED_SHA512=y
 NEED_JSON=y
 NEED_GAS=y
 NEED_BASE64=y
+ifdef CONFIG_DPP2
+L_CFLAGS += -DCONFIG_DPP2
+endif
 endif
 
 ifdef CONFIG_EAP_IKEV2
@@ -649,21 +659,32 @@ L_CFLAGS += -DTLS_DEFAULT_CIPHERS=\"$(CONFIG_TLS_DEFAULT_CIPHERS)\"
 endif
 
 ifeq ($(CONFIG_TLS), gnutls)
+ifndef CONFIG_CRYPTO
+# default to libgcrypt
+CONFIG_CRYPTO=gnutls
+endif
 ifdef TLS_FUNCS
 OBJS += src/crypto/tls_gnutls.c
 LIBS += -lgnutls -lgpg-error
 endif
-OBJS += src/crypto/crypto_gnutls.c
-HOBJS += src/crypto/crypto_gnutls.c
+OBJS += src/crypto/crypto_$(CONFIG_CRYPTO).c
+HOBJS += src/crypto/crypto_$(CONFIG_CRYPTO).c
 ifdef NEED_FIPS186_2_PRF
 OBJS += src/crypto/fips_prf_internal.c
 OBJS += src/crypto/sha1-internal.c
 endif
+ifeq ($(CONFIG_CRYPTO), gnutls)
 LIBS += -lgcrypt
 LIBS_h += -lgcrypt
-CONFIG_INTERNAL_SHA256=y
 CONFIG_INTERNAL_RC4=y
 CONFIG_INTERNAL_DH_GROUP5=y
+endif
+ifeq ($(CONFIG_CRYPTO), nettle)
+LIBS += -lnettle -lgmp
+LIBS_p += -lnettle -lgmp
+CONFIG_INTERNAL_RC4=y
+CONFIG_INTERNAL_DH_GROUP5=y
+endif
 endif
 
 ifeq ($(CONFIG_TLS), internal)
@@ -820,7 +841,9 @@ endif
 SHA1OBJS =
 ifdef NEED_SHA1
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), gnutls)
 SHA1OBJS += src/crypto/sha1.c
+endif
 endif
 SHA1OBJS += src/crypto/sha1-prf.c
 ifdef CONFIG_INTERNAL_SHA1
@@ -845,7 +868,9 @@ OBJS += $(SHA1OBJS)
 endif
 
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), gnutls)
 OBJS += src/crypto/md5.c
+endif
 endif
 
 ifdef NEED_MD5
@@ -882,7 +907,9 @@ endif
 ifdef NEED_SHA256
 L_CFLAGS += -DCONFIG_SHA256
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), gnutls)
 OBJS += src/crypto/sha256.c
+endif
 endif
 OBJS += src/crypto/sha256-prf.c
 ifdef CONFIG_INTERNAL_SHA256
@@ -904,7 +931,9 @@ endif
 ifdef NEED_SHA384
 L_CFLAGS += -DCONFIG_SHA384
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), gnutls)
 OBJS += src/crypto/sha384.c
+endif
 endif
 OBJS += src/crypto/sha384-prf.c
 endif
@@ -912,7 +941,9 @@ ifdef NEED_SHA512
 L_CFLAGS += -DCONFIG_SHA512
 ifneq ($(CONFIG_TLS), openssl)
 ifneq ($(CONFIG_TLS), linux)
+ifneq ($(CONFIG_TLS), gnutls)
 OBJS += src/crypto/sha512.c
+endif
 endif
 endif
 OBJS += src/crypto/sha512-prf.c
@@ -1072,7 +1103,7 @@ else
 OBJS_c += src/utils/edit_simple.c
 endif
 
-ifeq ($(filter gce_x86 gce_x86_64 calypso generic_x86 generic_x86_64 generic generic_arm64, $(TARGET_DEVICE)),)
+ifeq ($(filter gce_x86 gce_x86_64 calypso, $(TARGET_DEVICE)),)
 ifdef CONFIG_CTRL_IFACE_HIDL
 HOSTAPD_USE_HIDL=y
 L_CFLAGS += -DCONFIG_CTRL_IFACE_HIDL
@@ -1084,7 +1115,6 @@ endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := hostapd_cli
-LOCAL_MODULE_TAGS := debug
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := libc libcutils liblog
 LOCAL_CFLAGS := $(L_CFLAGS)
@@ -1114,6 +1144,7 @@ endif
 endif
 ifeq ($(HOSTAPD_USE_HIDL), y)
 LOCAL_SHARED_LIBRARIES += android.hardware.wifi.hostapd@1.0
+LOCAL_SHARED_LIBRARIES += android.hardware.wifi.hostapd@1.1
 LOCAL_SHARED_LIBRARIES += libbase libhidlbase libhidltransport libhwbinder libutils
 LOCAL_STATIC_LIBRARIES += libhostapd_hidl
 endif
@@ -1121,6 +1152,30 @@ LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_SRC_FILES := $(OBJS)
 LOCAL_C_INCLUDES := $(INCLUDES)
 LOCAL_INIT_RC := hostapd.android.rc
+include $(BUILD_EXECUTABLE)
+
+########################
+include $(CLEAR_VARS)
+LOCAL_MODULE := hostapd_nohidl
+LOCAL_MODULE_TAGS := optional
+LOCAL_PROPRIETARY_MODULE := true
+ifdef CONFIG_DRIVER_CUSTOM
+LOCAL_STATIC_LIBRARIES := libCustomWifi
+endif
+ifneq ($(BOARD_HOSTAPD_PRIVATE_LIB),)
+LOCAL_STATIC_LIBRARIES += $(BOARD_HOSTAPD_PRIVATE_LIB)
+endif
+LOCAL_SHARED_LIBRARIES := libc libcutils liblog libcrypto libssl
+ifdef CONFIG_DRIVER_NL80211
+ifneq ($(wildcard external/libnl),)
+LOCAL_SHARED_LIBRARIES += libnl
+else
+LOCAL_STATIC_LIBRARIES += libnl_2
+endif
+endif
+LOCAL_CFLAGS := $(patsubst -DCONFIG_CTRL_IFACE_HIDL,,$(L_CFLAGS))
+LOCAL_SRC_FILES := $(OBJS)
+LOCAL_C_INCLUDES := $(INCLUDES)
 include $(BUILD_EXECUTABLE)
 
 ifeq ($(HOSTAPD_USE_HIDL), y)
@@ -1132,12 +1187,13 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CPPFLAGS := $(L_CPPFLAGS)
 LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_C_INCLUDES := $(INCLUDES)
-HIDL_INTERFACE_VERSION = 1.0
+HIDL_INTERFACE_VERSION = 1.1
 LOCAL_SRC_FILES := \
     hidl/$(HIDL_INTERFACE_VERSION)/hidl.cpp \
     hidl/$(HIDL_INTERFACE_VERSION)/hostapd.cpp
 LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi.hostapd@1.0 \
+    android.hardware.wifi.hostapd@1.1 \
     libbase \
     libhidlbase \
     libhidltransport \

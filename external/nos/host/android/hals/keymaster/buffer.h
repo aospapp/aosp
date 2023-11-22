@@ -41,6 +41,8 @@ ErrorCode buffer_peek(uint64_t handle,
 ErrorCode buffer_advance(uint64_t handle, size_t count);
 ErrorCode buffer_final(uint64_t handle,
                        hidl_vec<uint8_t> *data);
+ErrorCode buffer_algorithm(uint64_t handle,
+                           Algorithm *algorithm);
 
 }  // namespace keymaster
 }  // hardware

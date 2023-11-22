@@ -55,7 +55,8 @@ TEST(InterleaveTest, All) {
   float output[SAMPLES];
   float *out_ptr[] = {output, output + FRAMES};
 
-  dsp_util_deinterleave(input, out_ptr, 2, FRAMES);
+  dsp_util_deinterleave((uint8_t *)input, out_ptr, 2,
+			SND_PCM_FORMAT_S16_LE, FRAMES);
 
   for (int i = 0 ; i < SAMPLES; i++) {
     EXPECT_EQ(answer[i], output[i]);
@@ -68,7 +69,8 @@ TEST(InterleaveTest, All) {
   }
 
   int16_t output2[SAMPLES];
-  dsp_util_interleave(out_ptr, output2, 2, FRAMES);
+  dsp_util_interleave(out_ptr, (uint8_t *)output2, 2,
+		      SND_PCM_FORMAT_S16_LE, FRAMES);
   for (int i = 0 ; i < SAMPLES; i++) {
     EXPECT_EQ(input[i], output2[i]);
   }

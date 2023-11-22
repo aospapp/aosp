@@ -26,9 +26,6 @@
  * Authors:
  *      Jérôme Glisse <jglisse@redhat.com>
  */
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 #include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
@@ -2503,6 +2500,7 @@ static int radeon_surface_sanity(struct radeon_surface_manager *surf_man,
         if (surf->npix_y > 1) {
             return -EINVAL;
         }
+        /* fallthrough */
     case RADEON_SURF_TYPE_2D:
         if (surf->npix_z > 1) {
             return -EINVAL;

@@ -3,11 +3,9 @@
 # found in the LICENSE file.
 
 import collections
-import copy
 import logging
 import operator
 import re
-import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -77,7 +75,12 @@ IW_LINK_KEY_DTIM_PERIOD = 'dtim period'
 IW_LINK_KEY_FREQUENCY = 'freq'
 IW_LINK_KEY_SIGNAL = 'signal'
 IW_LINK_KEY_RX_BITRATE = 'rx bitrate'
+IW_LINK_KEY_RX_DROPS = 'rx drop misc'
+IW_LINK_KEY_RX_PACKETS = 'rx packets'
 IW_LINK_KEY_TX_BITRATE = 'tx bitrate'
+IW_LINK_KEY_TX_FAILURES = 'tx failed'
+IW_LINK_KEY_TX_PACKETS = 'tx packets'
+IW_LINK_KEY_TX_RETRIES = 'tx retries'
 IW_LOCAL_EVENT_LOG_FILE = './debug/iw_event_%d.log'
 
 
@@ -357,21 +360,47 @@ class IwRunner(object):
         parts = re.split(r'^Station ', result.stdout, flags=re.MULTILINE)[1:]
         peer_list_raw = ['Station ' + x for x in parts]
         parsed_peer_info = []
+
         for peer in peer_list_raw:
             peer_link_keys = _get_all_link_keys(peer)
-            rssi_str = peer_link_keys[IW_LINK_KEY_SIGNAL]
-            tx_bitrate = peer_link_keys.get(IW_LINK_KEY_TX_BITRATE)
-            # Station may not have rx_bitrate in station dump
-            rx_bitrate = peer_link_keys.get(IW_LINK_KEY_RX_BITRATE)
+            rssi_str = peer_link_keys.get(IW_LINK_KEY_SIGNAL, '0')
             rssi_int = int(rssi_str.split()[0])
+
+            tx_bitrate = peer_link_keys.get(IW_LINK_KEY_TX_BITRATE, '0')
+            tx_failures = int(peer_link_keys.get(IW_LINK_KEY_TX_FAILURES, 0))
+            tx_packets = int(peer_link_keys.get(IW_LINK_KEY_TX_PACKETS, 0))
+            tx_retries = int(peer_link_keys.get(IW_LINK_KEY_TX_RETRIES, 0))
+
+            rx_bitrate = peer_link_keys.get(IW_LINK_KEY_RX_BITRATE, '0')
+            rx_drops = int(peer_link_keys.get(IW_LINK_KEY_RX_DROPS, 0))
+            rx_packets = int(peer_link_keys.get(IW_LINK_KEY_RX_PACKETS, 0))
+
             mac = _extract_bssid(link_information=peer,
                                  interface_name=interface,
                                  station_dump=True)
-            parsed_peer_info.append({'rssi_int': rssi_int,
-                                     'rssi_str': rssi_str,
-                                     'tx_bitrate': tx_bitrate,
-                                     'rx_bitrate': rx_bitrate,
-                                     'mac': mac})
+
+            # If any of these are missing, they will be None
+            peer_info = {'rssi_int': rssi_int,
+                         'rssi_str': rssi_str,
+                         'tx_bitrate': tx_bitrate,
+                         'tx_failures': tx_failures,
+                         'tx_packets': tx_packets,
+                         'tx_retries': tx_retries,
+                         'rx_bitrate': rx_bitrate,
+                         'rx_drops': rx_drops,
+                         'rx_packets': rx_packets,
+                         'mac': mac}
+
+            # don't evaluate if tx_packets 0
+            if tx_packets:
+                peer_info['tx_retry_rate'] = tx_retries / float(tx_packets)
+                peer_info['tx_failure_rate'] =  tx_failures / float(tx_packets)
+
+            # don't evaluate if rx_packets is 0
+            if rx_packets:
+                peer_info['rx_drop_rate'] = rx_drops / float(rx_packets)
+
+            parsed_peer_info.append(peer_info)
         return sorted(parsed_peer_info, key=operator.itemgetter('mac'))
 
 
@@ -796,7 +825,7 @@ class IwRunner(object):
 
         """
         output = self._run('%s reg get' % self._command_iw).stdout
-        m = re.match('^country (..):', output)
+        m = re.search('^country (..):', output, re.MULTILINE)
         if not m:
             return None
         return m.group(1)
@@ -822,47 +851,40 @@ class IwRunner(object):
             if the scan is empty or returns an error code None is returned.
 
         """
-        start_time = time.time()
-        scan_failure_attempts = 0
+
         logging.info('Performing a scan with a max timeout of %d seconds.',
                      timeout_seconds)
-        remaining_bsses = copy.copy(bsses)
-        remaining_ssids = copy.copy(ssids)
-        while time.time() - start_time < timeout_seconds:
-            scan_results = self.scan(interface)
-            if scan_results is None or len(scan_results) == 0:
-                scan_failure_attempts += 1
-                # Allow in-progress scan to complete
-                time.sleep(5)
-                # If the in-progress scan takes more than 30 seconds to
-                # complete it will most likely never complete; abort.
-                # See crbug.com/309148.
-                if scan_failure_attempts > 5:
-                    logging.error('Scan failed to run, see debug log for '
-                                  'error code.')
-                    return None
-                continue
-            scan_failure_attempts = 0
-            matching_iwbsses = set()
-            for iwbss in scan_results:
-              if iwbss.bss in bsses and len(remaining_bsses) > 0:
-                    remaining_bsses.remove(iwbss.bss)
-                    matching_iwbsses.add(iwbss)
-              if iwbss.ssid in ssids and len(remaining_ssids) > 0:
-                    remaining_ssids.remove(iwbss.ssid)
-                    matching_iwbsses.add(iwbss)
-            if wait_for_all:
-                if len(remaining_bsses) == 0 and len(remaining_ssids) == 0:
-                    return list(matching_iwbsses)
-            else:
-                if len(matching_iwbsses) > 0:
-                    return list(matching_iwbsses)
 
+        # If the in-progress scan takes more than 30 seconds to
+        # complete it will most likely never complete; abort.
+        # See crbug.com/309148
+        scan_results = list()
+        try:
+            scan_results = utils.poll_for_condition(
+                    condition=lambda: self.scan(interface),
+                    timeout=timeout_seconds,
+                    sleep_interval=5, # to allow in-progress scans to complete
+                    desc='Timed out getting IWBSSes that match desired')
+        except utils.TimeoutError as e:
+            pass
 
-        if scan_failure_attempts > 0:
+        if not scan_results: # empty list or None
             return None
-        # The SSID wasn't found, but the device is fine.
-        return list()
+
+        # get all IWBSSes from the scan that match any of the desired
+        # ssids or bsses passed in
+        matching_iwbsses = filter(
+                lambda iwbss: iwbss.ssid in ssids or iwbss.bss in bsses,
+                scan_results)
+        if wait_for_all:
+            found_bsses = [iwbss.bss for iwbss in matching_iwbsses]
+            found_ssids = [iwbss.ssid for iwbss in matching_iwbsses]
+            # if an expected bss or ssid was not found, and it was required
+            # by the caller that all expected be found, return empty list
+            if any(bss not in found_bsses for bss in bsses) or any(
+                    ssid not in found_ssids for ssid in ssids):
+                return list()
+        return list(matching_iwbsses)
 
 
     def wait_for_link(self, interface, timeout_seconds=10):
@@ -874,14 +896,14 @@ class IwRunner(object):
         @returns True if link was established before the timeout.
 
         """
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            link_results = self._run('%s dev %s link' %
-                                     (self._command_iw, interface))
-            if 'Not connected' not in link_results.stdout:
-                return True
-            time.sleep(1)
-        return False
+        return utils.poll_for_condition(
+                # gets link results from running dev command, then assumes the
+                # link is completed if 'Not connected' is absent from stdout
+                condition=lambda: 'Not connected' not in self._run(
+                    '%s dev %s link' % (self._command_iw, interface)).stdout,
+                timeout=timeout_seconds,
+                sleep_interval=1,
+                desc='Wait until a link completes on |interface|')
 
 
     def set_antenna_bitmap(self, phy, tx_bitmap, rx_bitmap):

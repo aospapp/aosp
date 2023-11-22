@@ -336,7 +336,7 @@ class USBWidgetLink(WidgetLink):
     # This is the default channel map for 2-channel data
     _DEFAULT_CHANNEL_MAP = [0, 1]
     # Wait some time for Cros device to detect USB has been plugged.
-    _DELAY_AFTER_PLUGGING_SECS = 0.5
+    _DELAY_AFTER_PLUGGING_SECS = 2.0
 
     def __init__(self, usb_ctrl):
         """Initializes a USBWidgetLink.
@@ -434,7 +434,7 @@ class HDMIWidgetLink(WidgetLink):
         """
         board = self._cros_host.get_board().split(':')[1]
         if board in ['peach_pit', 'peach_pi', 'daisy', 'daisy_spring',
-                     'daisy_skate', 'cyan', 'celes']:
+                     'daisy_skate', 'cyan', 'celes', 'nyan_big', 'lars']:
             logging.info('Need extra plug/unplug on board %s', board)
             for _ in xrange(3):
                 handler.plug()
@@ -514,18 +514,17 @@ class BluetoothWidgetLink(WidgetLink):
         already has the access to bluetooth module on audio board and
         bluetooth adapter on Cros device.
 
-        @param source: An AudioWidget object.
-        @param sink: An AudioWidget object.
+        @param source: An AudioWidget object (unused).
+        @param sink: An AudioWidget object (unused).
 
         """
-        self._disable_adapter()
         self.disable_bluetooth_module()
+        self.adapter_disconnect_module()
 
 
     def enable_bluetooth_module(self):
         """Reset bluetooth module if it is not enabled."""
-        if not self._audio_board_bt_ctrl.is_enabled():
-            self._audio_board_bt_ctrl.reset()
+        self._audio_board_bt_ctrl.reset()
 
 
     def disable_bluetooth_module(self):

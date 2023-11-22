@@ -5,9 +5,9 @@
 #include <brillo/daemons/daemon.h>
 
 #include <sysexits.h>
+#include <time.h>
 
 #include <base/bind.h>
-#include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/logging.h>
 #include <base/run_loop.h>
@@ -26,6 +26,8 @@ int Daemon::Run() {
   if (exit_code != EX_OK)
     return exit_code;
 
+  message_loop_.PostTask(
+      base::Bind(&Daemon::OnEventLoopStartedTask, base::Unretained(this)));
   message_loop_.Run();
 
   OnShutdown(&exit_code_);
@@ -68,6 +70,11 @@ int Daemon::OnInit() {
   return EX_OK;
 }
 
+int Daemon::OnEventLoopStarted() {
+  // Do nothing.
+  return EX_OK;
+}
+
 void Daemon::OnShutdown(int* /* exit_code */) {
   // Do nothing.
 }
@@ -87,6 +94,32 @@ bool Daemon::Restart(const signalfd_siginfo& /* info */) {
     return false;  // Keep listening to the signal.
   Quit();
   return true;  // Unregister the signal handler.
+}
+
+void Daemon::OnEventLoopStartedTask() {
+  int exit_code = OnEventLoopStarted();
+  if (exit_code != EX_OK)
+    QuitWithExitCode(exit_code);
+}
+
+void UpdateLogSymlinks(const base::FilePath& latest_log_symlink,
+                       const base::FilePath& previous_log_symlink,
+                       const base::FilePath& log_file) {
+  base::DeleteFile(previous_log_symlink, false);
+  base::Move(latest_log_symlink, previous_log_symlink);
+  if (!base::CreateSymbolicLink(log_file.BaseName(), latest_log_symlink)) {
+    PLOG(ERROR) << "Unable to create symbolic link from "
+                << latest_log_symlink.value() << " to " << log_file.value();
+  }
+}
+
+std::string GetTimeAsLogString(const base::Time& time) {
+  time_t utime = time.ToTimeT();
+  struct tm tm;
+  CHECK_EQ(localtime_r(&utime, &tm), &tm);
+  char str[16];
+  CHECK_EQ(strftime(str, sizeof(str), "%Y%m%d-%H%M%S", &tm), 15UL);
+  return std::string(str);
 }
 
 }  // namespace brillo

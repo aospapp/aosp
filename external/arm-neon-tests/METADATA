@@ -13,6 +13,4 @@ third_party {
   }
   version: "333ee3023f49a605e886e77c6e8c49bf655c81fb"
   last_upgrade_date { year: 2017 month: 11 day: 15 }
-
-  local_modifications: "Android.mk is created on basis of Makefile.  Some tests are disabled to prevent clang crash on buildbots."
 }

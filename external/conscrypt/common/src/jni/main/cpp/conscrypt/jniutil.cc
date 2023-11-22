@@ -38,7 +38,7 @@ jclass inputStreamClass;
 jclass outputStreamClass;
 jclass stringClass;
 
-jfieldID nativeRef_context;
+jfieldID nativeRef_address;
 
 jmethodID calendar_setMethod;
 jmethodID inputStream_readMethod;
@@ -66,7 +66,7 @@ void init(JavaVM* vm, JNIEnv* env) {
     openSslInputStreamClass = getGlobalRefToClass(
             env, TO_STRING(JNI_JARJAR_PREFIX) "org/conscrypt/OpenSSLBIOInputStream");
 
-    nativeRef_context = getFieldRef(env, nativeRefClass, "context", "J");
+    nativeRef_address = getFieldRef(env, nativeRefClass, "address", "J");
 
     calendar_setMethod = getMethodRef(env, calendarClass, "set", "(IIIIII)V");
     inputStream_readMethod = getMethodRef(env, inputStreamClass, "read", "([B)I");
@@ -80,7 +80,7 @@ void init(JavaVM* vm, JNIEnv* env) {
 
 void jniRegisterNativeMethods(JNIEnv* env, const char* className, const JNINativeMethod* gMethods,
                               int numMethods) {
-    ALOGV("Registering %s's %d native methods...", className, numMethods);
+    CONSCRYPT_LOG_VERBOSE("Registering %s's %d native methods...", className, numMethods);
 
     ScopedLocalRef<jclass> c(env, env->FindClass(className));
     if (c.get() == nullptr) {
@@ -126,13 +126,13 @@ int throwException(JNIEnv* env, const char* className, const char* msg) {
     jclass exceptionClass = env->FindClass(className);
 
     if (exceptionClass == nullptr) {
-        ALOGD("Unable to find exception class %s", className);
+        CONSCRYPT_LOG_ERROR("Unable to find exception class %s", className);
         /* ClassNotFoundException now pending */
         return -1;
     }
 
     if (env->ThrowNew(exceptionClass, msg) != JNI_OK) {
-        ALOGD("Failed throwing '%s' '%s'", className, msg);
+        CONSCRYPT_LOG_ERROR("Failed throwing '%s' '%s'", className, msg);
         /* an exception, most likely OOM, will now be pending */
         return -1;
     }
@@ -178,6 +178,12 @@ int throwIllegalBlockSizeException(JNIEnv* env, const char* message) {
             env, "javax/crypto/IllegalBlockSizeException", message);
 }
 
+int throwShortBufferException(JNIEnv* env, const char* message) {
+    JNI_TRACE("throwShortBufferException %s", message);
+    return conscrypt::jniutil::throwException(
+            env, "javax/crypto/ShortBufferException", message);
+}
+
 int throwNoSuchAlgorithmException(JNIEnv* env, const char* message) {
     JNI_TRACE("throwUnknownAlgorithmException %s", message);
     return conscrypt::jniutil::throwException(
@@ -187,6 +193,12 @@ int throwNoSuchAlgorithmException(JNIEnv* env, const char* message) {
 int throwIOException(JNIEnv* env, const char* message) {
     JNI_TRACE("throwIOException %s", message);
     return conscrypt::jniutil::throwException(env, "java/io/IOException", message);
+}
+
+int throwCertificateException(JNIEnv* env, const char* message) {
+    JNI_TRACE("throwCertificateException %s", message);
+    return conscrypt::jniutil::throwException(
+            env, "java/security/cert/CertificateException", message);
 }
 
 int throwParsingException(JNIEnv* env, const char* message) {
@@ -241,6 +253,9 @@ int throwForCipherError(JNIEnv* env, int reason, const char* message,
         case CIPHER_R_BAD_KEY_LENGTH:
         case CIPHER_R_UNSUPPORTED_KEY_SIZE:
             return throwInvalidKeyException(env, message);
+            break;
+        case CIPHER_R_BUFFER_TOO_SMALL:
+            return throwShortBufferException(env, message);
             break;
     }
     return defaultThrow(env, message);
@@ -327,7 +342,7 @@ void throwExceptionFromBoringSSLError(JNIEnv* env, CONSCRYPT_UNUSED const char* 
     unsigned long error = ERR_get_error_line_data(&file, &line, &data, &flags);
 
     if (error == 0) {
-        throwAssertionError(env, "throwExceptionFromBoringSSLError called with no error");
+        defaultThrow(env, "Unknown BoringSSL error");
         return;
     }
 
@@ -338,7 +353,7 @@ void throwExceptionFromBoringSSLError(JNIEnv* env, CONSCRYPT_UNUSED const char* 
         ERR_error_string_n(error, message, sizeof(message));
         int library = ERR_GET_LIB(error);
         int reason = ERR_GET_REASON(error);
-        JNI_TRACE("OpenSSL error in %s error=%lx library=%x reason=%x (%s:%d): %s %s", location,
+        JNI_TRACE("BoringSSL error in %s error=%lx library=%x reason=%x (%s:%d): %s %s", location,
                   error, library, reason, file, line, message,
                   (flags & ERR_TXT_STRING) ? data : "(no data)");
         switch (library) {
@@ -440,7 +455,7 @@ int throwSSLExceptionWithSslErrors(JNIEnv* env, SSL* ssl, int sslErrorCode, cons
     if (asprintf(&str, "%s: ssl=%p: %s", message, ssl, sslErrorStr) <= 0) {
         // problem with asprintf, just throw argument message, log everything
         int ret = actualThrow(env, message);
-        ALOGV("%s: ssl=%p: %s", message, ssl, sslErrorStr);
+        CONSCRYPT_LOG_VERBOSE("%s: ssl=%p: %s", message, ssl, sslErrorStr);
         ERR_clear_error();
         return ret;
     }
@@ -496,7 +511,7 @@ int throwSSLExceptionWithSslErrors(JNIEnv* env, SSL* ssl, int sslErrorCode, cons
         ret = actualThrow(env, allocStr);
     }
 
-    ALOGV("%s", allocStr);
+    CONSCRYPT_LOG_VERBOSE("%s", allocStr);
     free(allocStr);
     ERR_clear_error();
     return ret;

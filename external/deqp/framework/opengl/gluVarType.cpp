@@ -71,8 +71,7 @@ VarType& VarType::operator= (const VarType& other)
 	if (this == &other)
 		return *this; // Self-assignment.
 
-	if (m_type == TYPE_ARRAY)
-		delete m_data.array.elementType;
+	VarType *oldElementType = m_type == TYPE_ARRAY ? m_data.array.elementType : DE_NULL;
 
 	m_type	= other.m_type;
 	m_data	= Data();
@@ -84,6 +83,8 @@ VarType& VarType::operator= (const VarType& other)
 	}
 	else
 		m_data = other.m_data;
+
+	delete oldElementType;
 
 	return *this;
 }
@@ -369,8 +370,8 @@ std::ostream& operator<< (std::ostream& str, const DeclareVariable& decl)
 
 	if (curType->isBasicType())
 	{
-		if (curType->getPrecision() != PRECISION_LAST)
-			str << glu::getPrecisionName(curType->getPrecision()) << " ";
+		if (curType->getPrecision() != PRECISION_LAST && !glu::isDataTypeFloat16OrVec(curType->getBasicType()))
+				str << glu::getPrecisionName(curType->getPrecision()) << " ";
 		str << glu::getDataTypeName(curType->getBasicType());
 	}
 	else if (curType->isStructType())

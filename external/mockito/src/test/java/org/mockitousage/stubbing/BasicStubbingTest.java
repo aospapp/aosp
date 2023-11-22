@@ -93,6 +93,7 @@ public class BasicStubbingTest extends TestBase {
         }
     }
 
+    @SuppressWarnings({"CheckReturnValue", "MockitoUsage"})
     @Test
     public void should_allow_mocking_when_to_string_is_final() throws Exception {
         mock(Foo.class);
@@ -111,6 +112,17 @@ public class BasicStubbingTest extends TestBase {
 
         try {
             verify(localMock, atLeastOnce()).objectReturningMethod(eq(200));
+            fail();
+        } catch (CannotVerifyStubOnlyMock e) {}
+    }
+
+    @SuppressWarnings("MockitoUsage")
+    @Test
+    public void test_stub_only_not_verifiable_fail_fast() {
+        IMethods localMock = mock(IMethods.class, withSettings().stubOnly());
+
+        try {
+            verify(localMock); // throws exception before method invocation
             fail();
         } catch (CannotVerifyStubOnlyMock e) {}
     }

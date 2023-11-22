@@ -26,8 +26,6 @@ import java.security.SignatureSpi;
 /**
  * Implements the JDK Signature interface needed for RAW ECDSA signature
  * generation and verification using BoringSSL.
- *
- * @hide
  */
 @Internal
 public class OpenSSLSignatureRawECDSA extends SignatureSpi {
@@ -40,6 +38,8 @@ public class OpenSSLSignatureRawECDSA extends SignatureSpi {
      * Buffer to hold value to be signed or verified.
      */
     private ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+    public OpenSSLSignatureRawECDSA() {}
 
     @Override
     protected void engineUpdate(byte input) {

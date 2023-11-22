@@ -100,7 +100,7 @@ public class HttpFacade extends RpcReceiver {
      */
     private HttpURLConnection httpRequest(String url) throws IOException {
         URL targetURL = new URL(url);
-        HttpURLConnection urlConnection = null;
+        HttpURLConnection urlConnection;
         try {
             urlConnection = (HttpURLConnection) targetURL.openConnection();
             urlConnection.connect();
@@ -110,6 +110,7 @@ public class HttpFacade extends RpcReceiver {
         } catch (IOException e) {
             Log.e("Failed to open a connection to " + url);
             Log.e(e.toString());
+            throw e;
         }
         return urlConnection;
     }

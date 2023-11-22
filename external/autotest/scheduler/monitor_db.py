@@ -8,7 +8,6 @@ Autotest scheduler
 
 import datetime
 import functools
-import gc
 import logging
 import optparse
 import os
@@ -26,7 +25,7 @@ from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import agent_task, drone_manager
-from autotest_lib.scheduler import email_manager, gc_stats, host_scheduler
+from autotest_lib.scheduler import email_manager, host_scheduler
 from autotest_lib.scheduler import luciferlib
 from autotest_lib.scheduler import monitor_db_cleanup, prejob_task
 from autotest_lib.scheduler import postjob_task
@@ -182,6 +181,10 @@ def main_without_exception_handling():
           minimum_tick_sec = global_config.global_config.get_config_value(
                   scheduler_config.CONFIG_SECTION, 'minimum_tick_sec', type=float)
 
+          # TODO(crbug.com/837680): Force creating the current user.
+          # This is a dirty hack to work around a race; see bug.
+          models.User.current_user()
+
           while not _shutdown:
               if _lifetime_expired(options.lifetime_hours, process_start_time):
                   break
@@ -284,8 +287,8 @@ def _autoserv_command_line(machines, extra_args, job=None, queue_entry=None,
     @param machines - string - A machine or comma separated list of machines
             for the (-m) flag.
     @param extra_args - list - Additional arguments to pass to autoserv.
-    @param job - Job object - If supplied, -u owner, -l name, --test-retry,
-            and client -c or server -s parameters will be added.
+    @param job - Job object - If supplied, -u owner, -l name and client -c or
+            server -s parameters will be added.
     @param queue_entry - A HostQueueEntry object - If supplied and no Job
             object was supplied, this will be used to lookup the Job object.
     """
@@ -319,11 +322,6 @@ class Dispatcher(object):
         self._host_agents = {}
         self._queue_entry_agents = {}
         self._tick_count = 0
-        self._last_garbage_stats_time = time.time()
-        self._seconds_between_garbage_stats = 60 * (
-                global_config.global_config.get_config_value(
-                        scheduler_config.CONFIG_SECTION,
-                        'gc_stats_interval_mins', type=int, default=6*60))
         self._tick_debug = global_config.global_config.get_config_value(
                 scheduler_config.CONFIG_SECTION, 'tick_debug', type=bool,
                 default=False)
@@ -374,8 +372,6 @@ class Dispatcher(object):
             self._log_tick_msg('New tick')
             system_utils.DroneCache.refresh()
 
-            with breakdown_timer.Step('garbage_collection'):
-                self._garbage_collection()
             with breakdown_timer.Step('trigger_refresh'):
                 self._log_tick_msg('Starting _drone_manager.trigger_refresh')
                 _drone_manager.trigger_refresh()
@@ -431,22 +427,6 @@ class Dispatcher(object):
         self._24hr_upkeep.run_cleanup_maybe()
 
 
-    @_calls_log_tick_msg
-    def _garbage_collection(self):
-        threshold_time = time.time() - self._seconds_between_garbage_stats
-        if threshold_time < self._last_garbage_stats_time:
-            # Don't generate these reports very often.
-            return
-
-        self._last_garbage_stats_time = time.time()
-        # Force a full level 0 collection (because we can, it doesn't hurt
-        # at this interval).
-        gc.collect()
-        logging.info('Logging garbage collector stats on tick %d.',
-                     self._tick_count)
-        gc_stats._log_garbage_collector_stats()
-
-
     def _gather_tick_metrics(self):
         """Gather metrics during tick, after all tasks have been scheduled."""
         metrics.Gauge(
@@ -484,14 +464,6 @@ class Dispatcher(object):
 
         @param agent_task: A SpecialTask for the agent to manage.
         """
-        # These are owned by lucifer; don't manage these tasks.
-        if (luciferlib.is_enabled_for('GATHERING')
-            and (isinstance(agent_task, postjob_task.GatherLogsTask)
-                 # TODO(crbug.com/811877): Don't skip split HQE parsing.
-                 or (isinstance(agent_task, postjob_task.FinalReparseTask)
-                     and not luciferlib.is_split_job(
-                             agent_task.queue_entries[0].id)))):
-            return
         if luciferlib.is_enabled_for('STARTING'):
             # TODO(crbug.com/810141): Transition code.  After running at
             # STARTING for a while, these tasks should no longer exist.
@@ -501,13 +473,16 @@ class Dispatcher(object):
                     and not luciferlib.is_split_job(
                             agent_task.queue_entries[0].id))):
                 return
-            # If this AgentTask is already started (i.e., recovered from
-            # the scheduler running previously not at STARTING lucifer
-            # level), we want to use the AgentTask to run the test to
-            # completion.
-            if (isinstance(agent_task, postjob_task.AbstractQueueTask)
-                and not agent_task.started):
-                return
+            if isinstance(agent_task, AbstractQueueTask):
+                # If Lucifer already owns the job, ignore the agent.
+                if luciferlib.is_lucifer_owned_by_id(agent_task.job.id):
+                    return
+                # If the job isn't started yet, let Lucifer own it.
+                if not agent_task.started:
+                    return
+                # Otherwise, this is a STARTING job that Autotest owned
+                # before Lucifer was enabled for STARTING.  Allow the
+                # scheduler to recover the agent task normally.
 
         agent = Agent(agent_task)
         self._agents.append(agent)
@@ -783,14 +758,21 @@ class Dispatcher(object):
                     queue_entry__id=queue_entry.id,
                     is_complete=False)
             if special_tasks.count() == 0:
-                logging.error('Unrecovered Resetting host queue entry: %s. '
-                              'Setting status to Queued.', str(queue_entry))
+                logging.error('Unrecovered Resetting host queue entry: %s. ',
+                              str(queue_entry))
                 # Essentially this host queue entry was set to be Verifying
                 # however no special task exists for entry. This occurs if the
                 # scheduler dies between changing the status and creating the
                 # special task. By setting it to queued, the job can restart
                 # from the beginning and proceed correctly. This is much more
                 # preferable than having monitor_db not launching.
+                logging.info('Setting host status for %s to Ready',
+                             str(queue_entry.host))
+                # Let's at least run a cleanup/reset before reusing this DUT.
+                queue_entry.host.update_field('dirty', 1)
+                queue_entry.host.set_status(models.Host.Status.READY)
+                logging.info('Setting status for HQE %s to Queued.',
+                             str(queue_entry))
                 queue_entry.set_status('Queued')
 
 
@@ -838,13 +820,16 @@ class Dispatcher(object):
 
     def _reverify_hosts_where(self, where,
                               print_message='Reverifying host %s'):
-        full_where='locked = 0 AND invalid = 0 AND ' + where
+        full_where = 'locked = 0 AND invalid = 0 AND %s' % where
         for host in scheduler_models.Host.fetch(where=full_where):
             if self.host_has_agent(host):
                 # host has already been recovered in some way
                 continue
             if self._host_has_scheduled_special_task(host):
                 # host will have a special task scheduled on the next cycle
+                continue
+            if host.shard_id is not None and not server_utils.is_shard():
+                # I am master and host is owned by a shard, ignore it.
                 continue
             if print_message:
                 logging.error(print_message, host.hostname)
@@ -983,12 +968,7 @@ class Dispatcher(object):
         """
         Hand off ownership of a job to lucifer component.
         """
-        if luciferlib.is_enabled_for('starting'):
-            self._send_starting_to_lucifer()
-        # TODO(crbug.com/810141): Older states need to be supported when
-        # STARTING is toggled; some jobs may be in an intermediate state
-        # at that moment.
-        self._send_gathering_to_lucifer()
+        self._send_starting_to_lucifer()
         self._send_parsing_to_lucifer()
 
 
@@ -1004,43 +984,17 @@ class Dispatcher(object):
             job = queue_entry.job
             if luciferlib.is_lucifer_owned(job):
                 continue
-            drone = luciferlib.spawn_starting_job_handler(
-                    manager=_drone_manager,
-                    job=job)
-            models.JobHandoff.objects.create(job=job, drone=drone.hostname())
-
-
-    # TODO(crbug.com/748234): This is temporary to enable toggling
-    # lucifer rollouts with an option.
-    def _send_gathering_to_lucifer(self):
-        Status = models.HostQueueEntry.Status
-        queue_entries_qs = (models.HostQueueEntry.objects
-                            .filter(status=Status.GATHERING))
-        for queue_entry in queue_entries_qs:
-            # If this HQE already has an agent, let monitor_db continue
-            # owning it.
-            if self.get_agents_for_entry(queue_entry):
-                continue
-
-            job = queue_entry.job
-            if luciferlib.is_lucifer_owned(job):
-                continue
-            task = postjob_task.PostJobTask(
-                    [queue_entry], log_file_name='/dev/null')
-            pidfile_id = task._autoserv_monitor.pidfile_id
-            autoserv_exit = task._autoserv_monitor.exit_code()
             try:
-                drone = luciferlib.spawn_gathering_job_handler(
+                drone = luciferlib.spawn_starting_job_handler(
                         manager=_drone_manager,
-                        job=job,
-                        autoserv_exit=autoserv_exit,
-                        pidfile_id=pidfile_id)
-                models.JobHandoff.objects.create(job=job,
-                                                 drone=drone.hostname())
-            except drone_manager.DroneManagerError as e:
-                logging.warning(
-                    'Fail to get drone for job %s, skipping lucifer. Error: %s',
-                    job.id, e)
+                        job=job)
+            except Exception:
+                logging.exception('Error when sending job to Lucifer')
+                models.HostQueueEntry.abort_host_queue_entries(
+                        job.hostqueueentry_set.all())
+            else:
+                models.JobHandoff.objects.create(
+                        job=job, drone=drone.hostname())
 
 
     # TODO(crbug.com/748234): This is temporary to enable toggling
@@ -1111,13 +1065,25 @@ class Dispatcher(object):
         jobs_to_stop = set()
         for entry in scheduler_models.HostQueueEntry.fetch(
                 where='aborted=1 and complete=0'):
+            if (luciferlib.is_enabled_for('STARTING')
+                and luciferlib.is_lucifer_owned_by_id(entry.job.id)):
+                continue
 
             # If the job is running on a shard, let the shard handle aborting
             # it and sync back the right status.
             if entry.job.shard_id is not None and not server_utils.is_shard():
-                logging.info('Waiting for shard %s to abort hqe %s',
-                        entry.job.shard_id, entry)
-                continue
+                # Due to crbug.com/894162, we abort jobs that 1hr beyond
+                # timeout on master.
+                create_on = time.mktime(entry.job.created_on.timetuple())
+                wait_threshold = entry.job.timeout_mins * 60 + 3600
+                abort_anyway = wait_threshold < time.time() - create_on
+                if abort_anyway:
+                    logging.info('Aborting %s on master due to '
+                                 'the job 1 hour beyond timeout.', entry)
+                else:
+                    logging.info('Waiting for shard %s to abort hqe %s',
+                            entry.job.shard_id, entry)
+                    continue
 
             logging.info('Aborting %s', entry)
 

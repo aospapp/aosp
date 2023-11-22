@@ -110,6 +110,8 @@ public class WifiAwareManagerFacade extends RpcReceiver {
     private static final String NS_KEY_PEER_MAC = "peer_mac";
     private static final String NS_KEY_PMK = "pmk";
     private static final String NS_KEY_PASSPHRASE = "passphrase";
+    private static final String NS_KEY_PORT = "port";
+    private static final String NS_KEY_TRANSPORT_PROTOCOL = "transport_protocol";
 
     private static String getJsonString(WifiAwareNetworkSpecifier ns) throws JSONException {
         JSONObject j = new JSONObject();
@@ -128,6 +130,12 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         if (ns.passphrase != null) {
             j.put(NS_KEY_PASSPHRASE, ns.passphrase);
         }
+        if (ns.port != 0) {
+            j.put(NS_KEY_PORT, ns.port);
+        }
+        if (ns.transportProtocol != -1) {
+            j.put(NS_KEY_TRANSPORT_PROTOCOL, ns.transportProtocol);
+        }
 
         return j.toString();
     }
@@ -141,6 +149,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         byte[] peerMac = null;
         byte[] pmk = null;
         String passphrase = null;
+        int port = 0, transportProtocol = -1;
 
         if (j.has(NS_KEY_TYPE)) {
             type = j.getInt((NS_KEY_TYPE));
@@ -164,11 +173,17 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             pmk = Base64.decode(j.getString(NS_KEY_PMK), Base64.DEFAULT);
         }
         if (j.has(NS_KEY_PASSPHRASE)) {
-            passphrase = j.getString((NS_KEY_PASSPHRASE));
+            passphrase = j.getString(NS_KEY_PASSPHRASE);
+        }
+        if (j.has(NS_KEY_PORT)) {
+            port = j.getInt(NS_KEY_PORT);
+        }
+        if (j.has(NS_KEY_TRANSPORT_PROTOCOL)) {
+            transportProtocol = j.getInt(NS_KEY_TRANSPORT_PROTOCOL);
         }
 
         return new WifiAwareNetworkSpecifier(type, role, clientId, sessionId, peerId, peerMac, pmk,
-                passphrase, Process.myUid());
+                passphrase, port, transportProtocol, Process.myUid());
     }
 
     private static String getStringOrNull(JSONObject j, String name) throws JSONException {
@@ -567,8 +582,10 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                 @RpcOptional String passphrase,
             @RpcParameter(name = "pmk",
                 description = "PMK of the data-path (base64 encoded). Optional, can be empty/null.")
-                @RpcOptional String pmk)
-        throws JSONException {
+                @RpcOptional String pmk,
+            @RpcParameter(name = "port", description = "Port") @RpcOptional Integer port,
+            @RpcParameter(name = "transportProtocol", description = "Transport protocol")
+                @RpcOptional Integer transportProtocol) throws JSONException {
         DiscoverySession session;
         synchronized (mLock) {
             session = mDiscoverySessions.get(sessionId);
@@ -599,6 +616,8 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                 null, // peerMac (not used in this method)
                 pmkDecoded,
                 passphrase,
+                port == null ? 0 : port.intValue(),
+                transportProtocol == null ? -1 : transportProtocol.intValue(),
                 Process.myUid());
 
         return getJsonString(ns);
@@ -649,6 +668,8 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                 peerMacBytes,
                 pmkDecoded,
                 passphrase,
+                0, // no port for OOB
+                -1, // no transport protocol for OOB
                 Process.myUid());
 
         return getJsonString(ns);

@@ -5,19 +5,20 @@
 import logging
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
-class firmware_Cr50Testlab(FirmwareTest):
+class firmware_Cr50Testlab(Cr50Test):
     """Verify cr50 testlab enable/disable."""
     version = 1
     ACCESS_DENIED = 'Access Denied'
     INVALID_PARAM = 'Parameter 1 invalid'
     BASIC_ERROR = 'Usage: ccd '
 
-    def initialize(self, host, cmdline_args):
+    def initialize(self, host, cmdline_args, full_args):
         """Initialize servo. Check that it can access cr50"""
-        super(firmware_Cr50Testlab, self).initialize(host, cmdline_args)
+        super(firmware_Cr50Testlab, self).initialize(host, cmdline_args,
+                full_args)
 
         if not hasattr(self, 'cr50'):
             raise error.TestNAError('Test can only be run on devices with '
@@ -46,7 +47,7 @@ class firmware_Cr50Testlab(FirmwareTest):
         """
         logging.info('Setting ccd testlab %s', mode)
         rv = self.cr50.send_command_get_output('ccd testlab %s' % mode,
-                ['.*>'])[0]
+                ['ccd.*>'])[0]
         logging.info(rv)
         if err not in rv or (not err and self.BASIC_ERROR in rv):
             raise error.TestFail('Unexpected result setting "%s": %r' % (mode,
@@ -79,24 +80,14 @@ class firmware_Cr50Testlab(FirmwareTest):
         if self.cr50.testlab_is_on():
             self.try_testlab('open')
         else:
-            self.cr50.set_ccd_level('open')
+            self.enter_mode_after_checking_tpm_state('dev')
+            self.ccd_open_from_ap()
         self.try_testlab('on')
         self.check_reset_count()
 
 
-    def run_once(self, ccd_lockout):
+    def run_once(self):
         """Try to set testlab mode from different privilege levels."""
-        # ccd testlab can only be enabled after ccd is opened. This test wont
-        # do much if we can't open the device. firmware_Cr50Open should be
-        # enough to test ccd open capabilities. Do a basic test to make sure
-        # testlab mode can't be enabled while the device is locked, then raise
-        # test NA error.
-        if ccd_lockout:
-            self.cr50.set_ccd_level('lock')
-            self.try_testlab('on', err=self.ACCESS_DENIED)
-            raise error.TestNAError('Skipping firmware_Cr50Testlab when ccd is '
-                    'locked out.')
-
         # Dummy isn't a valid mode. Make sure it fails
         self.reset_ccd()
         self.try_testlab('dummy', err=self.INVALID_PARAM)

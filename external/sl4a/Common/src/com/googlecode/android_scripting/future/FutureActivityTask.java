@@ -22,6 +22,7 @@ import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import java.util.concurrent.TimeUnit;
@@ -97,6 +98,16 @@ public abstract class FutureActivityTask<T> {
   }
 
   public boolean onKeyDown(int keyCode, KeyEvent event) {
+    // Placeholder.
+    return false;
+  }
+
+  public boolean onKeyUp(int keyCode, KeyEvent event) {
+    // Placeholder.
+    return false;
+  }
+
+  public boolean onGenericMotionEvent(MotionEvent event) {
     // Placeholder.
     return false;
   }

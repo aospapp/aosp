@@ -6,7 +6,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := Robolectric_shadowapi
 
-LOCAL_JAVA_LIBRARIES := jsr305lib
+LOCAL_JAVA_LIBRARIES := jsr305
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
 
@@ -23,8 +23,9 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src/test/java)
 
 LOCAL_JAVA_LIBRARIES := \
   Robolectric_shadowapi \
-  robolectric-assertj-core-3.8.0 \
-  robolectric-junit-4.12
+  robolectric-guava-25.1-jre \
+  robolectric-junit-4.12 \
+  robolectric-truth-0.42
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 
@@ -40,8 +41,9 @@ test_source_directory := $(LOCAL_PATH)/src/test/java
 test_runtime_libraries := \
   Robolectric_shadowapi_tests \
   Robolectric_shadowapi \
-  robolectric-assertj-core-3.8.0 \
   robolectric-hamcrest-core-1.3 \
-  robolectric-junit-4.12
+  robolectric-guava-25.1-jre \
+  robolectric-junit-4.12 \
+  robolectric-truth-0.42
 
 include external/robolectric-shadows/run_robolectric_module_tests.mk

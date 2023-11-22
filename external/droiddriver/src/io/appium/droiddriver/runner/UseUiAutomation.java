@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
  *
  * <p>As any annotations, it is useful only if it is processed by tools.
  *
- * @deprecated Use android.support.test.filters.SdkSuppress instead.
+ * @deprecated Use androidx.test.filters.SdkSuppress instead.
  */
 @Inherited
 @Target({TYPE, METHOD})

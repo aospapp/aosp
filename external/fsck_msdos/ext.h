@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (C) 1995, 1996, 1997 Wolfgang Solfrank
  * Copyright (c) 1995 Martin Husemann
  *
@@ -10,13 +12,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by Martin Husemann
- *	and Wolfgang Solfrank.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -29,11 +24,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *	$NetBSD: ext.h,v 1.6 2000/04/25 23:02:51 jdolecek Exp $
- * $FreeBSD: src/sbin/fsck_msdosfs/ext.h,v 1.10.20.1 2009/04/15 03:14:26 kensmith Exp $
+ * $FreeBSD$
  */
 
 #ifndef EXT_H
-#define EXT_H
+#define	EXT_H
 
 #include <sys/types.h>
 
@@ -50,12 +45,10 @@ extern int preen;	/* we are preening */
 extern int rdonly;	/* device is opened read only (supersedes above) */
 extern int skipclean;	/* skip clean file systems if preening */
 
-extern struct dosDirEntry *rootDir;
-
 /*
  * function declarations
  */
-int ask(int, const char *, ...);
+int ask(int, const char *, ...) __printflike(2, 3);
 
 /*
  * Check the dirty flag.  If the file system is clean, then return 1.
@@ -77,12 +70,12 @@ int checkfilesys(const char *);
 #define	FSDIRMOD	2		/* Some directory was modified */
 #define	FSFATMOD	4		/* The FAT was modified */
 #define	FSERROR		8		/* Some unrecovered error remains */
-#define	FSFATAL		16		/* Some unrecoverable error occured */
-#define FSDIRTY		32		/* File system is dirty */
-#define FSFIXFAT	64		/* Fix file system FAT */
+#define	FSFATAL		16		/* Some unrecoverable error occurred */
+#define	FSDIRTY		32		/* File system is dirty */
+#define	FSFIXFAT	64		/* Fix file system FAT */
 
 /*
- * read a boot block in a machine independend fashion and translate
+ * read a boot block in a machine independent fashion and translate
  * it into our struct bootblock.
  */
 int readboot(int, struct bootblock *);
@@ -96,13 +89,13 @@ int writefsinfo(int, struct bootblock *);
  * Read one of the FAT copies and return a pointer to the new
  * allocated array holding our description of it.
  */
-int readfat(int, struct bootblock *, int, struct fatEntry **);
+int readfat(int, struct bootblock *, u_int, struct fatEntry **);
 
 /*
  * Check two FAT copies for consistency and merge changes into the
- * first if neccessary.
+ * first if necessary.
  */
-int comparefat(struct bootblock *, struct fatEntry *, struct fatEntry *, int);
+int comparefat(struct bootblock *, struct fatEntry *, struct fatEntry *, u_int);
 
 /*
  * Check a FAT
@@ -140,7 +133,7 @@ void finishlf(void);
 /*
  * Return the type of a reserved cluster as text
  */
-char *rsrvdcltype(cl_t);
+const char *rsrvdcltype(cl_t);
 
 /*
  * Clear a cluster chain in a FAT

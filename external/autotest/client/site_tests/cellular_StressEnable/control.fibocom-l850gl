@@ -8,7 +8,7 @@ PURPOSE = "Stress-test Connman enable/disable"
 CRITERIA = """
 This test fails if flimflam ever fails to respond to a DBus message or crashes.
 """
-ATTRIBUTES = "suite:cellular_ota"
+ATTRIBUTES = "suite:cellular_ota_att, suite:cellular_ota_sprint, suite:cellular_ota_verizon"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"

@@ -84,7 +84,7 @@ static void done(void) {
 	selabel_close(r_opts.hnd);
 }
 
-static const char *pidfile = "/var/run/restorecond.pid";
+static const char *pidfile = "/run/restorecond.pid";
 
 static int write_pid_file(void)
 {
@@ -105,6 +105,7 @@ static int write_pid_file(void)
 	}
 	if (write(pidfd, val, (unsigned int)len) != len) {
 		syslog(LOG_ERR, "Unable to write to pidfile (%s)", strerror(errno));
+		close(pidfd);
 		return 1;
 	}
 	close(pidfd);
@@ -146,6 +147,8 @@ int main(int argc, char **argv)
 	/* If we are not running SELinux then just exit */
 	if (is_selinux_enabled() != 1)
 		return 0;
+
+	watch_file = server_watch_file;
 
 	/* Set all options to zero/NULL except for ignore_noent & digest. */
 	memset(&r_opts, 0, sizeof(r_opts));
@@ -204,7 +207,6 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	watch_file = server_watch_file;
 	read_config(master_fd, watch_file);
 
 	if (!debug_mode) {
@@ -215,7 +217,7 @@ int main(int argc, char **argv)
 	write_pid_file();
 
 	while (watch(master_fd, watch_file) == 0) {
-	};
+	}
 
 	watch_list_free(master_fd);
 	close(master_fd);

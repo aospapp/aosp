@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -188,7 +189,7 @@ public class XLocaleMatcherTest extends TestFmwk {
         }
     }
 
-
+    @Ignore("b/118891283")
     @Test
     public void testPerf() {
         if (LANGUAGE_MATCHER_DATA == null) {
@@ -285,7 +286,7 @@ public class XLocaleMatcherTest extends TestFmwk {
     class MyTestFileHandler extends DataDrivenTestHelper {
 
         Output<ULocale> bestDesired = new Output<ULocale>();
-        DistanceOption distanceOption = DistanceOption.NORMAL;
+        DistanceOption distanceOption = DistanceOption.REGION_FIRST;
         int threshold = -1;
 
         @Override
@@ -308,8 +309,7 @@ public class XLocaleMatcherTest extends TestFmwk {
             if (breakpoint) {
                 breakpoint = false; // put debugger breakpoint here to break at @debug in test file
             }
-
-            XLocaleMatcher matcher = threshold < 0 && distanceOption == DistanceOption.NORMAL
+            XLocaleMatcher matcher = threshold < 0 && distanceOption == DistanceOption.REGION_FIRST
                 ? newXLocaleMatcher(supportedList)
                 : newXLocaleMatcher(supportedList, threshold, distanceOption);
             commentBase = "(" + lineNumber + ") " + commentBase;

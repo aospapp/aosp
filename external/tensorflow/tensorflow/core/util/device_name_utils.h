@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef TENSORFLOW_UTIL_DEVICE_NAME_UTILS_H_
-#define TENSORFLOW_UTIL_DEVICE_NAME_UTILS_H_
+#ifndef TENSORFLOW_CORE_UTIL_DEVICE_NAME_UTILS_H_
+#define TENSORFLOW_CORE_UTIL_DEVICE_NAME_UTILS_H_
 
 #include <string>
 
@@ -88,10 +88,14 @@ class DeviceNameUtils {
   // Parses "fullname" into "*parsed". Returns true iff succeeds.
   static bool ParseFullName(StringPiece fullname, ParsedName* parsed);
 
-  // Canonicalizes "fullname". Accepts both legacy, newer and local versions of
-  // the device spec. Returns the newer version of the device spec. If we were
-  // unable to interpret / parse "fullname" returns "".
-  static string CanonicalizeDeviceName(StringPiece fullname);
+  // Canonicalizes "fullname" into "*canonical_name". Uses a fully specified
+  // basename to fill in fields that are missing. Accepts both legacy, newer
+  // and local versions of the device spec. Returns the newer version of the
+  // device spec. If we were unable to interpret / parse "fullname" returns
+  // an error and *canonical_name is set to "".
+  static Status CanonicalizeDeviceName(StringPiece fullname,
+                                       StringPiece basename,
+                                       string* canonical_name);
 
   // Returns true if "name" specifies any non-trivial constraint on the device.
   static bool HasSomeDetails(const ParsedName& name) {
@@ -105,6 +109,11 @@ class DeviceNameUtils {
   // for that component.
   static bool IsSpecification(const ParsedName& less_specific,
                               const ParsedName& more_specific);
+
+  // Makes minimal changes to more_specific so that it becomes a
+  // specification of less_specific.
+  static void EnsureSpecification(ParsedName* more_specific,
+                                  const ParsedName& less_specific);
 
   // Like IsSpecification, but the second argument "name" must have a
   // non-wildcard value for all of its components.
@@ -165,8 +174,13 @@ class DeviceNameUtils {
   // mapping.
   static std::vector<string> GetLocalNamesForDeviceMappings(
       const ParsedName& pn);
+
+  // Returns name of the CPU:0 device on the same host as the device
+  // `device_name`.
+  static Status DeviceNameToCpuDeviceName(const string& device_name,
+                                          string* host_device_name);
 };
 
 }  // namespace tensorflow
 
-#endif  // TENSORFLOW_UTIL_DEVICE_NAME_UTILS_H_
+#endif  // TENSORFLOW_CORE_UTIL_DEVICE_NAME_UTILS_H_

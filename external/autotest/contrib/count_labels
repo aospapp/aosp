@@ -72,4 +72,5 @@ if [ $ERR -ne 0 ]; then
     usage
 fi
 
-sed -e "/$LABEL:/ !d" -e "s=.*$LABEL:\([^,]*\).*=\1=" | sort | uniq -c
+sed -e "/$LABEL:/ !d" -e "s=.*$LABEL:\([^,]*\).*=\1=" | sort |
+    uniq -c | awk '{sum += $1; print} END {printf "%7d total\n", sum}'

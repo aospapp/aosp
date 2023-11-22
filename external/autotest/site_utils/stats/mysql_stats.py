@@ -33,22 +33,22 @@ DEFAULT_PASSWD = global_config.global_config.get_config_value(
 LOOP_INTERVAL = 60
 
 EMITTED_STATUSES_COUNTERS = [
-        'bytes_received',
-        'bytes_sent',
-        'connections',
-        'Innodb_buffer_pool_read_requests',
-        'Innodb_buffer_pool_reads',
-        'Innodb_row_lock_waits',
-        'questions',
-        'slow_queries',
-        'threads_created',
+    'bytes_received',
+    'bytes_sent',
+    'connections',
+    'Innodb_buffer_pool_read_requests',
+    'Innodb_buffer_pool_reads',
+    'Innodb_row_lock_waits',
+    'questions',
+    'slow_queries',
+    'threads_created',
 ]
 
 EMITTED_STATUS_GAUGES = [
-        'Innodb_row_lock_time_avg',
-        'Innodb_row_lock_current_waits',
-        'threads_running',
-        'threads_connected',
+    'Innodb_row_lock_time_avg',
+    'Innodb_row_lock_current_waits',
+    'threads_running',
+    'threads_connected',
 ]
 
 

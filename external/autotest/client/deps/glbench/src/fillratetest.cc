@@ -2,16 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/logging.h"
 #include "main.h"
 #include "testbase.h"
 #include "utils.h"
 
 #include <algorithm>
 
-
 namespace glbench {
-
 
 class FillRateTest : public DrawArraysTestFunc {
  public:
@@ -47,7 +44,6 @@ const char* kFragmentShader1 =
     "  gl_FragColor = color;"
     "}";
 
-
 const char* kVertexShader2 =
     "attribute vec4 position;"
     "attribute vec4 texcoord;"
@@ -66,29 +62,28 @@ const char* kFragmentShader2 =
     "}";
 
 const GLfloat buffer_vertex[8] = {
-  -1.f, -1.f,
-  1.f,  -1.f,
-  -1.f, 1.f,
-  1.f,  1.f,
+    -1.f, -1.f,
+    1.f, -1.f,
+    -1.f, 1.f,
+    1.f, 1.f,
 };
 
 const GLfloat buffer_texture[8] = {
-  0.f, 0.f,
-  1.f, 0.f,
-  0.f, 1.f,
-  1.f, 1.f,
+    0.f, 0.f,
+    1.f, 0.f,
+    0.f, 1.f,
+    1.f, 1.f,
 };
 
 const GLfloat red[4] = {1.f, 0.f, 0.f, 1.f};
-
 
 bool FillRateTest::Run() {
   glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
   glDisable(GL_DEPTH_TEST);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  GLuint vbo_vertex = SetupVBO(GL_ARRAY_BUFFER,
-                               sizeof(buffer_vertex), buffer_vertex);
+  GLuint vbo_vertex =
+      SetupVBO(GL_ARRAY_BUFFER, sizeof(buffer_vertex), buffer_vertex);
   GLuint program = InitShaderProgram(kVertexShader1, kFragmentShader1);
   GLint position_attribute = glGetAttribLocation(program, "position");
   glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, NULL);
@@ -108,8 +103,8 @@ bool FillRateTest::Run() {
   glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, NULL);
   glEnableVertexAttribArray(position_attribute);
 
-  GLuint vbo_texture = SetupVBO(GL_ARRAY_BUFFER,
-                                sizeof(buffer_texture), buffer_texture);
+  GLuint vbo_texture =
+      SetupVBO(GL_ARRAY_BUFFER, sizeof(buffer_texture), buffer_texture);
   GLuint texcoord_attribute = glGetAttribLocation(program, "texcoord");
   glVertexAttribPointer(texcoord_attribute, 2, GL_FLOAT, GL_FALSE, 0, NULL);
   glEnableVertexAttribArray(texcoord_attribute);
@@ -135,24 +130,24 @@ bool FillRateTest::Run() {
   glUniform1f(scale_uniform, scale);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                   GL_LINEAR_MIPMAP_LINEAR);
-  FillRateTestNormalSubWindow("fill_tex_trilinear_linear_05",
-                              g_width, g_height);
+  FillRateTestNormalSubWindow("fill_tex_trilinear_linear_05", g_width,
+                              g_height);
 
   // lod = 0.4
   scale = 0.758f;
   glUniform1f(scale_uniform, scale);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                   GL_LINEAR_MIPMAP_LINEAR);
-  FillRateTestNormalSubWindow("fill_tex_trilinear_linear_04",
-                              g_width, g_height);
+  FillRateTestNormalSubWindow("fill_tex_trilinear_linear_04", g_width,
+                              g_height);
 
   // lod = 0.1
   scale = 0.933f;
   glUniform1f(scale_uniform, scale);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                   GL_LINEAR_MIPMAP_LINEAR);
-  FillRateTestNormalSubWindow("fill_tex_trilinear_linear_01",
-                              g_width, g_height);
+  FillRateTestNormalSubWindow("fill_tex_trilinear_linear_01", g_width,
+                              g_height);
 
   glDeleteProgram(program);
   glDeleteBuffers(1, &vbo_vertex);
@@ -165,14 +160,14 @@ bool FillRateTest::Run() {
 bool FboFillRateTest::Run() {
   char name[256];
   CHECK(!glGetError());
-  GLuint vbo_vertex = SetupVBO(GL_ARRAY_BUFFER,
-                               sizeof(buffer_vertex), buffer_vertex);
+  GLuint vbo_vertex =
+      SetupVBO(GL_ARRAY_BUFFER, sizeof(buffer_vertex), buffer_vertex);
   GLuint program = InitShaderProgram(kVertexShader2, kFragmentShader2);
   GLint position_attribute = glGetAttribLocation(program, "position");
   glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, NULL);
   glEnableVertexAttribArray(position_attribute);
-  GLuint vbo_texture = SetupVBO(GL_ARRAY_BUFFER,
-                                sizeof(buffer_texture), buffer_texture);
+  GLuint vbo_texture =
+      SetupVBO(GL_ARRAY_BUFFER, sizeof(buffer_texture), buffer_texture);
   GLuint texcoord_attribute = glGetAttribLocation(program, "texcoord");
   glVertexAttribPointer(texcoord_attribute, 2, GL_FLOAT, GL_FALSE, 0, NULL);
   glEnableVertexAttribArray(texcoord_attribute);
@@ -208,8 +203,8 @@ bool FboFillRateTest::Run() {
     GLuint framebuffer = 0;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                              GL_TEXTURE_2D, destination_texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           destination_texture, 0);
     CHECK(!glGetError());
 
     // Attach texture and check for completeness.
@@ -254,4 +249,4 @@ TestBase* GetFboFillRateTest() {
   return new FboFillRateTest;
 }
 
-} // namespace glbench
+}  // namespace glbench

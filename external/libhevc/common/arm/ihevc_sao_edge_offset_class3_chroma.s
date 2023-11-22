@@ -860,12 +860,14 @@ SRC_LEFT_LOOP_WD_16_HT_4:
     BNE         SRC_LEFT_LOOP_WD_16_HT_4
 
     SUBS        r6,r6,#16                   @Decrement the wd loop count by 16
-    BLE         RE_ASSINING_LOOP            @Jump to re-assigning loop
+    CMP         r6,#8
+    BLT         RE_ASSINING_LOOP            @Jump to re-assigning loop
     LDR         r7,[sp,#wd_offset]          @Loads wd
     LDR         r0,[sp,#0x02]               @Loads *pu1_src
     SUB         r7,r7,r6
     ADD         r0,r0,r7
     BGT         WD_16_HT_4_LOOP             @If not equal jump to width_loop
+    BEQ         WIDTH_RESIDUE               @If residue remains jump to residue loop
 
 WIDTH_RESIDUE:
     LDR         r7,[sp,#wd_offset]          @Loads wd

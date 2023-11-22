@@ -1,4 +1,5 @@
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
+swiftshader_src_root := $(LOCAL_PATH)
 
 COMMON_C_INCLUDES += \
 	bionic \
@@ -6,15 +7,14 @@ COMMON_C_INCLUDES += \
 	$(LOCAL_PATH)/OpenGL/ \
 	$(LOCAL_PATH)
 
-ifdef use_subzero
-COMMON_C_INCLUDES += \
-	$(LOCAL_PATH)/../third_party/subzero/ \
-	$(LOCAL_PATH)/../third_party/llvm-subzero/include/ \
-	$(LOCAL_PATH)/../third_party/llvm-subzero/build/Android/include/ \
-	$(LOCAL_PATH)/../third_party/subzero/pnacl-llvm/include/
-else
+ifeq ($(REACTOR_LLVM_VERSION),3)
 COMMON_C_INCLUDES += \
 	$(LOCAL_PATH)/../third_party/LLVM/include
+else
+COMMON_C_INCLUDES += \
+	$(LOCAL_PATH)/../third_party/llvm-7.0/llvm/include \
+	$(LOCAL_PATH)/../third_party/llvm-7.0/configs/android/include \
+	$(LOCAL_PATH)/../third_party/llvm-7.0/configs/common/include
 endif
 
 # Project Treble is introduced from Oreo MR1
@@ -48,18 +48,17 @@ COMMON_SRC_FILES += \
 	Main/FrameBufferAndroid.cpp \
 	Main/SwiftConfig.cpp
 
-ifdef use_subzero
 COMMON_SRC_FILES += \
-	Reactor/SubzeroReactor.cpp \
 	Reactor/Routine.cpp \
-	Reactor/Optimizer.cpp
-else
+	Reactor/Debug.cpp \
+	Reactor/DebugAndroid.cpp \
+	Reactor/ExecutableMemory.cpp
+
 COMMON_SRC_FILES += \
 	Reactor/LLVMReactor.cpp \
-	Reactor/Routine.cpp \
 	Reactor/LLVMRoutine.cpp \
-	Reactor/LLVMRoutineManager.cpp
-endif
+	Reactor/LLVMRoutineManager.cpp \
+	Reactor/CPUID.cpp
 
 COMMON_SRC_FILES += \
 	Renderer/Blitter.cpp \
@@ -111,6 +110,7 @@ COMMON_CFLAGS := \
 	-Wno-unused-value \
 	-Wno-unused-variable \
 	-Wno-implicit-exception-spec-mismatch \
+	-Wno-implicit-fallthrough \
 	-Wno-overloaded-virtual \
 	-Wno-non-virtual-dtor \
 	-Wno-attributes \
@@ -137,6 +137,9 @@ COMMON_C_INCLUDES += \
 	system/core/libsync/include \
 	system/core/libsync
 endif
+
+# Common LLVM defines
+COMMON_CFLAGS += -DREACTOR_LLVM_VERSION=$(REACTOR_LLVM_VERSION)
 
 # Common Subzero defines
 COMMON_CFLAGS += -DALLOW_DUMP=0 -DALLOW_TIMERS=0 -DALLOW_LLVM_CL=0 -DALLOW_LLVM_IR=0 -DALLOW_LLVM_IR_AS_INPUT=0 -DALLOW_MINIMAL_BUILD=0 -DALLOW_WASM=0 -DICE_THREAD_LOCAL_HACK=1
@@ -172,4 +175,9 @@ LOCAL_HEADER_LIBRARIES := $(COMMON_HEADER_LIBRARIES)
 LOCAL_STATIC_LIBRARIES := $(COMMON_STATIC_LIBRARIES)
 include $(BUILD_STATIC_LIBRARY)
 
-include $(call all-makefiles-under,$(LOCAL_PATH))
+include $(swiftshader_src_root)/OpenGL/libGLESv2/Android.mk
+include $(swiftshader_src_root)/OpenGL/libGLES_CM/Android.mk
+include $(swiftshader_src_root)/OpenGL/libEGL/Android.mk
+include $(swiftshader_src_root)/OpenGL/compiler/Android.mk
+
+COMMON_CFLAGS :=

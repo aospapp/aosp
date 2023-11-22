@@ -16,8 +16,7 @@ from autotest_lib.site_utils.rpm_control_system import utils
 
 
 class TestRPMControllerQueue(mox.MoxTestBase):
-    """Test request can be queued and processed in controller.
-    """
+    """Test request can be queued and processed in controller."""
 
     def setUp(self):
         super(TestRPMControllerQueue, self).setUp()
@@ -64,7 +63,7 @@ class TestSentryRPMController(mox.MoxTestBase):
 
     def testSuccessfullyChangeOutlet(self):
         """Should return True if change was successful."""
-        prompt = 'Switched CDU:'
+        prompt = ['Switched CDU:', 'Switched PDU:']
         password = 'admn'
         new_state = 'ON'
         self.ssh.expect('Password:', timeout=60)
@@ -82,7 +81,7 @@ class TestSentryRPMController(mox.MoxTestBase):
 
     def testUnsuccessfullyChangeOutlet(self):
         """Should return False if change was unsuccessful."""
-        prompt = 'Switched CDU:'
+        prompt = ['Switched CDU:', 'Switched PDU:']
         password = 'admn'
         new_state = 'ON'
         self.ssh.expect('Password:', timeout=60)
@@ -94,7 +93,8 @@ class TestSentryRPMController(mox.MoxTestBase):
         self.ssh.sendline('logout')
         self.ssh.close(force=True)
         self.mox.ReplayAll()
-        self.assertFalse(self.rpm.set_power_state(self.powerunit_info, new_state))
+        self.assertFalse(
+            self.rpm.set_power_state(self.powerunit_info, new_state))
         self.mox.VerifyAll()
 
 
@@ -123,8 +123,7 @@ class TestWebPoweredRPMController(mox.MoxTestBase):
 
     def testSuccessfullyChangeOutlet(self):
         """Should return True if change was successful."""
-        test_status_list_final = [[8, 'chromeos-rack8a-host8','u\'OFF\'']]
-        self.dli_ps.statuslist().AndReturn(self.test_status_list_initial)
+        test_status_list_final = [[8, 'chromeos-rack8a-host8', 'u\'OFF\'']]
         self.dli_ps.off(8)
         self.dli_ps.statuslist().AndReturn(test_status_list_final)
         self.mox.ReplayAll()
@@ -135,8 +134,7 @@ class TestWebPoweredRPMController(mox.MoxTestBase):
 
     def testUnsuccessfullyChangeOutlet(self):
         """Should return False if Outlet State does not change."""
-        test_status_list_final = [[8, 'chromeos-rack8a-host8','u\'ON\'']]
-        self.dli_ps.statuslist().AndReturn(self.test_status_list_initial)
+        test_status_list_final = [[8, 'chromeos-rack8a-host8', 'u\'ON\'']]
         self.dli_ps.off(8)
         self.dli_ps.statuslist().AndReturn(test_status_list_final)
         self.mox.ReplayAll()
@@ -155,23 +153,12 @@ class TestWebPoweredRPMController(mox.MoxTestBase):
 class TestCiscoPOEController(mox.MoxTestBase):
     """Test CiscoPOEController."""
 
-
-    STREAM_WELCOME = 'This is a POE switch.\n\nUser Name:'
-    STREAM_PWD = 'Password:'
-    STREAM_DEVICE = '\nchromeos2-poe-sw8#'
-    STREAM_CONFIG = 'chromeos2-poe-sw8(config)#'
-    STREAM_CONFIG_IF = 'chromeos2-poe-sw8(config-if)#'
-    STREAM_STATUS = ('\n                                             '
-                     'Flow Link          Back   Mdix\n'
-                     'Port     Type         Duplex  Speed Neg      '
-                     'ctrl State       Pressure Mode\n'
-                     '-------- ------------ ------  ----- -------- '
-                     '---- ----------- -------- -------\n'
-                     'fa32     100M-Copper  Full    100   Enabled  '
-                     'Off  Up          Disabled Off\n')
+    DEVICE = 'chromeos2-poe-sw8#'
+    MATCHER = 'Port\\s+.*%s(\\s+(\\S+)){6,6}.*%s'
+    PORT = 'fa32'
+    PWD = 'Password:'
     SERVO = 'chromeos1-rack3-host12-servo'
     SWITCH = 'chromeos2-poe-switch8'
-    PORT = 'fa32'
     POWERUNIT_INFO = utils.PowerUnitInfo(
             device_hostname=PORT,
             powerunit_hostname=SERVO,
@@ -179,123 +166,104 @@ class TestCiscoPOEController(mox.MoxTestBase):
             outlet=PORT,
             hydra_hostname=None)
 
-
-    def setUp(self):
-        super(TestCiscoPOEController, self).setUp()
-        self.mox.StubOutWithMock(pexpect.spawn, '_spawn')
-        self.mox.StubOutWithMock(pexpect.spawn, 'read_nonblocking')
-        self.mox.StubOutWithMock(pexpect.spawn, 'sendline')
-        self.poe = rpm_controller.CiscoPOEController(self.SWITCH)
-        pexpect.spawn._spawn(mox.IgnoreArg(), mox.IgnoreArg())
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_WELCOME)
-        pexpect.spawn.sendline(self.poe._username)
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_PWD)
-        pexpect.spawn.sendline(self.poe._password)
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_DEVICE)
-
-
     def testLogin(self):
         """Test we can log into the switch."""
+        rpm_controller.pexpect.spawn = self.mox.CreateMockAnything()
+        mock_ssh = self.mox.CreateMockAnything()
+        rpm_controller.pexpect.spawn(mox.IgnoreArg()).AndReturn(mock_ssh)
+        sut = rpm_controller.CiscoPOEController(self.SWITCH)
+        mock_ssh.expect(sut.POE_USERNAME_PROMPT, timeout=sut.LOGIN_TIMEOUT)
+        mock_ssh.sendline(mox.IgnoreArg())
+        mock_ssh.expect(self.PWD, timeout=sut.LOGIN_TIMEOUT)
+        mock_ssh.sendline(mox.IgnoreArg())
+        mock_ssh.expect(self.DEVICE, timeout=sut.LOGIN_TIMEOUT)
         self.mox.ReplayAll()
-        self.assertNotEqual(self.poe._login(), None)
+        self.assertIsNotNone(sut._login())
         self.mox.VerifyAll()
 
-
-    def _EnterConfigurationHelper(self, success=True):
-        """A helper function for testing entering configuration terminal.
-
-        @param success: True if we want the process to pass, False if we
-                        want it to fail.
-        """
-        pexpect.spawn.sendline('configure terminal')
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_CONFIG)
-        pexpect.spawn.sendline('interface %s' % self.PORT)
-        if success:
-            pexpect.spawn.read_nonblocking(
-                    mox.IgnoreArg(),
-                    mox.IgnoreArg()).AndReturn(self.STREAM_CONFIG_IF)
-        else:
-            self.mox.StubOutWithMock(pexpect.spawn, '__str__')
-            exception = pexpect.TIMEOUT(
-                    'Could not enter configuration terminal.')
-            pexpect.spawn.read_nonblocking(
-                    mox.IgnoreArg(),
-                    mox.IgnoreArg()).MultipleTimes().AndRaise(exception)
-            pexpect.spawn.__str__().AndReturn('A pexpect.spawn object.')
-            pexpect.spawn.sendline('end')
-
-
-    def testSuccessfullyChangeOutlet(self):
+    def testSuccessfullyChangePowerState(self):
         """Should return True if change was successful."""
-        self._EnterConfigurationHelper()
-        pexpect.spawn.sendline('power inline auto')
-        pexpect.spawn.sendline('end')
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_DEVICE)
-        pexpect.spawn.sendline('show interface status %s' % self.PORT)
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_STATUS)
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.STREAM_DEVICE)
-        pexpect.spawn.sendline('exit')
+        sut = rpm_controller.CiscoPOEController(self.SWITCH)
+        mock_ssh = self.mox.CreateMockAnything()
+        self.mox.StubOutWithMock(sut, '_login')
+        sut._login().AndReturn(mock_ssh)
+        self.mox.StubOutWithMock(sut, '_verify_state')
+        sut._verify_state(self.PORT, 'ON', mock_ssh).AndReturn(True)
+        # _enter_configuration_terminal
+        mock_ssh.sendline(sut.CONFIG)
+        mock_ssh.expect(sut.config_prompt, timeout=sut.CMD_TIMEOUT)
+        mock_ssh.sendline(sut.CONFIG_IF % self.PORT)
+        mock_ssh.expect(sut.config_if_prompt, timeout=sut.CMD_TIMEOUT)
+        # _change_state
+        mock_ssh.sendline(sut.SET_STATE_ON)
+        # _exit_configuration_terminal
+        mock_ssh.sendline(sut.END_CMD)
+        mock_ssh.expect(sut.poe_prompt, timeout=sut.CMD_TIMEOUT)
+        # exit
+        mock_ssh.sendline(sut.EXIT_CMD)
+        mock_ssh.close(force=True)
         self.mox.ReplayAll()
-        self.assertTrue(self.poe.set_power_state(self.POWERUNIT_INFO, 'ON'))
+        self.assertTrue(sut.set_power_state(self.POWERUNIT_INFO, 'ON'))
         self.mox.VerifyAll()
-
 
     def testUnableToEnterConfigurationTerminal(self):
         """Should return False if unable to enter configuration terminal."""
-        self._EnterConfigurationHelper(success=False)
-        pexpect.spawn.sendline('exit')
+        exception = pexpect.TIMEOUT('Could not enter configuration terminal.')
+        sut = rpm_controller.CiscoPOEController(self.SWITCH)
+        timeout = sut.CMD_TIMEOUT
+        mock_ssh = self.mox.CreateMockAnything()
+        self.mox.StubOutWithMock(sut, '_login')
+        sut._login().AndReturn(mock_ssh)
+        mock_ssh.sendline(sut.CONFIG)
+        mock_ssh.expect(sut.config_prompt, timeout=timeout)
+        mock_ssh.sendline(sut.CONFIG_IF % self.PORT)
+        config_if_prompt = sut.config_if_prompt
+        mock_ssh.expect(config_if_prompt, timeout=timeout).AndRaise(exception)
+        mock_ssh.sendline(sut.END_CMD)
+        mock_ssh.sendline(sut.EXIT_CMD)
+        mock_ssh.close(force=True)
         self.mox.ReplayAll()
-        self.assertFalse(self.poe.set_power_state(self.POWERUNIT_INFO, 'ON'))
+        self.assertFalse(sut.set_power_state(self.POWERUNIT_INFO, mock_ssh))
         self.mox.VerifyAll()
-
 
     def testUnableToExitConfigurationTerminal(self):
         """Should return False if unable to exit configuration terminal."""
-        self.mox.StubOutWithMock(pexpect.spawn, '__str__')
-        self.mox.StubOutWithMock(rpm_controller.CiscoPOEController,
-                                 '_enter_configuration_terminal')
-        self.poe._enter_configuration_terminal(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(True)
-        pexpect.spawn.sendline('power inline auto')
-        pexpect.spawn.sendline('end')
         exception = pexpect.TIMEOUT('Could not exit configuration terminal.')
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(),
-                mox.IgnoreArg()).MultipleTimes().AndRaise(exception)
-        pexpect.spawn.__str__().AndReturn('A pexpect.spawn object.')
-        pexpect.spawn.sendline('exit')
+        sut = rpm_controller.CiscoPOEController(self.SWITCH)
+        mock_ssh = self.mox.CreateMockAnything()
+        self.mox.StubOutWithMock(sut, '_login')
+        self.mox.StubOutWithMock(sut, '_enter_configuration_terminal')
+        sut._login().AndReturn(mock_ssh)
+        sut._enter_configuration_terminal(self.PORT, mock_ssh).AndReturn(True)
+        mock_ssh.sendline(sut.SET_STATE_ON)
+        mock_ssh.sendline(sut.END_CMD)
+        mock_ssh.expect(
+                self.DEVICE, timeout=sut.CMD_TIMEOUT).AndRaise(exception)
+        mock_ssh.sendline(sut.EXIT_CMD)
+        mock_ssh.close(force=True)
         self.mox.ReplayAll()
-        self.assertFalse(self.poe.set_power_state(self.POWERUNIT_INFO, 'ON'))
+        self.assertFalse(sut.set_power_state(self.POWERUNIT_INFO, 'ON'))
         self.mox.VerifyAll()
-
 
     def testUnableToVerifyState(self):
         """Should return False if unable to verify current state."""
-        self.mox.StubOutWithMock(pexpect.spawn, '__str__')
-        self.mox.StubOutWithMock(rpm_controller.CiscoPOEController,
-                                 '_enter_configuration_terminal')
-        self.mox.StubOutWithMock(rpm_controller.CiscoPOEController,
-                                 '_exit_configuration_terminal')
-        self.poe._enter_configuration_terminal(
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(True)
-        pexpect.spawn.sendline('power inline auto')
-        self.poe._exit_configuration_terminal(mox.IgnoreArg()).AndReturn(True)
-        pexpect.spawn.sendline('show interface status %s' % self.PORT)
+        sut = rpm_controller.CiscoPOEController(self.SWITCH)
+        mock_ssh = self.mox.CreateMockAnything()
+        self.mox.StubOutWithMock(sut, '_login')
+        self.mox.StubOutWithMock(sut, '_enter_configuration_terminal')
+        self.mox.StubOutWithMock(sut, '_exit_configuration_terminal')
+        sut._login().AndReturn(mock_ssh)
+        sut._enter_configuration_terminal(self.PORT, mock_ssh).AndReturn(True)
+        sut._exit_configuration_terminal(mock_ssh).AndReturn(True)
+        mock_ssh.sendline(sut.SET_STATE_ON)
+        mock_ssh.sendline(sut.CHECK_INTERFACE_STATE % self.PORT)
         exception = pexpect.TIMEOUT('Could not verify state.')
-        pexpect.spawn.read_nonblocking(
-                mox.IgnoreArg(),
-                mox.IgnoreArg()).MultipleTimes().AndRaise(exception)
-        pexpect.spawn.__str__().AndReturn('A pexpect.spawn object.')
-        pexpect.spawn.sendline('exit')
+        matcher = self.MATCHER % (self.PORT, self.DEVICE)
+        mock_ssh.expect(matcher, timeout=sut.CMD_TIMEOUT).AndRaise(exception)
+        mock_ssh.sendline(sut.EXIT_CMD)
+        mock_ssh.close(force=True)
         self.mox.ReplayAll()
-        self.assertFalse(self.poe.set_power_state(self.POWERUNIT_INFO, 'ON'))
+        self.assertFalse(sut.set_power_state(self.POWERUNIT_INFO, 'ON'))
         self.mox.VerifyAll()
 
 

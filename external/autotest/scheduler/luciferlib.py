@@ -8,10 +8,12 @@ import os
 import logging
 import pipes
 import socket
+import subprocess
 
 import common
 from autotest_lib.client.bin import local_host
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.scheduler.drone_manager import PidfileId
 from autotest_lib.server.hosts import ssh_host
 from autotest_lib.frontend.afe import models
 
@@ -45,8 +47,17 @@ def is_enabled_for(level):
 
 
 def is_lucifer_owned(job):
-    """Return True if job is already sent to lucifer."""
+    """Return True if job is already sent to lucifer.
+
+    @param job: frontend.afe.models.Job instance
+    """
+    assert isinstance(job, models.Job)
     return hasattr(job, 'jobhandoff')
+
+
+def is_lucifer_owned_by_id(job_id):
+    """Return True if job is already sent to lucifer."""
+    return models.JobHandoff.objects.filter(job_id=job_id).exists()
 
 
 def is_split_job(hqe_id):
@@ -65,7 +76,7 @@ def is_split_job(hqe_id):
     hqes = hqe.job.hostqueueentry_set.all()
     try:
         _get_consistent_execution_path(hqes)
-    except _ExecutionPathError:
+    except ExecutionPathError:
         return True
     return False
 
@@ -81,52 +92,35 @@ def spawn_starting_job_handler(manager, job):
     @param job: Job instance
     @returns: Drone instance
     """
-    raise NotImplementedError
-
-
-# TODO(crbug.com/748234): This is temporary to enable toggling
-# lucifer rollouts with an option.
-def spawn_gathering_job_handler(manager, job, autoserv_exit, pidfile_id=None):
-    """Spawn job_reporter to handle a job.
-
-    Pass all arguments by keyword.
-
-    @param manager: scheduler.drone_manager.DroneManager instance
-    @param job: Job instance
-    @param autoserv_exit: autoserv exit status
-    @param pidfile_id: PidfileId instance
-    @returns: Drone instance
-    """
     manager = _DroneManager(manager)
-    if pidfile_id is None:
-        drone = manager.pick_drone_to_use()
-    else:
-        drone = manager.get_drone_for_pidfile(pidfile_id)
+    drone = manager.pick_drone_to_use()
     results_dir = _results_dir(manager, job)
-    num_tests_failed = manager.get_num_tests_failed(pidfile_id)
     args = [
             _JOB_REPORTER_PATH,
 
             # General configuration
             '--jobdir', _get_jobdir(),
-            '--run-job-path', _get_run_job_path(),
-            '--watcher-path', _get_watcher_path(),
+            '--lucifer-path', _get_lucifer_path(),
 
             # Job specific
+            '--lucifer-level', 'STARTING',
             '--job-id', str(job.id),
-            '--lucifer-level', 'GATHERING',
-            '--autoserv-exit', str(autoserv_exit),
-            '--need-gather',
-            '--num-tests-failed', str(num_tests_failed),
             '--results-dir', results_dir,
+
+            # STARTING specific
+            '--execution-tag', _working_directory(job),
     ]
     if _get_gcp_creds():
         args = [
                 'GOOGLE_APPLICATION_CREDENTIALS=%s'
                 % pipes.quote(_get_gcp_creds()),
         ] + args
-    output_file = os.path.join(results_dir, 'job_reporter_output.log')
-    drone.spawn(_ENV, args, output_file=output_file)
+    drone.spawn(_ENV, args,
+                output_file=_prepare_output_file(drone, results_dir))
+    drone.add_active_processes(1)
+    manager.reorder_drone_queue()
+    manager.register_pidfile_processes(
+            os.path.join(results_dir, '.autoserv_execute'), 1)
     return drone
 
 
@@ -154,13 +148,12 @@ def spawn_parsing_job_handler(manager, job, autoserv_exit, pidfile_id=None):
 
             # General configuration
             '--jobdir', _get_jobdir(),
-            '--run-job-path', _get_run_job_path(),
-            '--watcher-path', _get_watcher_path(),
+            '--lucifer-path', _get_lucifer_path(),
 
             # Job specific
             '--job-id', str(job.id),
-            '--lucifer-level', 'GATHERING',
-            '--autoserv-exit', str(autoserv_exit),
+            '--lucifer-level', 'STARTING',
+            '--parsing-only',
             '--results-dir', results_dir,
     ]
     if _get_gcp_creds():
@@ -168,21 +161,30 @@ def spawn_parsing_job_handler(manager, job, autoserv_exit, pidfile_id=None):
                 'GOOGLE_APPLICATION_CREDENTIALS=%s'
                 % pipes.quote(_get_gcp_creds()),
         ] + args
-    output_file = os.path.join(results_dir, 'job_reporter_output.log')
-    drone.spawn(_ENV, args, output_file=output_file)
+    drone.spawn(_ENV, args,
+                output_file=_prepare_output_file(drone, results_dir))
+    drone.add_active_processes(1)
+    manager.reorder_drone_queue()
+    manager.register_pidfile_processes(
+            os.path.join(results_dir, '.autoserv_execute'), 1)
     return drone
+
+
+_LUCIFER_DIR = 'lucifer'
+
+
+def _prepare_output_file(drone, results_dir):
+    logdir = os.path.join(results_dir, _LUCIFER_DIR)
+    drone.run('mkdir', ['-p', logdir])
+    return os.path.join(logdir, 'job_reporter_output.log')
 
 
 def _get_jobdir():
     return _config.get_config_value(_SECTION, 'jobdir')
 
 
-def _get_run_job_path():
-    return os.path.join(_get_binaries_path(), 'lucifer_run_job')
-
-
-def _get_watcher_path():
-    return os.path.join(_get_binaries_path(), 'lucifer_watcher')
+def _get_lucifer_path():
+    return os.path.join(_get_binaries_path(), 'lucifer')
 
 
 def _get_binaries_path():
@@ -191,11 +193,11 @@ def _get_binaries_path():
 
 
 def _get_gcp_creds():
-  """Return path to GCP service account credentials.
+    """Return path to GCP service account credentials.
 
-  This is the empty string by default, if no credentials will be used.
-  """
-  return _config.get_config_value(_SECTION, 'gcp_creds', default='')
+    This is the empty string by default, if no credentials will be used.
+    """
+    return _config.get_config_value(_SECTION, 'gcp_creds', default='')
 
 
 class _DroneManager(object):
@@ -226,20 +228,16 @@ class _DroneManager(object):
         """
         return _wrap_drone(self._manager.get_drone_for_pidfile_id(pidfile_id))
 
-    def pick_drone_to_use(self, num_processes=1, prefer_ssp=False):
+    def pick_drone_to_use(self, num_processes=1):
         """Return a drone to use.
 
         Various options can be passed to optimize drone selection.
 
         @param num_processes: number of processes the drone is intended
             to run
-        @param prefer_ssp: indicates whether drones supporting
-            server-side packaging should be preferred.  The returned
-            drone is not guaranteed to support it.
         """
         old_drone = self._manager.pick_drone_to_use(
                 num_processes=num_processes,
-                prefer_ssp=prefer_ssp,
         )
         return _wrap_drone(old_drone)
 
@@ -250,6 +248,32 @@ class _DroneManager(object):
         """
         return self._manager.absolute_path(path)
 
+    def register_pidfile_processes(self, path, count):
+        """Register a pidfile with the given number of processes.
+
+        This should be done to allow the drone manager to check the
+        number of processes still alive.  This may be used to select
+        drones based on the number of active processes as a proxy for
+        load.
+
+        The exact semantics depends on the drone manager implementation;
+        implementation specific comments follow:
+
+        Pidfiles are kept in memory to track process count.  Pidfiles
+        are rediscovered when the scheduler restarts.  Thus, errors in
+        pidfile tracking can be fixed by restarting the scheduler.xo
+        """
+        pidfile_id = PidfileId(path)
+        self._manager.register_pidfile(pidfile_id)
+        self._manager._registered_pidfile_info[pidfile_id].num_processes = count
+
+    def reorder_drone_queue(self):
+        """Reorder drone queue according to modified process counts.
+
+        Call this after Drone.add_active_processes().
+        """
+        self._manager.reorder_drone_queue()
+
 
 def _wrap_drone(old_drone):
     """Wrap an old style drone."""
@@ -257,7 +281,7 @@ def _wrap_drone(old_drone):
     if isinstance(host, local_host.LocalHost):
         return LocalDrone()
     elif isinstance(host, ssh_host.SSHHost):
-        return RemoteDrone(host)
+        return RemoteDrone(old_drone)
     else:
         raise TypeError('Drone has an unknown host type')
 
@@ -278,7 +302,7 @@ def _get_consistent_execution_path(execution_entries):
     first_execution_path = execution_entries[0].execution_path()
     for execution_entry in execution_entries[1:]:
         if execution_entry.execution_path() != first_execution_path:
-            raise _ExecutionPathError(
+            raise ExecutionPathError(
                     '%s (%s) != %s (%s)'
                     % (execution_entry.execution_path(),
                        execution_entry,
@@ -287,7 +311,7 @@ def _get_consistent_execution_path(execution_entries):
     return first_execution_path
 
 
-class _ExecutionPathError(Exception):
+class ExecutionPathError(Exception):
     """Raised by _get_consistent_execution_path()."""
 
 
@@ -296,6 +320,24 @@ class Drone(object):
 
     def hostname(self):
         """Return the hostname of the drone."""
+
+    def run(self, path, args):
+        """Run a command synchronously.
+
+        path must be an absolute path.  path may be on a remote machine.
+        args is a list of arguments.
+
+        The process may or may not have its own session.  The process
+        should be short-lived.  It should not try to obtain a
+        controlling terminal.
+
+        The new process will have stdin, stdout, and stderr opened to
+        /dev/null.
+
+        This method intentionally has a very restrictive API.  It should
+        be used to perform setup local to the drone, when the drone may
+        be a remote machine.
+        """
 
     def spawn(self, path, args, output_file):
         """Spawn an independent process.
@@ -313,12 +355,36 @@ class Drone(object):
         implementation defined, e.g., it may be a remote file.
         """
 
+    def add_active_processes(self, count):
+        """Track additional number of active processes.
+
+        This may be used to select drones based on the number of active
+        processes as a proxy for load.
+
+        _DroneManager.register_pidfile_processes() and
+        _DroneManager.reorder_drone_queue() should also be called.
+
+        The exact semantics depends on the drone manager implementation;
+        implementation specific comments follow:
+
+        Process count is used as a proxy for workload, and one process
+        equals the workload of one autoserv or one job.  This count is
+        recalculated during each scheduler tick, using pidfiles tracked
+        by the drone manager (so the count added by this function only
+        applies for one tick).
+        """
+
 
 class LocalDrone(Drone):
     """Local implementation of Drone."""
 
     def hostname(self):
         return socket.gethostname()
+
+    def run(self, path, args):
+        with open(os.devnull, 'r+b') as null:
+            subprocess.call([path] + args, stdin=null,
+                            stdout=null, stderr=null)
 
     def spawn(self, path, args, output_file):
         _spawn(path, [path] + args, output_file)
@@ -327,13 +393,21 @@ class LocalDrone(Drone):
 class RemoteDrone(Drone):
     """Remote implementation of Drone through SSH."""
 
-    def __init__(self, host):
+    def __init__(self, drone):
+        host = drone._host
         if not isinstance(host, ssh_host.SSHHost):
-            raise TypeError('RemoteDrone must be passed an SSHHost')
-        self._host = host
+            raise TypeError('RemoteDrone must be passed a drone with SSHHost')
+        self._drone = drone
+        self._host = drone._host
 
     def hostname(self):
         return self._host.hostname
+
+    def run(self, path, args):
+        cmd_parts = [path] + args
+        safe_cmd = ' '.join(pipes.quote(part) for part in cmd_parts)
+        self._host.run('%(cmd)s <%(null)s >%(null)s 2>&1'
+                       % {'cmd': safe_cmd, 'null': os.devnull})
 
     def spawn(self, path, args, output_file):
         cmd_parts = [path] + args
@@ -345,6 +419,9 @@ class RemoteDrone(Drone):
                        % {'cmd': safe_cmd,
                           'file': safe_file,
                           'null': os.devnull})
+
+    def add_active_processes(self, count):
+        self._drone.active_processes += count
 
 
 def _spawn(path, argv, output_file):

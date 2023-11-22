@@ -11,15 +11,15 @@ matrix:
     # Container-based 12.04 LTS Server Edition 64 bit (doesn't support 32-bit includes)
     - os: linux
       sudo: false
-      env: Ubu=12.04cont Cmd='make -C tests test-lz4 test-lz4c test-fasttest test-fullbench' COMPILER=cc
+      env: Ubu=12.04cont Cmd='make -C tests test-lz4 test-lz4c test-fullbench' COMPILER=cc
+
+    - os: linux
+      sudo: required
+      env: Ubu=12.04cont Cmd='sudo sysctl -w vm.mmap_min_addr="4096" && make -C tests test-frametest test-fuzzer' COMPILER=cc
 
     - os: linux
       sudo: false
-      env: Ubu=12.04cont Cmd='make -C tests test-frametest test-fuzzer' COMPILER=cc
-
-    - os: linux
-      sudo: false
-      env: Ubu=12.04cont Cmd="make gpptest && make clean examples && make clean cmake && make clean travis-install && make clean clangtest" COMPILER=cc
+      env: Ubu=12.04cont Cmd="make gpptest && make clean && make examples && make clean cmake && make clean travis-install && make clean clangtest" COMPILER=cc
 
 
     # 14.04 LTS Server Edition 64 bit
@@ -32,7 +32,8 @@ matrix:
             - libc6-dev-i386
             - gcc-multilib
 
-    - env: Ubu=14.04 Cmd='make usan' COMPILER=clang
+    # presume clang >= v3.9.0
+    - env: Ubu=14.04 Cmd='make usan MOREFLAGS=-Wcomma -Werror' COMPILER=clang
       dist: trusty
       sudo: required
       addons:
@@ -48,6 +49,10 @@ matrix:
           packages:
             - valgrind
 
+    - env: Ubu=14.04 Cmd='make ctocpptest' COMPILER=cc
+      dist: trusty
+      sudo: false
+
     - env: Ubu=14.04 Cmd='make -C tests test-lz4c32 test-fullbench32 versionsTest' COMPILER=cc
       dist: trusty
       sudo: required
@@ -58,7 +63,7 @@ matrix:
             - libc6-dev-i386
             - gcc-multilib
 
-    - env: Ubu=14.04 Cmd='make -C tests test-frametest32 test-fuzzer32' COMPILER=cc
+    - env: Ubu=14.04 Cmd='sudo sysctl -w vm.mmap_min_addr="4096" && make -C tests test-frametest32 test-fuzzer32' COMPILER=cc
       dist: trusty
       sudo: required
       addons:
@@ -144,7 +149,15 @@ matrix:
             - gcc-multilib
             - gcc-4.4
 
+    # tag-specific test
+    - if: tag =~ ^v[0-9]\.[0-9]
+      os: linux
+      sudo: false
+      env: Cmd="make -C tests checkTag && tests/checkTag $TRAVIS_BRANCH " COMPILER=cc
+
+
 script:
+  - uname -a
   - echo Cmd=$Cmd
   - $COMPILER -v
   - sh -c "$Cmd"

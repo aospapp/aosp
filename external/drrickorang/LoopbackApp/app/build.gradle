@@ -1,37 +1,38 @@
-apply plugin: 'com.android.model.application'
+/**
+ * The default build is with CMake Plugin.
+ * If Android.mk build system is required, src/main/cpp/Android.mk is
+ * a workable, just add hooks to this file to replace cmake at the "cmake"
+ * location.
+ */
 
-model {
-    android {
-        compileSdkVersion = 23
-        buildToolsVersion = "25.0"
+apply plugin: 'com.android.application'
 
-        defaultConfig.with {
-            applicationId = "org.drrickorang.loopback"
-            minSdkVersion.apiLevel = 11
-            targetSdkVersion.apiLevel = 23
+android {
+        compileSdkVersion 28
+
+        defaultConfig {
+            applicationId 'org.drrickorang.loopback'
+            minSdkVersion 14
+            targetSdkVersion  26
+            externalNativeBuild.cmake {
+                arguments "-DANDROID_STL=c++_static"
+            }
         }
-        ndk {
-            moduleName "loopback"
-            cppFlags.addAll "-I${project.rootDir}/app/src/main/jni".toString(), "-g"
-            CFlags.addAll "-I${project.rootDir}/app/src/main/jni".toString()
 
-            ldLibs.addAll "OpenSLES", "log"
-        }
+	externalNativeBuild {
+	    cmake {
+	        path 'src/main/cpp/CMakeLists.txt'
+	    }
+	}
+
         buildTypes {
             release {
                 minifyEnabled false
                 proguardFiles.add file('proguard.cfg')
             }
-            debug {
-                ndk {
-                    debuggable true
-                }
-            }
-        }    }
-
-
+    }
 }
 
 dependencies {
-    compile 'com.android.support:appcompat-v7:23.0.1'
+    implementation 'androidx.appcompat:appcompat:1.0.0-rc02'
 }

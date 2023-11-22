@@ -14,10 +14,10 @@
 #include "puffin/src/memory_stream.h"
 #include "puffin/src/unittest_common.h"
 
-namespace puffin {
-
 using std::string;
 using std::vector;
+
+namespace puffin {
 
 namespace {
 const uint8_t kZipEntries[] = {
@@ -79,9 +79,9 @@ const uint8_t kGzipEntryWithExtraField[] = {
 
 // echo "0123456789" | zlib-flate -compress |
 // hexdump -v -e '12/1 "0x%02x, " "\n"'
-const uint8_t kZlibEntry[] = {
-    0x78, 0x9c, 0x33, 0x30, 0x34, 0x32, 0x36, 0x31, 0x35, 0x33, 0xb7, 0xb0,
-    0xe4, 0x02, 0x00, 0x0d, 0x17, 0x02, 0x18};
+const uint8_t kZlibEntry[] = {0x78, 0x9c, 0x33, 0x30, 0x34, 0x32, 0x36,
+                              0x31, 0x35, 0x33, 0xb7, 0xb0, 0xe4, 0x02,
+                              0x00, 0x0d, 0x17, 0x02, 0x18};
 
 void FindDeflatesInZlibBlocks(const Buffer& src,
                               const vector<ByteExtent>& zlibs,
@@ -114,21 +114,21 @@ void CheckFindPuffLocation(const Buffer& compressed,
 
 // Test Simple Puffing of the source.
 TEST(UtilsTest, FindPuffLocations1Test) {
-  CheckFindPuffLocation(kDeflates8, kSubblockDeflateExtents8, kPuffExtents8,
-                        kPuffs8.size());
+  CheckFindPuffLocation(kDeflatesSample1, kSubblockDeflateExtentsSample1,
+                        kPuffExtentsSample1, kPuffsSample1.size());
 }
 
 TEST(UtilsTest, FindPuffLocations2Test) {
-  CheckFindPuffLocation(kDeflates9, kSubblockDeflateExtents9, kPuffExtents9,
-                        kPuffs9.size());
+  CheckFindPuffLocation(kDeflatesSample2, kSubblockDeflateExtentsSample2,
+                        kPuffExtentsSample2, kPuffsSample2.size());
 }
 
 TEST(UtilsTest, LocateDeflatesInZlib) {
   Buffer zlib_data(kZlibEntry, std::end(kZlibEntry));
-  vector<ByteExtent> deflates;
+  vector<BitExtent> deflates;
+  vector<BitExtent> expected_deflates = {{16, 98}};
   EXPECT_TRUE(LocateDeflatesInZlib(zlib_data, &deflates));
-  EXPECT_EQ(static_cast<size_t>(1), deflates.size());
-  EXPECT_EQ(ByteExtent(2, 13), deflates[0]);
+  EXPECT_EQ(deflates, expected_deflates);
 }
 
 TEST(UtilsTest, LocateDeflatesInEmptyZlib) {
@@ -143,7 +143,7 @@ TEST(UtilsTest, LocateDeflatesInZlibWithInvalidFields) {
   auto cmf = zlib_data[0];
   auto flag = zlib_data[1];
 
-  vector<ByteExtent> deflates;
+  vector<BitExtent> deflates;
   zlib_data[0] = cmf & 0xF0;
   EXPECT_FALSE(LocateDeflatesInZlib(zlib_data, &deflates));
   zlib_data[0] = cmf | (8 << 4);
@@ -156,55 +156,126 @@ TEST(UtilsTest, LocateDeflatesInZlibWithInvalidFields) {
 
 TEST(UtilsTest, LocateDeflatesInZipArchiveSmoke) {
   Buffer zip_entries(kZipEntries, std::end(kZipEntries));
-  vector<ByteExtent> deflates;
+  vector<BitExtent> deflates;
+  vector<BitExtent> expected_deflates = {{472, 46}, {992, 46}};
   EXPECT_TRUE(LocateDeflatesInZipArchive(zip_entries, &deflates));
-  EXPECT_EQ(static_cast<size_t>(2), deflates.size());
-  EXPECT_EQ(ByteExtent(59, 6), deflates[0]);
-  EXPECT_EQ(ByteExtent(124, 6), deflates[1]);
+  EXPECT_EQ(deflates, expected_deflates);
 }
 
 TEST(UtilsTest, LocateDeflatesInZipArchiveWithDataDescriptor) {
   Buffer zip_entries(kZipEntryWithDataDescriptor,
                      std::end(kZipEntryWithDataDescriptor));
-  vector<ByteExtent> deflates;
+  vector<BitExtent> deflates;
+  vector<BitExtent> expected_deflates = {{472, 46}, {1120, 46}};
   EXPECT_TRUE(LocateDeflatesInZipArchive(zip_entries, &deflates));
-  EXPECT_EQ(static_cast<size_t>(2), deflates.size());
-  EXPECT_EQ(ByteExtent(59, 6), deflates[0]);
-  EXPECT_EQ(ByteExtent(140, 6), deflates[1]);
+  EXPECT_EQ(deflates, expected_deflates);
 }
 
 TEST(UtilsTest, LocateDeflatesInZipArchiveErrorChecks) {
   Buffer zip_entries(kZipEntries, std::end(kZipEntries));
   // Construct a invalid zip entry whose size overflows.
   zip_entries[29] = 0xff;
-  vector<ByteExtent> deflates_overflow;
+  vector<BitExtent> deflates_overflow;
+  vector<BitExtent> expected_deflates = {{992, 46}};
   EXPECT_TRUE(LocateDeflatesInZipArchive(zip_entries, &deflates_overflow));
-  EXPECT_EQ(static_cast<size_t>(1), deflates_overflow.size());
-  EXPECT_EQ(ByteExtent(124, 6), deflates_overflow[0]);
+  EXPECT_EQ(deflates_overflow, expected_deflates);
 
   zip_entries.resize(128);
-  vector<ByteExtent> deflates_incomplete;
+  vector<BitExtent> deflates_incomplete;
   EXPECT_TRUE(LocateDeflatesInZipArchive(zip_entries, &deflates_incomplete));
-  EXPECT_EQ(static_cast<size_t>(0), deflates_incomplete.size());
+  EXPECT_TRUE(deflates_incomplete.empty());
 }
 
 TEST(UtilsTest, LocateDeflatesInGzip) {
   Buffer gzip_data(kGzipEntryWithMultipleMembers,
                    std::end(kGzipEntryWithMultipleMembers));
-  vector<ByteExtent> deflates;
+  vector<BitExtent> deflates;
+  vector<BitExtent> expected_deflates = {{160, 98}, {488, 98}};
   EXPECT_TRUE(LocateDeflatesInGzip(gzip_data, &deflates));
-  EXPECT_EQ(static_cast<size_t>(2), deflates.size());
-  EXPECT_EQ(ByteExtent(20, 13), deflates[0]);
-  EXPECT_EQ(ByteExtent(61, 13), deflates[1]);
+  EXPECT_EQ(deflates, expected_deflates);
+}
+
+TEST(UtilsTest, LocateDeflatesInGzipFail) {
+  Buffer gzip_data(kGzipEntryWithMultipleMembers,
+                   std::end(kGzipEntryWithMultipleMembers));
+  gzip_data[0] ^= 1;
+  vector<BitExtent> deflates;
+  EXPECT_FALSE(LocateDeflatesInGzip(gzip_data, &deflates));
+}
+
+TEST(UtilsTest, LocateDeflatesInGzipWithPadding) {
+  Buffer gzip_data(kGzipEntryWithMultipleMembers,
+                   std::end(kGzipEntryWithMultipleMembers));
+  gzip_data.resize(gzip_data.size() + 100);
+  vector<BitExtent> deflates;
+  vector<BitExtent> expected_deflates = {{160, 98}, {488, 98}};
+  EXPECT_TRUE(LocateDeflatesInGzip(gzip_data, &deflates));
+  EXPECT_EQ(deflates, expected_deflates);
 }
 
 TEST(UtilsTest, LocateDeflatesInGzipWithExtraField) {
   Buffer gzip_data(kGzipEntryWithExtraField,
                    std::end(kGzipEntryWithExtraField));
-  vector<ByteExtent> deflates;
+  vector<BitExtent> deflates;
+  vector<BitExtent> expected_deflates = {{256, 98}};
   EXPECT_TRUE(LocateDeflatesInGzip(gzip_data, &deflates));
-  EXPECT_EQ(static_cast<size_t>(1), deflates.size());
-  EXPECT_EQ(ByteExtent(32, 13), deflates[0]);
+  EXPECT_EQ(deflates, expected_deflates);
+}
+
+TEST(UtilsTest, RemoveEqualBitExtents) {
+  Buffer data1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  Buffer data2 = {1, 2, 3, 4, 5, 5, 6, 7, 8, 9};
+  vector<BitExtent> ext1 = {{0, 10}, {10, 14}, {25, 15}, {40, 8}, {50, 23}};
+  vector<BitExtent> ext2 = {{0, 10}, {17, 15}, {32, 8}, {40, 8}, {50, 23}};
+  RemoveEqualBitExtents(data1, data2, &ext1, &ext2);
+  vector<BitExtent> expected_ext1 = {{0, 10}, {10, 14}};
+  EXPECT_EQ(expected_ext1, ext1);
+  vector<BitExtent> expected_ext2 = {{0, 10}};
+  EXPECT_EQ(expected_ext2, ext2);
+  RemoveEqualBitExtents(data1, data2, &ext1, &ext1);
+  EXPECT_EQ(expected_ext1, ext1);
+  RemoveEqualBitExtents(data1, data1, &ext1, &ext1);
+  EXPECT_TRUE(ext1.empty());
+  expected_ext1 = ext1 = {{0, 0}, {1, 1}, {2, 7}};
+  RemoveEqualBitExtents(data1, data2, &ext1, &ext2);
+  EXPECT_EQ(expected_ext1, ext1);
+  EXPECT_EQ(expected_ext2, ext2);
+}
+
+TEST(UtilsTest, RemoveDeflatesWithBadDistanceCaches) {
+  vector<BitExtent> deflates(kProblematicCacheDeflateExtents), empty;
+  EXPECT_TRUE(
+      RemoveDeflatesWithBadDistanceCaches(kProblematicCache, &deflates));
+  EXPECT_EQ(deflates, empty);
+
+  // Just a sanity check to make sure this function is not removing anything
+  // else.
+  deflates = kSubblockDeflateExtentsSample1;
+  EXPECT_TRUE(RemoveDeflatesWithBadDistanceCaches(kDeflatesSample1, &deflates));
+  EXPECT_EQ(deflates, kSubblockDeflateExtentsSample1);
+
+  // Now combine three deflates and make sure it is doing the right job.
+  Buffer data;
+  data.insert(data.end(), kDeflatesSample1.begin(), kDeflatesSample1.end());
+  data.insert(data.end(), kProblematicCache.begin(), kProblematicCache.end());
+  data.insert(data.end(), kDeflatesSample1.begin(), kDeflatesSample1.end());
+
+  deflates = kSubblockDeflateExtentsSample1;
+  size_t offset = kDeflatesSample1.size() * 8;
+  for (const auto& deflate : kProblematicCacheDeflateExtents) {
+    deflates.emplace_back(deflate.offset + offset, deflate.length);
+  }
+  offset += kProblematicCache.size() * 8;
+  for (const auto& deflate : kSubblockDeflateExtentsSample1) {
+    deflates.emplace_back(deflate.offset + offset, deflate.length);
+  }
+
+  auto expected_deflates(deflates);
+  expected_deflates.erase(expected_deflates.begin() +
+                          kSubblockDeflateExtentsSample1.size());
+
+  EXPECT_TRUE(RemoveDeflatesWithBadDistanceCaches(data, &deflates));
+  EXPECT_EQ(deflates, expected_deflates);
 }
 
 }  // namespace puffin

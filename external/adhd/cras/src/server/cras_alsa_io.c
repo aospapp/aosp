@@ -23,6 +23,7 @@
 #include "cras_audio_area.h"
 #include "cras_config.h"
 #include "cras_utf8.h"
+#include "cras_hotword_handler.h"
 #include "cras_iodev.h"
 #include "cras_iodev_list.h"
 #include "cras_messages.h"
@@ -44,6 +45,8 @@
 #define INTERNAL_MICROPHONE "Internal Mic"
 #define INTERNAL_SPEAKER "Speaker"
 #define KEYBOARD_MIC "Keyboard Mic"
+#define HEADPHONE "Headphone"
+#define MIC "Mic"
 #define USB "USB"
 
 /*
@@ -151,6 +154,7 @@ struct alsa_io {
 	unsigned int filled_zeros_for_draining;
 	snd_pcm_uframes_t severe_underrun_frames;
 	struct cras_volume_curve *default_volume_curve;
+	int hwparams_set;
 };
 
 static void init_device_settings(struct alsa_io *aio);
@@ -244,6 +248,31 @@ static const struct {
 	},
 };
 
+static int set_hwparams(struct cras_iodev *iodev)
+{
+	struct alsa_io *aio = (struct alsa_io *)iodev;
+	int period_wakeup;
+	int rc;
+
+	/* Only need to set hardware params once. */
+	if (aio->hwparams_set)
+		return 0;
+
+	/* If it's a wake on voice device, period_wakeups are required. */
+	period_wakeup = (iodev->active_node->type == CRAS_NODE_TYPE_HOTWORD);
+
+	/* Sets frame rate and channel count to alsa device before
+	 * we test channel mapping. */
+	rc = cras_alsa_set_hwparams(aio->handle, iodev->format,
+				    &iodev->buffer_size, period_wakeup,
+				    aio->dma_period_set_microsecs);
+	if (rc < 0)
+		return rc;
+
+	aio->hwparams_set = 1;
+	return 0;
+}
+
 /*
  * iodev callbacks.
  */
@@ -259,8 +288,7 @@ static int frames_queued(const struct cras_iodev *iodev,
 					aio->base.buffer_size,
 					aio->severe_underrun_frames,
 					iodev->info.name,
-					&frames, tstamp,
-					&aio->num_underruns);
+					&frames, tstamp);
 	if (rc < 0) {
 		if (rc == -EPIPE)
 			aio->num_severe_underruns++;
@@ -305,6 +333,7 @@ static int close_dev(struct cras_iodev *iodev)
 	aio->handle = NULL;
 	aio->is_free_running = 0;
 	aio->filled_zeros_for_draining = 0;
+	aio->hwparams_set = 0;
 	cras_iodev_free_format(&aio->base);
 	cras_iodev_free_audio_area(&aio->base);
 	return 0;
@@ -316,6 +345,11 @@ static int dummy_hotword_cb(void *arg)
 	struct alsa_io *aio = (struct alsa_io *)arg;
 	audio_thread_rm_callback(aio->poll_fd);
 	aio->poll_fd = -1;
+	aio->base.input_streaming = 1;
+
+	/* Send hotword triggered signal. */
+	cras_hotword_send_triggered_msg();
+
 	return 0;
 }
 
@@ -323,7 +357,20 @@ static int open_dev(struct cras_iodev *iodev)
 {
 	struct alsa_io *aio = (struct alsa_io *)iodev;
 	snd_pcm_t *handle;
-	int period_wakeup;
+	int rc;
+
+	rc = cras_alsa_pcm_open(&handle, aio->dev, aio->alsa_stream);
+	if (rc < 0)
+		return rc;
+
+	aio->handle = handle;
+
+	return 0;
+}
+
+static int configure_dev(struct cras_iodev *iodev)
+{
+	struct alsa_io *aio = (struct alsa_io *)iodev;
 	int rc;
 
 	/* This is called after the first stream added so configure for it.
@@ -342,39 +389,23 @@ static int open_dev(struct cras_iodev *iodev)
 	syslog(LOG_DEBUG, "Configure alsa device %s rate %zuHz, %zu channels",
 	       aio->dev, iodev->format->frame_rate,
 	       iodev->format->num_channels);
-	handle = 0; /* Avoid unused warning. */
-	rc = cras_alsa_pcm_open(&handle, aio->dev, aio->alsa_stream);
+
+	rc = set_hwparams(iodev);
 	if (rc < 0)
 		return rc;
 
-	/* If it's a wake on voice device, period_wakeups are required. */
-	period_wakeup = (iodev->active_node->type == CRAS_NODE_TYPE_HOTWORD);
-
-	rc = cras_alsa_set_hwparams(handle, iodev->format,
-				    &iodev->buffer_size, period_wakeup,
-				    aio->dma_period_set_microsecs);
-	if (rc < 0) {
-		cras_alsa_pcm_close(handle);
-		return rc;
-	}
-
 	/* Set channel map to device */
-	rc = cras_alsa_set_channel_map(handle,
+	rc = cras_alsa_set_channel_map(aio->handle,
 				       iodev->format);
-	if (rc < 0) {
-		cras_alsa_pcm_close(handle);
+	if (rc < 0)
 		return rc;
-	}
 
 	/* Configure software params. */
-	rc = cras_alsa_set_swparams(handle, &aio->enable_htimestamp);
-	if (rc < 0) {
-		cras_alsa_pcm_close(handle);
+	rc = cras_alsa_set_swparams(aio->handle, &aio->enable_htimestamp);
+	if (rc < 0)
 		return rc;
-	}
 
-	/* Assign pcm handle then initialize device settings. */
-	aio->handle = handle;
+	/* Initialize device settings. */
 	init_device_settings(aio);
 
 	aio->poll_fd = -1;
@@ -382,7 +413,7 @@ static int open_dev(struct cras_iodev *iodev)
 		struct pollfd *ufds;
 		int count, i;
 
-		count = snd_pcm_poll_descriptors_count(handle);
+		count = snd_pcm_poll_descriptors_count(aio->handle);
 		if (count <= 0) {
 			syslog(LOG_ERR, "Invalid poll descriptors count\n");
 			return count;
@@ -392,7 +423,7 @@ static int open_dev(struct cras_iodev *iodev)
 		if (ufds == NULL)
 			return -ENOMEM;
 
-		rc = snd_pcm_poll_descriptors(handle, ufds, count);
+		rc = snd_pcm_poll_descriptors(aio->handle, ufds, count);
 		if (rc < 0) {
 			syslog(LOG_ERR,
 			       "Getting hotword poll descriptors: %s\n",
@@ -480,8 +511,7 @@ static int get_buffer(struct cras_iodev *iodev,
 				  format_bytes,
 				  &dst,
 				  &aio->mmap_offset,
-				  &nframes,
-				  &aio->num_underruns);
+				  &nframes);
 
 	iodev->area->frames = nframes;
 	cras_audio_area_config_buf_pointers(iodev->area, iodev->format, dst);
@@ -498,8 +528,7 @@ static int put_buffer(struct cras_iodev *iodev, unsigned nwritten)
 
 	return cras_alsa_mmap_commit(aio->handle,
 				     aio->mmap_offset,
-				     nwritten,
-				     &aio->num_underruns);
+				     nwritten);
 }
 
 static int flush_buffer(struct cras_iodev *iodev)
@@ -508,6 +537,7 @@ static int flush_buffer(struct cras_iodev *iodev)
 	snd_pcm_uframes_t nframes;
 
 	if (iodev->direction == CRAS_STREAM_INPUT) {
+		nframes = snd_pcm_avail(aio->handle);
 		nframes = snd_pcm_forwardable(aio->handle);
 		return snd_pcm_forward(aio->handle, nframes);
 	}
@@ -552,8 +582,6 @@ static void update_active_node(struct cras_iodev *iodev, unsigned node_idx,
 static int update_channel_layout(struct cras_iodev *iodev)
 {
 	struct alsa_io *aio = (struct alsa_io *)iodev;
-	snd_pcm_t *handle = NULL;
-	snd_pcm_uframes_t buf_size = 0;
 	int err = 0;
 
 	/* If the capture channel map is specified in UCM, prefer it over
@@ -570,25 +598,11 @@ static int update_channel_layout(struct cras_iodev *iodev)
 		}
 	}
 
-	err = cras_alsa_pcm_open(&handle, aio->dev, aio->alsa_stream);
-	if (err < 0) {
-		syslog(LOG_ERR, "snd_pcm_open_failed: %s", snd_strerror(err));
+	err = set_hwparams(iodev);
+	if (err < 0)
 		return err;
-	}
 
-	/* Sets frame rate and channel count to alsa device before
-	 * we test channel mapping. */
-	err = cras_alsa_set_hwparams(handle, iodev->format, &buf_size, 0,
-				     aio->dma_period_set_microsecs);
-	if (err < 0) {
-		cras_alsa_pcm_close(handle);
-		return err;
-	}
-
-	err = cras_alsa_get_channel_map(handle, iodev->format);
-
-	cras_alsa_pcm_close(handle);
-	return err;
+	return cras_alsa_get_channel_map(aio->handle, iodev->format);
 }
 
 static int set_hotword_model(struct cras_iodev *iodev, const char *model_name)
@@ -795,7 +809,8 @@ static void init_device_settings(struct alsa_io *aio)
 			mixer_input = ain->mixer_input;
 
 		if (cras_iodev_software_volume_needed(&aio->base)) {
-			min_capture_gain = DEFAULT_MIN_CAPTURE_GAIN;
+			min_capture_gain = cras_iodev_minimum_software_gain(
+					&aio->base);
 			max_capture_gain = cras_iodev_maximum_software_gain(
 					&aio->base);
 		} else {
@@ -881,6 +896,7 @@ int endswith(const char *s, const char *suffix)
 	return n >= m && !strcmp(s + (n - m), suffix);
 }
 
+#ifdef CRAS_DBUS
 /*
  * Drop the node name and replace it with node type.
  */
@@ -897,6 +913,7 @@ static void drop_node_name(struct cras_ionode *node)
 		strcpy(node->name, DEFAULT);
 	}
 }
+#endif
 
 /*
  * Sets the initial plugged state and type of a node based on its
@@ -923,18 +940,27 @@ static void set_node_initial_state(struct cras_ionode *node,
 			break;
 		}
 
-	/* If we didn't find a matching name above, but the node is a jack node,
-	 * set its type to headphone/mic. This matches node names like "DAISY-I2S Mic
-	 * Jack".
+	/*
+	 * If we didn't find a matching name above, but the node is a jack node,
+	 * and there is no "HDMI" in the node name, then this must be a 3.5mm
+	 * headphone/mic.
+	 * Set its type and name to headphone/mic. The name is important because
+	 * it associates the UCM section to the node so the properties like
+	 * default node gain can be obtained.
+	 * This matches node names like "DAISY-I2S Mic Jack".
 	 * If HDMI is in the node name, set its type to HDMI. This matches node names
 	 * like "Rockchip HDMI Jack".
 	 */
 	if (i == ARRAY_SIZE(node_defaults)) {
-		if (endswith(node->name, "Jack")) {
-			if (node->dev->direction == CRAS_STREAM_OUTPUT)
+		if (endswith(node->name, "Jack") && !strstr(node->name, HDMI)) {
+			if (node->dev->direction == CRAS_STREAM_OUTPUT) {
 				node->type = CRAS_NODE_TYPE_HEADPHONE;
-			else
+				strncpy(node->name, HEADPHONE, sizeof(node->name) - 1);
+			}
+			else {
 				node->type = CRAS_NODE_TYPE_MIC;
+				strncpy(node->name, MIC, sizeof(node->name) - 1);
+			}
 		}
 		if (strstr(node->name, HDMI) &&
 		    node->dev->direction == CRAS_STREAM_OUTPUT)
@@ -949,8 +975,10 @@ static void set_node_initial_state(struct cras_ionode *node,
 		node->position = NODE_POSITION_EXTERNAL;
 	}
 
+#ifdef CRAS_DBUS
 	if (!is_utf8_string(node->name))
 		drop_node_name(node);
+#endif
 }
 
 static int get_ucm_flag_integer(struct alsa_io *aio,
@@ -1043,18 +1071,22 @@ static void set_output_node_software_volume_needed(
 static void set_input_node_software_volume_needed(
 	struct alsa_input_node *input, struct alsa_io *aio)
 {
+	long min_software_gain;
 	long max_software_gain;
 	int rc;
 
 	input->base.software_volume_needed = 0;
+	input->base.min_software_gain = DEFAULT_MIN_CAPTURE_GAIN;
 	input->base.max_software_gain = 0;
 
-	/* Enable software gain only if max software gain is specified in UCM.*/
+	/* Enable software gain only if max software gain is specified in UCM. */
 	if (!aio->ucm)
 		return;
 
 	rc = ucm_get_max_software_gain(aio->ucm, input->base.name,
 	                               &max_software_gain);
+
+	/* If max software gain doesn't exist, skip min software gain setting. */
 	if (rc)
 		return;
 
@@ -1063,6 +1095,24 @@ static void set_input_node_software_volume_needed(
 	syslog(LOG_INFO,
 	       "Use software gain for %s with max %ld because it is specified"
 	       " in UCM", input->base.name, max_software_gain);
+
+	/* Enable min software gain if it is specified in UCM. */
+	rc = ucm_get_min_software_gain(aio->ucm, input->base.name,
+	                               &min_software_gain);
+	if (rc)
+		return;
+
+	if (min_software_gain > max_software_gain) {
+		syslog(LOG_ERR,
+		       "Ignore MinSoftwareGain %ld because it is larger than "
+		       "MaxSoftwareGain %ld", min_software_gain, max_software_gain);
+		return;
+	}
+
+	syslog(LOG_INFO,
+	       "Use software gain for %s with min %ld because it is specified"
+	       " in UCM", input->base.name, min_software_gain);
+	input->base.min_software_gain = min_software_gain;
 }
 
 static void set_input_default_node_gain(struct alsa_input_node *input,
@@ -1167,9 +1217,10 @@ static void new_output_by_mixer_control(struct mixer_control *cras_output,
 	        return;
 
 	if (aio->card_type == ALSA_CARD_TYPE_USB) {
-		snprintf(node_name, sizeof(node_name), "%s: %s",
-			aio->base.info.name, ctl_name);
-		new_output(aio, cras_output, node_name);
+		if (snprintf(node_name, sizeof(node_name), "%s: %s",
+			     aio->base.info.name, ctl_name) > 0) {
+			new_output(aio, cras_output, node_name);
+		}
 	} else {
 		new_output(aio, cras_output, ctl_name);
 	}
@@ -1203,6 +1254,7 @@ static void check_auto_unplug_input_node(struct alsa_io *aio,
 static struct alsa_input_node *new_input(struct alsa_io *aio,
 		struct mixer_control *cras_input, const char *name)
 {
+	struct cras_iodev *iodev = &aio->base;
 	struct alsa_input_node *input;
 	char *mic_positions;
 	int err;
@@ -1248,6 +1300,12 @@ static struct alsa_input_node *new_input(struct alsa_io *aio,
 			free(input->channel_layout);
 			input->channel_layout = 0;
 		}
+		if (ucm_get_preempt_hotword(aio->ucm, name)) {
+			iodev->pre_open_iodev_hook =
+				cras_iodev_list_suspend_hotword_streams;
+			iodev->post_close_iodev_hook =
+				cras_iodev_list_resume_hotword_stream;
+		}
 	}
 
 	cras_iodev_add_node(&aio->base, &input->base);
@@ -1264,8 +1322,11 @@ static void new_input_by_mixer_control(struct mixer_control *cras_input,
 	const char *ctl_name = cras_alsa_mixer_get_control_name(cras_input);
 
 	if (aio->card_type == ALSA_CARD_TYPE_USB) {
-		snprintf(node_name , sizeof(node_name), "%s: %s",
-			 aio->base.info.name, ctl_name);
+		int ret = snprintf(node_name , sizeof(node_name), "%s: %s",
+				   aio->base.info.name, ctl_name);
+		// Truncation is OK, but add a check to make the compiler happy.
+		if (ret == sizeof(node_name))
+			node_name[sizeof(node_name) - 1] = '\0';
 		new_input(aio, cras_input, node_name);
 	} else {
 		new_input(aio, cras_input, ctl_name);
@@ -1315,6 +1376,21 @@ static struct alsa_input_node *get_input_node_from_jack(
 	DL_SEARCH_SCALAR_WITH_CAST(aio->base.nodes, node, ain,
 				   mixer_input, mixer_input);
 	return ain;
+}
+
+static const struct cras_alsa_jack *get_jack_from_node(struct cras_ionode *node)
+{
+	const struct cras_alsa_jack *jack = NULL;
+
+	if (node == NULL)
+		return NULL;
+
+	if (node->dev->direction == CRAS_STREAM_OUTPUT)
+		jack = ((struct alsa_output_node *)node)->jack;
+	else if (node->dev->direction == CRAS_STREAM_INPUT)
+		jack = ((struct alsa_input_node *)node)->jack;
+
+	return jack;
 }
 
 /*
@@ -1417,9 +1493,12 @@ static void jack_output_plug_event(const struct cras_alsa_jack *jack,
 
 	cras_alsa_jack_update_monitor_name(jack, node->base.name,
 					   sizeof(node->base.name));
+
+#ifdef CRAS_DBUS
 	/* The name got from jack might be an invalid UTF8 string. */
 	if (!is_utf8_string(node->base.name))
 		drop_node_name(&node->base);
+#endif
 
 	cras_iodev_set_node_attr(&node->base, IONODE_ATTR_PLUGGED, plugged);
 
@@ -1569,7 +1648,7 @@ static int update_supported_formats(struct cras_iodev *iodev)
 	free(iodev->supported_formats);
 	iodev->supported_formats = NULL;
 
-	err = cras_alsa_fill_properties(aio->dev, aio->alsa_stream,
+	err = cras_alsa_fill_properties(aio->handle,
 					&iodev->supported_rates,
 					&iodev->supported_channel_counts,
 					&iodev->supported_formats);
@@ -1641,8 +1720,7 @@ static int fill_whole_buffer_with_zeros(struct cras_iodev *iodev)
 	size_t format_bytes;
 
 	/* Fill whole buffer with zeros. */
-	rc = cras_alsa_mmap_get_whole_buffer(
-			aio->handle, &dst, &aio->num_underruns);
+	rc = cras_alsa_mmap_get_whole_buffer(aio->handle, &dst);
 
 	if (rc < 0) {
 		syslog(LOG_ERR, "Failed to get whole buffer: %s",
@@ -1668,9 +1746,55 @@ static int adjust_appl_ptr(struct cras_iodev *odev)
 			odev->min_buffer_level + odev->min_cb_level);
 }
 
+/* This function is for leaving no-stream state but still not in free run yet.
+ * The device may have valid samples remaining. We need to adjust appl_ptr to
+ * the correct position, which is MAX(min_cb_level + min_buffer_level,
+ * valid_sample) */
+static int adjust_appl_ptr_samples_remaining(struct cras_iodev *odev)
+{
+	struct alsa_io *aio = (struct alsa_io *)odev;
+	int rc;
+	unsigned int real_hw_level, valid_sample, offset;
+	struct timespec hw_tstamp;
+
+	/* Get the amount of valid samples which haven't been played yet.
+	 * The real_hw_level is the real hw_level in device buffer. It doesn't
+	 * subtract min_buffer_level. */
+	valid_sample = 0;
+	rc = odev->frames_queued(odev, &hw_tstamp);
+	if(rc < 0)
+		return rc;
+	real_hw_level = rc;
+
+	/*
+	 * If underrun happened, handle it. Because alsa_output_underrun function
+	 * has already called adjust_appl_ptr, we don't need to call it again.
+	 */
+	if (real_hw_level < odev->min_buffer_level)
+		return odev->output_underrun(odev);
+
+	if (real_hw_level > aio->filled_zeros_for_draining)
+		valid_sample = real_hw_level - aio->filled_zeros_for_draining;
+
+	offset = MAX(odev->min_buffer_level + odev->min_cb_level, valid_sample);
+
+	/* Fill zeros to make sure there are enough zero samples in device buffer.*/
+	if (offset > real_hw_level) {
+		rc = cras_iodev_fill_odev_zeros(odev, offset - real_hw_level);
+		if (rc)
+			return rc;
+	}
+	return cras_alsa_resume_appl_ptr(aio->handle, offset);
+}
+
 static int alsa_output_underrun(struct cras_iodev *odev)
 {
+	struct alsa_io *aio = (struct alsa_io *)odev;
 	int rc;
+
+	/* Update number of underruns we got. */
+	aio->num_underruns++;
+
 	/* Fill whole buffer with zeros. This avoids samples left in buffer causing
 	 * noise when device plays them. */
 	rc = fill_whole_buffer_with_zeros(odev);
@@ -1684,21 +1808,31 @@ static int possibly_enter_free_run(struct cras_iodev *odev)
 {
 	struct alsa_io *aio = (struct alsa_io *)odev;
 	int rc;
-	unsigned int hw_level, fr_to_write;
-	unsigned int target_hw_level = odev->min_cb_level * 2;
+	unsigned int real_hw_level, fr_to_write;
+	unsigned int target_hw_level = odev->min_cb_level * 2 + odev->min_buffer_level;
 	struct timespec hw_tstamp;
 
 	if (aio->is_free_running)
 		return 0;
 
-	/* Check if all valid samples are played.
-	 * If all valid samples are played, fill whole buffer with zeros. */
-	rc = cras_iodev_frames_queued(odev, &hw_tstamp);
-	if (rc < 0)
+	/* Check if all valid samples are played. If all valid samples are played,
+	 * fill whole buffer with zeros. The real_hw_level is the real hw_level in
+	 * device buffer. It doesn't subtract min_buffer_level.*/
+	rc = odev->frames_queued(odev, &hw_tstamp);
+	if(rc < 0)
 		return rc;
-	hw_level = rc;
+	real_hw_level = rc;
 
-	if (hw_level < aio->filled_zeros_for_draining || hw_level == 0) {
+	/* If underrun happened, handle it and enter free run state. */
+	if (real_hw_level < odev->min_buffer_level) {
+		rc = odev->output_underrun(odev);
+		if (rc < 0)
+			return rc;
+		aio->is_free_running = 1;
+		return 0;
+	}
+
+	if (real_hw_level <= aio->filled_zeros_for_draining || real_hw_level == 0) {
 		rc = fill_whole_buffer_with_zeros(odev);
 		if (rc < 0)
 			return rc;
@@ -1707,10 +1841,9 @@ static int possibly_enter_free_run(struct cras_iodev *odev)
 	}
 
 	/* Fill some zeros to drain valid samples. */
-	fr_to_write = cras_iodev_buffer_avail(odev, hw_level);
-
-	if (hw_level <= target_hw_level) {
-		fr_to_write = MIN(target_hw_level - hw_level, fr_to_write);
+	fr_to_write = odev->buffer_size - real_hw_level;
+	if (real_hw_level < target_hw_level) {
+		fr_to_write = MIN(target_hw_level - real_hw_level, fr_to_write);
 		rc = cras_iodev_fill_odev_zeros(odev, fr_to_write);
 		if (rc)
 			return rc;
@@ -1725,10 +1858,10 @@ static int leave_free_run(struct cras_iodev *odev)
 	struct alsa_io *aio = (struct alsa_io *)odev;
 	int rc;
 
-	if (!aio->is_free_running)
-		return 0;
-
-	rc = adjust_appl_ptr(odev);
+	if (aio->is_free_running)
+		rc = adjust_appl_ptr(odev);
+	else
+		rc = adjust_appl_ptr_samples_remaining(odev);
 	if (rc) {
 		syslog(LOG_ERR, "device %s failed to leave free run, rc = %d",
 		       odev->info.name, rc);
@@ -1861,6 +1994,7 @@ struct cras_iodev *alsa_iodev_create(size_t card_index,
 		aio->base.output_underrun = alsa_output_underrun;
 	}
 	iodev->open_dev = open_dev;
+	iodev->configure_dev = configure_dev;
 	iodev->close_dev = close_dev;
 	iodev->update_supported_formats = update_supported_formats;
 	iodev->frames_queued = frames_queued;
@@ -1899,6 +2033,7 @@ struct cras_iodev *alsa_iodev_create(size_t card_index,
 	aio->ucm = ucm;
 	if (ucm) {
 		unsigned int level;
+		int rc;
 
 		aio->dsp_name_default = ucm_get_dsp_name_default(ucm,
 								 direction);
@@ -1908,8 +2043,8 @@ struct cras_iodev *alsa_iodev_create(size_t card_index,
 			aio->base.set_swap_mode_for_node =
 				set_alsa_node_swapped;
 
-		level = ucm_get_min_buffer_level(ucm);
-		if (level && direction == CRAS_STREAM_OUTPUT)
+		rc = ucm_get_min_buffer_level(ucm, &level);
+		if (!rc && direction == CRAS_STREAM_OUTPUT)
 			iodev->min_buffer_level = level;
 
 		aio->enable_htimestamp =
@@ -2029,8 +2164,10 @@ int alsa_iodev_legacy_complete_init(struct cras_iodev *iodev)
 				   first_plugged_node(&aio->base),
 				   0);
 
-	/* Set plugged for the first USB device per card when it appears. */
-	if (aio->card_type == ALSA_CARD_TYPE_USB && is_first)
+	/* Set plugged for the first USB device per card when it appears if
+	 * there is no jack reporting plug status. */
+	if (aio->card_type == ALSA_CARD_TYPE_USB && is_first &&
+			!get_jack_from_node(iodev->active_node))
 		cras_iodev_set_node_attr(iodev->active_node,
 					 IONODE_ATTR_PLUGGED, 1);
 
@@ -2116,8 +2253,10 @@ void alsa_iodev_ucm_complete_init(struct cras_iodev *iodev)
 				   first_plugged_node(&aio->base),
 				   0);
 
-	/* Set plugged for the first USB device per card when it appears. */
-	if (aio->card_type == ALSA_CARD_TYPE_USB && aio->is_first)
+	/* Set plugged for the first USB device per card when it appears if
+	 * there is no jack reporting plug status. */
+	if (aio->card_type == ALSA_CARD_TYPE_USB && aio->is_first &&
+			!get_jack_from_node(iodev->active_node))
 		cras_iodev_set_node_attr(iodev->active_node,
 					 IONODE_ATTR_PLUGGED, 1);
 

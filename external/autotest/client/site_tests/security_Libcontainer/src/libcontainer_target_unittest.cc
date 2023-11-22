@@ -67,7 +67,7 @@ class LibcontainerTargetTest : public ::testing::Test {
 
     base::FilePath rootfs;
     ASSERT_TRUE(base::CreateTemporaryDirInDir(
-        temp_dir_.path(), FILE_PATH_LITERAL("rootfs"), &rootfs));
+        temp_dir_.GetPath(), FILE_PATH_LITERAL("rootfs"), &rootfs));
 
     config_ = container_config_create();
     ASSERT_NE(nullptr, config_);

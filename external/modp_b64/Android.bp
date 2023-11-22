@@ -15,6 +15,7 @@
 cc_library_static {
     name: "libmodpb64",
     host_supported: true,
+    recovery_available: true,
     vendor_available: true,
     srcs: ["modp_b64.cc"],
 
@@ -24,4 +25,19 @@ cc_library_static {
     ],
     local_include_dirs: ["modp_b64"],
     export_include_dirs: ["."],
+}
+
+cc_library_static {
+    name: "libmodpb64_ndk",
+    vendor_available: false,
+    srcs: ["modp_b64.cc"],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    local_include_dirs: ["modp_b64"],
+    export_include_dirs: ["."],
+    sdk_version: "current",
+    stl: "c++_static",
 }

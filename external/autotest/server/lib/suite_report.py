@@ -7,6 +7,7 @@
 from __future__ import print_function
 
 import common
+import datetime
 import json
 
 from autotest_lib.client.common_lib import time_utils
@@ -28,6 +29,17 @@ TKO_STATUS_MAP = {
     'Completed': 'pass',
     'Aborted': 'aborted',
 }
+
+
+# Default suite timeout in seconds
+DEFAULT_SUITE_TIMEOUT = 90 * 60
+
+
+def to_epoch_time_int(value):
+    """Convert the given value to epoch time int.
+
+    @returns: epoch time in integer."""
+    return int(time_utils.to_epoch_time(value))
 
 
 def parse_tko_status_string(status_string):
@@ -74,9 +86,9 @@ def find_start_finish_times(statuses):
     @return (start_tme, finish_time) tuple of seconds past epoch.  If either
             cannot be determined, None for that time.
     """
-    starts = {int(time_utils.to_epoch_time(s.test_started_time))
+    starts = {to_epoch_time_int(s.test_started_time)
               for s in statuses if s.test_started_time != 'None'}
-    finishes = {int(time_utils.to_epoch_time(s.test_finished_time))
+    finishes = {to_epoch_time_int(s.test_finished_time)
                 for s in statuses if s.test_finished_time != 'None'}
     start_time = min(starts) if starts else None
     finish_time = max(finishes) if finishes else None
@@ -156,12 +168,15 @@ def make_hqe_entry(hostname, hqe, hqe_statuses, parent=None):
     return entry
 
 
-def generate_suite_report(suite_job_id, afe=None, tko=None):
+def generate_suite_report(suite_job_id, afe=None, tko=None,
+                          reset_finish_time=False):
     """Generate a list of events corresonding to a single suite job.
 
     @param suite_job_id: The AFE id of the suite job.
     @param afe: AFE database handle.
     @param tko: TKO database handle.
+    @reset_finish_time: Boolean indicating whether to reset the suite finish
+                        to now.
 
     @return A list of entries suitable for dumping via JSON.
     """
@@ -202,12 +217,20 @@ def generate_suite_report(suite_job_id, afe=None, tko=None):
     logging.debug('%s distinct hosts participated in the suite.' %
                   len(hostnames))
 
+    suite_start_time = suite_entry.get('start_time')
+    suite_finish_time = suite_entry.get('finish_time')
     # Retrieve histories for the time of the suite for all associated hosts.
     # TODO: Include all hosts in the pool.
-    if suite_entry['start_time'] and suite_entry['finish_time']:
+    if suite_start_time and suite_finish_time:
+
+        if reset_finish_time:
+            suite_timeout_time = suite_start_time + DEFAULT_SUITE_TIMEOUT
+            current_time = to_epoch_time_int(datetime.datetime.now())
+            suite_finish_time = min(current_time, suite_timeout_time)
+
         histories = [HostJobHistory.get_host_history(afe, hostname,
-                                                     suite_entry['start_time'],
-                                                     suite_entry['finish_time'])
+                                                     suite_start_time,
+                                                     suite_finish_time)
                      for hostname in sorted(hostnames)]
 
         for history in histories:

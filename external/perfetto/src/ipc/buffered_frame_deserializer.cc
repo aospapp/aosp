@@ -50,16 +50,14 @@ BufferedFrameDeserializer::BeginReceive() {
   // Upon the first recv initialize the buffer to the max message size but
   // release the physical memory for all but the first page. The kernel will
   // automatically give us physical pages back as soon as we page-fault on them.
-  if (!buf_) {
+  if (!buf_.IsValid()) {
     PERFETTO_DCHECK(size_ == 0);
-    buf_ = base::PageAllocator::Allocate(capacity_);
+    // TODO(eseckler): Don't commit all of the buffer at once on Windows.
+    buf_ = base::PagedMemory::Allocate(capacity_);
 
-    // Surely we are going to use at least the first page. There is very little
-    // point in madvising that as well and immedately after telling the kernel
-    // that we want it back (via recv()).
-    int res = madvise(buf() + base::kPageSize, capacity_ - base::kPageSize,
-                      MADV_DONTNEED);
-    PERFETTO_DCHECK(res == 0);
+    // Surely we are going to use at least the first page, but we may not need
+    // the rest for a bit.
+    buf_.AdviseDontNeed(buf() + base::kPageSize, capacity_ - base::kPageSize);
   }
 
   PERFETTO_CHECK(capacity_ > size_);
@@ -149,8 +147,7 @@ bool BufferedFrameDeserializer::EndReceive(size_t recv_size) {
         const size_t madvise_size = capacity_ - size_rounded_up;
         PERFETTO_CHECK(madvise_begin > buf() + size_);
         PERFETTO_CHECK(madvise_begin + madvise_size <= buf() + capacity_);
-        int res = madvise(madvise_begin, madvise_size, MADV_DONTNEED);
-        PERFETTO_DCHECK(res == 0);
+        buf_.AdviseDontNeed(madvise_begin, madvise_size);
       }
     }
   }

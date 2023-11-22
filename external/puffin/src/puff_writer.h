@@ -9,7 +9,6 @@
 #include <cstdint>
 
 #include "puffin/src/include/puffin/common.h"
-#include "puffin/src/include/puffin/errors.h"
 #include "puffin/src/puff_data.h"
 
 namespace puffin {
@@ -26,13 +25,12 @@ class PuffWriterInterface {
   //
   // |pd|          IN   The data to put into the puffed buffer. |pd.type|
   //                    defines the type of the data.
-  // |error|       OUT  The error code.
   // Returns false if it fails.
-  virtual bool Insert(const PuffData& pd, Error* error) = 0;
+  virtual bool Insert(const PuffData& pd) = 0;
 
   // Fluesh any buffer or internal state to the output.
   // Returns false if it fails.
-  virtual bool Flush(Error* error) = 0;
+  virtual bool Flush() = 0;
 
   // Returns the number of bytes processed and written into the puff buffer.
   virtual size_t Size() = 0;
@@ -55,13 +53,13 @@ class BufferPuffWriter : public PuffWriterInterface {
 
   ~BufferPuffWriter() override = default;
 
-  bool Insert(const PuffData& pd, Error* error) override;
-  bool Flush(Error* error) override;
+  bool Insert(const PuffData& pd) override;
+  bool Flush() override;
   size_t Size() override;
 
  private:
   // Flushes the literals into the output and resets the state.
-  bool FlushLiterals(Error* error);
+  bool FlushLiterals();
 
   // The pointer to the puffed stream. This should not be deallocated.
   uint8_t* puff_buf_out_;

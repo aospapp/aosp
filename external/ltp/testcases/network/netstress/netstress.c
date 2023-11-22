@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "lapi/udp.h"
 #include "lapi/dccp.h"
 #include "lapi/netinet_in.h"
 #include "lapi/posix_clocks.h"
@@ -82,20 +83,24 @@ static int max_rand_msg_len;
 static int server_max_requests	= 3;
 static int client_max_requests	= 10;
 static int clients_num;
-static char *tcp_port		= "61000";
+static char *tcp_port;
 static char *server_addr	= "localhost";
 static char *source_addr;
+static char *server_bg;
 static int busy_poll		= -1;
 static int max_etime_cnt = 12; /* ~30 sec max timeout if no connection */
+static int max_pmtu_err = 10;
 
 enum {
 	TYPE_TCP = 0,
 	TYPE_UDP,
+	TYPE_UDP_LITE,
 	TYPE_DCCP,
 	TYPE_SCTP
 };
 static uint proto_type;
 static char *type;
+static char *dev;
 static int sock_type = SOCK_STREAM;
 static int protocol;
 static int family = AF_INET6;
@@ -110,6 +115,8 @@ static int wait_timeout = 60000;
 
 /* in the end test will save time result in this file */
 static char *rpath = "tfo_result";
+static char *port_path = "netstress_port";
+static char *log_path = "netstress.log";
 
 static char *narg, *Narg, *qarg, *rarg, *Rarg, *aarg, *Targ, *barg, *targ,
 	    *Aarg;
@@ -128,21 +135,52 @@ static pthread_t *thread_ids;
 
 static struct addrinfo *remote_addrinfo;
 static struct addrinfo *local_addrinfo;
-static struct sockaddr_storage remote_addr;
-static socklen_t remote_addr_len;
+
+struct sock_info {
+	int fd;
+	struct sockaddr_storage raddr;
+	socklen_t raddr_len;
+	int etime_cnt;
+	int pmtu_err_cnt;
+	int timeout;
+};
+
+static char *zcopy;
+static int send_flags = MSG_NOSIGNAL;
 
 static void init_socket_opts(int sd)
 {
 	if (busy_poll >= 0)
 		SAFE_SETSOCKOPT_INT(sd, SOL_SOCKET, SO_BUSY_POLL, busy_poll);
 
-	if (proto_type == TYPE_DCCP) {
-		SAFE_SETSOCKOPT_INT(sd, SOL_DCCP, DCCP_SOCKOPT_SERVICE,
-			service_code);
-	}
+	if (dev)
+		SAFE_SETSOCKOPT(sd, SOL_SOCKET, SO_BINDTODEVICE, dev,
+				strlen(dev) + 1);
 
-	if (client_mode && fastopen_sapi)
-		SAFE_SETSOCKOPT_INT(sd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, 1);
+	switch (proto_type) {
+	case TYPE_TCP:
+		if (client_mode && fastopen_sapi) {
+			SAFE_SETSOCKOPT_INT(sd, IPPROTO_TCP,
+					    TCP_FASTOPEN_CONNECT, 1);
+		}
+		if (client_mode && zcopy)
+			SAFE_SETSOCKOPT_INT(sd, SOL_SOCKET, SO_ZEROCOPY, 1);
+	break;
+	case TYPE_DCCP:
+		SAFE_SETSOCKOPT_INT(sd, SOL_DCCP, DCCP_SOCKOPT_SERVICE,
+				    service_code);
+	break;
+	case TYPE_UDP_LITE: {
+		int cscov = init_srv_msg_len >> 1;
+
+		if (cscov < 8)
+			cscov = 8;
+		tst_res(TINFO, "UDP-Lite send cscov is %d", cscov);
+		/* set checksum for header and partially for payload */
+		SAFE_SETSOCKOPT_INT(sd, SOL_UDPLITE, UDPLITE_SEND_CSCOV, cscov);
+		SAFE_SETSOCKOPT_INT(sd, SOL_UDPLITE, UDPLITE_RECV_CSCOV, 8);
+	} break;
+	}
 }
 
 static void do_cleanup(void)
@@ -163,35 +201,46 @@ static void do_cleanup(void)
 }
 TST_DECLARE_ONCE_FN(cleanup, do_cleanup)
 
-static int sock_recv_poll(int fd, char *buf, int buf_size, int offset,
-			  int *timeout)
+static int sock_recv_poll(char *buf, int size, struct sock_info *i)
 {
 	struct pollfd pfd;
-	pfd.fd = fd;
+	pfd.fd = i->fd;
 	pfd.events = POLLIN;
 	int len = -1;
 
 	while (1) {
 		errno = 0;
-		int ret = poll(&pfd, 1, *timeout);
+		int ret = poll(&pfd, 1, i->timeout);
 		if (ret == -1) {
 			if (errno == EINTR)
 				continue;
 			break;
 		}
 
-		if (ret == 0) {
-			errno = ETIME;
+		if (ret != 1) {
+			if (!errno)
+				errno = ETIME;
 			break;
 		}
 
-		if (ret != 1 || !(pfd.revents & POLLIN))
+		if (!(pfd.revents & POLLIN)) {
+			if (pfd.revents & POLLERR) {
+				int err = 0;
+				socklen_t err_len = sizeof(err);
+
+				getsockopt(i->fd, SOL_SOCKET, SO_ERROR,
+					   &err, &err_len);
+				if (!err)
+					continue;
+				errno = err;
+			}
 			break;
+		}
 
 		errno = 0;
-		len = recvfrom(fd, buf + offset, buf_size - offset,
-			       MSG_DONTWAIT, (struct sockaddr *)&remote_addr,
-			       &remote_addr_len);
+		len = recvfrom(i->fd, buf, size, MSG_DONTWAIT,
+			       (struct sockaddr *)&i->raddr,
+			       &i->raddr_len);
 
 		if (len == -1 && errno == EINTR)
 			continue;
@@ -205,20 +254,26 @@ static int sock_recv_poll(int fd, char *buf, int buf_size, int offset,
 	return len;
 }
 
-static int client_recv(int *fd, char *buf, int srv_msg_len, int *etime_cnt,
-		       int *timeout)
+static int client_recv(char *buf, int srv_msg_len, struct sock_info *i)
 {
 	int len, offset = 0;
 
 	while (1) {
 		errno = 0;
-		len = sock_recv_poll(*fd, buf, srv_msg_len, offset, timeout);
+		len = sock_recv_poll(buf + offset, srv_msg_len - offset, i);
 
 		/* socket closed or msg is not valid */
 		if (len < 1 || (offset + len) > srv_msg_len ||
 		   (buf[0] != start_byte && buf[0] != start_fin_byte)) {
-			if (!errno)
+			/* packet too big message, resend with new pmtu */
+			if (errno == EMSGSIZE) {
+				if (++(i->pmtu_err_cnt) < max_pmtu_err)
+					return 0;
+				tst_brk(TFAIL, "too many pmtu errors %d",
+					i->pmtu_err_cnt);
+			} else if (!errno) {
 				errno = ENOMSG;
+			}
 			break;
 		}
 		offset += len;
@@ -232,16 +287,36 @@ static int client_recv(int *fd, char *buf, int srv_msg_len, int *etime_cnt,
 	}
 
 	if (errno == ETIME && sock_type != SOCK_STREAM) {
-		if (++(*etime_cnt) > max_etime_cnt)
-			tst_brk(TFAIL, "protocol timeout: %dms", *timeout);
+		if (++(i->etime_cnt) > max_etime_cnt)
+			tst_brk(TFAIL, "client requests timeout %d times, last timeout %dms",
+				i->etime_cnt, i->timeout);
 		/* Increase timeout in poll up to 3.2 sec */
-		if (*timeout < 3000)
-			*timeout <<= 1;
+		if (i->timeout < 3000)
+			i->timeout <<= 1;
 		return 0;
 	}
 
-	SAFE_CLOSE(*fd);
+	SAFE_CLOSE(i->fd);
 	return (errno) ? -1 : 0;
+}
+
+static int bind_no_port;
+static void bind_before_connect(int sd)
+{
+	if (!local_addrinfo)
+		return;
+
+	if (bind_no_port)
+		SAFE_SETSOCKOPT_INT(sd, SOL_IP, IP_BIND_ADDRESS_NO_PORT, 1);
+
+	SAFE_BIND(sd, local_addrinfo->ai_addr, local_addrinfo->ai_addrlen);
+
+	if (bind_no_port && proto_type != TYPE_SCTP) {
+		int port = TST_GETSOCKPORT(sd);
+
+		if (port)
+			tst_brk(TFAIL, "port not zero after bind(): %d", port);
+	}
 }
 
 static int client_connect_send(const char *msg, int size)
@@ -252,18 +327,15 @@ static int client_connect_send(const char *msg, int size)
 
 	if (fastopen_api) {
 		/* Replaces connect() + send()/write() */
-		SAFE_SENDTO(1, cfd, msg, size, MSG_FASTOPEN | MSG_NOSIGNAL,
+		SAFE_SENDTO(1, cfd, msg, size, send_flags | MSG_FASTOPEN,
 			remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen);
 	} else {
-		if (local_addrinfo)
-			SAFE_BIND(cfd, local_addrinfo->ai_addr,
-				  local_addrinfo->ai_addrlen);
+		bind_before_connect(cfd);
 		/* old TCP API */
 		SAFE_CONNECT(cfd, remote_addrinfo->ai_addr,
 			     remote_addrinfo->ai_addrlen);
-		SAFE_SEND(1, cfd, msg, size, MSG_NOSIGNAL);
+		SAFE_SEND(1, cfd, msg, size, send_flags);
 	}
-
 	return cfd;
 }
 
@@ -294,59 +366,59 @@ void *client_fn(LTP_ATTRIBUTE_UNUSED void *arg)
 {
 	int cln_len = init_cln_msg_len,
 	    srv_len = init_srv_msg_len;
+	struct sock_info inf;
 	char buf[max_msg_len];
 	char client_msg[max_msg_len];
-	int cfd, i = 0, etime_cnt = 0;
+	int i = 0;
 	intptr_t err = 0;
-	int timeout = wait_timeout;
+
+	inf.raddr_len = sizeof(inf.raddr);
+	inf.etime_cnt = 0;
+	inf.timeout = wait_timeout;
+	inf.pmtu_err_cnt = 0;
 
 	make_client_request(client_msg, &cln_len, &srv_len);
 
 	/* connect & send requests */
-	cfd = client_connect_send(client_msg, cln_len);
-	if (cfd == -1) {
+	inf.fd = client_connect_send(client_msg, cln_len);
+	if (inf.fd == -1) {
 		err = errno;
 		goto out;
 	}
 
-	if (client_recv(&cfd, buf, srv_len, &etime_cnt, &timeout)) {
+	if (client_recv(buf, srv_len, &inf)) {
 		err = errno;
 		goto out;
 	}
 
 	for (i = 1; i < client_max_requests; ++i) {
-		if (proto_type == TYPE_UDP)
-			goto send;
-
-		if (cfd == -1) {
-			cfd = client_connect_send(client_msg, cln_len);
-			if (cfd == -1) {
+		if (inf.fd == -1) {
+			inf.fd = client_connect_send(client_msg, cln_len);
+			if (inf.fd == -1) {
 				err = errno;
 				goto out;
 			}
 
-			if (client_recv(&cfd, buf, srv_len, &etime_cnt,
-			    &timeout)) {
+			if (client_recv(buf, srv_len, &inf)) {
 				err = errno;
 				break;
 			}
 			continue;
 		}
 
-send:
 		if (max_rand_msg_len)
 			make_client_request(client_msg, &cln_len, &srv_len);
 
-		SAFE_SEND(1, cfd, client_msg, cln_len, MSG_NOSIGNAL);
+		SAFE_SEND(1, inf.fd, client_msg, cln_len, send_flags);
 
-		if (client_recv(&cfd, buf, srv_len, &etime_cnt, &timeout)) {
+		if (client_recv(buf, srv_len, &inf)) {
 			err = errno;
 			break;
 		}
 	}
 
-	if (cfd != -1)
-		SAFE_CLOSE(cfd);
+	if (inf.fd != -1)
+		SAFE_CLOSE(inf.fd);
 
 out:
 	if (i != client_max_requests)
@@ -468,22 +540,33 @@ static void make_server_reply(char *send_msg, int size)
 
 void *server_fn(void *cfd)
 {
-	int client_fd = (intptr_t) cfd;
 	int num_requests = 0, offset = 0;
-	int timeout = wait_timeout;
-	/* Reply will be constructed from first client request */
-	char send_msg[max_msg_len];
-	int send_msg_len = 0;
+	char send_msg[max_msg_len], end[] = { end_byte };
+	int start_send_type = (sock_type == SOCK_DGRAM) ? 1 : 0;
+	int send_msg_len, send_type = start_send_type;
 	char recv_msg[max_msg_len];
+	struct sock_info inf;
 	ssize_t recv_len;
+	struct iovec iov[2];
+	struct msghdr msg;
 
-	send_msg[0] = '\0';
+	inf.fd = (intptr_t) cfd;
+	inf.raddr_len = sizeof(inf.raddr);
+	inf.timeout = wait_timeout;
 
-	init_socket_opts(client_fd);
+	iov[0].iov_base = send_msg;
+	iov[1].iov_base = end;
+	iov[1].iov_len = 1;
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name = &inf.raddr;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 2;
+
+	init_socket_opts(inf.fd);
 
 	while (1) {
-		recv_len = sock_recv_poll(client_fd, recv_msg,
-			max_msg_len, offset, &timeout);
+		recv_len = sock_recv_poll(recv_msg + offset,
+					  max_msg_len - offset, &inf);
 
 		if (recv_len == 0)
 			break;
@@ -491,7 +574,7 @@ void *server_fn(void *cfd)
 		if (recv_len < 0 || (offset + recv_len) > max_msg_len ||
 		   (recv_msg[0] != start_byte &&
 		    recv_msg[0] != start_fin_byte)) {
-			tst_res(TFAIL, "recv failed, sock '%d'", client_fd);
+			tst_res(TFAIL, "recv failed, sock '%d'", inf.fd);
 			goto out;
 		}
 
@@ -524,30 +607,40 @@ void *server_fn(void *cfd)
 		    ++num_requests >= server_max_requests)
 			send_msg[0] = start_fin_byte;
 
-		switch (proto_type) {
-		case TYPE_SCTP:
-			SAFE_SEND(1, client_fd, send_msg, send_msg_len,
-				MSG_NOSIGNAL);
-		break;
+		switch (send_type) {
+		case 0:
+			SAFE_SEND(1, inf.fd, send_msg, send_msg_len,
+				  send_flags);
+			if (proto_type != TYPE_SCTP)
+				++send_type;
+			break;
+		case 1:
+			SAFE_SENDTO(1, inf.fd, send_msg, send_msg_len,
+				    send_flags, (struct sockaddr *)&inf.raddr,
+				    inf.raddr_len);
+			++send_type;
+			break;
 		default:
-			SAFE_SENDTO(1, client_fd, send_msg, send_msg_len,
-				MSG_NOSIGNAL, (struct sockaddr *)&remote_addr,
-				remote_addr_len);
+			iov[0].iov_len = send_msg_len - 1;
+			msg.msg_namelen = inf.raddr_len;
+			SAFE_SENDMSG(send_msg_len, inf.fd, &msg, send_flags);
+			send_type = start_send_type;
+			break;
 		}
 
 		if (sock_type == SOCK_STREAM &&
 		    num_requests >= server_max_requests) {
 			/* max reqs, close socket */
-			shutdown(client_fd, SHUT_WR);
+			shutdown(inf.fd, SHUT_WR);
 			break;
 		}
 	}
 
-	SAFE_CLOSE(client_fd);
+	SAFE_CLOSE(inf.fd);
 	return NULL;
 
 out:
-	SAFE_CLOSE(client_fd);
+	SAFE_CLOSE(inf.fd);
 	tst_brk(TBROK, "Server closed");
 	return NULL;
 }
@@ -569,6 +662,9 @@ static void server_init(void)
 	hints.ai_socktype = sock_type;
 	hints.ai_flags = AI_PASSIVE;
 
+	if (!source_addr && !tcp_port)
+		tcp_port = "0";
+
 	if (source_addr && !strchr(source_addr, ':'))
 		SAFE_ASPRINTF(&src_addr, "::ffff:%s", source_addr);
 	setup_addrinfo(src_addr ? src_addr : source_addr, tcp_port,
@@ -584,7 +680,15 @@ static void server_init(void)
 
 	freeaddrinfo(local_addrinfo);
 
-	if (proto_type == TYPE_UDP)
+	int port = TST_GETSOCKPORT(sfd);
+
+	tst_res(TINFO, "bind to port %d", port);
+	if (server_bg) {
+		SAFE_CHDIR(server_bg);
+		SAFE_FILE_PRINTF(port_path, "%d", port);
+	}
+
+	if (sock_type == SOCK_DGRAM)
 		return;
 
 	init_socket_opts(sfd);
@@ -594,8 +698,12 @@ static void server_init(void)
 			tfo_queue_size);
 	}
 
+	if (zcopy)
+		SAFE_SETSOCKOPT_INT(sfd, SOL_SOCKET, SO_ZEROCOPY, 1);
+
 	SAFE_LISTEN(sfd, max_queue_len);
-	tst_res(TINFO, "Listen on the socket '%d', port '%s'", sfd, tcp_port);
+
+	tst_res(TINFO, "Listen on the socket '%d'", sfd);
 }
 
 static void server_cleanup(void)
@@ -603,8 +711,28 @@ static void server_cleanup(void)
 	SAFE_CLOSE(sfd);
 }
 
+static void move_to_background(void)
+{
+	if (SAFE_FORK())
+		exit(0);
+
+	SAFE_SETSID();
+
+	close(STDIN_FILENO);
+	SAFE_OPEN("/dev/null", O_RDONLY);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+
+	int fd = SAFE_OPEN(log_path, O_CREAT | O_TRUNC | O_RDONLY, 00444);
+
+	SAFE_DUP(fd);
+}
+
 static void server_run_udp(void)
 {
+	if (server_bg)
+		move_to_background();
+
 	pthread_t p_id = server_thread_add(sfd);
 
 	SAFE_PTHREAD_JOIN(p_id, NULL);
@@ -612,6 +740,9 @@ static void server_run_udp(void)
 
 static void server_run(void)
 {
+	if (server_bg)
+		move_to_background();
+
 	/* IPv4 source address will be mapped to IPv6 address */
 	struct sockaddr_in6 addr6;
 	socklen_t addr_size = sizeof(addr6);
@@ -702,10 +833,14 @@ static void set_protocol_type(void)
 		proto_type = TYPE_TCP;
 	else if (!strcmp(type, "udp"))
 		proto_type = TYPE_UDP;
+	else if (!strcmp(type, "udp_lite"))
+		proto_type = TYPE_UDP_LITE;
 	else if (!strcmp(type, "dccp"))
 		proto_type = TYPE_DCCP;
 	else if (!strcmp(type, "sctp"))
 		proto_type = TYPE_SCTP;
+	else
+		tst_brk(TBROK, "Invalid proto_type: '%s'", type);
 }
 
 static void setup(void)
@@ -752,6 +887,10 @@ static void setup(void)
 	set_protocol_type();
 
 	if (client_mode) {
+		if (source_addr && tst_kvercmp(4, 2, 0) >= 0) {
+			bind_no_port = 1;
+			tst_res(TINFO, "IP_BIND_ADDRESS_NO_PORT is used");
+		}
 		tst_res(TINFO, "connection: addr '%s', port '%s'",
 			server_addr, tcp_port);
 		tst_res(TINFO, "client max req: %d", client_max_requests);
@@ -767,11 +906,18 @@ static void setup(void)
 		net.run		= client_run;
 		net.cleanup	= client_cleanup;
 
-		if (proto_type == TYPE_DCCP || proto_type == TYPE_UDP) {
-			tst_res(TINFO, "max timeout errors %d", max_etime_cnt);
+		switch (proto_type) {
+		case TYPE_TCP:
+			check_tw_reuse();
+			break;
+		case TYPE_DCCP:
+		case TYPE_UDP:
+		case TYPE_UDP_LITE:
+			if (max_etime_cnt >= client_max_requests)
+				max_etime_cnt = client_max_requests - 1;
+			tst_res(TINFO, "maximum allowed timeout errors %d", max_etime_cnt);
 			wait_timeout = 100;
 		}
-		check_tw_reuse();
 	} else {
 		tst_res(TINFO, "max requests '%d'",
 			server_max_requests);
@@ -784,19 +930,20 @@ static void setup(void)
 			net.cleanup	= server_cleanup;
 		break;
 		case TYPE_UDP:
+		case TYPE_UDP_LITE:
 			net.run		= server_run_udp;
 			net.cleanup	= NULL;
 		break;
 		}
 	}
 
-	remote_addr_len = sizeof(struct sockaddr_storage);
-
 	switch (proto_type) {
 	case TYPE_TCP:
 		tst_res(TINFO, "TCP %s is using %s TCP API.",
 			(client_mode) ? "client" : "server",
 			(fastopen_api) ? "Fastopen" : "old");
+		if (zcopy)
+			send_flags |= MSG_ZEROCOPY;
 		check_tfo_value();
 	break;
 	case TYPE_UDP:
@@ -804,13 +951,25 @@ static void setup(void)
 		fastopen_api = fastopen_sapi = NULL;
 		sock_type = SOCK_DGRAM;
 	break;
-	case TYPE_DCCP:
+	case TYPE_UDP_LITE:
+		tst_res(TINFO, "using UDP Lite");
+		fastopen_api = fastopen_sapi = NULL;
+		sock_type = SOCK_DGRAM;
+		protocol = IPPROTO_UDPLITE;
+	break;
+	case TYPE_DCCP: {
+		/* dccp* modules can be blacklisted, load them manually */
+		const char * const argv[] = {"modprobe", "dccp_ipv6", NULL};
+
+		if (tst_run_cmd(argv, NULL, NULL, 1))
+			tst_brk(TCONF, "Failed to load dccp_ipv6 module");
+
 		tst_res(TINFO, "DCCP %s", (client_mode) ? "client" : "server");
 		fastopen_api = fastopen_sapi = NULL;
 		sock_type = SOCK_DCCP;
 		protocol = IPPROTO_DCCP;
 		service_code = htonl(service_code);
-	break;
+	} break;
 	case TYPE_SCTP:
 		tst_res(TINFO, "SCTP %s", (client_mode) ? "client" : "server");
 		fastopen_api = fastopen_sapi = NULL;
@@ -835,7 +994,9 @@ static struct tst_option options[] = {
 	{"S:", &source_addr, "-S x     Source address to bind"},
 	{"g:", &tcp_port, "-g x     x - server port"},
 	{"b:", &barg, "-b x     x - low latency busy poll timeout"},
-	{"T:", &type, "-T x     tcp (default), udp, dccp, sctp\n"},
+	{"T:", &type, "-T x     tcp (default), udp, udp_lite, dccp, sctp"},
+	{"z", &zcopy, "-z       enable SO_ZEROCOPY"},
+	{"D:", &dev, "-d x     bind to device x\n"},
 
 	{"H:", &server_addr, "Client:\n-H x     Server name or IP address"},
 	{"l", &client_mode, "-l       Become client, default is server"},
@@ -843,17 +1004,19 @@ static struct tst_option options[] = {
 	{"r:", &rarg, "-r x     Number of client requests"},
 	{"n:", &narg, "-n x     Client message size"},
 	{"N:", &Narg, "-N x     Server message size"},
-	{"m:", &Targ, "-m x     Reply timeout in microsec."},
+	{"m:", &Targ, "-m x     Receive timeout in milliseconds (not used by UDP/DCCP client)"},
 	{"d:", &rpath, "-d x     x is a path to file where result is saved"},
 	{"A:", &Aarg, "-A x     x max payload length (generated randomly)\n"},
 
 	{"R:", &Rarg, "Server:\n-R x     x requests after which conn.closed"},
 	{"q:", &qarg, "-q x     x - TFO queue"},
+	{"B:", &server_bg, "-B x     run in background, x - process directory"},
 	{NULL, NULL, NULL}
 };
 
 static struct tst_test test = {
 	.test_all = do_test,
+	.forks_child = 1,
 	.setup = setup,
 	.cleanup = cleanup,
 	.options = options

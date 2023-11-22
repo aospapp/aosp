@@ -14,8 +14,22 @@
 // limitations under the License.
 //
 
+filegroup {
+    name: "quipper_data_proto",
+    srcs: [
+        "perf_data.proto",
+    ],
+}
+filegroup {
+    name: "quipper_stat_proto",
+    srcs: [
+        "perf_stat.proto",
+    ],
+}
+
 cc_defaults {
     name: "libquipper_defaults",
+    defaults: ["libsimpleperf_elf_read_static_reqs_defaults"],
 
     cflags: [
         "-Wno-unused",
@@ -50,8 +64,8 @@ cc_defaults {
         "scoped_temp_path.cc",
         "string_utils.cc",
         // Protos.
-        "perf_data.proto",
-        "perf_stat.proto",
+        ":quipper_data_proto",
+        ":quipper_stat_proto",
     ],
     local_include_dirs: [
         "compat/non_cros",
@@ -114,6 +128,7 @@ cc_library_static {
 
 cc_defaults {
     name: "quipper_test_defaults",
+    defaults: ["libsimpleperf_elf_read_static_reqs_defaults"],
     host_supported: true,
     srcs: [
         // Independent test infra.
@@ -195,6 +210,7 @@ cc_test {
     ],
     shared_libs: [
         "libbase",
+        "liblog",
         "libprotobuf-cpp-full",
     ],
 

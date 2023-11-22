@@ -210,6 +210,21 @@ if ! sudo apt-get install -y ${PKG_LIST}; then
 fi
 echo -e "Done!\n"
 
+INFRA_VENV_SYMLINK=/opt/infra_virtualenv
+if [ -e "${INFRA_VENV_SYMLINK}" ]; then
+  echo "infra_virtualenv already set up at ${INFRA_VENV_SYMLINK}"
+else
+  echo -n "Setting up symlink for infra_virtualenv..."
+  INFRA_VENV_PATH=$(realpath "${CROS_CHECKOUT}/infra_virtualenv")
+  if ! [ -e "$INFRA_VENV_PATH/bin/create_venv" ]; then
+    echo "Could not find infra_virtualenv repo at ${INFRA_VENV_PATH}"
+    echo "Make sure you're using a full repo checkout"
+    exit 1
+  fi
+  sudo ln -s "$INFRA_VENV_PATH" "$INFRA_VENV_SYMLINK"
+  echo -e "Done!\n"
+fi
+
 AT_DIR=/usr/local/autotest
 echo -n "Bind-mounting your autotest dir at ${AT_DIR}..."
 sudo mkdir -p "${AT_DIR}"

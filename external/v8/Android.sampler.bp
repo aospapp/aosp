@@ -1,0 +1,11 @@
+// GENERATED, do not edit
+// for changes, see genmakefiles.py
+cc_library_static {
+    name: "libv8sampler",
+    defaults: ["v8_defaults"],
+    srcs: ["src/libsampler/sampler.cc"],
+    local_include_dirs: [
+        "src",
+        "include",
+    ],
+}

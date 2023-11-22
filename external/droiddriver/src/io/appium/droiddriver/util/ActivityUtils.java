@@ -18,9 +18,11 @@ package io.appium.droiddriver.util;
 
 import android.app.Activity;
 import android.os.Looper;
-import android.support.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
-import android.support.test.runner.lifecycle.Stage;
 import android.util.Log;
+
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
+import androidx.test.runner.lifecycle.Stage;
+
 import java.util.Iterator;
 import java.util.concurrent.Callable;
 

@@ -18,15 +18,15 @@ mke2fs \- create an ext2/ext3/ext4 filesystem
 .I block-size
 ]
 [
+.B \-C
+.I cluster-size
+]
+[
 .B \-d
 .I root-directory
 ]
 [
 .B \-D
-]
-[
-.B \-f
-.I fragment-size
 ]
 [
 .B \-g
@@ -338,6 +338,15 @@ small risk if the system crashes before the journal has been overwritten
 entirely one time.  If the option value is omitted, it defaults to 1 to
 enable lazy journal inode zeroing.
 .TP
+.BI no_copy_xattrs
+Normally
+.B mke2fs
+will copy the extended attributes of the files in the directory
+hierarchy specified via the (optional)
+.B \-d
+option.  This will disable the copy and leaves the files in the newly
+created file system without any extended attributes.
+.TP
 .BI num_backup_sb= <0|1|2>
 If the
 .B sparse_super2
@@ -389,9 +398,6 @@ option is not specified is both user and group quotas.  If the project
 feature is enabled that project quotas will be initialized as well.
 .RE
 .TP
-.BI \-f " fragment-size"
-Specify the size of fragments in bytes.
-.TP
 .B \-F
 Force
 .B mke2fs
@@ -424,7 +430,7 @@ Specify the number of block groups that will be packed together to
 create a larger virtual block group (or "flex_bg group") in an
 ext4 filesystem.  This improves meta-data locality and performance
 on meta-data heavy workloads.  The number of groups must be a power
-of 2 and may only be specified if the 
+of 2 and may only be specified if the
 .B flex_bg
 filesystem feature is enabled.
 .TP
@@ -440,7 +446,7 @@ be smaller than the blocksize of the filesystem, since in that case more
 inodes would be made than can ever be used.  Be warned that it is not
 possible to change this ratio on a filesystem after it is created, so be
 careful deciding the correct value for this parameter.  Note that resizing
-a filesystem changes the numer of inodes to maintain this ratio.
+a filesystem changes the number of inodes to maintain this ratio.
 .TP
 .BI \-I " inode-size"
 Specify the size of each inode in bytes.
@@ -459,7 +465,7 @@ earlier vendor kernels it is possible to utilize inodes larger than
 extended attributes for improved performance.
 Extended attributes
 stored in large inodes are not visible with older kernels, and such
-filesystems will not be mountable with 2.4 kernels at all.  
+filesystems will not be mountable with 2.4 kernels at all.
 .IP
 The default inode size is controlled by the
 .BR mke2fs.conf (5)
@@ -745,7 +751,25 @@ will use the default filesystem type
 .IR default .
 .TP
 .BI \-U " UUID"
-Create the filesystem with the specified UUID.
+Set the universally unique identifier (UUID) of the filesystem to
+.IR UUID .
+The format of the UUID is a series of hex digits separated by hyphens,
+like this:
+"c1b9d5a2-f162-11cf-9ece-0020afc76f16".
+The
+.I UUID
+parameter may also be one of the following:
+.RS 1.2i
+.TP
+.I clear
+clear the filesystem UUID
+.TP
+.I random
+generate a new randomly-generated UUID
+.TP
+.I time
+generate a new time-based UUID
+.RE
 .TP
 .B \-v
 Verbose execution.
@@ -781,6 +805,11 @@ If set to non-zero integer value, its value is used to determine first meta
 block group. This is mostly for debugging purposes.
 .TP
 .BI MKE2FS_DEVICE_SECTSIZE
+If set to non-zero integer value, its value is used to determine logical
+sector size of the
+.IR device .
+.TP
+.BI MKE2FS_DEVICE_PHYS_SECTSIZE
 If set to non-zero integer value, its value is used to determine physical
 sector size of the
 .IR device .
@@ -792,14 +821,6 @@ mount count or check interval.
 This version of
 .B mke2fs
 has been written by Theodore Ts'o <tytso@mit.edu>.
-.SH BUGS
-.B mke2fs
-accepts the
-.B \-f
-option but currently ignores it because the second
-extended file system does not support fragments yet.
-.br
-There may be other ones.  Please, report them to the author.
 .SH AVAILABILITY
 .B mke2fs
 is part of the e2fsprogs package and is available from

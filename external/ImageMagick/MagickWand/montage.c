@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -132,7 +132,6 @@ static MagickBooleanType MontageUsage(void)
       "-affine matrix       affine transform matrix",
       "-alpha option        on, activate, off, deactivate, set, opaque, copy",
       "                     transparent, extract, background, or shape",
-      "-alpha-color color   frame color",
       "-authenticate password",
       "                     decipher image with this password",
       "-blue-primary point  chromaticity blue primary point",
@@ -169,6 +168,7 @@ static MagickBooleanType MontageUsage(void)
       "-label string        assign a label to an image",
       "-limit type value    pixel cache resource limit",
       "-matte               store matte channel if the image has one",
+      "-mattecolor color    frame color",
       "-mode type           framing style",
       "-monitor             monitor progress",
       "-page geometry       size and location of an image canvas (setting)",
@@ -247,7 +247,7 @@ static MagickBooleanType MontageUsage(void)
   (void) printf(
     "resources as command line options:  -background, -bordercolor,\n");
   (void) printf(
-    "-alpha-color, -borderwidth, -font, or -title\n");
+    "-mattecolor, -borderwidth, -font, or -title\n");
   (void) printf(
     "\nBy default, the image format of 'file' is determined by its magic\n");
   (void) printf(
@@ -267,6 +267,8 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
 { \
   if (montage_image != (Image *) NULL) \
     montage_image=DestroyImageList(montage_image); \
+  if (montage_info != (MontageInfo *) NULL) \
+    montage_info=DestroyMontageInfo(montage_info); \
   DestroyImageStack(); \
   for (i=0; i < (ssize_t) argc; i++) \
     argv[i]=DestroyString(argv[i]); \
@@ -409,17 +411,17 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
           else
             {
               char
-                filename[MagickPathExtent];
+                scene_filename[MagickPathExtent];
 
               /*
                 Form filename for multi-part images.
               */
               (void) InterpretImageFilename(image_info,(Image *) NULL,
-                image_info->filename,(int) scene,filename,exception);
+                image_info->filename,(int) scene,scene_filename,exception);
               if (LocaleCompare(filename,image_info->filename) == 0)
-                (void) FormatLocaleString(filename,MagickPathExtent,"%s.%.20g",
-                  image_info->filename,(double) scene);
-              images=ReadImages(image_info,filename,exception);
+                (void) FormatLocaleString(scene_filename,MagickPathExtent,
+                  "%s.%.20g",image_info->filename,(double) scene);
+              images=ReadImages(image_info,scene_filename,exception);
             }
           status&=(images != (Image *) NULL) &&
             (exception->severity < ErrorException);
@@ -466,21 +468,11 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowMontageException(OptionError,"MissingArgument",option);
-            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,argv[i]);
+            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,
+              argv[i]);
             if (type < 0)
-              ThrowMontageException(OptionError,"UnrecognizedAlphaChannelOption",
-                argv[i]);
-            break;
-          }
-        if (LocaleCompare("alpha-color",option+1) == 0)
-          {
-            if (*option == '+')
-              break;
-            i++;
-            if (i == (ssize_t) argc)
-              ThrowMontageException(OptionError,"MissingArgument",option);
-            (void) QueryColorCompliance(argv[i],AllCompliance,
-              &montage_info->alpha_color,exception);
+              ThrowMontageException(OptionError,
+                "UnrecognizedAlphaChannelOption",argv[i]);
             break;
           }
         if (LocaleCompare("annotate",option+1) == 0)
@@ -1192,7 +1184,7 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
             status=MogrifyImageInfo(image_info,(int) (i-j+1),(const char **)
               argv+j,exception);
             DestroyMontage();
-            return(status == 0 ? MagickTrue : MagickFalse);
+            return(status == 0 ? MagickFalse : MagickTrue);
           }
         if (LocaleCompare("log",option+1) == 0)
           {
@@ -1210,6 +1202,17 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
       {
         if (LocaleCompare("matte",option+1) == 0)
           break;
+        if (LocaleCompare("mattecolor",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowMontageException(OptionError,"MissingArgument",option);
+            (void) QueryColorCompliance(argv[i],AllCompliance,
+              &montage_info->matte_color,exception);
+            break;
+          }
         if (LocaleCompare("mode",option+1) == 0)
           {
             MontageMode
@@ -1784,7 +1787,8 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
       /*
         Write image.
       */
-      (void) CopyMagickString(image_info->filename,argv[argc-1],MagickPathExtent);
+      (void) CopyMagickString(image_info->filename,argv[argc-1],
+        MagickPathExtent);
       (void) CopyMagickString(montage_image->magick_filename,argv[argc-1],
         MagickPathExtent);
       if (*montage_image->magick == '\0')
@@ -1805,7 +1809,6 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
           text=DestroyString(text);
         }
     }
-  montage_info=DestroyMontageInfo(montage_info);
   DestroyMontage();
   return(status != 0 ? MagickTrue : MagickFalse);
 }

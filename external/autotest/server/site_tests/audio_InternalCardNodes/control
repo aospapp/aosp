@@ -12,8 +12,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:chameleon_audio_perbuild, suite:chameleon_audio"
-DEPENDENCIES = "chameleon, audio_board, audio_box, test_audiojack"
+ATTRIBUTES = "suite:chameleon_audio_perbuild"
+DEPENDENCIES = "chameleon, audio_board, test_audiojack"
 JOB_RETRIES = 2
 
 DOC = """

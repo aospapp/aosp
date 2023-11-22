@@ -4,6 +4,8 @@
 
 #include "src/compiler/instruction.h"
 
+#include <iomanip>
+
 #include "src/compiler/common-operator.h"
 #include "src/compiler/graph.h"
 #include "src/compiler/schedule.h"
@@ -14,8 +16,7 @@ namespace v8 {
 namespace internal {
 namespace compiler {
 
-const RegisterConfiguration* (*GetRegConfig)() =
-    RegisterConfiguration::Turbofan;
+const RegisterConfiguration* (*GetRegConfig)() = RegisterConfiguration::Default;
 
 FlagsCondition CommuteFlagsCondition(FlagsCondition condition) {
   switch (condition) {
@@ -64,7 +65,6 @@ FlagsCondition CommuteFlagsCondition(FlagsCondition condition) {
       return condition;
   }
   UNREACHABLE();
-  return condition;
 }
 
 bool InstructionOperand::InterferesWith(const InstructionOperand& other) const {
@@ -98,12 +98,31 @@ bool InstructionOperand::InterferesWith(const InstructionOperand& other) const {
   return false;
 }
 
+bool LocationOperand::IsCompatible(LocationOperand* op) {
+  if (IsRegister() || IsStackSlot()) {
+    return op->IsRegister() || op->IsStackSlot();
+  } else if (kSimpleFPAliasing) {
+    // A backend may choose to generate the same instruction sequence regardless
+    // of the FP representation. As a result, we can relax the compatibility and
+    // allow a Double to be moved in a Float for example. However, this is only
+    // allowed if registers do not overlap.
+    return (IsFPRegister() || IsFPStackSlot()) &&
+           (op->IsFPRegister() || op->IsFPStackSlot());
+  } else if (IsFloatRegister() || IsFloatStackSlot()) {
+    return op->IsFloatRegister() || op->IsFloatStackSlot();
+  } else if (IsDoubleRegister() || IsDoubleStackSlot()) {
+    return op->IsDoubleRegister() || op->IsDoubleStackSlot();
+  } else {
+    return (IsSimd128Register() || IsSimd128StackSlot()) &&
+           (op->IsSimd128Register() || op->IsSimd128StackSlot());
+  }
+}
+
 void InstructionOperand::Print(const RegisterConfiguration* config) const {
-  OFStream os(stdout);
   PrintableInstructionOperand wrapper;
   wrapper.register_configuration_ = config;
   wrapper.op_ = *this;
-  os << wrapper << std::endl;
+  StdoutStream{} << wrapper << std::endl;
 }
 
 void InstructionOperand::Print() const { Print(GetRegConfig()); }
@@ -138,8 +157,10 @@ std::ostream& operator<<(std::ostream& os,
           return os << "(S)";
         case UnallocatedOperand::SAME_AS_FIRST_INPUT:
           return os << "(1)";
-        case UnallocatedOperand::ANY:
+        case UnallocatedOperand::REGISTER_OR_SLOT:
           return os << "(-)";
+        case UnallocatedOperand::REGISTER_OR_SLOT_OR_CONSTANT:
+          return os << "(*)";
       }
     }
     case InstructionOperand::CONSTANT:
@@ -163,7 +184,8 @@ std::ostream& operator<<(std::ostream& os,
         os << "[fp_stack:" << allocated.index();
       } else if (op.IsRegister()) {
         os << "["
-           << GetRegConfig()->GetGeneralRegisterName(allocated.register_code())
+           << GetRegConfig()->GetGeneralOrSpecialRegisterName(
+                  allocated.register_code())
            << "|R";
       } else if (op.IsDoubleRegister()) {
         os << "["
@@ -210,15 +232,6 @@ std::ostream& operator<<(std::ostream& os,
         case MachineRepresentation::kSimd128:
           os << "|s128";
           break;
-        case MachineRepresentation::kSimd1x4:
-          os << "|s1x4";
-          break;
-        case MachineRepresentation::kSimd1x8:
-          os << "|s1x8";
-          break;
-        case MachineRepresentation::kSimd1x16:
-          os << "|s1x16";
-          break;
         case MachineRepresentation::kTaggedSigned:
           os << "|ts";
           break;
@@ -235,11 +248,10 @@ std::ostream& operator<<(std::ostream& os,
       return os << "(x)";
   }
   UNREACHABLE();
-  return os;
 }
 
 void MoveOperands::Print(const RegisterConfiguration* config) const {
-  OFStream os(stdout);
+  StdoutStream os;
   PrintableInstructionOperand wrapper;
   wrapper.register_configuration_ = config;
   wrapper.op_ = destination();
@@ -357,11 +369,10 @@ bool Instruction::AreMovesRedundant() const {
 }
 
 void Instruction::Print(const RegisterConfiguration* config) const {
-  OFStream os(stdout);
   PrintableInstruction wrapper;
   wrapper.instr_ = this;
   wrapper.register_configuration_ = config;
-  os << wrapper << std::endl;
+  StdoutStream{} << wrapper << std::endl;
 }
 
 void Instruction::Print() const { Print(GetRegConfig()); }
@@ -415,7 +426,6 @@ std::ostream& operator<<(std::ostream& os, const ArchOpcode& ao) {
 #undef CASE
   }
   UNREACHABLE();
-  return os;
 }
 
 
@@ -430,7 +440,6 @@ std::ostream& operator<<(std::ostream& os, const AddressingMode& am) {
 #undef CASE
   }
   UNREACHABLE();
-  return os;
 }
 
 
@@ -440,15 +449,18 @@ std::ostream& operator<<(std::ostream& os, const FlagsMode& fm) {
       return os;
     case kFlags_branch:
       return os << "branch";
+    case kFlags_branch_and_poison:
+      return os << "branch_and_poison";
     case kFlags_deoptimize:
       return os << "deoptimize";
+    case kFlags_deoptimize_and_poison:
+      return os << "deoptimize_and_poison";
     case kFlags_set:
       return os << "set";
     case kFlags_trap:
       return os << "trap";
   }
   UNREACHABLE();
-  return os;
 }
 
 
@@ -504,7 +516,6 @@ std::ostream& operator<<(std::ostream& os, const FlagsCondition& fc) {
       return os << "negative";
   }
   UNREACHABLE();
-  return os;
 }
 
 
@@ -576,6 +587,12 @@ Handle<HeapObject> Constant::ToHeapObject() const {
   return value;
 }
 
+Handle<Code> Constant::ToCode() const {
+  DCHECK_EQ(kHeapObject, type());
+  Handle<Code> value(bit_cast<Code**>(static_cast<intptr_t>(value_)));
+  return value;
+}
+
 std::ostream& operator<<(std::ostream& os, const Constant& constant) {
   switch (constant.type()) {
     case Constant::kInt32:
@@ -585,17 +602,15 @@ std::ostream& operator<<(std::ostream& os, const Constant& constant) {
     case Constant::kFloat32:
       return os << constant.ToFloat32() << "f";
     case Constant::kFloat64:
-      return os << constant.ToFloat64();
+      return os << constant.ToFloat64().value();
     case Constant::kExternalReference:
-      return os << static_cast<const void*>(
-                       constant.ToExternalReference().address());
+      return os << constant.ToExternalReference().address();
     case Constant::kHeapObject:
       return os << Brief(*constant.ToHeapObject());
     case Constant::kRpoNumber:
       return os << "RPO" << constant.ToRpoNumber().ToInt();
   }
   UNREACHABLE();
-  return os;
 }
 
 
@@ -677,7 +692,7 @@ static InstructionBlock* InstructionBlockFor(Zone* zone,
 }
 
 std::ostream& operator<<(std::ostream& os,
-                         PrintableInstructionBlock& printable_block) {
+                         const PrintableInstructionBlock& printable_block) {
   const InstructionBlock* block = printable_block.block_;
   const RegisterConfiguration* config = printable_block.register_configuration_;
   const InstructionSequence* code = printable_block.code_;
@@ -710,17 +725,15 @@ std::ostream& operator<<(std::ostream& os,
     os << std::endl;
   }
 
-  ScopedVector<char> buf(32);
   PrintableInstruction printable_instr;
   printable_instr.register_configuration_ = config;
   for (int j = block->first_instruction_index();
        j <= block->last_instruction_index(); j++) {
-    // TODO(svenpanne) Add some basic formatting to our streams.
-    SNPrintF(buf, "%5d", j);
     printable_instr.instr_ = code->InstructionAt(j);
-    os << "   " << buf.start() << ": " << printable_instr << std::endl;
+    os << "   " << std::setw(5) << j << ": " << printable_instr << std::endl;
   }
 
+  os << " successors:";
   for (RpoNumber succ : block->successors()) {
     os << " B" << succ.ToInt();
   }
@@ -855,12 +868,8 @@ void InstructionSequence::StartBlock(RpoNumber rpo) {
 void InstructionSequence::EndBlock(RpoNumber rpo) {
   int end = static_cast<int>(instructions_.size());
   DCHECK_EQ(current_block_->rpo_number(), rpo);
-  if (current_block_->code_start() == end) {  // Empty block.  Insert a nop.
-    AddInstruction(Instruction::New(zone(), kArchNop));
-    end = static_cast<int>(instructions_.size());
-  }
-  DCHECK(current_block_->code_start() >= 0 &&
-         current_block_->code_start() < end);
+  CHECK(current_block_->code_start() >= 0 &&
+        current_block_->code_start() < end);
   current_block_->set_code_end(end);
   current_block_ = nullptr;
 }
@@ -872,7 +881,7 @@ int InstructionSequence::AddInstruction(Instruction* instr) {
   instr->set_block(current_block_);
   instructions_.push_back(instr);
   if (instr->NeedsReferenceMap()) {
-    DCHECK(instr->reference_map() == nullptr);
+    DCHECK_NULL(instr->reference_map());
     ReferenceMap* reference_map = new (zone()) ReferenceMap(zone());
     reference_map->set_instruction_position(index);
     instr->set_reference_map(reference_map);
@@ -896,21 +905,18 @@ static MachineRepresentation FilterRepresentation(MachineRepresentation rep) {
       return InstructionSequence::DefaultRepresentation();
     case MachineRepresentation::kWord32:
     case MachineRepresentation::kWord64:
-    case MachineRepresentation::kFloat32:
-    case MachineRepresentation::kFloat64:
-    case MachineRepresentation::kSimd128:
-    case MachineRepresentation::kSimd1x4:
-    case MachineRepresentation::kSimd1x8:
-    case MachineRepresentation::kSimd1x16:
     case MachineRepresentation::kTaggedSigned:
     case MachineRepresentation::kTaggedPointer:
     case MachineRepresentation::kTagged:
+    case MachineRepresentation::kFloat32:
+    case MachineRepresentation::kFloat64:
+    case MachineRepresentation::kSimd128:
       return rep;
     case MachineRepresentation::kNone:
       break;
   }
+
   UNREACHABLE();
-  return MachineRepresentation::kNone;
 }
 
 
@@ -941,10 +947,10 @@ void InstructionSequence::MarkAsRepresentation(MachineRepresentation rep,
 
 int InstructionSequence::AddDeoptimizationEntry(
     FrameStateDescriptor* descriptor, DeoptimizeKind kind,
-    DeoptimizeReason reason) {
+    DeoptimizeReason reason, VectorSlotPair const& feedback) {
   int deoptimization_id = static_cast<int>(deoptimization_entries_.size());
   deoptimization_entries_.push_back(
-      DeoptimizationEntry(descriptor, kind, reason));
+      DeoptimizationEntry(descriptor, kind, reason, feedback));
   return deoptimization_id;
 }
 
@@ -979,23 +985,21 @@ void InstructionSequence::SetSourcePosition(const Instruction* instr,
 }
 
 void InstructionSequence::Print(const RegisterConfiguration* config) const {
-  OFStream os(stdout);
   PrintableInstructionSequence wrapper;
   wrapper.register_configuration_ = config;
   wrapper.sequence_ = this;
-  os << wrapper << std::endl;
+  StdoutStream{} << wrapper << std::endl;
 }
 
 void InstructionSequence::Print() const { Print(GetRegConfig()); }
 
 void InstructionSequence::PrintBlock(const RegisterConfiguration* config,
                                      int block_id) const {
-  OFStream os(stdout);
   RpoNumber rpo = RpoNumber::FromInt(block_id);
   const InstructionBlock* block = InstructionBlockAt(rpo);
   CHECK(block->rpo_number() == rpo);
   PrintableInstructionBlock printable_block = {config, block, this};
-  os << printable_block << std::endl;
+  StdoutStream{} << printable_block << std::endl;
 }
 
 void InstructionSequence::PrintBlock(int block_id) const {
@@ -1007,7 +1011,7 @@ const RegisterConfiguration*
 
 const RegisterConfiguration*
 InstructionSequence::RegisterConfigurationForTesting() {
-  DCHECK(registerConfigurationForTesting_ != nullptr);
+  DCHECK_NOT_NULL(registerConfigurationForTesting_);
   return registerConfigurationForTesting_;
 }
 
@@ -1033,18 +1037,9 @@ FrameStateDescriptor::FrameStateDescriptor(
       shared_info_(shared_info),
       outer_state_(outer_state) {}
 
-
-size_t FrameStateDescriptor::GetSize(OutputFrameStateCombine combine) const {
-  size_t size = 1 + parameters_count() + locals_count() + stack_count() +
-                (HasContext() ? 1 : 0);
-  switch (combine.kind()) {
-    case OutputFrameStateCombine::kPushOutput:
-      size += combine.GetPushCount();
-      break;
-    case OutputFrameStateCombine::kPokeAt:
-      break;
-  }
-  return size;
+size_t FrameStateDescriptor::GetSize() const {
+  return 1 + parameters_count() + locals_count() + stack_count() +
+         (HasContext() ? 1 : 0);
 }
 
 

@@ -1,7 +1,7 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
 // Copyright Bob Friesenhahn, 1999, 2000, 2001, 2002, 2003
-// Copyright Dirk Lemstra 2013-2015
+// Copyright Dirk Lemstra 2013-2018
 //
 // Color Implementation
 //
@@ -20,10 +20,17 @@ using namespace std;
 MagickPPExport int Magick::operator == (const Magick::Color &left_,
   const Magick::Color &right_)
 {
+#if defined(MAGICKCORE_HDRI_SUPPORT)
+  return((left_.isValid() == right_.isValid()) &&
+    (fabs(left_.quantumRed()-right_.quantumRed()) < MagickEpsilon) &&
+    (fabs(left_.quantumGreen()-right_.quantumGreen()) < MagickEpsilon) &&
+    (fabs(left_.quantumBlue()-right_.quantumBlue()) < MagickEpsilon));
+#else
   return((left_.isValid() == right_.isValid()) &&
     (left_.quantumRed() == right_.quantumRed()) &&
     (left_.quantumGreen() == right_.quantumGreen()) &&
     (left_.quantumBlue() == right_.quantumBlue()));
+#endif
 }
 
 MagickPPExport int Magick::operator != (const Magick::Color &left_,
@@ -70,12 +77,14 @@ Magick::Color::Color(void)
   : _pixel(new PixelInfo),
     _isValid(false),
     _pixelOwn(true),
-    _pixelType(RGBPixel)
+    _pixelType(RGBAPixel)
 {
   initPixel();
+
+  setAlpha(TransparentAlpha);
 }
 
-Magick::Color::Color(const Quantum red_,const Quantum green_,
+Magick::Color::Color(const Magick::Quantum red_,const Magick::Quantum green_,
   const Quantum blue_)
   : _pixel(new PixelInfo),
     _isValid(true),
@@ -91,8 +100,8 @@ Magick::Color::Color(const Quantum red_,const Quantum green_,
   quantumRed(red_);
 }
 
-Magick::Color::Color(const Quantum red_,const Quantum green_,
-  const Quantum blue_, const Quantum alpha_)
+Magick::Color::Color(const Magick::Quantum red_,const Magick::Quantum green_,
+  const Magick::Quantum blue_, const Magick::Quantum alpha_)
   : _pixel(new PixelInfo),
     _isValid(true),
     _pixelOwn(true),
@@ -109,8 +118,9 @@ Magick::Color::Color(const Quantum red_,const Quantum green_,
     _pixelType=RGBAPixel;
 }
 
-Magick::Color::Color(const Quantum cyan_,const Quantum magenta_,
-  const Quantum yellow_,const Quantum black_,const Quantum alpha_)
+Magick::Color::Color(const Magick::Quantum cyan_,const Magick::Quantum magenta_,
+  const Magick::Quantum yellow_,const Magick::Quantum black_,
+  const Magick::Quantum alpha_)
   : _pixel(new PixelInfo),
     _isValid(true),
     _pixelOwn(true),
@@ -290,7 +300,7 @@ Magick::Color::PixelType Magick::Color::pixelType() const
 
 void Magick::Color::isValid(bool valid_)
 {
-  if ((valid_ && isValid()) || (!valid_ && !isValid()))
+  if (bool(valid_) == bool(isValid()))
     return;
 
   if (!_pixelOwn)
@@ -306,23 +316,7 @@ void Magick::Color::isValid(bool valid_)
 
 void Magick::Color::quantumAlpha(const Magick::Quantum alpha_)
 {
-  _pixel->alpha=alpha_;
-  if (alpha_ == QuantumRange)
-    {
-      _pixel->alpha_trait=UndefinedPixelTrait;
-      if (_pixelType == RGBAPixel)
-        _pixelType=RGBPixel;
-      else if (_pixelType == CMYKAPixel)
-        _pixelType=CMYKPixel;
-    }
-  else
-    {
-      _pixel->alpha_trait=BlendPixelTrait;
-      if (_pixelType == RGBPixel)
-        _pixelType=RGBAPixel;
-      else if (_pixelType == CMYKPixel)
-        _pixelType=CMYKAPixel;
-    }
+  setAlpha(alpha_);
   _isValid=true;
 }
 
@@ -410,7 +404,7 @@ Magick::Quantum Magick::Color::scaleDoubleToQuantum(const double double_)
 
 double Magick::Color::scaleQuantumToDouble(const Magick::Quantum quantum_)
 {
-#if (MAGICKCORE_QUANTUM_DEPTH < 32)
+#if (MAGICKCORE_QUANTUM_DEPTH < 32) && (MAGICKCORE_SIZEOF_FLOAT_T != MAGICKCORE_SIZEOF_DOUBLE || !defined(MAGICKCORE_HDRI_SUPPORT))
   return(static_cast<double>(quantum_)/QuantumRange);
 #else
   return(quantum_/QuantumRange);
@@ -422,6 +416,27 @@ void Magick::Color::initPixel()
   MagickCore::GetPixelInfo((MagickCore::Image *) NULL, _pixel);
   if (_pixelType == CMYKPixel || _pixelType == CMYKAPixel)
     _pixel->colorspace=CMYKColorspace;
+}
+
+void Magick::Color::setAlpha(const Magick::Quantum alpha_)
+{
+  _pixel->alpha=alpha_;
+  if (alpha_ == QuantumRange)
+    {
+      _pixel->alpha_trait=UndefinedPixelTrait;
+      if (_pixelType == RGBAPixel)
+        _pixelType=RGBPixel;
+      else if (_pixelType == CMYKAPixel)
+        _pixelType=CMYKPixel;
+    }
+  else
+    {
+      _pixel->alpha_trait=BlendPixelTrait;
+      if (_pixelType == RGBPixel)
+        _pixelType=RGBAPixel;
+      else if (_pixelType == CMYKPixel)
+        _pixelType=CMYKAPixel;
+    }
 }
 
 void Magick::Color::setPixelType(const PixelInfo &color_)
@@ -531,7 +546,7 @@ Magick::ColorCMYK::ColorCMYK(PixelInfo *rep_,PixelType pixelType_)
 }
 
 Magick::ColorGray::ColorGray(void)
-  : Color()
+  : Color(RGBPixel)
 {
 }
 
@@ -575,7 +590,7 @@ Magick::ColorGray::ColorGray(PixelInfo *rep_,PixelType pixelType_)
 }
 
 Magick::ColorHSL::ColorHSL(void)
-  : Color()
+  : Color(RGBPixel)
 {
 }
 
@@ -586,7 +601,7 @@ Magick::ColorHSL::ColorHSL(const Magick::Color &color_)
 
 Magick::ColorHSL::ColorHSL(const double hue_,const double saturation_,
   const double lightness_)
-  : Color()
+  : Color(RGBPixel)
 {
   double
     blue,
@@ -722,7 +737,7 @@ double Magick::ColorHSL::saturation(void) const
 }
 
 Magick::ColorMono::ColorMono(void)
-  : Color()
+  : Color(RGBPixel)
 {
 }
 
@@ -765,7 +780,7 @@ Magick::ColorMono::ColorMono(PixelInfo *rep_,PixelType pixelType_)
 }
 
 Magick::ColorRGB::ColorRGB(void)
-  : Color()
+  : Color(RGBPixel)
 {
 }
 
@@ -844,7 +859,7 @@ Magick::ColorRGB::ColorRGB(PixelInfo *rep_,PixelType pixelType_)
 }
 
 Magick::ColorYUV::ColorYUV(void)
-  : Color()
+  : Color(RGBPixel)
 {
 }
 
@@ -854,7 +869,7 @@ Magick::ColorYUV::ColorYUV(const Magick::Color &color_)
 }
 
 Magick::ColorYUV::ColorYUV(const double y_,const double u_,const double v_)
-  : Color()
+  : Color(RGBPixel)
 {
   convert(y_, u_, v_);
 }

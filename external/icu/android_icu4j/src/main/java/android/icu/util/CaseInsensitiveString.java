@@ -18,43 +18,44 @@ import android.icu.lang.UCharacter;
  * @hide Only a subset of ICU is exposed in Android
  */
 public class CaseInsensitiveString {
-    
+
     private String string;
 
     private int hash = 0;
-    
+
     private String folded = null;
-    
+
     private static String foldCase(String foldee)
     {
         return UCharacter.foldCase(foldee, true);
     }
-    
+
     private void getFolded()
     {
         if (folded == null) {
             folded = foldCase(string);
         }
     }
-    
+
     /**
      * Constructs an CaseInsentiveString object from the given string
-     * @param s The string to construct this object from 
+     * @param s The string to construct this object from
      */
     public CaseInsensitiveString(String s) {
         string = s;
     }
     /**
-     * returns the underlying string 
+     * returns the underlying string
      * @return String
      */
     public String getString() {
         return string;
     }
     /**
-     * Compare the object with this 
-     * @param o Object to compare this object with 
+     * Compare the object with this
+     * @param o Object to compare this object with
      */
+    @Override
     public boolean equals(Object o) {
         if (o == null) {
             return false;
@@ -70,24 +71,27 @@ public class CaseInsensitiveString {
         }
         return false;
     }
-    
+
     /**
      * Returns the hashCode of this object
      * @return int hashcode
      */
+    @Override
     public int hashCode() {
         getFolded();
-        
+
         if (hash == 0) {
             hash = folded.hashCode();
         }
-        
+
         return hash;
     }
-    
+
     /**
      * Overrides superclass method
+     * @return a string representation of the object.
      */
+    @Override
     public String toString() {
         return string;
     }

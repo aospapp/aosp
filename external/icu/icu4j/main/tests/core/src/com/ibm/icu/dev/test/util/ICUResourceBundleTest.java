@@ -718,12 +718,7 @@ public final class ICUResourceBundleTest extends TestFmwk {
         }
 
         for (int i = 0; i < locales.length; ++i) {
-            if (!hasLocalizedCountryFor(ULocale.ENGLISH, locales[i])
-                && (locales[i].getLanguage().compareTo("ti") != 0) // TODO: restore test for ti_* when cldrbug 3058 is fixed
-                // Android patch begin.
-                && (locales[i].getBaseName().compareTo("en_XA") != 0)
-                && (locales[i].getBaseName().compareTo("ar_XB") != 0)){
-                // Android patch end.
+            if (!hasLocalizedCountryFor(ULocale.ENGLISH, locales[i])){
                  errln("Could not get English localized country for " + locales[i]);
             }
             if(!hasLocalizedLanguageFor(ULocale.ENGLISH, locales[i])){

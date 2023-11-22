@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 /**
  * transliterated from
- * https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r4/tools/aapt2/ConfigDescription.cpp
+ * https://android.googlesource.com/platform/frameworks/base/+/android-9.0.0_r12/tools/aapt2/ConfigDescription.cpp
  */
 public class ConfigDescription {
   public static final int SDK_CUPCAKE = 3;
@@ -98,7 +98,7 @@ public class ConfigDescription {
       if (part.startsWith("b+")) {
         // This is a "modified" BCP 47 language tag. Same semantics as BCP 47 tags,
         // except that the separator is "+" and not "-".
-        String[] subtags = part.substring(2).toLowerCase().split("\\+");
+        String[] subtags = part.substring(2).toLowerCase().split("\\+", 0);
         if (subtags.length == 1) {
           set_language(subtags[0]);
         } else if (subtags.length == 2) {
@@ -980,7 +980,7 @@ public class ConfigDescription {
     return false;
   }
 
-  // transliterated from https://android.googlesource.com/platform/frameworks/base/+/android-7.1.1_r13/tools/aapt/AaptConfig.cpp
+  // transliterated from https://android.googlesource.com/platform/frameworks/base/+/android-9.0.0_r12/tools/aapt/AaptConfig.cpp
   private static void applyVersionForCompatibility(ResTable_config config) {
     if (config == null) {
       return;

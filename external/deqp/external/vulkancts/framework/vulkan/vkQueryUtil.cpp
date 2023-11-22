@@ -422,6 +422,11 @@ bool isExtensionSupported (const std::vector<VkExtensionProperties>& extensions,
 	return isExtensionSupported(extensions.begin(), extensions.end(), required);
 }
 
+bool isExtensionSupported (const vector<std::string>& extensionStrings, const std::string& extensionName)
+{
+	return de::contains(extensionStrings.begin(), extensionStrings.end(), extensionName);
+}
+
 bool isLayerSupported (const std::vector<VkLayerProperties>& layers, const RequiredLayer& required)
 {
 	return isLayerSupported(layers.begin(), layers.end(), required);

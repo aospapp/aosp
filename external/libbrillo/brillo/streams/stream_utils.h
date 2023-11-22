@@ -14,19 +14,19 @@ namespace stream_utils {
 
 // Generates "Stream closed" error and returns false.
 BRILLO_EXPORT bool ErrorStreamClosed(
-    const tracked_objects::Location& location, ErrorPtr* error);
+    const base::Location& location, ErrorPtr* error);
 
 // Generates "Not supported" error and returns false.
 BRILLO_EXPORT bool ErrorOperationNotSupported(
-    const tracked_objects::Location& location, ErrorPtr* error);
+    const base::Location& location, ErrorPtr* error);
 
 // Generates "Read past end of stream" error and returns false.
 BRILLO_EXPORT bool ErrorReadPastEndOfStream(
-    const tracked_objects::Location& location, ErrorPtr* error);
+    const base::Location& location, ErrorPtr* error);
 
 // Generates "Operation time out" error and returns false.
 BRILLO_EXPORT bool ErrorOperationTimeout(
-    const tracked_objects::Location& location, ErrorPtr* error);
+    const base::Location& location, ErrorPtr* error);
 
 // Checks if |position| + |offset| fit within the constraint of positive
 // signed int64_t type. We use uint64_t for absolute stream pointer positions,
@@ -37,7 +37,7 @@ BRILLO_EXPORT bool ErrorOperationTimeout(
 // The |location| parameter will be used to report the origin of the error
 // if one is generated/triggered.
 BRILLO_EXPORT bool CheckInt64Overflow(
-    const tracked_objects::Location& location,
+    const base::Location& location,
     uint64_t position,
     int64_t offset,
     ErrorPtr* error);
@@ -50,7 +50,7 @@ BRILLO_EXPORT bool CheckInt64Overflow(
 // The |location| parameter will be used to report the origin of the error
 // if one is generated/triggered.
 BRILLO_EXPORT bool CalculateStreamPosition(
-    const tracked_objects::Location& location,
+    const base::Location& location,
     int64_t offset,
     Stream::Whence whence,
     uint64_t current_position,

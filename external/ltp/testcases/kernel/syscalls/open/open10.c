@@ -114,15 +114,9 @@ int main(int ac, char *av[])
 			}
 		}
 		group1_gid = group->gr_gid;
-#ifdef ANDROID
-		group = getgrnam("everybody");
-		if (group == NULL)
-			tst_brkm(TBROK, cleanup, "everybody not in /etc/group");
-#else
 		group = getgrnam("bin");
 		if (group == NULL)
 			tst_brkm(TBROK, cleanup, "bin not in /etc/group");
-#endif
 
 		group2_gid = group->gr_gid;
 
@@ -351,13 +345,11 @@ int main(int ac, char *av[])
 			local_flag = FAILED;
 		}
 
-		/* Verify modes */
-		if (!(buf.st_mode & S_ISGID)) {
-			tst_resm(TFAIL,
-				 "%s: Incorrect modes, setgid bit not set",
-				 setgid_B);
-			local_flag = FAILED;
-		}
+		/*
+		 * Skip S_ISGID check
+		 * 0fa3ecd87848 ("Fix up non-directory creation in SGID directories")
+		 * clears S_ISGID for files created by non-group members
+		 */
 
 		if (local_flag == PASSED) {
 			tst_resm(TPASS, "Test passed in block2.");

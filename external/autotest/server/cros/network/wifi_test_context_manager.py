@@ -146,43 +146,42 @@ class WiFiTestContextManager(object):
         return self.router.host
 
 
-    def configure(self, configuration_parameters, multi_interface=None,
-                  is_ibss=None):
-        """Configure a router with the given parameters.
+    def configure(self, ap_config, multi_interface=None, is_ibss=None):
+        """Configure a router with the given config.
 
-        Configures an AP according to the specified parameters and
+        Configures an AP according to the specified config and
         enables whatever packet captures are appropriate.  Will deconfigure
         existing APs unless |multi_interface| is specified.
 
-        @param configuration_parameters HostapConfig object.
+        @param ap_config HostapConfig object.
         @param multi_interface True iff having multiple configured interfaces
                 is expected for this configure call.
         @param is_ibss True iff this is an IBSS endpoint.
 
         """
-        if not self.client.is_frequency_supported(
-                configuration_parameters.frequency):
+        if not self.client.is_frequency_supported(ap_config.frequency):
             raise error.TestNAError('DUT does not support frequency: %s' %
-                                    configuration_parameters.frequency)
-        configuration_parameters.security_config.install_router_credentials(
-                self.router.host)
+                                    ap_config.frequency)
+        if ap_config.require_vht:
+            self.client.require_capabilities(
+                    [site_linux_system.LinuxSystem.CAPABILITY_VHT])
+        ap_config.security_config.install_router_credentials(self.router.host)
         if is_ibss:
             if multi_interface:
                 raise error.TestFail('IBSS mode does not support multiple '
                                      'interfaces.')
             if not self.client.is_ibss_supported():
                 raise error.TestNAError('DUT does not support IBSS mode')
-            self.router.ibss_configure(configuration_parameters)
+            self.router.ibss_configure(ap_config)
         else:
-            self.router.hostap_configure(configuration_parameters,
+            self.router.hostap_configure(ap_config,
                                          multi_interface=multi_interface)
         if self._enable_client_packet_captures:
-            self.client.start_capture(configuration_parameters.frequency,
+            self.client.start_capture(ap_config.frequency,
                                       snaplen=self._packet_capture_snaplen)
         if self._enable_packet_captures:
-           self.capture_host.start_capture(
-                    configuration_parameters.frequency,
-                    ht_type=configuration_parameters.ht_packet_capture_mode,
+           self.capture_host.start_capture(ap_config.frequency,
+                    ht_type=ap_config.ht_packet_capture_mode,
                     snaplen=self._packet_capture_snaplen)
 
 
@@ -211,7 +210,7 @@ class WiFiTestContextManager(object):
                 allow_failure=True)
         if attenuator_addr and ping_helper.simple_ping(attenuator_addr):
             self._attenuator = attenuator_controller.AttenuatorController(
-                    hosts.SSHHost(attenuator_addr, port=22))
+                    attenuator_addr)
         # Set up a clean context to conduct WiFi tests in.
         self.client.shill.init_test_network_state()
         if self.CMDLINE_CLIENT_PACKET_CAPTURES in self._cmdline_args:

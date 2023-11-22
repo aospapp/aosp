@@ -13,9 +13,18 @@
       "type" : "string",
       "enum": ["NONE", "Monster", "TestSimpleTableWithEnum", "MyGame_Example2_Monster"]
     },
+    "MyGame_Example_AnyUniqueAliases" : {
+      "type" : "string",
+      "enum": ["NONE", "M", "T", "M2"]
+    },
+    "MyGame_Example_AnyAmbiguousAliases" : {
+      "type" : "string",
+      "enum": ["NONE", "M1", "M2", "M3"]
+    },
     "MyGame_OtherNameSpace_Unused" : {
       "type" : "object",
       "properties" : {
+        "a" : { "type" : "number" }
       },
       "additionalProperties" : false
     },
@@ -89,6 +98,13 @@
       },
       "additionalProperties" : false
     },
+    "MyGame_Example_Referrable" : {
+      "type" : "object",
+      "properties" : {
+        "id" : { "type" : "number" }
+      },
+      "additionalProperties" : false
+    },
     "MyGame_Example_Monster" : {
       "type" : "object",
       "description" : " an example documentation comment: monster object",
@@ -127,7 +143,20 @@
         "test5" : { "type" : "array", "items" : { "$ref" : "#/definitions/MyGame_Example_Test" } },
         "vector_of_longs" : { "type" : "array", "items" : { "type" : "number" } },
         "vector_of_doubles" : { "type" : "array", "items" : { "type" : "number" } },
-        "parent_namespace_test" : { "$ref" : "#/definitions/MyGame_InParentNamespace" }
+        "parent_namespace_test" : { "$ref" : "#/definitions/MyGame_InParentNamespace" },
+        "vector_of_referrables" : { "type" : "array", "items" : { "$ref" : "#/definitions/MyGame_Example_Referrable" } },
+        "single_weak_reference" : { "type" : "number" },
+        "vector_of_weak_references" : { "type" : "array", "items" : { "type" : "number" } },
+        "vector_of_strong_referrables" : { "type" : "array", "items" : { "$ref" : "#/definitions/MyGame_Example_Referrable" } },
+        "co_owning_reference" : { "type" : "number" },
+        "vector_of_co_owning_references" : { "type" : "array", "items" : { "type" : "number" } },
+        "non_owning_reference" : { "type" : "number" },
+        "vector_of_non_owning_references" : { "type" : "array", "items" : { "type" : "number" } },
+        "any_unique_type" : { "$ref" : "#/definitions/MyGame_Example_AnyUniqueAliases" },
+        "any_unique" : { "anyOf": [{ "$ref" : "#/definitions/MyGame_Example_Monster" },{ "$ref" : "#/definitions/MyGame_Example_TestSimpleTableWithEnum" },{ "$ref" : "#/definitions/MyGame_Example2_Monster" }] },
+        "any_ambiguous_type" : { "$ref" : "#/definitions/MyGame_Example_AnyAmbiguousAliases" },
+        "any_ambiguous" : { "anyOf": [{ "$ref" : "#/definitions/MyGame_Example_Monster" },{ "$ref" : "#/definitions/MyGame_Example_Monster" },{ "$ref" : "#/definitions/MyGame_Example_Monster" }] },
+        "vector_of_enums" : { "$ref" : "#/definitions/MyGame_Example_Color" }
       },
       "required" : ["name"],
       "additionalProperties" : false

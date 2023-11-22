@@ -4,9 +4,9 @@
 
 """An adapter to remotely access the CFM facade on DUT."""
 
+import logging
 import os
 import tempfile
-import time
 
 
 class CFMFacadeRemoteAdapter(object):
@@ -46,21 +46,27 @@ class CFMFacadeRemoteAdapter(object):
 
     def enroll_device(self):
         """Enroll device into CFM."""
+        logging.info('Enrolling CfM device...')
         self._cfm_proxy.enroll_device()
 
 
-    def restart_chrome_for_cfm(self):
-        """Restart chrome for CFM."""
-        self._cfm_proxy.restart_chrome_for_cfm()
+    def restart_chrome_for_cfm(self, extra_chrome_args=None):
+        """
+        Restart chrome for CFM.
+
+        @param extra_chrome_args a list with extra command line arguments for
+                Chrome.
+        """
+        self._cfm_proxy.restart_chrome_for_cfm(extra_chrome_args)
 
     def reboot_device_with_chrome_api(self):
         """Reboot device using Chrome runtime API."""
         self._cfm_proxy.reboot_device_with_chrome_api()
 
+
     def skip_oobe_after_enrollment(self):
         """Skips oobe and goes to the app landing page after enrollment."""
-        self._client.run('restart ui', ignore_status=True)
-        time.sleep(self._RESTART_UI_DELAY)
+        logging.info('Skipping OOBE...')
         self._cfm_proxy.skip_oobe_after_enrollment()
 
 
@@ -71,11 +77,13 @@ class CFMFacadeRemoteAdapter(object):
 
     def wait_for_hangouts_telemetry_commands(self):
         """Wait for Hangouts App telemetry commands."""
+        logging.info('Waiting for Hangouts telemetry commands...')
         self._cfm_proxy.wait_for_hangouts_telemetry_commands()
 
 
     def wait_for_meetings_telemetry_commands(self):
         """Waits for Meet App telemetry commands."""
+        logging.info('Waiting for Meet telemetry commands...')
         self._cfm_proxy.wait_for_meetings_telemetry_commands()
 
 
@@ -147,6 +155,13 @@ class CFMFacadeRemoteAdapter(object):
         return self._cfm_proxy.get_latest_pa_logs_file_path()
 
 
+    def get_all_pa_logs_file_path(self):
+        """
+        @return The path to all packaged app log files, if any.
+        """
+        return self._cfm_proxy.get_all_pa_logs_file_path()
+
+
     def is_in_hangout_session(self):
         """Check if device is in hangout session.
 
@@ -172,8 +187,11 @@ class CFMFacadeRemoteAdapter(object):
 
 
     def start_meeting_session(self):
-        """Start a meeting."""
-        self._cfm_proxy.start_meeting_session()
+        """Start a meeting.
+
+        @return code for the started meeting.
+        """
+        return self._cfm_proxy.start_meeting_session()
 
 
     def end_meeting_session(self):

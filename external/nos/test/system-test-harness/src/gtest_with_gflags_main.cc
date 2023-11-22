@@ -5,6 +5,8 @@
 #include <iostream>
 #include <sstream>
 
+#include "nugget_tools.h"
+
 #ifdef ANDROID
 #define FLAGS_list_slow_tests false
 #define FLAGS_disable_slow_tests false
@@ -68,6 +70,10 @@ int main(int argc, char** argv) {
       "ImportWrappedKeyTest.ImportSuccess",
   };
 
+  const std::vector<std::string> disabled_for_non_direct_device_tests{
+      "TransportTest.*",
+  };
+
   testing::InitGoogleMock(&argc, argv);
 #ifndef ANDROID
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -88,6 +94,9 @@ int main(int argc, char** argv) {
   }
   if (FLAGS_release_tests) {
     generate_disabled_test_list(disabled_for_release_tests, &ss);
+  }
+  if (!nugget_tools::IsDirectDeviceClient()) {
+    generate_disabled_test_list(disabled_for_non_direct_device_tests, &ss);
   }
 
   if (FLAGS_disable_slow_tests || FLAGS_release_tests) {

@@ -3,16 +3,25 @@
  * Authors:
  *	Inki Dae <inki.dae@samsung.com>
  *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * VA LINUX SYSTEMS AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -59,7 +68,6 @@ static void connector_find_mode(int fd, struct connector *c,
 		if (!connector) {
 			fprintf(stderr, "could not get connector %i: %s\n",
 				resources->connectors[i], strerror(errno));
-			drmModeFreeConnector(connector);
 			continue;
 		}
 
@@ -98,7 +106,6 @@ static void connector_find_mode(int fd, struct connector *c,
 		if (!c->encoder) {
 			fprintf(stderr, "could not get encoder %i: %s\n",
 				resources->encoders[i], strerror(errno));
-			drmModeFreeEncoder(c->encoder);
 			continue;
 		}
 
@@ -264,7 +271,8 @@ static int g2d_copy_test(struct exynos_device *dev, struct exynos_bo *src,
 		userptr = (unsigned long)malloc(size);
 		if (!userptr) {
 			fprintf(stderr, "failed to allocate userptr.\n");
-			return -EFAULT;
+			ret = -EFAULT;
+			goto fail;
 		}
 
 		src_img.user_ptr[0].userptr = userptr;
@@ -469,7 +477,8 @@ static int g2d_copy_with_scale_test(struct exynos_device *dev,
 		userptr = (unsigned long)malloc(size);
 		if (!userptr) {
 			fprintf(stderr, "failed to allocate userptr.\n");
-			return -EFAULT;
+			ret = -EFAULT;
+			goto fail;
 		}
 
 		src_img.user_ptr[0].userptr = userptr;
@@ -520,9 +529,10 @@ err_free_userptr:
 fail:
 	g2d_fini(ctx);
 
-	return 0;
+	return ret;
 }
 
+#ifdef EXYNOS_G2D_USERPTR_TEST
 static int g2d_blend_test(struct exynos_device *dev,
 					struct exynos_bo *src,
 					struct exynos_bo *dst,
@@ -557,7 +567,8 @@ static int g2d_blend_test(struct exynos_device *dev,
 		userptr = (unsigned long)malloc(size);
 		if (!userptr) {
 			fprintf(stderr, "failed to allocate userptr.\n");
-			return -EFAULT;
+			ret = -EFAULT;
+			goto fail;
 		}
 
 		src_img.user_ptr[0].userptr = userptr;
@@ -619,8 +630,9 @@ err_free_userptr:
 fail:
 	g2d_fini(ctx);
 
-	return 0;
+	return ret;
 }
+#endif
 
 static int g2d_checkerboard_test(struct exynos_device *dev,
 					struct exynos_bo *src,
@@ -645,8 +657,8 @@ static int g2d_checkerboard_test(struct exynos_device *dev,
 	dst_y = 0;
 
 	checkerboard = create_checkerboard_pattern(screen_width / 32, screen_height / 32, 32);
-	if (checkerboard == NULL) {
-		ret = -1;
+	if (!checkerboard) {
+		ret = -EFAULT;
 		goto fail;
 	}
 
@@ -755,8 +767,8 @@ int main(int argc, char **argv)
 
 	dev = exynos_device_create(fd);
 	if (!dev) {
-		drmClose(dev->fd);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto err_drm_close;
 	}
 
 	resources = drmModeGetResources(dev->fd);
@@ -764,7 +776,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "drmModeGetResources failed: %s\n",
 				strerror(errno));
 		ret = -EFAULT;
-		goto err_drm_close;
+		goto err_dev_destory;
 	}
 
 	connector_find_mode(dev->fd, &con, resources);
@@ -773,7 +785,7 @@ int main(int argc, char **argv)
 	if (!con.mode) {
 		fprintf(stderr, "failed to find usable connector\n");
 		ret = -EFAULT;
-		goto err_drm_close;
+		goto err_dev_destory;
 	}
 
 	screen_width = con.mode->hdisplay;
@@ -782,7 +794,7 @@ int main(int argc, char **argv)
 	if (screen_width == 0 || screen_height == 0) {
 		fprintf(stderr, "failed to find sane resolution on connector\n");
 		ret = -EFAULT;
-		goto err_drm_close;
+		goto err_dev_destory;
 	}
 
 	printf("screen width = %d, screen height = %d\n", screen_width,
@@ -791,7 +803,7 @@ int main(int argc, char **argv)
 	bo = exynos_create_buffer(dev, screen_width * screen_height * 4, 0);
 	if (!bo) {
 		ret = -EFAULT;
-		goto err_drm_close;
+		goto err_dev_destory;
 	}
 
 	handles[0] = bo->handle;
@@ -864,7 +876,7 @@ int main(int argc, char **argv)
 	 *
 	 * Disable the test for now, until the kernel code has been sanitized.
 	 */
-#if 0
+#ifdef EXYNOS_G2D_USERPTR_TEST
 	ret  = g2d_blend_test(dev, src, bo, G2D_IMGBUF_USERPTR);
 	if (ret < 0)
 		fprintf(stderr, "failed to test blend operation.\n");
@@ -882,9 +894,11 @@ err_rm_fb:
 err_destroy_buffer:
 	exynos_destroy_buffer(bo);
 
-err_drm_close:
-	drmClose(dev->fd);
+err_dev_destory:
 	exynos_device_destroy(dev);
 
-	return 0;
+err_drm_close:
+	drmClose(fd);
+
+	return ret;
 }

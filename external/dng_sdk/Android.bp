@@ -101,6 +101,7 @@ cc_defaults {
 
 cc_library{
     name: "libdng_sdk",
+    host_supported: true,
     vendor_available: true,
     defaults: ["libdng_sdk-defaults"],
 
@@ -110,6 +111,28 @@ cc_library{
         "libz",
         "libjpeg",
     ],
+
+    target: {
+        linux_glibc: {
+            static_libs: ["libcompiler_rt-extras"],
+        },
+        darwin: {
+            host_ldlibs: [
+                "-framework AppKit",
+            ],
+        },
+        windows: {
+            enabled: true,
+            cflags: [
+                "-D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR",
+                "-Wno-null-arithmetic",
+                "-Wno-sign-compare",
+                "-Wno-tautological-pointer-compare",
+                "-Wno-unknown-pragmas",
+            ],
+            static_libs: ["libcompiler_rt-extras"],
+        },
+    },
 
     export_include_dirs: ["source"],
 }

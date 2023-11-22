@@ -20,8 +20,18 @@
 #include "SkScanPriv.h"
 #include "SkTSort.h"
 #include "SkTemplates.h"
-#include "SkUtils.h"
+#include "SkTo.h"
+#include "SkUTF.h"
 
+#include <utility>
+
+#if defined(SK_DISABLE_AAA)
+void SkScan::AAAFillPath(const SkPath& path, SkBlitter* blitter, const SkIRect& ir,
+                         const SkIRect& clipBounds, bool forceRLE) {
+    SkDEBUGFAIL("AAA Disabled");
+    return;
+}
+#else
 ///////////////////////////////////////////////////////////////////////////////
 
 /*
@@ -580,8 +590,8 @@ static inline SkAlpha f2a(SkFixed f) {
 // Suppose that line (l1, y)-(r1, y+1) intersects with (l2, y)-(r2, y+1),
 // approximate (very coarsely) the x coordinate of the intersection.
 static inline SkFixed approximateIntersection(SkFixed l1, SkFixed r1, SkFixed l2, SkFixed r2) {
-    if (l1 > r1) { SkTSwap(l1, r1); }
-    if (l2 > r2) { SkTSwap(l2, r2); }
+    if (l1 > r1) { using std::swap; swap(l1, r1); }
+    if (l2 > r2) { using std::swap; swap(l2, r2); }
     return (SkTMax(l1, l2) + SkTMin(r1, r2)) >> 1;
 }
 
@@ -829,8 +839,8 @@ static SK_ALWAYS_INLINE void blit_trapezoid_row(AdditiveBlitter* blitter, int y,
     // to exclude the area that's not covered by the path.
     // Swapping (ul, ll) or (ur, lr) won't affect that exclusion
     // so we'll do that for simplicity.
-    if (ul > ll) { SkTSwap(ul, ll); }
-    if (ur > lr) { SkTSwap(ur, lr); }
+    if (ul > ll) { using std::swap; swap(ul, ll); }
+    if (ur > lr) { using std::swap; swap(ur, lr); }
 
     SkFixed joinLeft = SkFixedCeilToFixed(ll);
     SkFixed joinRite = SkFixedFloorToFixed(ur);
@@ -961,7 +971,7 @@ static inline bool isSmoothEnough(SkAnalyticEdge* thisEdge, SkAnalyticEdge* next
 // If yes, we can later skip the fractional y and directly jump to integer y.
 static inline bool isSmoothEnough(SkAnalyticEdge* leftE, SkAnalyticEdge* riteE,
                            SkAnalyticEdge* currE, int stop_y) {
-    if (currE->fUpperY >= stop_y << 16) {
+    if (currE->fUpperY >= SkLeftShift(stop_y, 16)) {
         return false; // We're at the end so we won't skip anything
     }
     if (leftE->fLowerY + SK_Fixed1 < riteE->fLowerY) {
@@ -975,8 +985,10 @@ static inline bool isSmoothEnough(SkAnalyticEdge* leftE, SkAnalyticEdge* riteE,
     if (nextCurrE->fUpperY >= stop_y << 16) { // Check if we're at the end
         return false;
     }
-    if (*nextCurrE < *currE) {
-        SkTSwap(currE, nextCurrE);
+    // Ensure that currE is the next left edge and nextCurrE is the next right edge. Swap if not.
+    if (nextCurrE->fUpperX < currE->fUpperX) {
+        using std::swap;
+        swap(currE, nextCurrE);
     }
     return isSmoothEnough(leftE, currE, stop_y) && isSmoothEnough(riteE, nextCurrE, stop_y);
 }
@@ -1035,7 +1047,8 @@ static inline void aaa_walk_convex_edges(SkAnalyticEdge* prevHead,
 
         if (leftE->fX > riteE->fX || (leftE->fX == riteE->fX &&
                                       leftE->fDX > riteE->fDX)) {
-            SkTSwap(leftE, riteE);
+            using std::swap;
+            swap(leftE, riteE);
         }
 
         SkFixed local_bot_fixed = SkMin32(leftE->fLowerY, riteE->fLowerY);
@@ -1286,12 +1299,7 @@ static inline bool edges_too_close(SkAnalyticEdge* prev, SkAnalyticEdge* next, S
     // even if prev->fX and next->fX are close and within one pixel (e.g., prev->fX == 0.1,
     // next->fX == 0.9). Adding SLACK = 1 to the formula would guarantee it to be true if two
     // edges prev and next are within one pixel.
-    constexpr SkFixed SLACK =
-#ifdef SK_SUPPORT_LEGACY_AA_BEHAVIOR
-    0;
-#else
-    SK_Fixed1;
-#endif
+    constexpr SkFixed SLACK = SK_Fixed1;
 
     // Note that even if the following test failed, the edges might still be very close to each
     // other at some point within the current pixel row because of prev->fDX and next->fDX.
@@ -1479,17 +1487,10 @@ static void aaa_walk_edges(SkAnalyticEdge* prevHead, SkAnalyticEdge* nextTail,
                 } else {
                     SkFixed rite = currE->fX;
                     currE->goY(nextY, yShift);
-#ifdef SK_SUPPORT_LEGACY_DELTA_AA
-                    leftE->fX = SkTMax(leftClip, leftE->fX);
-                    rite = SkTMin(rightClip, rite);
-                    currE->fX = SkTMin(rightClip, currE->fX);
-                    blit_trapezoid_row(blitter, y >> 16, left, rite, leftE->fX, currE->fX,
-#else
                     SkFixed nextLeft = SkTMax(leftClip, leftE->fX);
                     rite = SkTMin(rightClip, rite);
                     SkFixed nextRite = SkTMin(rightClip, currE->fX);
                     blit_trapezoid_row(blitter, y >> 16, left, rite, nextLeft, nextRite,
-#endif
                             leftDY, currE->fDY, fullAlpha, maskRow, isUsingMask,
                             noRealBlitter || (fullAlpha == 0xFF && (
                                     edges_too_close(prevRite, left, leftE->fX) ||
@@ -1593,9 +1594,8 @@ static SK_ALWAYS_INLINE void aaa_fill_path(const SkPath& path, const SkIRect& cl
         bool isUsingMask, bool forceRLE) { // forceRLE implies that SkAAClip is calling us
     SkASSERT(blitter);
 
-    SkEdgeBuilder builder;
-    int count = builder.build_edges(path, &clipRect, 0, pathContainedInClip,
-                                    SkEdgeBuilder::kAnalyticEdge);
+    SkAnalyticEdgeBuilder builder;
+    int count = builder.buildEdges(path, pathContainedInClip ? nullptr : &clipRect);
     SkAnalyticEdge** list = builder.analyticEdgeList();
 
     SkIRect rect = clipRect;
@@ -1697,11 +1697,6 @@ void SkScan::AAAFillPath(const SkPath& path, SkBlitter* blitter, const SkIRect& 
     // rect, preparing a mask and blitting it might have too much overhead. Hence we'll use
     // blitFatAntiRect to avoid the mask and its overhead.
     if (MaskAdditiveBlitter::canHandleRect(ir) && !isInverse && !forceRLE) {
-#ifdef SK_SUPPORT_LEGACY_SMALLRECT_AA
-        MaskAdditiveBlitter additiveBlitter(blitter, ir, clipBounds, isInverse);
-        aaa_fill_path(path, clipBounds, &additiveBlitter, ir.fTop, ir.fBottom,
-                containedInClip, true, forceRLE);
-#else
         // blitFatAntiRect is slower than the normal AAA flow without MaskAdditiveBlitter.
         // Hence only tryBlitFatAntiRect when MaskAdditiveBlitter would have been used.
         if (!TryBlitFatAntiRect(blitter, path, clipBounds)) {
@@ -1709,7 +1704,6 @@ void SkScan::AAAFillPath(const SkPath& path, SkBlitter* blitter, const SkIRect& 
             aaa_fill_path(path, clipBounds, &additiveBlitter, ir.fTop, ir.fBottom,
                     containedInClip, true, forceRLE);
         }
-#endif
     } else if (!isInverse && path.isConvex()) {
         // If the filling area is convex (i.e., path.isConvex && !isInverse), our simpler
         // aaa_walk_convex_edges won't generate alphas above 255. Hence we don't need
@@ -1727,3 +1721,4 @@ void SkScan::AAAFillPath(const SkPath& path, SkBlitter* blitter, const SkIRect& 
                 containedInClip, false, forceRLE);
     }
 }
+#endif //defined(SK_DISABLE_AAA)

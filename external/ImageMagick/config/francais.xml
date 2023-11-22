@@ -324,14 +324,14 @@
           <message name="UnrecognizedAlphaChannelOption">
             alpha de canal l'option non reconnus
           </message>
-          <message name="UnrecognizedBitsPerPixel">
-            bits par pixel non reconnus
-          </message>
           <message name="UnrecognizedImageCompression">
             compression non reconnue
           </message>
           <message name="UnrecognizedNumberOfColors">
             nombre de couleurs non reconnu
+          </message>
+          <message name="UnsupportedBitsPerPixel">
+            bits par pixel non supporté
           </message>
         </error>
         <fatalerror>
@@ -463,6 +463,9 @@
         <message name="URLNotFound">
           URL inaccessible
         </message>
+        <message name="VectorGraphicsNestedTooDeeply">
+          trop d'imbrication de vector graphiques
+        </message>
       </error>
     </draw>
     <file>
@@ -548,6 +551,9 @@
         <message name="AssociateProfile">
           associate profile with image, a source and destination color profile required for transform
         </message>
+        <message name="UnableToTransformColorspace">
+          impossible de colorimétrique la transformation
+        </message>
       </warning>
     </image>
     <missing>
@@ -607,7 +613,7 @@
         <message name="CompositeImageRequired">
           image composite requise
         </message>
-        <message name="CurlyBrasesNestedTooDeeply">
+        <message name="CurlyBracesNestedTooDeeply">
           trop d'imbrication de curly braces
         </message>
         <message name="DepreciatedOptionNoCode">
@@ -648,6 +654,9 @@
         </message>
         <message name="ImagesAreNotTheSameSize">
           images diffèrent par la taille
+        </message>
+        <message name="ImagePagesAreNotCoalesced">
+          image pages are not coalesced
         </message>
         <message name="ImageSizeMustExceedBevelWidth">
           la taille doit être supérieure à la largeur de la facette
@@ -986,7 +995,7 @@
     <policy>
       <error>
         <message name="NotAuthorized">
-          not authorized
+          attempt to perform an operation not allowed by the security policy
         </message>
       </error>
     </policy>
@@ -1003,11 +1012,17 @@
     <resource>
       <limit>
         <error>
-          <message name="PixelCacheAllocationFailed">
-            Échec allocation du cache pixel
+          <message name="ListLengthExceedsLimit">
+            list length exceeds limit
           </message>
           <message name="MemoryAllocationFailed">
             Échec allocation mémoire
+          </message>
+          <message name="PixelCacheAllocationFailed">
+            Échec allocation du cache pixel
+          </message>
+          <message name="TooManyExceptions">
+            too many exceptions
           </message>
           <message name="TooManyObjects">
             too many objects

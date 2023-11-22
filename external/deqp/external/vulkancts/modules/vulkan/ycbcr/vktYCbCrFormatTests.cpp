@@ -34,6 +34,8 @@
 #include "vkQueryUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkImageUtil.hpp"
+#include "vkDeviceUtil.hpp"
+#include "vkPlatform.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuVectorUtil.hpp"
@@ -272,7 +274,7 @@ ShaderSpec getShaderSpec (const TestParameters&)
 	return spec;
 }
 
-void checkSupport (Context& context, const TestParameters& params)
+void checkSupport (Context& context, const TestParameters params)
 {
 	checkImageSupport(context, params.format, params.flags, params.tiling);
 }
@@ -293,8 +295,6 @@ void generateLookupCoordinates (const UVec2& imageSize, vector<Vec2>* dst)
 
 tcu::TestStatus testFormat (Context& context, TestParameters params)
 {
-	checkSupport(context, params);
-
 	const DeviceInterface&					vkd						= context.getDeviceInterface();
 	const VkDevice							device					= context.getDevice();
 
@@ -366,6 +366,49 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 	const Unique<VkDescriptorSet>			descSet					(createDescriptorSet(vkd, device, *descPool, *descLayout, *imageView, *sampler));
 
 	MultiPlaneImageData						imageData				(format, size);
+
+	const VkPhysicalDeviceImageFormatInfo2			imageFormatInfo	=
+	{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+		DE_NULL,
+		params.format,
+		VK_IMAGE_TYPE_2D,
+		params.tiling,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT,
+		params.flags,
+	};
+	VkSamplerYcbcrConversionImageFormatProperties		ycbcrProperties =
+	{
+		VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES,
+		DE_NULL,
+		0,
+	};
+	VkImageFormatProperties2				extProperties =
+	{
+		VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+		&ycbcrProperties,
+		{
+			{
+				0,	// width
+				0,	// height
+				0,	// depth
+			},
+			0u,		// maxMipLevels
+			0u,		// maxArrayLayers
+			0,		// sampleCounts
+			0u,		// maxResourceSize
+		},
+	};
+	VkResult				propsResult;
+	const PlatformInterface&		vkp			= context.getPlatformInterface();
+	const Unique<VkInstance>		instance		(createInstanceWithExtension(vkp, context.getUsedApiVersion(), "VK_KHR_get_physical_device_properties2"));
+	const InstanceDriver			vki			(vkp, *instance);
+
+	// Verify that a yuv image consumes at least one descriptor
+	propsResult = vki.getPhysicalDeviceImageFormatProperties2(context.getPhysicalDevice(), &imageFormatInfo, &extProperties);
+
+	TCU_CHECK(propsResult == VK_SUCCESS);
+	TCU_CHECK(ycbcrProperties.combinedImageSamplerDescriptorCount >= 1);
 
 	// Prepare texture data
 	fillGradient(&imageData, Vec4(0.0f), Vec4(1.0f));
@@ -511,17 +554,17 @@ void populatePerFormatGroup (tcu::TestCaseGroup* group, VkFormat format)
 		const char* const		shaderTypeName	= shaderTypes[shaderTypeNdx].name;
 		const string			name			= string(shaderTypeName) + "_" + tilingName;
 
-		addFunctionCaseWithPrograms(group, name, "", initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, false));
+		addFunctionCaseWithPrograms(group, name, "", checkSupport, initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, false));
 
 		if (getPlaneCount(format) > 1)
-			addFunctionCaseWithPrograms(group, name + "_disjoint", "", initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, false));
+			addFunctionCaseWithPrograms(group, name + "_disjoint", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, false));
 
 		if (tiling == VK_IMAGE_TILING_LINEAR)
 		{
-			addFunctionCaseWithPrograms(group, name + "_mapped", "", initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, true));
+			addFunctionCaseWithPrograms(group, name + "_mapped", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, true));
 
 			if (getPlaneCount(format) > 1)
-				addFunctionCaseWithPrograms(group, name + "_disjoint_mapped", "", initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, true));
+				addFunctionCaseWithPrograms(group, name + "_disjoint_mapped", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, true));
 		}
 	}
 }

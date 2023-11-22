@@ -10,8 +10,15 @@ import os
 import unittest
 
 import common
+from autotest_lib.frontend.afe.json_rpc import proxy
 from autotest_lib.server.lib import status_history
 from autotest_lib.site_utils import lab_inventory
+
+
+# _FAKE_TIME - an arbitrary but plausible time_t value.
+# You can make your own with `date +%s`.
+
+_FAKE_TIME = 1537457599
 
 
 class _FakeHost(object):
@@ -19,6 +26,12 @@ class _FakeHost(object):
 
     def __init__(self, hostname):
         self.hostname = hostname
+
+
+class _FakeHostEvent(object):
+    def __init__(self, time):
+        self.start_time = time
+        self.end_time = time + 1
 
 
 class _FakeHostHistory(object):
@@ -30,11 +43,18 @@ class _FakeHostHistory(object):
         self.host_pool = pool
         self.status = status
         self.host = _FakeHost(hostname)
-
+        self.hostname = hostname
+        self.start_time = _FAKE_TIME
+        self.end_time = _FAKE_TIME + 20
+        self.fake_task = _FakeHostEvent(_FAKE_TIME + 5)
+        self.exception = None
 
     def last_diagnosis(self):
         """Return the recorded diagnosis."""
-        return self.status, None
+        if self.exception:
+            raise self.exception
+        else:
+            return self.status, self.fake_task
 
 
 class _FakeHostLocation(object):
@@ -42,10 +62,8 @@ class _FakeHostLocation(object):
 
     _HOSTNAME_FORMAT = 'chromeos%d-row%d-rack%d-host%d'
 
-
     def __init__(self, location):
         self.hostname = self._HOSTNAME_FORMAT % location
-
 
     @property
     def host(self):
@@ -64,6 +82,43 @@ _BROKEN = status_history.BROKEN
 _UNKNOWN = status_history.UNKNOWN
 
 
+class GetStatusTestCase(unittest.TestCase):
+    """Tests for `_get_diagnosis()`."""
+
+    def _get_diagnosis_status(self, history):
+        return lab_inventory._get_diagnosis(history).status
+
+    def test_working_and_in_range(self):
+        """Test WORKING when task times are in the history range."""
+        history = _FakeHostHistory('', '', _WORKING)
+        history.fake_task = _FakeHostEvent(history.start_time + 1)
+        self.assertEqual(self._get_diagnosis_status(history), _WORKING)
+
+    def test_broken_and_in_range(self):
+        """Test BROKEN when task times are in the history range."""
+        history = _FakeHostHistory('', '', _BROKEN)
+        history.fake_task = _FakeHostEvent(history.start_time + 1)
+        self.assertEqual(self._get_diagnosis_status(history), _BROKEN)
+
+    def test_broken_and_straddles(self):
+        """Test BROKEN when task time straddles the history start point."""
+        history = _FakeHostHistory('', '', _BROKEN)
+        history.fake_task = _FakeHostEvent(history.start_time - 1)
+        self.assertEqual(self._get_diagnosis_status(history), _BROKEN)
+
+    def test_broken_and_out_of_range(self):
+        """Test BROKEN when task times are before the history range."""
+        history = _FakeHostHistory('', '', _BROKEN)
+        history.fake_task = _FakeHostEvent(history.start_time - 2)
+        self.assertEqual(self._get_diagnosis_status(history), _UNUSED)
+
+    def test_exception(self):
+        """Test exceptions raised by `last_diagnosis()`."""
+        history = _FakeHostHistory('', '', _BROKEN)
+        history.exception = proxy.JSONRPCException('exception for testing')
+        self.assertIsNone(self._get_diagnosis_status(history))
+
+
 class HostSetInventoryTestCase(unittest.TestCase):
     """Unit tests for class `_HostSetInventory`.
 
@@ -79,11 +134,9 @@ class HostSetInventoryTestCase(unittest.TestCase):
         super(HostSetInventoryTestCase, self).setUp()
         self.histories = lab_inventory._HostSetInventory()
 
-
     def _add_host(self, status):
         fake = _FakeHostHistory('zebra', lab_inventory.SPARE_POOL, status)
         self.histories.record_host(fake)
-
 
     def _check_counts(self, working, broken, idle):
         """Check that pool counts match expectations.
@@ -102,23 +155,19 @@ class HostSetInventoryTestCase(unittest.TestCase):
         self.assertEqual(self.histories.get_total(),
                          working + broken + idle)
 
-
     def test_empty(self):
         """Test counts when there are no DUTs recorded."""
         self._check_counts(0, 0, 0)
-
 
     def test_broken(self):
         """Test counting for broken DUTs."""
         self._add_host(_BROKEN)
         self._check_counts(0, 1, 0)
 
-
     def test_working(self):
         """Test counting for working DUTs."""
         self._add_host(_WORKING)
         self._check_counts(1, 0, 0)
-
 
     def test_idle(self):
         """Testing counting for idle status values."""
@@ -127,13 +176,11 @@ class HostSetInventoryTestCase(unittest.TestCase):
         self._add_host(_UNKNOWN)
         self._check_counts(0, 0, 2)
 
-
     def test_working_then_broken(self):
         """Test counts after adding a working and then a broken DUT."""
         self._add_host(_WORKING)
         self._add_host(_BROKEN)
         self._check_counts(1, 1, 0)
-
 
     def test_broken_then_working(self):
         """Test counts after adding a broken and then a working DUT."""
@@ -159,11 +206,9 @@ class PoolSetInventoryTestCase(unittest.TestCase):
         super(PoolSetInventoryTestCase, self).setUp()
         self._pool_histories = lab_inventory._PoolSetInventory(self._POOL_SET)
 
-
     def _add_host(self, pool, status):
         fake = _FakeHostHistory('zebra', pool, status)
         self._pool_histories.record_host(fake)
-
 
     def _check_all_counts(self, working, broken):
         """Check that total counts for all pools match expectations.
@@ -179,7 +224,6 @@ class PoolSetInventoryTestCase(unittest.TestCase):
 
         @param working The expected total of working devices.
         @param broken  The expected total of broken devices.
-
         """
         self.assertEqual(self._pool_histories.get_working(), working)
         self.assertEqual(self._pool_histories.get_broken(), broken)
@@ -196,7 +240,6 @@ class PoolSetInventoryTestCase(unittest.TestCase):
         self.assertEqual(count_broken, broken)
         self.assertEqual(count_total, working + broken)
 
-
     def _check_pool_counts(self, pool, working, broken):
         """Check that counts for a given pool match expectations.
 
@@ -207,7 +250,6 @@ class PoolSetInventoryTestCase(unittest.TestCase):
         @param pool    The pool to be checked.
         @param working The expected total of working devices.
         @param broken  The expected total of broken devices.
-
         """
         self.assertEqual(self._pool_histories.get_working(pool),
                          working)
@@ -216,13 +258,11 @@ class PoolSetInventoryTestCase(unittest.TestCase):
         self.assertEqual(self._pool_histories.get_total(pool),
                          working + broken)
 
-
     def test_empty(self):
         """Test counts when there are no DUTs recorded."""
         self._check_all_counts(0, 0)
         for pool in self._POOL_SET:
             self._check_pool_counts(pool, 0, 0)
-
 
     def test_all_working_then_broken(self):
         """Test counts after adding a working and then a broken DUT.
@@ -241,7 +281,6 @@ class PoolSetInventoryTestCase(unittest.TestCase):
             broken += 1
             self._check_pool_counts(pool, 1, 1)
             self._check_all_counts(working, broken)
-
 
     def test_all_broken_then_working(self):
         """Test counts after adding a broken and then a working DUT.
@@ -268,7 +307,6 @@ class LocationSortTests(unittest.TestCase):
     def setUp(self):
         super(LocationSortTests, self).setUp()
 
-
     def _check_sorting(self, *locations):
         """Test sorting a given list of locations.
 
@@ -278,7 +316,6 @@ class LocationSortTests(unittest.TestCase):
         flattens and scrambles the input, runs it through
         `_sort_by_location()`, and asserts that the result matches
         the original.
-
         """
         lab = 0
         expected = []
@@ -296,26 +333,21 @@ class LocationSortTests(unittest.TestCase):
         self.assertEqual({l[0]: l for l in expected},
                          {l[0]: l for l in actual})
 
-
     def test_separate_labs(self):
         """Test that sorting distinguishes labs."""
         self._check_sorting([(1, 1, 1)], [(1, 1, 1)], [(1, 1, 1)])
-
 
     def test_separate_rows(self):
         """Test for proper sorting when only rows are different."""
         self._check_sorting([(1, 1, 1), (9, 1, 1), (10, 1, 1)])
 
-
     def test_separate_racks(self):
         """Test for proper sorting when only racks are different."""
         self._check_sorting([(1, 1, 1), (1, 9, 1), (1, 10, 1)])
 
-
     def test_separate_hosts(self):
         """Test for proper sorting when only hosts are different."""
         self._check_sorting([(1, 1, 1), (1, 1, 9), (1, 1, 10)])
-
 
     def test_diagonal(self):
         """Test for proper sorting when all parts are different."""
@@ -328,14 +360,12 @@ class InventoryScoringTests(unittest.TestCase):
     def setUp(self):
         super(InventoryScoringTests, self).setUp()
 
-
     def _make_buffer_counts(self, *counts):
         """Create a dictionary suitable as `buffer_counts`.
 
         @param counts List of tuples with model count data.
         """
         self._buffer_counts = dict(counts)
-
 
     def _make_history_list(self, repair_counts):
         """Create a list suitable as `repair_list`.
@@ -349,7 +379,6 @@ class InventoryScoringTests(unittest.TestCase):
                 histories.append(
                     _FakeHostHistory(model, pool, _BROKEN))
         return histories
-
 
     def _check_better(self, repair_a, repair_b):
         """Test that repair set A scores better than B.
@@ -370,7 +399,6 @@ class InventoryScoringTests(unittest.TestCase):
                 self._make_history_list(repair_b))
         self.assertGreater(score_a, score_b)
 
-
     def _check_equal(self, repair_a, repair_b):
         """Test that repair set A scores the same as B.
 
@@ -390,7 +418,6 @@ class InventoryScoringTests(unittest.TestCase):
                 self._make_history_list(repair_b))
         self.assertEqual(score_a, score_b)
 
-
     def test_improve_worst_model(self):
         """Test that improving the worst model improves scoring.
 
@@ -407,7 +434,6 @@ class InventoryScoringTests(unittest.TestCase):
         self._check_better([('lion', 1)], [('tiger', 2)])
         self._check_better([('lion', 1)], [('bear', 2)])
         self._check_equal([('tiger', 1)], [('bear', 1)])
-
 
     def test_improve_worst_case_count(self):
         """Test that improving the number of worst cases improves the score.
@@ -470,7 +496,6 @@ class LabInventoryTests(unittest.TestCase):
 
     _MODEL_LIST = ['lion', 'tiger', 'bear'] # Oh, my!
 
-
     def _check_inventory_counts(self, inventory, data, msg=None):
         """Check that all counts in the inventory match `data`.
 
@@ -509,7 +534,6 @@ class LabInventoryTests(unittest.TestCase):
                              sum([p.idle for p in expected_counts]),
                              msg)
 
-
     def test_empty(self):
         """Test counts when there are no DUTs recorded."""
         inventory = create_inventory({})
@@ -517,7 +541,6 @@ class LabInventoryTests(unittest.TestCase):
         self.assertEqual(inventory.get_boards(), set())
         self._check_inventory_counts(inventory, {})
         self.assertEqual(inventory.get_num_models(), 0)
-
 
     def _check_model_count(self, model_count):
         """Parameterized test for testing a specific number of models."""
@@ -538,13 +561,11 @@ class LabInventoryTests(unittest.TestCase):
                              set(models))
         self._check_inventory_counts(inventory, data, msg=msg)
 
-
     def test_model_counts(self):
         """Test counts for various numbers of models."""
         self.longMessage = True
         for model_count in range(0, len(self._MODEL_LIST)):
             self._check_model_count(model_count)
-
 
     def _check_single_dut_counts(self, critical, spare):
         """Parmeterized test for single dut counts."""
@@ -557,7 +578,6 @@ class LabInventoryTests(unittest.TestCase):
         self.assertEqual(inventory.get_num_duts(), 1, msg)
         self.assertEqual(inventory.get_num_models(), 1, msg)
         self._check_inventory_counts(inventory, data, msg=msg)
-
 
     def test_single_dut_counts(self):
         """Test counts when there is a single DUT per board, and it is good."""
@@ -622,8 +642,6 @@ class PoolSetInventoryTests(unittest.TestCase):
             bad, idle, good, spare = [int(x) for x in items[2:-1]]
             self._model_data.append((model, (good, bad, idle, spare)))
 
-
-
     def _make_minimum_spares(self, counts):
         """Create a counts tuple with as few spare DUTs as possible."""
         good, bad, idle, spares = counts
@@ -642,7 +660,6 @@ class PoolSetInventoryTests(unittest.TestCase):
                     StatusCounts(good, 0, idle + bad - spares),
                     StatusCounts(0, bad, spares - bad),
             )
-
 
     def _make_maximum_spares(self, counts):
         """Create a counts tuple with as many spare DUTs as possible."""
@@ -663,14 +680,12 @@ class PoolSetInventoryTests(unittest.TestCase):
                     StatusCounts(good, bad, spares - good - bad),
             )
 
-
     def _check_message(self, message):
         """Checks that message approximately matches expected string."""
         message = [x.strip() for x in message.split('\n') if x.strip()]
         self.assertIn(self._header, message)
         body = message[message.index(self._header) + 1:]
         self.assertEqual(body, self._model_lines)
-
 
     def test_minimum_spares(self):
         """Test message generation when the spares pool is low."""
@@ -692,7 +707,6 @@ class PoolSetInventoryTests(unittest.TestCase):
         message = lab_inventory._generate_model_inventory_message(inventory)
         self._check_message(message)
 
-
     def test_ignore_no_spares(self):
         """Test that messages ignore models with no spare pool."""
         data = {
@@ -704,7 +718,6 @@ class PoolSetInventoryTests(unittest.TestCase):
         message = lab_inventory._generate_model_inventory_message(inventory)
         self._check_message(message)
 
-
     def test_ignore_no_critical(self):
         """Test that messages ignore models with no critical pools."""
         data = {
@@ -715,7 +728,6 @@ class PoolSetInventoryTests(unittest.TestCase):
         inventory = create_inventory(data)
         message = lab_inventory._generate_model_inventory_message(inventory)
         self._check_message(message)
-
 
     def test_ignore_no_bad(self):
         """Test that messages ignore models with no bad DUTs."""
@@ -735,39 +747,36 @@ class _PoolInventoryTestBase(unittest.TestCase):
     Func `setUp` in the class parses a given |message_template| to obtain
     header and body.
     """
+
     def _read_template(self, message_template):
         """Read message template for PoolInventoryTest and IdleInventoryTest.
 
         @param message_template: the input template to be parsed into: header
         and content (report_lines).
-
         """
         message_lines = message_template.split('\n')
         self._header = message_lines[1]
         self._report_lines = message_lines[2:-1]
 
-
     def _check_report_no_info(self, text):
         """Test a message body containing no reported info.
 
-        The input `text` was created from a query to an inventory, which has
-        no objects meet the query and leads to an `empty` return. Assert that
-        the text consists of a single line starting with '(' and ending with ')'.
+        The input `text` was created from a query to an inventory, which
+        has no objects meet the query and leads to an `empty` return.
+        Assert that the text consists of a single line starting with '('
+        and ending with ')'.
 
         @param text: Message body text to be tested.
-
         """
         self.assertTrue(len(text) == 1 and
                             text[0][0] == '(' and
                             text[0][-1] == ')')
-
 
     def _check_report(self, text):
         """Test a message against the passed |expected_content|.
 
         @param text: Message body text to be tested.
         @param expected_content: The ground-truth content to be compared with.
-
         """
         self.assertEqual(text, self._report_lines)
 
@@ -838,7 +847,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
             good = int(items[3])
             self._model_data.append((model, (good, bad, idle)))
 
-
     def _create_histories(self, pools, model_data):
         """Return a list suitable to create a `_LabInventory` object.
 
@@ -858,7 +866,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
                            counts.
         @return A list of `_FakeHostHistory` objects that can be
                 used to create a `_LabInventory` object.
-
         """
         histories = []
         status_choices = (_WORKING, _BROKEN, _UNUSED)
@@ -869,7 +876,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
                         histories.append(
                             _FakeHostHistory(model, pool, status))
         return histories
-
 
     def _parse_pool_summaries(self, histories):
         """Parse message output according to the grammar above.
@@ -891,7 +897,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
                           `_LabInventory` object.
         @return A dictionary mapping model names to the output
                 (a list of lines) for the model.
-
         """
         inventory = lab_inventory._LabInventory(
                 histories, lab_inventory.MANAGED_POOLS)
@@ -929,13 +934,11 @@ class PoolInventoryTests(_PoolInventoryTestBase):
         self.assertEqual(len(poolset), 0)
         return model_text
 
-
     def test_no_shortages(self):
         """Test correct output when no pools have shortages."""
         model_text = self._parse_pool_summaries([])
         for text in model_text.values():
             self._check_report_no_info(text)
-
 
     def test_one_pool_shortage(self):
         """Test correct output when exactly one pool has a shortage."""
@@ -950,7 +953,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
                 else:
                     self._check_report_no_info(text)
 
-
     def test_all_pool_shortages(self):
         """Test correct output when all pools have a shortage."""
         histories = []
@@ -961,7 +963,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
         model_text = self._parse_pool_summaries(histories)
         for pool in lab_inventory.CRITICAL_POOLS:
             self._check_report(model_text[pool])
-
 
     def test_full_model_ignored(self):
         """Test that models at full strength are not reported."""
@@ -975,7 +976,6 @@ class PoolInventoryTests(_PoolInventoryTestBase):
         histories = self._create_histories((pool,), model_data)
         text = self._parse_pool_summaries(histories)[pool]
         self._check_report(text)
-
 
     def test_spare_pool_ignored(self):
         """Test that reporting ignores the spare pool inventory."""
@@ -1007,7 +1007,6 @@ class IdleInventoryTests(_PoolInventoryTestBase):
 
     Parse message text is represented as a list of strings, split on
     the `'\n'` separator.
-
     """
 
     def setUp(self):
@@ -1023,7 +1022,6 @@ class IdleInventoryTests(_PoolInventoryTestBase):
         self._histories.append(_FakeHostHistory('echidna', 'bvt', _BROKEN))
         self._histories.append(_FakeHostHistory('lion', 'bvt', _WORKING))
 
-
     def _add_idles(self):
         """Add idle duts from `_IDLE_MESSAGE_TEMPLATE`."""
         idle_histories = [_FakeHostHistory(
@@ -1031,12 +1029,10 @@ class IdleInventoryTests(_PoolInventoryTestBase):
                         for hostname, model, pool in self._host_data]
         self._histories.extend(idle_histories)
 
-
     def _check_header(self, text):
         """Check whether header in the template `_IDLE_MESSAGE_TEMPLATE` is in
         passed text."""
         self.assertIn(self._header, text)
-
 
     def _get_idle_message(self, histories):
         """Generate idle inventory and obtain its message.
@@ -1044,14 +1040,12 @@ class IdleInventoryTests(_PoolInventoryTestBase):
         @param histories: Used to create lab inventory.
 
         @return the generated idle message.
-
         """
         inventory = lab_inventory._LabInventory(
                 histories, lab_inventory.MANAGED_POOLS)
         message = lab_inventory._generate_idle_inventory_message(
                 inventory).split('\n')
         return message
-
 
     def test_check_idle_inventory(self):
         """Test that reporting all the idle DUTs for every pool, sorted by
@@ -1062,7 +1056,6 @@ class IdleInventoryTests(_PoolInventoryTestBase):
         message = self._get_idle_message(self._histories)
         self._check_header(message)
         self._check_report(message[message.index(self._header) + 1 :])
-
 
     def test_no_idle_inventory(self):
         """Test that reporting no idle DUTs."""
@@ -1077,7 +1070,9 @@ class CommandParsingTests(unittest.TestCase):
 
     # At least one of these options must be specified on every command
     # line; otherwise, the command line parsing will fail.
-    _REPORT_OPTIONS = ['--model-notify=', '--pool-notify=', '--repair-loops']
+    _REPORT_OPTIONS = [
+        '--model-notify=', '--pool-notify=', '--report-untestable'
+    ]
 
     def setUp(self):
         dirpath = '/usr/local/fubar'
@@ -1086,17 +1081,14 @@ class CommandParsingTests(unittest.TestCase):
                                           'arglebargle')
         self._logdir = os.path.join(dirpath, lab_inventory._LOGDIR)
 
-
     def _parse_arguments(self, argv):
         """Test parsing with explictly passed report options."""
         full_argv = [self._command_path] + argv
         return lab_inventory._parse_command(full_argv)
 
-
     def _parse_non_report_arguments(self, argv):
         """Test parsing for non-report command-line options."""
         return self._parse_arguments(argv + self._REPORT_OPTIONS)
-
 
     def _check_non_report_defaults(self, report_option):
         arguments = self._parse_arguments([report_option])
@@ -1108,49 +1100,42 @@ class CommandParsingTests(unittest.TestCase):
         self.assertEqual(arguments.modelnames, [])
         return arguments
 
-
     def test_empty_arguments(self):
         """Test that no reports requested is an error."""
         arguments = self._parse_arguments([])
         self.assertIsNone(arguments)
-
 
     def test_argument_defaults(self):
         """Test that option defaults match expectations."""
         for report in self._REPORT_OPTIONS:
             arguments = self._check_non_report_defaults(report)
 
-
     def test_model_notify_defaults(self):
         """Test defaults when `--model-notify` is specified alone."""
         arguments = self._parse_arguments(['--model-notify='])
         self.assertEqual(arguments.model_notify, [''])
         self.assertEqual(arguments.pool_notify, [])
-        self.assertFalse(arguments.repair_loops)
-
+        self.assertFalse(arguments.report_untestable)
 
     def test_pool_notify_defaults(self):
         """Test defaults when `--pool-notify` is specified alone."""
         arguments = self._parse_arguments(['--pool-notify='])
         self.assertEqual(arguments.model_notify, [])
         self.assertEqual(arguments.pool_notify, [''])
-        self.assertFalse(arguments.repair_loops)
+        self.assertFalse(arguments.report_untestable)
 
-
-    def test_repair_loop_defaults(self):
-        """Test defaults when `--repair-loops` is specified alone."""
-        arguments = self._parse_arguments(['--repair-loops'])
+    def test_report_untestable_defaults(self):
+        """Test defaults when `--report-untestable` is specified alone."""
+        arguments = self._parse_arguments(['--report-untestable'])
         self.assertEqual(arguments.model_notify, [])
         self.assertEqual(arguments.pool_notify, [])
-        self.assertTrue(arguments.repair_loops)
-
+        self.assertTrue(arguments.report_untestable)
 
     def test_model_arguments(self):
         """Test that non-option arguments are returned in `modelnames`."""
         modellist = ['aardvark', 'echidna']
         arguments = self._parse_non_report_arguments(modellist)
         self.assertEqual(arguments.modelnames, modellist)
-
 
     def test_recommend_option(self):
         """Test parsing of the `--recommend` option."""
@@ -1159,12 +1144,10 @@ class CommandParsingTests(unittest.TestCase):
                 arguments = self._parse_non_report_arguments([opt, recommend])
                 self.assertEqual(arguments.recommend, int(recommend))
 
-
     def test_debug_option(self):
         """Test parsing of the `--debug` option."""
         arguments = self._parse_non_report_arguments(['--debug'])
         self.assertTrue(arguments.debug)
-
 
     def test_duration(self):
         """Test parsing of the `--duration` option."""
@@ -1172,7 +1155,6 @@ class CommandParsingTests(unittest.TestCase):
             for duration in ['1', '11']:
                 arguments = self._parse_non_report_arguments([opt, duration])
                 self.assertEqual(arguments.duration, int(duration))
-
 
     def _check_email_option(self, option, getlist):
         """Test parsing of e-mail address options.
@@ -1188,7 +1170,6 @@ class CommandParsingTests(unittest.TestCase):
         @param option  The option to be tested.
         @param getlist A function to return the option's value from
                        parsed command line arguments.
-
         """
         a1 = 'mumble@mumbler.com'
         a2 = 'bumble@bumbler.org'
@@ -1205,18 +1186,15 @@ class CommandParsingTests(unittest.TestCase):
                 [option, ', '.join([a1, a2])])
         self.assertEqual(getlist(arguments), [a1, a2])
 
-
     def test_model_notify(self):
         """Test parsing of the `--model-notify` option."""
         self._check_email_option('--model-notify',
                                  lambda a: a.model_notify)
 
-
     def test_pool_notify(self):
         """Test parsing of the `--pool-notify` option."""
         self._check_email_option('--pool-notify',
                                  lambda a: a.pool_notify)
-
 
     def test_logdir_option(self):
         """Test parsing of the `--logdir` option."""

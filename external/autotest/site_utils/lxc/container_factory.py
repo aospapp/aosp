@@ -103,14 +103,16 @@ class ContainerFactory(object):
                                                snapshot=use_snapshot,
                                                cleanup=self._force_cleanup)
         except error.CmdError:
-            logging.debug('Creating snapshot clone failed. Attempting without '
-                           'snapshot...')
             if not use_snapshot:
                 raise
             else:
-                # Snapshot clone failed, retry clone without snapshot.
+                logging.debug(
+                        'Creating snapshot clone failed.'
+                        ' Attempting without snapshot...'
+                        ' This forces cleanup of old cloned container.'
+                )
                 return self._container_class.clone(src=self._base_container,
                                                    new_name=name,
                                                    new_path=lxc_path,
                                                    snapshot=False,
-                                                   cleanup=self._force_cleanup)
+                                                   cleanup=True)

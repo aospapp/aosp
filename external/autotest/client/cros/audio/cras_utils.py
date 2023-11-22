@@ -93,6 +93,33 @@ def capture_cmd(
     return args
 
 
+def listen_cmd(
+        capture_file, block_size=None, duration=10, channels=1, rate=48000):
+    """Gets a command to listen on hotword and record audio into the file with
+       given settings.
+
+    @param capture_file: the name of file the audio to be stored in.
+    @param block_size: the number of frames per callback(dictates latency).
+    @param duration: seconds to record. If it is None, duration is not set,
+                     and command will keep capturing audio until it is
+                     terminated.
+    @param channels: number of channels.
+    @param rate: the sampling rate.
+
+    @returns: The command args put in a list of strings.
+
+    """
+    args = [_CRAS_TEST_CLIENT]
+    args += ['--listen_for_hotword', capture_file]
+    if block_size is not None:
+        args += ['--block_size', str(block_size)]
+    if duration is not None:
+        args += ['--duration', str(duration)]
+    args += ['--num_channels', str(channels)]
+    args += ['--rate', str(rate)]
+    return args
+
+
 def loopback(*args, **kargs):
     """A helper function to execute loopback_cmd.
 
@@ -256,8 +283,8 @@ def set_capture_mute(is_mute):
 def node_type_is_plugged(node_type, nodes_info):
     """Determine if there is any node of node_type plugged.
 
-    This method is used in has_loopback_dongle in cros_host, where
-    the call is executed on autotest server. Use get_cras_nodes instead if
+    This method is used in the AudioLoopbackDongleLabel class, where the
+    call is executed on autotest server. Use get_cras_nodes instead if
     the call can be executed on Cros device.
 
     Since Cras only reports the plugged node in GetNodes, we can
@@ -358,6 +385,18 @@ def get_selected_output_device_name():
     for node in nodes:
         if node['Active'] and not node['IsInput']:
             return node['DeviceName']
+    return None
+
+
+def get_selected_output_device_type():
+    """Returns the device type of the active output node.
+
+    @returns: device type string. E.g. INTERNAL_SPEAKER
+    """
+    nodes = get_cras_nodes()
+    for node in nodes:
+        if node['Active'] and not node['IsInput']:
+            return node['Type']
     return None
 
 

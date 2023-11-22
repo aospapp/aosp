@@ -4,7 +4,7 @@ from . import DefaultTable
 
 
 class asciiTable(DefaultTable.DefaultTable):
-	
+
 	def toXML(self, writer, ttFont):
 		data = tostr(self.data)
 		# removing null bytes. XXX needed??
@@ -12,12 +12,11 @@ class asciiTable(DefaultTable.DefaultTable):
 		data = strjoin(data)
 		writer.begintag("source")
 		writer.newline()
-		writer.write_noindent(data.replace("\r", "\n"))
+		writer.write_noindent(data)
 		writer.newline()
 		writer.endtag("source")
 		writer.newline()
-	
-	def fromXML(self, name, attrs, content, ttFont):
-		lines = strjoin(content).replace("\r", "\n").split("\n")
-		self.data = tobytes("\r".join(lines[1:-1]))
 
+	def fromXML(self, name, attrs, content, ttFont):
+		lines = strjoin(content).split("\n")
+		self.data = tobytes("\n".join(lines[1:-1]))

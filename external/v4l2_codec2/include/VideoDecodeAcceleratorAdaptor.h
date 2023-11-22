@@ -22,13 +22,6 @@ struct VideoFramePlane {
     uint32_t mStride;
 };
 
-// The HAL pixel format information supported by Android flexible YUV format.
-struct SupportedPixelFormat {
-    bool mCrcb;
-    bool mSemiplanar;
-    HalPixelFormat mPixelFormat;
-};
-
 // Video decoder accelerator adaptor interface.
 // The adaptor plays the role of providing unified adaptor API functions and client callback to
 // codec component side.

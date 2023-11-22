@@ -23,6 +23,39 @@ def connect(bus_loop):
     return dbus.Interface(proxy, 'org.chromium.SessionManagerInterface')
 
 
+def make_device_policy_descriptor():
+    """Create a PolicyDescriptor object for Chrome device policy.
+
+    Creates a PolicyDescriptor suitable for storing and retrieving device policy
+    using Session Manager's policy storage interface.
+
+    @return PolicyDescriptor object for device policy, serialized as byte array.
+    """
+    import policy_descriptor_pb2
+    descriptor = policy_descriptor_pb2.PolicyDescriptor()
+    descriptor.account_type = policy_descriptor_pb2.ACCOUNT_TYPE_DEVICE
+    descriptor.domain = policy_descriptor_pb2.POLICY_DOMAIN_CHROME
+    return dbus.ByteArray(descriptor.SerializeToString())
+
+
+def make_user_policy_descriptor(account_id):
+    """Create a PolicyDescriptor object for Chrome user policy.
+
+    Creates a PolicyDescriptor suitable for storing and retrieving user policy
+    using Session Manager's policy storage interface.
+
+    @param account_id: Account ID of the user to store/retrieve policy for.
+
+    @return PolicyDescriptor object for user policy, serialized as byte array.
+    """
+    import policy_descriptor_pb2
+    descriptor = policy_descriptor_pb2.PolicyDescriptor()
+    descriptor.account_type = policy_descriptor_pb2.ACCOUNT_TYPE_USER
+    descriptor.account_id = account_id
+    descriptor.domain = policy_descriptor_pb2.POLICY_DOMAIN_CHROME
+    return dbus.ByteArray(descriptor.SerializeToString())
+
+
 class SignalListener(object):
     """A class to listen for DBus signals from the session manager.
 

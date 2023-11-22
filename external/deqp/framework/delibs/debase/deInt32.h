@@ -88,6 +88,17 @@ DE_INLINE deUint32 deMinu32 (deUint32 a, deUint32 b)
 }
 
 /*--------------------------------------------------------------------*//*!
+ * \brief Compute the unsigned minimum of two values.
+ * \param a	First input value.
+ * \param b Second input value.
+ * \return The smallest of the two input values.
+ *//*--------------------------------------------------------------------*/
+DE_INLINE deUint64 deMinu64 (deUint64 a, deUint64 b)
+{
+	return (a <= b) ? a : b;
+}
+
+/*--------------------------------------------------------------------*//*!
  * \brief Compute the unsigned maximum of two values.
  * \param a	First input value.
  * \param b Second input value.
@@ -703,6 +714,20 @@ DE_INLINE deInt32 deSignExtendTo32 (deInt32 value, int numBits)
 	else
 		return value;
 }
+
+DE_INLINE int deIntIsPow2(int powerOf2)
+{
+	if (powerOf2 <= 0)
+		return 0;
+	return (powerOf2 & (powerOf2 - (int)1)) == (int)0;
+}
+
+DE_INLINE int deIntRoundToPow2(int number, int powerOf2)
+{
+	DE_ASSERT(deIntIsPow2(powerOf2));
+	return (number + (int)powerOf2 - (int)1) & (int)(~(powerOf2 - 1));
+}
+
 
 DE_END_EXTERN_C
 

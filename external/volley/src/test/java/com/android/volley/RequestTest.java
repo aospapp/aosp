@@ -16,17 +16,37 @@
 
 package com.android.volley;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.MockitoAnnotations.initMocks;
+
+import com.android.volley.Request.Method;
 import com.android.volley.Request.Priority;
+import com.android.volley.toolbox.NoCache;
+import java.util.Collections;
+import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.robolectric.RobolectricTestRunner;
-
-import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
 public class RequestTest {
-    
-    @Test public void compareTo() {
+    private @Mock ResponseDelivery mDelivery;
+    private @Mock Network mNetwork;
+
+    @Before
+    public void setUp() throws Exception {
+        initMocks(this);
+    }
+
+    @Test
+    public void compareTo() {
         int sequence = 0;
         TestRequest low = new TestRequest(Priority.LOW);
         low.setSequence(sequence++);
@@ -45,8 +65,9 @@ public class RequestTest {
         assertTrue(immediate.compareTo(high) < 0);
     }
 
-    private class TestRequest extends Request<Object> {
+    private static class TestRequest extends Request<Object> {
         private Priority mPriority = Priority.NORMAL;
+
         public TestRequest(Priority priority) {
             super(Request.Method.GET, "", null);
             mPriority = priority;
@@ -58,8 +79,7 @@ public class RequestTest {
         }
 
         @Override
-        protected void deliverResponse(Object response) {
-        }
+        protected void deliverResponse(Object response) {}
 
         @Override
         protected Response<Object> parseNetworkResponse(NetworkResponse response) {
@@ -67,7 +87,8 @@ public class RequestTest {
         }
     }
 
-    @Test public void urlParsing() {
+    @Test
+    public void urlParsing() {
         UrlParseRequest nullUrl = new UrlParseRequest(null);
         assertEquals(0, nullUrl.getTrafficStatsTag());
         UrlParseRequest emptyUrl = new UrlParseRequest("");
@@ -80,18 +101,132 @@ public class RequestTest {
         assertFalse(0 == goodProtocol.getTrafficStatsTag());
     }
 
-    private class UrlParseRequest extends Request<Object> {
-        public UrlParseRequest(String url) {
-            super(Request.Method.GET, url, null);
+    @Test
+    public void getCacheKey() {
+        assertEquals(
+                "http://example.com",
+                new UrlParseRequest(Method.GET, "http://example.com").getCacheKey());
+        assertEquals(
+                "http://example.com",
+                new UrlParseRequest(Method.DEPRECATED_GET_OR_POST, "http://example.com")
+                        .getCacheKey());
+        assertEquals(
+                "1-http://example.com",
+                new UrlParseRequest(Method.POST, "http://example.com").getCacheKey());
+        assertEquals(
+                "2-http://example.com",
+                new UrlParseRequest(Method.PUT, "http://example.com").getCacheKey());
+    }
+
+    private static class UrlParseRequest extends Request<Object> {
+        UrlParseRequest(String url) {
+            this(Method.GET, url);
+        }
+
+        UrlParseRequest(int method, String url) {
+            super(method, url, null);
         }
 
         @Override
-        protected void deliverResponse(Object response) {
-        }
+        protected void deliverResponse(Object response) {}
 
         @Override
         protected Response<Object> parseNetworkResponse(NetworkResponse response) {
             return null;
         }
+    }
+
+    @Test
+    public void nullKeyInPostParams() throws Exception {
+        Request<Object> request =
+                new Request<Object>(Method.POST, "url", null) {
+                    @Override
+                    protected void deliverResponse(Object response) {}
+
+                    @Override
+                    protected Response<Object> parseNetworkResponse(NetworkResponse response) {
+                        return null;
+                    }
+
+                    @Override
+                    protected Map<String, String> getParams() {
+                        return Collections.singletonMap(null, "value");
+                    }
+
+                    @Override
+                    protected Map<String, String> getPostParams() {
+                        return Collections.singletonMap(null, "value");
+                    }
+                };
+        try {
+            request.getBody();
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+        try {
+            request.getPostBody();
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void nullValueInPostParams() throws Exception {
+        Request<Object> request =
+                new Request<Object>(Method.POST, "url", null) {
+                    @Override
+                    protected void deliverResponse(Object response) {}
+
+                    @Override
+                    protected Response<Object> parseNetworkResponse(NetworkResponse response) {
+                        return null;
+                    }
+
+                    @Override
+                    protected Map<String, String> getParams() {
+                        return Collections.singletonMap("key", null);
+                    }
+
+                    @Override
+                    protected Map<String, String> getPostParams() {
+                        return Collections.singletonMap("key", null);
+                    }
+                };
+        try {
+            request.getBody();
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+        try {
+            request.getPostBody();
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void sendEvent_notifiesListeners() throws Exception {
+        RequestQueue.RequestEventListener listener = mock(RequestQueue.RequestEventListener.class);
+        RequestQueue queue = new RequestQueue(new NoCache(), mNetwork, 0, mDelivery);
+        queue.addRequestEventListener(listener);
+
+        Request<Object> request =
+                new Request<Object>(Method.POST, "url", null) {
+                    @Override
+                    protected void deliverResponse(Object response) {}
+
+                    @Override
+                    protected Response<Object> parseNetworkResponse(NetworkResponse response) {
+                        return null;
+                    }
+                };
+        request.setRequestQueue(queue);
+
+        request.sendEvent(RequestQueue.RequestEvent.REQUEST_NETWORK_DISPATCH_STARTED);
+
+        verify(listener)
+                .onRequestEvent(
+                        request, RequestQueue.RequestEvent.REQUEST_NETWORK_DISPATCH_STARTED);
+        verifyNoMoreInteractions(listener);
     }
 }

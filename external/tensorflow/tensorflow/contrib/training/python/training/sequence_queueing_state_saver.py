@@ -876,7 +876,7 @@ class SequenceQueueingStateSaver(object):
         ]):
           self._length = array_ops.identity(self._length)
 
-        # Only create barrier; enqueu and dequeue operations happen when you
+        # Only create barrier; enqueue and dequeue operations happen when you
         # access prefetch_op and next_batch.
         self._create_barrier()
         self._scope = scope
@@ -988,14 +988,14 @@ class SequenceQueueingStateSaver(object):
     assert isinstance(sequences, dict)
     assert isinstance(context, dict)
     assert isinstance(states, dict)
-    self._name_to_index = dict(
-        (name, ix)
+    self._name_to_index = {
+        name: ix
         for (ix, name) in enumerate([
             "__length", "__total_length", "__next_key", "__sequence",
             "__sequence_count"
         ] + ["__sequence__%s" % k for k in sequences.keys()] + [
             "__context__%s" % k for k in context.keys()
-        ] + ["__state__%s" % k for k in states.keys()]))
+        ] + ["__state__%s" % k for k in states.keys()])}
     self._index_to_name = [
         name
         for (name, _) in sorted(
@@ -1574,8 +1574,9 @@ def _padding(sequences, num_unroll):
   if not sequences:
     return 0, {}
 
-  sequences_dict = {}
-  for key, value in sequences.items():
+  # Sort 'sequences_dict' so 'length' will have a predictable value below.
+  sequences_dict = collections.OrderedDict()
+  for key, value in sorted(sequences.items()):
     if not (isinstance(value, sparse_tensor.SparseTensor) or
             isinstance(value, sparse_tensor.SparseTensorValue)):
       sequences_dict[key] = ops.convert_to_tensor(value)
@@ -1596,7 +1597,7 @@ def _padding(sequences, num_unroll):
   else:  # Only have SparseTensors
     sparse_lengths = [value.dense_shape[0] for value in sequences_dict.values()
                       if isinstance(value, sparse_tensor.SparseTensor)]
-    length = math_ops.reduce_max(math_ops.to_int32(sparse_lengths))
+    length = math_ops.reduce_max(math_ops.cast(sparse_lengths, dtypes.int32))
 
   unroll = array_ops.constant(num_unroll)
   padded_length = length + ((unroll - (length % unroll)) % unroll)
@@ -1619,8 +1620,9 @@ def _padding(sequences, num_unroll):
       # 3. concat values with paddings
       padded_sequences[key] = array_ops.concat([value, paddings], 0)
     else:
-      padded_shape = array_ops.concat([[math_ops.to_int64(padded_length)],
-                                       value.dense_shape[1:]], 0)
+      padded_shape = array_ops.concat(
+          [[math_ops.cast(padded_length, dtypes.int64)], value.dense_shape[1:]],
+          0)
       padded_sequences[key] = sparse_tensor.SparseTensor(
           indices=value.indices,
           values=value.values,
@@ -1636,7 +1638,7 @@ def _move_sparse_tensor_out_context(input_context, input_sequences, num_unroll):
 
   For `key, value` pairs in `input_context` with `SparseTensor` `value` removes
   them from `input_context` and transforms the `value` into a sequence and
-  then adding `key`, transformed `value` into `input_seuqences`.
+  then adding `key`, transformed `value` into `input_sequences`.
   The transformation is done by adding a new first dimension of `value_length`
   equal to that of the other values in input_sequences` and tiling the `value`
   every `num_unroll` steps.
@@ -1833,8 +1835,8 @@ def _reconstruct_sparse_tensor_seq(sequence,
     Returns:
       A SparseTensor with a +1 higher rank than the input.
     """
-    idx_batch = math_ops.to_int64(
-        math_ops.floor(sp_tensor.indices[:, 0] / num_unroll))
+    idx_batch = math_ops.cast(
+        math_ops.floor(sp_tensor.indices[:, 0] / num_unroll), dtypes.int64)
     idx_time = math_ops.mod(sp_tensor.indices[:, 0], num_unroll)
     indices = array_ops.concat(
         [

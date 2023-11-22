@@ -59,6 +59,14 @@ _ETC_LSB_RELEASE = '/etc/lsb-release'
 # ChromeOS update engine client binary location
 _UPDATE_ENGINE_CLIENT = '/usr/bin/update_engine_client'
 
+# Set the suite timeout per suite in minutes
+# default is 24 hours
+_DEFAULT_SUITE_TIMEOUT_MINS = 1440
+_SUITE_TIMEOUT_MAP = {
+    'hardware_storagequal': 40320,
+    'hardware_storagequal_quick': 40320
+}
+
 # Full path to the correct gsutil command to run.
 class GsUtil:
     """Helper class to find correct gsutil command."""
@@ -970,8 +978,8 @@ def _run_bucket_performance_test(key_id, key_secret, bucket_name,
 # also need to make changes at MoblabRpcHelper.java
 @rpc_utils.moblab_only
 def run_suite(board, build, suite, model=None, ro_firmware=None,
-              rw_firmware=None, pool=None, suite_args=None, bug_id=None,
-              part_id=None):
+              rw_firmware=None, pool=None, suite_args=None, test_args=None,
+              bug_id=None, part_id=None):
     """ RPC handler to run a test suite.
 
     @param board: a board name connected to the moblab.
@@ -982,14 +990,17 @@ def run_suite(board, build, suite, model=None, ro_firmware=None,
     @param rw_firmware: Optional rw firmware build number to use.
     @param pool: Optional pool name to run the suite in.
     @param suite_args: Arguments to be used in the suite control file.
-    @param bug_id: Optilnal bug ID used for AVL qualification process.
-    @param part_id: Optilnal part ID used for AVL qualification
+    @param test_args: '\n' delimited key=val pairs passed to test control file.
+    @param bug_id: Optional bug ID used for AVL qualification process.
+    @param part_id: Optional part ID used for AVL qualification
     process.
 
     @return: None
     """
     builds = {'cros-version': build}
+    # TODO(mattmallett b/92031054) Standardize bug id, part id passing for memory/storage qual
     processed_suite_args = dict()
+    processed_test_args = dict()
     if rw_firmware:
         builds['fwrw-version'] = rw_firmware
     if ro_firmware:
@@ -1001,25 +1012,41 @@ def run_suite(board, build, suite, model=None, ro_firmware=None,
         processed_suite_args['bug_id'] = bug_id
     if part_id:
         processed_suite_args['part_id'] = part_id
+    processed_test_args['bug_id'] = bug_id or ''
+    processed_test_args['part_id'] = part_id or ''
+
 
     # set processed_suite_args to None instead of empty dict when there is no
     # argument in processed_suite_args
     if len(processed_suite_args) == 0:
         processed_suite_args = None
 
-    test_args = {}
+    if test_args:
+        try:
+          processed_test_args['args'] = [test_args]
+          for line in test_args.split('\n'):
+              key, value = line.strip().split('=')
+              processed_test_args[key] = value
+        except:
+            raise error.RPCException('Could not parse test args.')
+
 
     ap_name =_CONFIG.get_config_value('MOBLAB', _WIFI_AP_NAME, default=None)
-    test_args['ssid'] = ap_name
+    processed_test_args['ssid'] = ap_name
     ap_pass =_CONFIG.get_config_value('MOBLAB', _WIFI_AP_PASS, default='')
-    test_args['wifipass'] = ap_pass
+    processed_test_args['wifipass'] = ap_pass
+
+    suite_timeout_mins = _SUITE_TIMEOUT_MAP.get(
+            suite, _DEFAULT_SUITE_TIMEOUT_MINS)
 
     afe = frontend.AFE(user='moblab')
     afe.run('create_suite_job', board=board, builds=builds, name=suite,
             pool=pool, run_prod_code=False, test_source_build=build,
             wait_for_results=True, suite_args=processed_suite_args,
-            test_args=test_args, job_retry=True, max_retries=sys.maxint,
-            model=model)
+            test_args=processed_test_args, job_retry=True,
+            max_retries=sys.maxint, model=model,
+            timeout_mins=suite_timeout_mins,
+            max_runtime_mins=suite_timeout_mins)
 
 
 def _enable_notification_using_credentials_in_bucket():

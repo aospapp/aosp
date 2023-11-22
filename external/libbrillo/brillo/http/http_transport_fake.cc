@@ -64,7 +64,7 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
 }
 
 void Transport::RunCallbackAsync(
-    const tracked_objects::Location& /* from_here */,
+    const base::Location& /* from_here */,
     const base::Closure& callback) {
   if (!async_) {
     callback.Run();

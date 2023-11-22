@@ -1,6 +1,6 @@
 include_directories(../include)
 
-if (FIPS)
+if(FIPS)
   add_executable(
     cavp
 
@@ -25,17 +25,18 @@ if (FIPS)
     cavp_tlskdf_test.cc
 
     cavp_test_util.cc
-
-    $<TARGET_OBJECTS:test_support>
   )
+
+  add_dependencies(cavp global_target)
 
   add_executable(
     test_fips
 
     test_fips.c
-    $<TARGET_OBJECTS:test_support>
   )
 
-  target_link_libraries(cavp crypto)
-  target_link_libraries(test_fips crypto)
+  add_dependencies(test_fips global_target)
+
+  target_link_libraries(cavp test_support_lib crypto)
+  target_link_libraries(test_fips test_support_lib crypto)
 endif()

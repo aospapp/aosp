@@ -24,19 +24,20 @@ from tensorflow.python.framework import common_shapes
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import tensor_shape
+from tensorflow.python.util.tf_export import tf_export
 
 
+@tf_export("TensorSpec")
 class TensorSpec(object):
   """Describes a tf.Tensor.
 
-  A TensorSpec allows an API to describe the Tensors that it accepts or
-  returns, before that Tensor exists. This allows dynamic and flexible graph
-  construction and configuration.
+  Metadata for describing the `tf.Tensor` objects accepted or returned
+  by some TensorFlow APIs.
   """
 
-  __slots__ = ["_shape", "_dtype", "_name"]
+  __slots__ = ["_shape", "_shape_tuple", "_dtype", "_name"]
 
-  def __init__(self, shape, dtype, name=None):
+  def __init__(self, shape, dtype=dtypes.float32, name=None):
     """Creates a TensorSpec.
 
     Args:
@@ -49,6 +50,10 @@ class TensorSpec(object):
         not convertible to a `tf.DType`.
     """
     self._shape = tensor_shape.TensorShape(shape)
+    try:
+      self._shape_tuple = tuple(self.shape.as_list())
+    except ValueError:
+      self._shape_tuple = None
     self._dtype = dtypes.as_dtype(dtype)
     self._name = name
 
@@ -77,11 +82,21 @@ class TensorSpec(object):
 
   @property
   def name(self):
-    """Returns the name of the described tensor."""
+    """Returns the (optionally provided) name of the described tensor."""
     return self._name
 
   def is_compatible_with(self, spec_or_tensor):
-    """True if the shape and dtype of `spec_or_tensor` are compatible."""
+    """Returns True if spec_or_tensor is compatible with this TensorSpec.
+
+    Two tensors are considered compatible if they have the same dtype
+    and their shapes are compatible (see `tf.TensorShape.is_compatible_with`).
+
+    Args:
+      spec_or_tensor: A tf.TensorSpec or a tf.Tensor
+
+    Returns:
+      True if spec_or_tensor is compatible with self.
+    """
     return (self._dtype.is_compatible_with(spec_or_tensor.dtype) and
             self._shape.is_compatible_with(spec_or_tensor.shape))
 
@@ -89,11 +104,19 @@ class TensorSpec(object):
     return "TensorSpec(shape={}, dtype={}, name={})".format(
         self.shape, repr(self.dtype), repr(self.name))
 
+  def __hash__(self):
+    return hash((self._shape_tuple, self.dtype))
+
   def __eq__(self, other):
-    return self.shape == other.shape and self.dtype == other.dtype
+    return (self._shape_tuple == other._shape_tuple  # pylint: disable=protected-access
+            and self.dtype == other.dtype
+            and self._name == other._name)  # pylint: disable=protected-access
 
   def __ne__(self, other):
     return not self == other
+
+  def __reduce__(self):
+    return TensorSpec, (self._shape, self._dtype, self._name)
 
 
 class BoundedTensorSpec(TensorSpec):
@@ -166,16 +189,8 @@ class BoundedTensorSpec(TensorSpec):
   @classmethod
   def from_spec(cls, spec):
     dtype = dtypes.as_dtype(spec.dtype)
-    if dtype in [dtypes.float64, dtypes.float32]:
-      # Avoid under/over-flow for `dtype.maximum - dtype.minimum`.
-      low = dtype.min / 2
-      high = dtype.max / 2
-    else:
-      low = dtype.min
-      high = dtype.max
-
-    minimum = getattr(spec, "minimum", low)
-    maximum = getattr(spec, "maximum", high)
+    minimum = getattr(spec, "minimum", dtype.min)
+    maximum = getattr(spec, "maximum", dtype.max)
     return BoundedTensorSpec(spec.shape, dtype, minimum, maximum, spec.name)
 
   @property
@@ -198,4 +213,6 @@ class BoundedTensorSpec(TensorSpec):
     return (tensor_spec_eq and np.allclose(self.minimum, other.minimum) and
             np.allclose(self.maximum, other.maximum))
 
-
+  def __reduce__(self):
+    return BoundedTensorSpec, (self._shape, self._dtype, self._minimum,
+                               self._maximum, self._name)

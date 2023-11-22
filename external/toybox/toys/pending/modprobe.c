@@ -66,7 +66,7 @@ static char *path2mod(char *file, char *mod)
 
   if (!file) return NULL;
   if (!mod) mod = xmalloc(MODNAME_LEN);
-	
+
   from = getbasename(file);
   
   for (i = 0; i < (MODNAME_LEN-1) && from[i] && from[i] != '.'; i++)
@@ -375,8 +375,8 @@ static int ins_mod(char *modules, char *flags)
 #ifdef __NR_finit_module
   res = syscall(__NR_finit_module, fd, toybuf, 0);
   if (!res || errno != ENOSYS) {
-	  xclose(fd);
-	  return res;
+    xclose(fd);
+    return res;
   }
 #endif
 
@@ -480,11 +480,12 @@ static int go_probe(struct module_s *m)
       continue;
     }
     // none of above is true insert the module.
+    errno = 0;
     rc = ins_mod(fn, options);
     if (toys.optflags&FLAG_v)
-      printf("loaded %s '%s', rc:%d\n", fn, options, rc);
-    if (rc == EEXIST) rc = 0;
-    if (options) free(options);
+      printf("loaded %s '%s': %s\n", fn, options, strerror(errno));
+    if (errno == EEXIST) rc = 0;
+    free(options);
     if (rc) {
       perror_msg("can't load module %s (%s)", m2->name, fn);
       break;
@@ -506,7 +507,7 @@ void modprobe_main(void)
   if ((toys.optc < 1) && (((flags & FLAG_r) && (flags & FLAG_l))
         ||(!((flags & FLAG_r)||(flags & FLAG_l)))))
   {
-	  help_exit("bad syntax");
+    help_exit("bad syntax");
   }
   // Check for -r flag without arg if yes then do auto remove.
   if ((flags & FLAG_r) && !toys.optc) {
@@ -524,8 +525,7 @@ void modprobe_main(void)
   if (flags & FLAG_l) {
     for (dirs = TT.dirs; dirs; dirs = dirs->next) {
       xchdir(dirs->arg);
-      if (!depmode_read_entry(toys.optargs[0]))
-	      return;
+      if (!depmode_read_entry(toys.optargs[0])) return;
     }
     error_exit("no module found.");
   }
@@ -552,8 +552,8 @@ void modprobe_main(void)
     if (toys.optflags&FLAG_v) puts("All modules loaded");
     return;
   }
-  dirtree_read("/etc/modprobe.conf", config_action);
-  dirtree_read("/etc/modprobe.d", config_action);
+  dirtree_flagread("/etc/modprobe.conf", DIRTREE_SHUTUP, config_action);
+  dirtree_flagread("/etc/modprobe.d", DIRTREE_SHUTUP, config_action);
 
   for (dirs = TT.dirs; dirs; dirs = dirs->next) {
     xchdir(dirs->arg);
@@ -562,8 +562,8 @@ void modprobe_main(void)
   }
 
   for (dirs = TT.dirs; dirs; dirs = dirs->next) {
-	  xchdir(dirs->arg);
-	  find_dep();
+    xchdir(dirs->arg);
+    find_dep();
   }
 
   while ((module = llist_popme(&TT.probes))) {

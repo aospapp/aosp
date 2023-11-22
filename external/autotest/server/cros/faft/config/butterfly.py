@@ -8,3 +8,4 @@
 class Values(object):
     """FAFT config values for Butterfly."""
     dark_resume_capable = True
+    smm_store = False

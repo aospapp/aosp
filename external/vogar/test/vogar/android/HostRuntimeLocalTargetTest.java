@@ -68,30 +68,34 @@ public class HostRuntimeLocalTargetTest extends AbstractModeTest {
         List<String> args = command.getArgs();
         args = replaceEnvironmentVariables(args);
 
-        assertEquals(Arrays.asList(
-                "sh", "-c", ""
-                        + "ANDROID_PRINTF_LOG=tag"
-                        + " ANDROID_LOG_TAGS=*:i"
-                        + " ANDROID_DATA=" + run.localFile("android-data")
-                        + " ANDROID_ROOT=${ANDROID_BUILD_TOP}/out/host/linux-x86"
-                        + " LD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
-                        + " DYLD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
-                        + " LD_USE_LOAD_BIAS=1"
-                        + " ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/dalvikvm32"
-                        + " -classpath classes"
-                        + " -Xbootclasspath"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-oj-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-libart-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/conscrypt-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/okhttp-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/bouncycastle-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/apache-xml-hostdex.jar"
-                        + " -Duser.language=en"
-                        + " -Duser.region=US"
-                        + " -Xcheck:jni"
-                        + " -Xjnigreflimit:2000"
-                        + " mainclass"
-                        + " -x a\\ b"), args);
+        String expectedCommandString = ""
+                + "ANDROID_PRINTF_LOG=tag"
+                + " ANDROID_LOG_TAGS=*:i"
+                + " ANDROID_DATA=" + run.localFile("android-data")
+                + " ANDROID_ROOT=${ANDROID_BUILD_TOP}/out/host/linux-x86"
+                + " ANDROID_RUNTIME_ROOT="
+                + "${ANDROID_BUILD_TOP}/out/host/linux-x86/com.android.runtime"
+                + " ANDROID_TZDATA_ROOT="
+                + "${ANDROID_BUILD_TOP}/out/host/linux-x86/com.android.tzdata"
+                + " LD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
+                + " DYLD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
+                + " LD_USE_LOAD_BIAS=1"
+                + " ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/dalvikvm"
+                + " -classpath classes"
+                + " -Xbootclasspath"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-oj-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-libart-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/conscrypt-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/okhttp-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/bouncycastle-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/apache-xml-hostdex.jar"
+                + " -Duser.language=en"
+                + " -Duser.region=US"
+                + " -Xcheck:jni"
+                + " -Xjnigreflimit:2000"
+                + " mainclass"
+                + " -x a\\ b";
+        assertEquals(Arrays.asList("sh", "-c", expectedCommandString), args);
     }
 
     public List<String> replaceEnvironmentVariables(List<String> args) {
@@ -123,28 +127,32 @@ public class HostRuntimeLocalTargetTest extends AbstractModeTest {
         List<String> args = command.getArgs();
         args = replaceEnvironmentVariables(args);
 
-        assertEquals(Arrays.asList(
-                "sh", "-c", ""
-                        + "ANDROID_PRINTF_LOG=tag"
-                        + " ANDROID_LOG_TAGS=*:i"
-                        + " ANDROID_DATA=" + run.localFile("android-data")
-                        + " ANDROID_ROOT=${ANDROID_BUILD_TOP}/out/host/linux-x86"
-                        + " LD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
-                        + " DYLD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
-                        + " LD_USE_LOAD_BIAS=1"
-                        + " ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/dalvikvm32"
-                        + " -classpath classes"
-                        + " -Xbootclasspath"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-oj-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-libart-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/conscrypt-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/okhttp-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/bouncycastle-hostdex.jar"
-                        + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/apache-xml-hostdex.jar"
-                        + " -Duser.language=en"
-                        + " -Duser.region=US"
-                        + " -Xjnigreflimit:2000"
-                        + " mainclass"
-                        + " -x a\\ b"), args);
+        String expectedCommandString = ""
+                + "ANDROID_PRINTF_LOG=tag"
+                + " ANDROID_LOG_TAGS=*:i"
+                + " ANDROID_DATA=" + run.localFile("android-data")
+                + " ANDROID_ROOT=${ANDROID_BUILD_TOP}/out/host/linux-x86"
+                + " ANDROID_RUNTIME_ROOT="
+                + "${ANDROID_BUILD_TOP}/out/host/linux-x86/com.android.runtime"
+                + " ANDROID_TZDATA_ROOT="
+                + "${ANDROID_BUILD_TOP}/out/host/linux-x86/com.android.tzdata"
+                + " LD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
+                + " DYLD_LIBRARY_PATH=${ANDROID_BUILD_TOP}/out/host/linux-x86/lib"
+                + " LD_USE_LOAD_BIAS=1"
+                + " ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/dalvikvm"
+                + " -classpath classes"
+                + " -Xbootclasspath"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-oj-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/core-libart-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/conscrypt-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/okhttp-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/bouncycastle-hostdex.jar"
+                + ":${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/apache-xml-hostdex.jar"
+                + " -Duser.language=en"
+                + " -Duser.region=US"
+                + " -Xjnigreflimit:2000"
+                + " mainclass"
+                + " -x a\\ b";
+        assertEquals(Arrays.asList("sh", "-c", expectedCommandString), args);
     }
 }

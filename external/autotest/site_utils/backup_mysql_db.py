@@ -66,7 +66,7 @@ _DAILY = 'daily'
 _WEEKLY = 'weekly'
 _MONTHLY = 'monthly'
 
-# Back up server db
+# Dump of server db only
 _SERVER_DB = 'server_db'
 
 # Contrary to a conventional mysql dump which takes O(hours) on large databases,
@@ -75,7 +75,8 @@ _SERVER_DB = 'server_db'
 # is backed up to google storage.
 _ONLY_HOSTS = 'only_hosts'
 _ONLY_SHARDS = 'only_shards'
-_SCHEDULER_TYPES = [_SERVER_DB, _ONLY_HOSTS, _ONLY_SHARDS, _DAILY, _WEEKLY, _MONTHLY]
+_SCHEDULER_TYPES = [_SERVER_DB, _ONLY_HOSTS, _ONLY_SHARDS, _REPLICATION,
+                    _DAILY, _WEEKLY, _MONTHLY]
 
 class BackupError(Exception):
   """Raised for error occurred during backup."""
@@ -137,6 +138,8 @@ class MySqlArchiver(object):
         extra_dump_args = ''
         for entry in IGNORE_TABLES:
             extra_dump_args += '--ignore-table=%s ' % entry
+        if self._type in [_WEEKLY, _MONTHLY]:
+            extra_dump_args += '--dump-slave '
 
         if not self._db:
             extra_dump_args += "--all-databases"

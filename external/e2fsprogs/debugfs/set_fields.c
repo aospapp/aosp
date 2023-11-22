@@ -75,8 +75,10 @@ static errcode_t parse_gd_csum(struct field_set_info *info, char *field, char *a
 static errcode_t parse_mmp_clear(struct field_set_info *info, char *field,
 				 char *arg);
 
+#if __GNUC_PREREQ (4, 6) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
 
 static struct field_set_info super_fields[] = {
 	{ "inodes_count", &set_sb.s_inodes_count, NULL, 4, parse_uint },
@@ -212,7 +214,6 @@ static struct field_set_info inode_fields[] = {
 	/* Special case: i_file_acl_high is 2 bytes */
 	{ "file_acl", &set_inode.i_file_acl, 
 		&set_inode.osd2.linux2.l_i_file_acl_high, 6, parse_uint },
-	{ "dir_acl", &set_inode.i_dir_acl, NULL, 4, parse_uint, FLAG_ALIAS },
 	{ "faddr", &set_inode.i_faddr, NULL, 4, parse_uint },
 	{ "frag", &set_inode.osd2.hurd2.h_i_frag, NULL, 1, parse_uint, FLAG_ALIAS },
 	{ "fsize", &set_inode.osd2.hurd2.h_i_fsize, NULL, 1, parse_uint },
@@ -290,7 +291,9 @@ static struct field_set_info mmp_fields[] = {
 	{ "checksum", &set_mmp.mmp_checksum, NULL, 4, parse_uint },
 	{ 0, 0, 0, 0 }
 };
+#if __GNUC_PREREQ (4, 6)
 #pragma GCC diagnostic pop
+#endif
 
 #ifdef UNITTEST
 
@@ -430,7 +433,7 @@ static struct field_set_info *find_field(struct field_set_info *fields,
 
 /*
  * Note: info->size == 6 is special; this means a base size 4 bytes,
- * and secondiory (high) size of 2 bytes.  This is needed for the
+ * and secondary (high) size of 2 bytes.  This is needed for the
  * special case of i_blocks_high and i_file_acl_high.
  */
 static errcode_t parse_uint(struct field_set_info *info, char *field,
@@ -496,7 +499,7 @@ static errcode_t parse_uint(struct field_set_info *info, char *field,
 	}
 	if (!field2)
 		return 0;
-	n = num >> (size*8);
+	n = (size == 8) ? 0 : (num >> (size*8));
 	u.ptr8 = (__u8 *) field2;
 	if (info->size == 6)
 		size = 2;
@@ -720,7 +723,8 @@ static void print_possible_fields(struct field_set_info *fields)
 }
 
 
-void do_set_super(int argc, char *argv[])
+void do_set_super(int argc, char *argv[], int sci_idx EXT2FS_ATTR((unused)),
+		  void *infop EXT2FS_ATTR((unused)))
 {
 	const char *usage = "<field> <value>\n"
 		"\t\"set_super_value -l\" will list the names of "
@@ -747,7 +751,8 @@ void do_set_super(int argc, char *argv[])
 	}
 }
 
-void do_set_inode(int argc, char *argv[])
+void do_set_inode(int argc, char *argv[], int sci_idx EXT2FS_ATTR((unused)),
+		  void *infop EXT2FS_ATTR((unused)))
 {
 	const char *usage = "<inode> <field> <value>\n"
 		"\t\"set_inode_field -l\" will list the names of "
@@ -785,10 +790,12 @@ void do_set_inode(int argc, char *argv[])
 	}
 }
 
-void do_set_block_group_descriptor(int argc, char *argv[])
+void do_set_block_group_descriptor(int argc, char *argv[],
+				   int sci_idx EXT2FS_ATTR((unused)),
+				   void *infop EXT2FS_ATTR((unused)))
 {
 	const char *usage = "<bg number> <field> <value>\n"
-		"\t\"set_block_group_descriptor -l\" will list the names of "
+		"\t\"set_block_group -l\" will list the names of "
 		"the fields in a block group descriptor\n\twhich can be set.";
 	struct field_set_info	*table;
 	struct field_set_info	*ss;
@@ -819,7 +826,7 @@ void do_set_block_group_descriptor(int argc, char *argv[])
 		return;
 	}
 
-	if (common_args_process(argc, argv, 4, 4, "set_block_group_descriptor",
+	if (common_args_process(argc, argv, 4, 4, "set_block_group",
 				usage, CHECK_FS_RW))
 		return;
 
@@ -863,7 +870,8 @@ static errcode_t parse_mmp_clear(struct field_set_info *info,
 }
 
 #ifdef CONFIG_MMP
-void do_set_mmp_value(int argc, char *argv[])
+void do_set_mmp_value(int argc, char *argv[], int sci_idx EXT2FS_ATTR((unused)),
+		      void *infop EXT2FS_ATTR((unused)))
 {
 	const char *usage = "<field> <value>\n"
 		"\t\"set_mmp_value -l\" will list the names of "
@@ -922,7 +930,9 @@ void do_set_mmp_value(int argc, char *argv[])
 }
 #else
 void do_set_mmp_value(int argc EXT2FS_ATTR((unused)),
-		      char *argv[] EXT2FS_ATTR((unused)))
+		      char *argv[] EXT2FS_ATTR((unused)),
+		      int sci_idx EXT2FS_ATTR((unused)),
+		      void *infop EXT2FS_ATTR((unused)))
 {
 	fprintf(stdout, "MMP is unsupported, please recompile with "
 	                "--enable-mmp\n");

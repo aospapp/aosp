@@ -17,13 +17,13 @@
 %                               September 2002                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -133,11 +133,14 @@ MagickExport const char *GetMagickDelegates(void)
 #if defined(MAGICKCORE_FREETYPE_DELEGATE)
   "freetype "
 #endif
-#if defined(MAGICKCORE_GS_DELEGATE)
+#if defined(MAGICKCORE_GS_DELEGATE) || defined(MAGICKCORE_WINDOWS_SUPPORT)
   "gslib "
 #endif
 #if defined(MAGICKCORE_GVC_DELEGATE)
   "gvc "
+#endif
+#if defined(MAGICKCORE_HEIC_DELEGATE)
+  "heic "
 #endif
 #if defined(MAGICKCORE_JBIG_DELEGATE)
   "jbig "
@@ -172,8 +175,12 @@ MagickExport const char *GetMagickDelegates(void)
 #if defined(MAGICKCORE_PNG_DELEGATE)
   "png "
 #endif
-#if defined(MAGICKCORE_DPS_DELEGATE) || defined(MAGICKCORE_GS_DELEGATE) || defined(WIN32)
+#if defined(MAGICKCORE_DPS_DELEGATE) || defined(MAGICKCORE_GS_DELEGATE) || \
+    defined(MAGICKCORE_WINDOWS_SUPPORT)
   "ps "
+#endif
+#if defined(MAGICKCORE_RAW_R_DELEGATE)
+  "raw "
 #endif
 #if defined(MAGICKCORE_RSVG_DELEGATE)
   "rsvg "
@@ -292,9 +299,13 @@ MagickExport char *GetMagickHomeURL(void)
     (void) FormatLocaleString(path,MagickPathExtent,"%s%s%s",element,
       DirectorySeparator,MagickURLFilename);
     if (IsPathAccessible(path) != MagickFalse)
-      return(ConstantString(path));
+      {
+        paths=DestroyLinkedList(paths,RelinquishMagickMemory);
+        return(ConstantString(path));
+      }
     element=(const char *) GetNextValueInLinkedList(paths);
   }
+  paths=DestroyLinkedList(paths,RelinquishMagickMemory);
   return(ConstantString(MagickHomeURL));
 }
 
@@ -474,20 +485,20 @@ static unsigned int CRC32(const unsigned char *message,const size_t length)
   if (crc_initial == MagickFalse)
     {
       register unsigned int
-        i;
+        j;
 
       unsigned int
         alpha;
 
-      for (i=0; i < 256; i++)
+      for (j=0; j < 256; j++)
       {
         register ssize_t
-          j;
+          k;
 
-        alpha=i;
-        for (j=0; j < 8; j++)
+        alpha=j;
+        for (k=0; k < 8; k++)
           alpha=(alpha & 0x01) ? (0xEDB88320 ^ (alpha >> 1)) : (alpha >> 1);
-        crc_xor[i]=alpha;
+        crc_xor[j]=alpha;
       }
       crc_initial=MagickTrue;
     }
@@ -587,7 +598,7 @@ MagickExport const char *GetMagickVersion(size_t *version)
 MagickExport void ListMagickVersion(FILE *file)
 {
   (void) FormatLocaleFile(file,"Version: %s\n",
-    GetMagickVersion((size_t *) NULL));
+    GetMagickVersion((size_t *) NULL));;
   (void) FormatLocaleFile(file,"Copyright: %s\n",GetMagickCopyright());
   (void) FormatLocaleFile(file,"License: %s\n",GetMagickLicense());
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && defined(_MSC_FULL_VER)
@@ -596,4 +607,22 @@ MagickExport void ListMagickVersion(FILE *file)
   (void) FormatLocaleFile(file,"Features: %s\n",GetMagickFeatures());
   (void) FormatLocaleFile(file,"Delegates (built-in): %s\n",
     GetMagickDelegates());
+  if (IsEventLogging() != MagickFalse)
+    {
+      (void) FormatLocaleFile(file,"Wizard attributes: ");
+      (void) FormatLocaleFile(file,"QuantumRange=%g; ",(double) QuantumRange);
+      (void) FormatLocaleFile(file,"QuantumScale=%.*g; ",GetMagickPrecision(),
+        (double) QuantumScale);
+      (void) FormatLocaleFile(file,"MagickEpsilon=%.*g; ",GetMagickPrecision(),
+        (double) MagickEpsilon);
+      (void) FormatLocaleFile(file,"MaxMap=%g; ",(double) MaxMap);
+      (void) FormatLocaleFile(file,"MagickPathExtent=%g; ",
+        (double) MagickPathExtent);
+      (void) FormatLocaleFile(file,"sizeof(Quantum)=%g; ",(double)
+        sizeof(Quantum));
+      (void) FormatLocaleFile(file,"sizeof(MagickSizeType)=%g; ",(double)
+        sizeof(MagickSizeType));
+      (void) FormatLocaleFile(file,"sizeof(MagickOffsetType)=%g",(double)
+        sizeof(MagickOffsetType));
+    }
 }

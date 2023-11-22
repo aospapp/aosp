@@ -16,11 +16,17 @@
 
 package com.android.service.ims.presence;
 
+import static junit.framework.Assert.assertEquals;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
-import android.support.test.runner.AndroidJUnit4;
 import android.telephony.CarrierConfigManager;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -28,10 +34,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-
-import static junit.framework.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 
 /**
  * Unit Tests for PollingService.

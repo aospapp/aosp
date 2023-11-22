@@ -5,12 +5,10 @@
  * found in the LICENSE file.
  */
 
-#include "SkTypes.h"
+#include "vk/GrVkVulkan.h"
 
-#if SK_SUPPORT_GPU
 #include "GrContextPriv.h"
 #include "GrContextFactory.h"
-#include "GrTest.h"
 #include "Test.h"
 
 #include "GrBackendSemaphore.h"
@@ -22,6 +20,7 @@
 #include "gl/GrGLUtil.h"
 
 #ifdef SK_VULKAN
+#include "vk/GrVkCommandPool.h"
 #include "vk/GrVkGpu.h"
 #include "vk/GrVkTypes.h"
 #include "vk/GrVkUtil.h"
@@ -63,13 +62,8 @@ void check_pixels(skiatest::Reporter* reporter, const SkBitmap& bitmap) {
 
 void draw_child(skiatest::Reporter* reporter,
                 const sk_gpu_test::ContextInfo& childInfo,
-                const GrBackendObject& backendImage,
+                const GrBackendTexture& backendTexture,
                 const GrBackendSemaphore& semaphore) {
-    GrBackendTexture backendTexture = GrTest::CreateBackendTexture(childInfo.backend(),
-                                                                   MAIN_W, MAIN_H,
-                                                                   kRGBA_8888_GrPixelConfig,
-                                                                   GrMipMapped::kNo,
-                                                                   backendImage);
 
     childInfo.testContext()->makeCurrent();
 
@@ -116,7 +110,7 @@ void surface_semaphore_test(skiatest::Reporter* reporter,
                             const sk_gpu_test::ContextInfo& childInfo2,
                             bool flushContext) {
     GrContext* mainCtx = mainInfo.grContext();
-    if (!mainCtx->caps()->fenceSyncSupport()) {
+    if (!mainCtx->contextPriv().caps()->fenceSyncSupport()) {
         return;
     }
 
@@ -131,7 +125,7 @@ void surface_semaphore_test(skiatest::Reporter* reporter,
 
     SkAutoTArray<GrBackendSemaphore> semaphores(2);
 #ifdef SK_VULKAN
-    if (kVulkan_GrBackend == mainInfo.backend()) {
+    if (GrBackendApi::kVulkan == mainInfo.backend()) {
         // Initialize the secondary semaphore instead of having Ganesh create one internally
         GrVkGpu* gpu = static_cast<GrVkGpu*>(mainCtx->contextPriv().getGpu());
         const GrVkInterface* interface = gpu->vkInterface();
@@ -156,21 +150,22 @@ void surface_semaphore_test(skiatest::Reporter* reporter,
     }
 
     sk_sp<SkImage> mainImage = mainSurface->makeImageSnapshot();
-    GrBackendObject backendImage = mainImage->getTextureHandle(false);
+    GrBackendTexture backendTexture = mainImage->getBackendTexture(false);
 
-    draw_child(reporter, childInfo1, backendImage, semaphores[0]);
+    draw_child(reporter, childInfo1, backendTexture, semaphores[0]);
 
 #ifdef SK_VULKAN
-    if (kVulkan_GrBackend == mainInfo.backend()) {
+    if (GrBackendApi::kVulkan == mainInfo.backend()) {
         // In Vulkan we need to make sure we are sending the correct VkImageLayout in with the
         // backendImage. After the first child draw the layout gets changed to SHADER_READ, so
         // we just manually set that here.
-        GrVkImageInfo* vkInfo = (GrVkImageInfo*)backendImage;
-        vkInfo->updateImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        GrVkImageInfo vkInfo;
+        SkAssertResult(backendTexture.getVkImageInfo(&vkInfo));
+        vkInfo.updateImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 #endif
 
-    draw_child(reporter, childInfo2, backendImage, semaphores[1]);
+    draw_child(reporter, childInfo2, backendTexture, semaphores[1]);
 }
 
 DEF_GPUTEST(SurfaceSemaphores, reporter, options) {
@@ -217,7 +212,7 @@ DEF_GPUTEST(SurfaceSemaphores, reporter, options) {
 
 DEF_GPUTEST_FOR_RENDERING_CONTEXTS(EmptySurfaceSemaphoreTest, reporter, ctxInfo) {
     GrContext* ctx = ctxInfo.grContext();
-    if (!ctx->caps()->fenceSyncSupport()) {
+    if (!ctx->contextPriv().caps()->fenceSyncSupport()) {
         return;
     }
 
@@ -235,7 +230,7 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(EmptySurfaceSemaphoreTest, reporter, ctxInfo)
     GrSemaphoresSubmitted submitted = mainSurface->flushAndSignalSemaphores(1, &semaphore);
     REPORTER_ASSERT(reporter, GrSemaphoresSubmitted::kYes == submitted);
 
-    if (kOpenGL_GrBackend == ctxInfo.backend()) {
+    if (GrBackendApi::kOpenGL == ctxInfo.backend()) {
         GrGLGpu* gpu = static_cast<GrGLGpu*>(ctx->contextPriv().getGpu());
         const GrGLInterface* interface = gpu->glInterface();
         GrGLsync sync = semaphore.glSync();
@@ -246,19 +241,19 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(EmptySurfaceSemaphoreTest, reporter, ctxInfo)
     }
 
 #ifdef SK_VULKAN
-    if (kVulkan_GrBackend == ctxInfo.backend()) {
+    if (GrBackendApi::kVulkan == ctxInfo.backend()) {
         GrVkGpu* gpu = static_cast<GrVkGpu*>(ctx->contextPriv().getGpu());
         const GrVkInterface* interface = gpu->vkInterface();
         VkDevice device = gpu->device();
         VkQueue queue = gpu->queue();
-        VkCommandPool cmdPool = gpu->cmdPool();
+        GrVkCommandPool* cmdPool = gpu->cmdPool();
         VkCommandBuffer cmdBuffer;
 
         // Create Command Buffer
         const VkCommandBufferAllocateInfo cmdInfo = {
             VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,   // sType
             nullptr,                                          // pNext
-            cmdPool,                                          // commandPool
+            cmdPool->vkCommandPool(),                         // commandPool
             VK_COMMAND_BUFFER_LEVEL_PRIMARY,                  // level
             1                                                 // bufferCount
         };
@@ -316,5 +311,3 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(EmptySurfaceSemaphoreTest, reporter, ctxInfo)
     }
 #endif
 }
-
-#endif

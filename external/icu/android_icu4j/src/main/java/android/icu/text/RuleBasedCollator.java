@@ -14,13 +14,13 @@ import java.lang.reflect.Method;
 import java.text.CharacterIterator;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import android.icu.impl.ClassLoaderUtil;
 import android.icu.impl.Normalizer2Impl;
 import android.icu.impl.Normalizer2Impl.ReorderingBuffer;
-import android.icu.impl.Utility;
 import android.icu.impl.coll.BOCSU;
 import android.icu.impl.coll.Collation;
 import android.icu.impl.coll.CollationCompare;
@@ -73,7 +73,7 @@ import android.icu.util.VersionInfo;
  *
  * <p>
  * <strong>Note</strong> that there are some differences between the Collation rule syntax used in Java and ICU4J:
- * 
+ *
  * <ul>
  * <li>According to the JDK documentation: <br>
  * <i>Modifier '!' : Turns on Thai/Lao vowel-consonant swapping. If this rule is in force when a Thai vowel of the range
@@ -92,7 +92,7 @@ import android.icu.util.VersionInfo;
  * <strong>Examples</strong>
  * <p>
  * Creating Customized RuleBasedCollators: <blockquote>
- * 
+ *
  * <pre>
  * String simple = "&amp; a &lt; b &lt; c &lt; d";
  * RuleBasedCollator simpleCollator = new RuleBasedCollator(simple);
@@ -107,11 +107,11 @@ import android.icu.util.VersionInfo;
  *                    + ", &#92;u00C6 &lt; &#92;u00F8 , &#92;u00D8";
  * RuleBasedCollator norwegianCollator = new RuleBasedCollator(norwegian);
  * </pre>
- * 
+ *
  * </blockquote>
- * 
+ *
  * Concatenating rules to combine <code>Collator</code>s: <blockquote>
- * 
+ *
  * <pre>
  * // Create an en_US Collator object
  * RuleBasedCollator en_USCollator = (RuleBasedCollator)
@@ -128,12 +128,12 @@ import android.icu.util.VersionInfo;
  *                             new RuleBasedCollator(en_USRules + da_DKRules);
  * // newCollator has the combined rules
  * </pre>
- * 
+ *
  * </blockquote>
- * 
+ *
  * Making changes to an existing RuleBasedCollator to create a new <code>Collator</code> object, by appending changes to
  * the existing rule: <blockquote>
- * 
+ *
  * <pre>
  * // Create a new Collator object with additional rules
  * String addRules = "&amp; C &lt; ch, cH, Ch, CH";
@@ -141,11 +141,11 @@ import android.icu.util.VersionInfo;
  *     new RuleBasedCollator(en_USCollator.getRules() + addRules);
  * // myCollator contains the new rules
  * </pre>
- * 
+ *
  * </blockquote>
- * 
+ *
  * How to change the order of non-spacing accents: <blockquote>
- * 
+ *
  * <pre>
  * // old rule with main accents
  * String oldRules = "= &#92;u0301 ; &#92;u0300 ; &#92;u0302 ; &#92;u0308 "
@@ -159,12 +159,12 @@ import android.icu.util.VersionInfo;
  * String addOn = "&amp; &#92;u0300 ; &#92;u0308 ; &#92;u0302";
  * RuleBasedCollator myCollator = new RuleBasedCollator(oldRules + addOn);
  * </pre>
- * 
+ *
  * </blockquote>
- * 
+ *
  * Putting in a new primary ordering before the default setting, e.g. sort English characters before or after Japanese
  * characters in the Japanese <code>Collator</code>: <blockquote>
- * 
+ *
  * <pre>
  * // get en_US Collator rules
  * RuleBasedCollator en_USCollator
@@ -177,7 +177,7 @@ import android.icu.util.VersionInfo;
  * RuleBasedCollator myJapaneseCollator
  *              = new RuleBasedCollator(en_USCollator.getRules() + jaString);
  * </pre>
- * 
+ *
  * </blockquote>
  * <p>
  * This class is not subclassable
@@ -239,7 +239,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Clones the RuleBasedCollator
-     * 
+     *
      * @return a new instance of this RuleBasedCollator object
      */
     @Override
@@ -260,7 +260,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Return a CollationElementIterator for the given String.
-     * 
+     *
      * @see CollationElementIterator
      */
     public CollationElementIterator getCollationElementIterator(String source) {
@@ -271,7 +271,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Return a CollationElementIterator for the given CharacterIterator. The source iterator's integrity will be
      * preserved since a new copy will be created for use.
-     * 
+     *
      * @see CollationElementIterator
      */
     public CollationElementIterator getCollationElementIterator(CharacterIterator source) {
@@ -283,7 +283,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Return a CollationElementIterator for the given UCharacterIterator. The source iterator's integrity will be
      * preserved since a new copy will be created for use.
-     * 
+     *
      * @see CollationElementIterator
      */
     public CollationElementIterator getCollationElementIterator(UCharacterIterator source) {
@@ -327,7 +327,7 @@ public final class RuleBasedCollator extends Collator {
         try {
             RuleBasedCollator result = (RuleBasedCollator) super.clone();
             // since all collation data in the RuleBasedCollator do not change
-            // we can safely assign the result.fields to this collator 
+            // we can safely assign the result.fields to this collator
             // except in cases where we can't
             result.settings = settings.clone();
             result.collationBuffer = null;
@@ -400,7 +400,7 @@ public final class RuleBasedCollator extends Collator {
      * Sets whether uppercase characters sort before lowercase characters or vice versa, in strength TERTIARY. The
      * default mode is false, and so lowercase characters sort before uppercase characters. If true, sort upper case
      * characters first.
-     * 
+     *
      * @param upperfirst
      *            true to sort uppercase characters before lowercase characters, false to sort lowercase characters
      *            before uppercase characters
@@ -421,7 +421,7 @@ public final class RuleBasedCollator extends Collator {
      * Sets the orders of lower cased characters to sort before upper cased characters, in strength TERTIARY. The
      * default mode is false. If true is set, the RuleBasedCollator will sort lower cased characters before the upper
      * cased ones. Otherwise, if false is set, the RuleBasedCollator will ignore case preferences.
-     * 
+     *
      * @param lowerfirst
      *            true for sorting lower cased characters before upper cased characters, false to ignore case
      *            preferences.
@@ -441,7 +441,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Sets the case first mode to the initial mode set during construction of the RuleBasedCollator. See
      * setUpperCaseFirst(boolean) and setLowerCaseFirst(boolean) for more details.
-     * 
+     *
      * @see #isLowerCaseFirst
      * @see #isUpperCaseFirst
      * @see #setLowerCaseFirst(boolean)
@@ -459,7 +459,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Sets the alternate handling mode to the initial mode set during construction of the RuleBasedCollator. See
      * setAlternateHandling(boolean) for more details.
-     * 
+     *
      * @see #setAlternateHandlingShifted(boolean)
      * @see #isAlternateHandlingShifted()
      */
@@ -475,7 +475,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Sets the case level mode to the initial mode set during construction of the RuleBasedCollator. See
      * setCaseLevel(boolean) for more details.
-     * 
+     *
      * @see #setCaseLevel(boolean)
      * @see #isCaseLevel
      */
@@ -491,7 +491,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Sets the decomposition mode to the initial mode set during construction of the RuleBasedCollator. See
      * setDecomposition(int) for more details.
-     * 
+     *
      * @see #getDecomposition
      * @see #setDecomposition(int)
      */
@@ -507,7 +507,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Sets the French collation mode to the initial mode set during construction of the RuleBasedCollator. See
      * setFrenchCollation(boolean) for more details.
-     * 
+     *
      * @see #isFrenchCollation
      * @see #setFrenchCollation(boolean)
      */
@@ -523,7 +523,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Sets the collation strength to the initial mode set during the construction of the RuleBasedCollator. See
      * setStrength(int) for more details.
-     * 
+     *
      * @see #setStrength(int)
      * @see #getStrength
      */
@@ -556,7 +556,7 @@ public final class RuleBasedCollator extends Collator {
      * which treats SECONDARY weights in the order they appear. If set to true, the SECONDARY weights will be sorted
      * backwards. See the section on <a href="http://userguide.icu-project.org/collation/architecture">
      * French collation</a> for more information.
-     * 
+     *
      * @param flag
      *            true to set the French collation on, false to set it off
      * @see #isFrenchCollation
@@ -578,7 +578,7 @@ public final class RuleBasedCollator extends Collator {
      * the code points with non-ignorable primary weights in the same way. If the mode is set to true, the behavior
      * corresponds to SHIFTED defined in UCA, this causes code points with PRIMARY orders that are equal or below the
      * variable top value to be ignored in PRIMARY order and moved to the QUATERNARY order.
-     * 
+     *
      * @param shifted
      *            true if SHIFTED behavior for alternate handling is desired, false for the NON_IGNORABLE behavior.
      * @see #isAlternateHandlingShifted
@@ -672,7 +672,7 @@ public final class RuleBasedCollator extends Collator {
      * considered significant during comparison.
      *
      * <p>See the Collator class description for an example of use.
-     * 
+     *
      * @param newStrength
      *            the new strength value.
      * @see #getStrength
@@ -757,7 +757,7 @@ public final class RuleBasedCollator extends Collator {
      * the top of one of the supported reordering groups,
      * and it must not be beyond the last of those groups.
      * See {@link #setMaxVariable(int)}.
-     * 
+     *
      * @param varTop
      *            one or more (if contraction) characters to which the variable top should be set
      * @return variable top primary weight
@@ -807,7 +807,7 @@ public final class RuleBasedCollator extends Collator {
      * the top of one of the supported reordering groups,
      * and it must not be beyond the last of those groups.
      * See {@link #setMaxVariable(int)}.
-     * 
+     *
      * @param varTop primary weight, as returned by setVariableTop or getVariableTop
      * @see #getVariableTop
      * @see #setVariableTop(String)
@@ -924,7 +924,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Gets the collation tailoring rules for this RuleBasedCollator.
      * Equivalent to String getRules(false).
-     * 
+     *
      * <p>On Android, the returned string will be empty unless this instance was
      * constructed using {@link #RuleBasedCollator(String)}.
      *
@@ -939,7 +939,7 @@ public final class RuleBasedCollator extends Collator {
      * Returns current rules.
      * The argument defines whether full rules (root collation + tailored) rules are returned
      * or just the tailoring.
-     * 
+     *
      * <p>The root collation rules are an <i>approximation</i> of the root collator's sort order.
      * They are almost never used or useful at runtime and can be removed from the data.
      * See <a href="http://userguide.icu-project.org/collation/customization#TOC-Building-on-Existing-Locales">User Guide:
@@ -961,7 +961,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Get a UnicodeSet that contains all the characters and sequences tailored in this collator.
-     * 
+     *
      * @return a pointer to a UnicodeSet object containing all the code points and sequences that may sort differently
      *         than in the root collator.
      */
@@ -976,7 +976,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Gets unicode sets containing contractions and/or expansions of a collator
-     * 
+     *
      * @param contractions
      *            if not null, set to contain contractions
      * @param expansions
@@ -1003,6 +1003,7 @@ public final class RuleBasedCollator extends Collator {
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Deprecated
     void internalAddContractions(int c, UnicodeSet set) {
         new ContractionsAndExpansions(set, null, null, false).forCodePoint(data, c);
     }
@@ -1049,7 +1050,7 @@ public final class RuleBasedCollator extends Collator {
      * Gets the simpler form of a CollationKey for the String source following the rules of this Collator and stores the
      * result into the user provided argument key. If key has a internal byte array of length that's too small for the
      * result, the internal byte array will be grown to the exact required size.
-     * 
+     *
      * @param source the text String to be transformed into a RawCollationKey
      * @param key output RawCollationKey to store results
      * @return If key is null, a new instance of RawCollationKey will be created and returned, otherwise the user
@@ -1240,7 +1241,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Return true if an uppercase character is sorted before the corresponding lowercase character. See
      * setCaseFirst(boolean) for details.
-     * 
+     *
      * @see #setUpperCaseFirst
      * @see #setLowerCaseFirst
      * @see #isLowerCaseFirst
@@ -1254,7 +1255,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Return true if a lowercase character is sorted before the corresponding uppercase character. See
      * setCaseFirst(boolean) for details.
-     * 
+     *
      * @see #setUpperCaseFirst
      * @see #setLowerCaseFirst
      * @see #isUpperCaseFirst
@@ -1270,7 +1271,7 @@ public final class RuleBasedCollator extends Collator {
      * then the alternate handling attribute for the Collator is SHIFTED. Otherwise if return value is false, then the
      * alternate handling attribute for the Collator is NON_IGNORABLE See setAlternateHandlingShifted(boolean) for more
      * details.
-     * 
+     *
      * @return true or false
      * @see #setAlternateHandlingShifted(boolean)
      * @see #setAlternateHandlingDefault
@@ -1281,7 +1282,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Checks if case level is set to true. See setCaseLevel(boolean) for details.
-     * 
+     *
      * @return the case level mode
      * @see #setCaseLevelDefault
      * @see #isCaseLevel
@@ -1293,7 +1294,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Checks if French Collation is set to true. See setFrenchCollation(boolean) for details.
-     * 
+     *
      * @return true if French Collation is set to true, false otherwise
      * @see #setFrenchCollation(boolean)
      * @see #setFrenchCollationDefault
@@ -1323,7 +1324,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * <strong>[icu]</strong> Gets the variable top value of a Collator.
-     * 
+     *
      * @return the variable top primary weight
      * @see #getMaxVariable
      */
@@ -1335,7 +1336,7 @@ public final class RuleBasedCollator extends Collator {
     /**
      * Method to retrieve the numeric collation value. When numeric collation is turned on, this Collator generates a
      * collation key for the numeric value of substrings of digits. This is a way to get '100' to sort AFTER '2'
-     * 
+     *
      * @see #setNumericCollation
      * @see #setNumericCollationDefault
      * @return true if numeric collation is turned on, false otherwise
@@ -1344,14 +1345,14 @@ public final class RuleBasedCollator extends Collator {
         return (settings.readOnly().options & CollationSettings.NUMERIC) != 0;
     }
 
-    /**  
+    /**
      * Retrieves the reordering codes for this collator.
      * These reordering codes are a combination of UScript codes and ReorderCodes.
-     * @return a copy of the reordering codes for this collator; 
+     * @return a copy of the reordering codes for this collator;
      * if none are set then returns an empty array
      * @see #setReorderCodes
      * @see Collator#getEquivalentReorderCodes
-     */ 
+     */
     @Override
     public int[] getReorderCodes() {
         return settings.readOnly().reorderCodes.clone();
@@ -1400,7 +1401,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Generates a unique hash code for this RuleBasedCollator.
-     * 
+     *
      * @return the unique hash code for this Collator
      */
     @Override
@@ -1748,7 +1749,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Get the version of this collator object.
-     * 
+     *
      * @return the version object associated with this collator
      */
     @Override
@@ -1762,7 +1763,7 @@ public final class RuleBasedCollator extends Collator {
 
     /**
      * Get the UCA version of this collator object.
-     * 
+     *
      * @return the version object associated with this collator
      */
     @Override
@@ -1799,6 +1800,7 @@ public final class RuleBasedCollator extends Collator {
      * {@inheritDoc}
      * @hide draft / provisional / internal are hidden on Android
      */
+    @dalvik.annotation.compat.UnsupportedAppUsage
     @Override
     public ULocale getLocale(ULocale.Type type) {
         if (type == ULocale.ACTUAL_LOCALE) {
@@ -1821,11 +1823,10 @@ public final class RuleBasedCollator extends Collator {
         assert (valid == null) == (actual == null);
         // Another check we could do is that the actual locale is at
         // the same level or less specific than the valid locale.
-        // TODO: Starting with Java 7, use Objects.equals(a, b).
-        if(Utility.objectEquals(actual, tailoring.actualLocale)) {
+        if(Objects.equals(actual, tailoring.actualLocale)) {
             actualLocaleIsSameAsValid = false;
         } else {
-            assert(Utility.objectEquals(actual, valid));
+            assert(Objects.equals(actual, valid));
             actualLocaleIsSameAsValid = true;
         }
         // Do not modify tailoring.actualLocale:

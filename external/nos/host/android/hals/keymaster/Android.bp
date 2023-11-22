@@ -28,6 +28,7 @@ cc_library {
     cflags: [
         // Needed for compiling BoringSSL.
         "-Wno-gnu-anonymous-struct",
+        "-Wno-implicit-fallthrough",  // in proto_utils.cpp:836
         "-Wno-nested-anon-types",
     ],
     shared_libs: [
@@ -36,7 +37,20 @@ cc_library {
         "libcrypto",
         "libprotobuf-cpp-full",
         "nos_app_keymaster",
+        "libhidlbase",
         "libhidltransport",
+    ],
+    export_include_dirs: ["include"],
+}
+
+cc_library_headers {
+    name: "android.hardware.keymaster@4.0-impl.nos-hal",
+    defaults: ["nos_hal_impl_defaults"],
+    shared_libs: [
+        "android.hardware.keymaster@4.0-impl.nos",
+    ],
+    export_shared_lib_headers: [
+            "android.hardware.keymaster@4.0-impl.nos",
     ],
     export_include_dirs: ["include"],
 }

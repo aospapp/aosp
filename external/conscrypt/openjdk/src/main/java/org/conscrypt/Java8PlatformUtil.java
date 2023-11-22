@@ -32,7 +32,7 @@ import javax.net.ssl.SSLSession;
 final class Java8PlatformUtil {
     static void setSSLParameters(
             SSLParameters params, SSLParametersImpl impl, AbstractConscryptSocket socket) {
-        Java7PlatformUtil.setSSLParameters(params, impl);
+        impl.setEndpointIdentificationAlgorithm(params.getEndpointIdentificationAlgorithm());
         impl.setUseCipherSuitesOrder(params.getUseCipherSuitesOrder());
         List<SNIServerName> serverNames = params.getServerNames();
 
@@ -48,7 +48,7 @@ final class Java8PlatformUtil {
 
     static void getSSLParameters(
             SSLParameters params, SSLParametersImpl impl, AbstractConscryptSocket socket) {
-        Java7PlatformUtil.getSSLParameters(params, impl);
+        params.setEndpointIdentificationAlgorithm(impl.getEndpointIdentificationAlgorithm());
         params.setUseCipherSuitesOrder(impl.getUseCipherSuitesOrder());
         if (impl.getUseSni() && AddressUtils.isValidSniHostname(socket.getHostname())) {
             params.setServerNames(Collections.singletonList(
@@ -58,7 +58,7 @@ final class Java8PlatformUtil {
 
     static void setSSLParameters(
             SSLParameters params, SSLParametersImpl impl, ConscryptEngine engine) {
-        Java7PlatformUtil.setSSLParameters(params, impl);
+        impl.setEndpointIdentificationAlgorithm(params.getEndpointIdentificationAlgorithm());
         impl.setUseCipherSuitesOrder(params.getUseCipherSuitesOrder());
         List<SNIServerName> serverNames = params.getServerNames();
 
@@ -73,11 +73,11 @@ final class Java8PlatformUtil {
     }
     static void getSSLParameters(
             SSLParameters params, SSLParametersImpl impl, ConscryptEngine engine) {
-        Java7PlatformUtil.getSSLParameters(params, impl);
+        params.setEndpointIdentificationAlgorithm(impl.getEndpointIdentificationAlgorithm());
         params.setUseCipherSuitesOrder(impl.getUseCipherSuitesOrder());
         if (impl.getUseSni() && AddressUtils.isValidSniHostname(engine.getHostname())) {
             params.setServerNames(Collections.singletonList(
-                    (SNIServerName) new SNIHostName((engine.getHostname()))));
+                    (SNIServerName) new SNIHostName(engine.getHostname())));
         }
     }
 
@@ -89,7 +89,7 @@ final class Java8PlatformUtil {
         return Java8EngineWrapper.getDelegate(engine);
     }
 
-    static SSLSession wrapSSLSession(ConscryptSession sslSession) {
+    static SSLSession wrapSSLSession(ExternalSession sslSession) {
         return new Java8ExtendedSSLSession(sslSession);
     }
 

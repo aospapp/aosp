@@ -1,5 +1,3 @@
-#!/usr/bin/python -Es
-#
 # Copyright (C) 2013 Red Hat
 # see file 'COPYING' for use and warranty information
 #
@@ -149,6 +147,7 @@ class SELinuxGui():
         self.clear_entry = True
         self.files_add = False
         self.network_add = False
+        self.mislabeled_files = False
 
         self.all_domains = []
         self.installed_list = []
@@ -500,7 +499,7 @@ class SELinuxGui():
         self.all_domains.sort(key=str.lower)
 
         if app and app not in self.all_domains:
-            self.error(_("%s is not a valid domain" % app))
+            self.error(_("%s is not a valid domain") % app)
             self.quit()
 
         loading_gui.show()
@@ -1056,21 +1055,21 @@ class SELinuxGui():
         self.application_files_initialize(app)
         self.transitions_files_initialize(app)
 
-        self.executable_files_tab.set_tooltip_text(_("File path used to enter the '%s' domain." % app))
-        self.writable_files_tab.set_tooltip_text(_("Files to which the '%s' domain can write." % app))
-        self.network_out_tab.set_tooltip_text(_("Network Ports to which the '%s' is allowed to connect." % app))
-        self.network_in_tab.set_tooltip_text(_("Network Ports to which the '%s' is allowed to listen." % app))
-        self.application_files_tab.set_tooltip_text(_("File Types defined for the '%s'." % app))
-        self.boolean_radio_button.set_tooltip_text(_("Display boolean information that can be used to modify the policy for the '%s'." % app))
-        self.files_radio_button.set_tooltip_text(_("Display file type information that can be used by the '%s'." % app))
-        self.network_radio_button.set_tooltip_text(_("Display network ports to which the '%s' can connect or listen to." % app))
-        self.transitions_into_tab.set_label(_("Application Transitions Into '%s'" % app))
-        self.transitions_from_tab.set_label(_("Application Transitions From '%s'" % app))
-        self.transitions_file_tab.set_label(_("File Transitions From '%s'" % app))
+        self.executable_files_tab.set_tooltip_text(_("File path used to enter the '%s' domain.") % app)
+        self.writable_files_tab.set_tooltip_text(_("Files to which the '%s' domain can write.") % app)
+        self.network_out_tab.set_tooltip_text(_("Network Ports to which the '%s' is allowed to connect.") % app)
+        self.network_in_tab.set_tooltip_text(_("Network Ports to which the '%s' is allowed to listen.") % app)
+        self.application_files_tab.set_tooltip_text(_("File Types defined for the '%s'.") % app)
+        self.boolean_radio_button.set_tooltip_text(_("Display boolean information that can be used to modify the policy for the '%s'.") % app)
+        self.files_radio_button.set_tooltip_text(_("Display file type information that can be used by the '%s'.") % app)
+        self.network_radio_button.set_tooltip_text(_("Display network ports to which the '%s' can connect or listen to.") % app)
+        self.transitions_into_tab.set_label(_("Application Transitions Into '%s'") % app)
+        self.transitions_from_tab.set_label(_("Application Transitions From '%s'") % app)
+        self.transitions_file_tab.set_label(_("File Transitions From '%s'") % app)
         self.transitions_into_tab.set_tooltip_text(_("Executables which will transition to '%s', when executing selected domains entrypoint.") % app)
         self.transitions_from_tab.set_tooltip_text(_("Executables which will transition to a different domain, when '%s' executes them.") % app)
-        self.transitions_file_tab.set_tooltip_text(_("Files by '%s' with transitions to a different label." % app))
-        self.transitions_radio_button.set_tooltip_text(_("Display applications that can transition into or out of the '%s'." % app))
+        self.transitions_file_tab.set_tooltip_text(_("Files by '%s' with transitions to a different label.") % app)
+        self.transitions_radio_button.set_tooltip_text(_("Display applications that can transition into or out of the '%s'.") % app)
 
         self.application = app
         self.applications_selection_button.set_label(self.application)
@@ -1175,7 +1174,7 @@ class SELinuxGui():
                         continue
                 self.files_initial_data_insert(self.writable_files_liststore, path, write, file_class)
 
-    def files_initial_data_insert(self, liststore, path, seLinux_label, file_class):
+    def files_initial_data_insert(self, liststore, path, selinux_label, file_class):
         iter = liststore.append(None)
         if path is None:
             path = _("MISSING FILE PATH")
@@ -1191,7 +1190,7 @@ class SELinuxGui():
                 file_class = self.markup(selinux_label)
                 file_class = self.markup(file_class)
         liststore.set_value(iter, 0, path)
-        liststore.set_value(iter, 1, seLinux_label)
+        liststore.set_value(iter, 1, selinux_label)
         liststore.set_value(iter, 2, file_class)
         liststore.set_value(iter, 7, modify)
 
@@ -1544,7 +1543,7 @@ class SELinuxGui():
                 path = self.executable_files_liststore.get_value(iter, 0)
                 self.files_path_entry.set_text(path)
                 ftype = self.executable_files_liststore.get_value(iter, 1)
-                if type != None:
+                if ftype != None:
                     self.combo_set_active_text(self.files_type_combobox, ftype)
                 tclass = self.executable_files_liststore.get_value(iter, 2)
                 if tclass != None:
@@ -2015,9 +2014,9 @@ class SELinuxGui():
         if self.modify:
             iter = self.get_selected_iter()
             oldpath = self.unmark(self.liststore.get_value(iter, 0))
-            setype = self.unmark(self.liststore.set_value(iter, 1))
+            oldsetype = self.unmark(self.liststore.set_value(iter, 1))
             oldtclass = self.liststore.get_value(iter, 2)
-            self.cur_dict["fcontext"][(path, tclass)] = {"action": "-m", "type": setype, "oldtype": oldsetype, "oldmls": oldmls, "oldclass": oldclass}
+            self.cur_dict["fcontext"][(path, tclass)] = {"action": "-m", "type": setype, "oldtype": oldsetype, "oldpath": oldpath, "oldclass": oldtclass}
         else:
             iter = self.liststore.append(None)
             self.cur_dict["fcontext"][(path, tclass)] = {"action": "-a", "type": setype}
@@ -2047,7 +2046,7 @@ class SELinuxGui():
             oldports = self.unmark(self.liststore.get_value(iter, 0))
             oldprotocol = self.unmark(self.liststore.get_value(iter, 1))
             oldsetype = self.unmark(self.liststore.set_value(iter, 2))
-            self.cur_dict["port"][(ports, protocol)] = {"action": "-m", "type": setype, "mls": mls, "oldtype": oldsetype, "oldmls": oldmls, "oldprotocol": oldprotocol, "oldports": oldports}
+            self.cur_dict["port"][(ports, protocol)] = {"action": "-m", "type": setype, "mls": mls, "oldtype": oldsetype, "oldprotocol": oldprotocol, "oldports": oldports}
         else:
             iter = self.liststore.append(None)
             self.cur_dict["port"][(ports, protocol)] = {"action": "-a", "type": setype, "mls": mls}
@@ -2522,7 +2521,7 @@ class SELinuxGui():
                     if self.cur_dict[k][(port, protocol)]["action"] == "-d":
                         update_buffer += "port -d -p %s %s\n" % (protocol, port)
                     else:
-                        update_buffer += "port %s -t %s -p %s %s\n" % (self.cur_dict[k][f]["action"], self.cur_dict[k][f]["type"], procotol, port)
+                        update_buffer += "port %s -t %s -p %s %s\n" % (self.cur_dict[k][f]["action"], self.cur_dict[k][f]["type"], protocol, port)
 
         return update_buffer
 

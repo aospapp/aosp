@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, random, string, os
+import logging, random, string
 from dbus.mainloop.glib import DBusGMainLoop
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import policy, session_manager
 from autotest_lib.client.cros import cros_ui, cryptohome, ownership
@@ -18,33 +18,31 @@ class login_RemoteOwnership(test.test):
 
     version = 1
 
-    def setup(self):
-        os.chdir(self.srcdir)
-        utils.make('OUT_DIR=.')
-
 
     def initialize(self):
         # Start with a clean slate wrt ownership
         ownership.restart_ui_to_clear_ownership_files()
         super(login_RemoteOwnership, self).initialize()
+        policy.install_protobufs(self.autodir, self.job)
 
         bus_loop = DBusGMainLoop(set_as_default=True)
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(bus_loop)
+        self._cryptohome_proxy = cryptohome.CryptohomeProxy(
+            bus_loop, self.autodir, self.job)
         self._sm = session_manager.connect(bus_loop)
 
 
     def run_once(self):
         # Initial policy setup.
-        poldata = policy.build_policy_data(self.srcdir)
+        poldata = policy.build_policy_data()
         priv = ownership.known_privkey()
         pub = ownership.known_pubkey()
         policy.push_policy_and_verify(
-            policy.generate_policy(self.srcdir, priv, pub, poldata), self._sm)
+            policy.generate_policy(priv, pub, poldata), self._sm)
 
         # Force re-key the device
         (priv, pub) = ownership.pairgen_as_data()
         policy.push_policy_and_verify(
-            policy.generate_policy(self.srcdir, priv, pub, poldata), self._sm)
+            policy.generate_policy(priv, pub, poldata), self._sm)
 
         # Rotate key gracefully.
         self.username = (''.join(random.sample(string.ascii_lowercase,6)) +
@@ -58,8 +56,7 @@ class login_RemoteOwnership(test.test):
         self._sm.StartSession(self.username, '')
 
         policy.push_policy_and_verify(
-            policy.generate_policy(self.srcdir,
-                                   key=new_priv,
+            policy.generate_policy(key=new_priv,
                                    pubkey=new_pub,
                                    policy=poldata,
                                    old_key=priv),

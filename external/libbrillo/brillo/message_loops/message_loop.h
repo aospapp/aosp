@@ -49,12 +49,12 @@ class BRILLO_EXPORT MessageLoop {
   // Note that once the call is executed or canceled, the TaskId could be reused
   // at a later point.
   // This methond can only be called from the same thread running the main loop.
-  virtual TaskId PostDelayedTask(const tracked_objects::Location& from_here,
+  virtual TaskId PostDelayedTask(const base::Location& from_here,
                                  const base::Closure& task,
                                  base::TimeDelta delay) = 0;
   // Variant without the Location for easier usage.
   TaskId PostDelayedTask(const base::Closure& task, base::TimeDelta delay) {
-    return PostDelayedTask(tracked_objects::Location(), task, delay);
+    return PostDelayedTask(base::Location(), task, delay);
   }
 
   // A convenience method to schedule a call with no delay.
@@ -62,7 +62,7 @@ class BRILLO_EXPORT MessageLoop {
   TaskId PostTask(const base::Closure& task) {
     return PostDelayedTask(task, base::TimeDelta());
   }
-  TaskId PostTask(const tracked_objects::Location& from_here,
+  TaskId PostTask(const base::Location& from_here,
                   const base::Closure& task) {
     return PostDelayedTask(from_here, task, base::TimeDelta());
   }
@@ -80,7 +80,7 @@ class BRILLO_EXPORT MessageLoop {
   // is canceled with CancelTask().
   // Returns the TaskId describing this task. In case of error, returns
   // kTaskIdNull.
-  virtual TaskId WatchFileDescriptor(const tracked_objects::Location& from_here,
+  virtual TaskId WatchFileDescriptor(const base::Location& from_here,
                                      int fd,
                                      WatchMode mode,
                                      bool persistent,
@@ -92,7 +92,7 @@ class BRILLO_EXPORT MessageLoop {
                              bool persistent,
                              const base::Closure& task) {
     return WatchFileDescriptor(
-        tracked_objects::Location(), fd, mode, persistent, task);
+        base::Location(), fd, mode, persistent, task);
   }
 
   // Cancel a scheduled task. Returns whether the task was canceled. For

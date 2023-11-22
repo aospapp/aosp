@@ -25,6 +25,7 @@
 #include "vkTypeUtil.hpp"
 #include "vkPrograms.hpp"
 #include "vkQueryUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include <vector>
 
 namespace vkt
@@ -49,50 +50,6 @@ VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
 		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
 	};
 	return bufferCreateInfo;
-}
-
-VkBufferMemoryBarrier makeBufferMemoryBarrier (const VkAccessFlags	srcAccessMask,
-											   const VkAccessFlags	dstAccessMask,
-											   const VkBuffer		buffer,
-											   const VkDeviceSize	offset,
-											   const VkDeviceSize	bufferSizeBytes)
-{
-	const VkBufferMemoryBarrier barrier =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType	sType;
-		DE_NULL,									// const void*		pNext;
-		srcAccessMask,								// VkAccessFlags	srcAccessMask;
-		dstAccessMask,								// VkAccessFlags	dstAccessMask;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32			srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32			destQueueFamilyIndex;
-		buffer,										// VkBuffer			buffer;
-		offset,										// VkDeviceSize		offset;
-		bufferSizeBytes,							// VkDeviceSize		size;
-	};
-	return barrier;
-}
-
-VkImageMemoryBarrier makeImageMemoryBarrier	(const VkAccessFlags			srcAccessMask,
-											 const VkAccessFlags			dstAccessMask,
-											 const VkImageLayout			oldLayout,
-											 const VkImageLayout			newLayout,
-											 const VkImage					image,
-											 const VkImageSubresourceRange	subresourceRange)
-{
-	const VkImageMemoryBarrier barrier =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType			sType;
-		DE_NULL,										// const void*				pNext;
-		srcAccessMask,									// VkAccessFlags			outputMask;
-		dstAccessMask,									// VkAccessFlags			inputMask;
-		oldLayout,										// VkImageLayout			oldLayout;
-		newLayout,										// VkImageLayout			newLayout;
-		VK_QUEUE_FAMILY_IGNORED,						// deUint32					srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,						// deUint32					destQueueFamilyIndex;
-		image,											// VkImage					image;
-		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
-	};
-	return barrier;
 }
 
 Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
@@ -192,41 +149,6 @@ Move<VkImageView> makeImageView (const DeviceInterface&			vk,
 		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
 	};
 	return createImageView(vk, vkDevice, &imageViewParams);
-}
-
-void beginCommandBuffer (const DeviceInterface& vk, const VkCommandBuffer commandBuffer)
-{
-	const VkCommandBufferBeginInfo info =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType                          sType;
-		DE_NULL,										// const void*                              pNext;
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags                flags;
-		DE_NULL,										// const VkCommandBufferInheritanceInfo*    pInheritanceInfo;
-	};
-	VK_CHECK(vk.beginCommandBuffer(commandBuffer, &info));
-}
-
-void submitCommandsAndWait (const DeviceInterface&	vk,
-							const VkDevice			device,
-							const VkQueue			queue,
-							const VkCommandBuffer	commandBuffer)
-{
-	const Unique<VkFence> fence(createFence(vk, device));
-
-	const VkSubmitInfo submitInfo =
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,		// VkStructureType                sType;
-		DE_NULL,							// const void*                    pNext;
-		0u,									// uint32_t                       waitSemaphoreCount;
-		DE_NULL,							// const VkSemaphore*             pWaitSemaphores;
-		DE_NULL,							// const VkPipelineStageFlags*    pWaitDstStageMask;
-		1u,									// uint32_t                       commandBufferCount;
-		&commandBuffer,						// const VkCommandBuffer*         pCommandBuffers;
-		0u,									// uint32_t                       signalSemaphoreCount;
-		DE_NULL,							// const VkSemaphore*             pSignalSemaphores;
-	};
-	VK_CHECK(vk.queueSubmit(queue, 1u, &submitInfo, *fence));
-	VK_CHECK(vk.waitForFences(device, 1u, &fence.get(), DE_TRUE, ~0ull));
 }
 
 Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&		vk,

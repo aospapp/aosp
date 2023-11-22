@@ -2,15 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import difflib
 import logging
 import os
 import re
+import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
-class firmware_Cr50ConsoleCommands(FirmwareTest):
+class firmware_Cr50ConsoleCommands(Cr50Test):
     """
     Verify the cr50 console output for important commands.
 
@@ -25,29 +27,40 @@ class firmware_Cr50ConsoleCommands(FirmwareTest):
     #
     # This information is in ec/board/cr50/scratch_reg1.h
     RELEVANT_PROPERTIES = 0x63
-    BRDPROP_FORMAT = ['properties = (0x\d+)\s']
-    HELP_FORMAT = [ 'Known commands:(.*)HELP LIST.*>']
-    GENERAL_FORMAT = [ '\n(.*)>']
     COMPARE_LINES = '\n'
     COMPARE_WORDS = None
     SORTED = True
     TESTS = [
-        ['pinmux', GENERAL_FORMAT, COMPARE_LINES, not SORTED],
-        ['help', HELP_FORMAT, COMPARE_WORDS, SORTED],
-        ['gpiocfg', GENERAL_FORMAT, COMPARE_LINES, not SORTED],
+        ['pinmux', 'pinmux(.*)>', COMPARE_LINES, not SORTED],
+        ['help', 'Known commands:(.*)HELP LIST.*>', COMPARE_WORDS, SORTED],
+        ['gpiocfg', 'gpiocfg(.*)>', COMPARE_LINES, not SORTED],
+    ]
+    CCD_HOOK_WAIT = 2
+    # Lists connecting the board property values to the labels.
+    #   [ board property, match label, exclude label ]
+    # exclude can be none if there is no label that shoud be excluded based on
+    # the property.
+    BOARD_PROPERTIES = [
+        [0x1, 'sps', 'i2cs'],
+        [0x2, 'i2cs', 'sps'],
+        [0x40, 'plt_rst', 'sys_rst'],
     ]
 
-
-    def initialize(self, host, cmdline_args):
-        super(firmware_Cr50ConsoleCommands, self).initialize(host, cmdline_args)
-        if not hasattr(self, 'cr50'):
-            raise error.TestNAError('Test can only be run on devices with '
-                                    'access to the Cr50 console')
-
+    def initialize(self, host, cmdline_args, full_args):
+        super(firmware_Cr50ConsoleCommands, self).initialize(host, cmdline_args,
+                full_args)
         self.host = host
         self.missing = []
         self.extra = []
-        self.state = {}
+        self.past_matches = {}
+
+        # Make sure the console is restricted
+        if self.cr50.get_cap('GscFullConsole')[self.cr50.CAP_REQ] == 'Always':
+            logging.info('Restricting console')
+            self.fast_open(enable_testlab=True)
+            self.cr50.set_cap('GscFullConsole', 'IfOpened')
+            time.sleep(self.CCD_HOOK_WAIT)
+            self.cr50.set_ccd_level('lock')
 
 
     def parse_output(self, output, split_str):
@@ -64,7 +77,9 @@ class firmware_Cr50ConsoleCommands(FirmwareTest):
 
     def get_output(self, cmd, regexp, split_str, sort):
         """Return the cr50 console output"""
-        output = self.cr50.send_command_get_output(cmd, regexp)[0][1].strip()
+        output = self.cr50.send_safe_command_get_output(cmd,
+                                                        [regexp])[0][1].strip()
+        logging.debug('%s output:%s\n', cmd, output)
 
         # Record the original command output
         results_path = os.path.join(self.resultsdir, cmd)
@@ -83,11 +98,6 @@ class firmware_Cr50ConsoleCommands(FirmwareTest):
     def get_expected_output(self, cmd, split_str):
         """Return the expected cr50 console output"""
         path = os.path.join(os.path.dirname(os.path.realpath(__file__)), cmd)
-        ext_path = path + '.' + self.brdprop
-
-        if os.path.isfile(ext_path):
-            path = ext_path
-
         logging.info('reading %s', path)
         if not os.path.isfile(path):
             raise error.TestFail('Could not find %s file %s' % (cmd, path))
@@ -102,60 +112,104 @@ class firmware_Cr50ConsoleCommands(FirmwareTest):
         """Compare the actual console command output to the expected output"""
         expected_output = self.get_expected_output(cmd, split_str)
         output = self.get_output(cmd, regexp, split_str, sort)
+        diff_info = difflib.unified_diff(expected_output, output.splitlines())
+        logging.debug('%s DIFF:\n%s', cmd, '\n'.join(diff_info))
         missing = []
+        extra = []
         for regexp in expected_output:
             match = re.search(regexp, output)
             if match:
-                match_dict = match.groupdict()
-                for k, v in match_dict.iteritems():
-                    if k not in self.state:
-                        continue
-                    old_val = self.state[k]
-                    if (not old_val) != (not v):
-                        raise error.TestFail('%s mismatch: %r %r' % (k, old_val,
-                                v))
-                self.state.update(match.groupdict())
+                # Update the past_matches dict with the matches from this line.
+                #
+                # Make sure if matches for any keys existed before, they exist
+                # now and if they didn't exist, they don't exist now.
+                for k, v in match.groupdict().iteritems():
+                    old_val = self.past_matches.get(k, [v, v])[0]
+                    if old_val and not v:
+                        missing.append('%s:%s' % (k, regexp))
+                    elif not old_val and v:
+                        extra.append('%s:%s' % (k, v))
+                    else:
+                        self.past_matches[k] = [v, regexp]
 
             # Remove the matching string from the output.
             output, n = re.subn('%s\s*' % regexp, '', output, 1)
             if not n:
                 missing.append(regexp)
 
-        if len(missing):
+
+        if missing:
             self.missing.append('%s-(%s)' % (cmd, ', '.join(missing)))
         output = output.strip()
-        if len(output):
-            self.extra.append('%s-(%s)' % (cmd, ', '.join(output.split('\n'))))
+        if output:
+            extra.extend(output.split('\n'))
+        if extra:
+            self.extra.append('%s-(%s)' % (cmd, ', '.join(extra)))
 
 
-    def get_brdprop(self):
+    def get_image_properties(self):
         """Save the board properties
 
         The saved board property flags will not include oboslete flags or the wp
         setting. These won't change the gpio or pinmux settings.
         """
-        rv = self.cr50.send_command_get_output('brdprop', self.BRDPROP_FORMAT)
-        brdprop = int(rv[0][1], 16)
-        self.brdprop = hex(brdprop & self.RELEVANT_PROPERTIES)
+        brdprop = self.cr50.get_board_properties()
+        self.include = []
+        self.exclude = []
+        for prop, include, exclude in self.BOARD_PROPERTIES:
+            if prop & brdprop:
+                self.include.append(include)
+                if exclude:
+                    self.exclude.append(exclude)
+            else:
+                self.exclude.append(include)
+        # use the major version to determine prePVT or MP. prePVT have even
+        # major versions. prod have odd
+        version = self.cr50.get_version().split('.')[1]
+        if 'mp' in self.servo.get('cr50_version'):
+            self.include.append('mp')
+            self.exclude.append('prepvt')
+        else:
+            self.exclude.append('mp')
+            self.include.append('prepvt')
+        logging.info('%s brdprop 0x%x: %s', self.servo.get('ec_board'),
+                     brdprop, ', '.join(self.include))
 
 
     def run_once(self, host):
         """Verify the Cr50 gpiocfg, pinmux, and help output."""
         err = []
-        self.get_brdprop()
+        test_err = []
+        self.get_image_properties()
         for command, regexp, split_str, sort in self.TESTS:
             self.check_command(command, regexp, split_str, sort)
 
-        if (not self.state.get('ccd_has_been_enabled', 0) and
-            self.state.get('ccd_enabled', 0)):
+        if (not self.past_matches.get('ccd_has_been_enabled', 0) and
+            self.past_matches.get('ccd_enabled', 0)):
             err.append('Inconsistent ccd settings')
 
         if len(self.missing):
             err.append('MISSING OUTPUT: ' + ', '.join(self.missing))
         if len(self.extra):
             err.append('EXTRA OUTPUT: ' + ', '.join(self.extra))
-
-        logging.info(self.state)
+        logging.info(self.past_matches)
 
         if len(err):
             raise error.TestFail('\t'.join(err))
+
+        # Check all of the labels we did/didn't match. Make sure they match the
+        # expected cr50 settings. Raise a test error if there are any mismatches
+        missing_labels = []
+        for label in self.include:
+            if label in self.past_matches and not self.past_matches[label][0]:
+                missing_labels.append(label)
+        extra_labels = []
+        for label in self.exclude:
+            if label in self.past_matches and self.past_matches[label][0]:
+                extra_labels.append(label)
+        if missing_labels:
+            test_err.append('missing: %s' % ', '.join(missing_labels))
+        if extra_labels:
+            test_err.append('matched: %s' % ', '.join(extra_labels))
+        if test_err:
+            raise error.TestError('\t'.join(test_err))

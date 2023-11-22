@@ -31,6 +31,8 @@ your browser to:
 
 http://git.kernel.dk/
 
+A blktrace visualization tool, iowatcher, was added to blktrace in version
+1.1.0. It requires librsvg and either png2theora or ffmpeg to generate movies.
 
 Usage
 -----

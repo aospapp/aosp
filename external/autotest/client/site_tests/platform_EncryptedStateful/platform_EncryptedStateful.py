@@ -243,6 +243,15 @@ class EncryptedStateful(object):
 class platform_EncryptedStateful(test.test):
     version = 1
 
+    # With b/80549098, PUNCH_HOLE was disabled for all kernel trees
+    # before v4.4. This means that the reclamation check will only work
+    # with kernels that support PUNCH_HOLE.
+    def is_punch_hole_supported(self):
+        kernel_ver = os.uname()[2]
+        if utils.compare_versions(kernel_ver, "4.4") < 0 :
+            return False
+        return True
+
     def existing_partition(self):
         # Examine the existing encrypted partition.
         encstate = EncryptedStateful("/")
@@ -266,8 +275,9 @@ class platform_EncryptedStateful(test.test):
         # Perform post-mount sanity checks.
         encstate.check_sizes()
 
-        # Check disk reclamation.
-        encstate.check_reclamation()
+        # Check disk reclamation for kernels that support PUNCH_HOLE.
+        if self.is_punch_hole_supported():
+            encstate.check_reclamation()
 
         # Check explicit umount.
         encstate.umount()

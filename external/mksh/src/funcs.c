@@ -38,7 +38,7 @@
 #endif
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/funcs.c,v 1.353 2018/01/14 01:26:49 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/funcs.c,v 1.355 2018/10/20 21:04:28 tg Exp $");
 
 #if HAVE_KILLPG
 /*
@@ -499,7 +499,7 @@ c_print(const char **wp)
 						Xput(xs, xp, '\\');
 					}
 				} else if ((unsigned int)c > 0xFF) {
-					/* generic function returned Unicode */
+					/* generic function returned UCS */
 					po.ts[utf_wctomb(po.ts, c - 0x100)] = 0;
 					c = 0;
 					do {
@@ -2970,6 +2970,37 @@ test_eval(Test_env *te, Test_op op, const char *opnd1, const char *opnd2,
 	case TO_STGT:
 		return (strcmp(opnd1, opnd2) > 0);
 
+	/* -nt */
+	case TO_FILNT:
+		/*
+		 * ksh88/ksh93 succeed if file2 can't be stated
+		 * (subtly different from 'does not exist').
+		 */
+		return (stat(opnd1, &b1) == 0 &&
+		    (((s = stat(opnd2, &b2)) == 0 &&
+		    b1.st_mtime > b2.st_mtime) || s < 0));
+
+	/* -ot */
+	case TO_FILOT:
+		/*
+		 * ksh88/ksh93 succeed if file1 can't be stated
+		 * (subtly different from 'does not exist').
+		 */
+		return (stat(opnd2, &b2) == 0 &&
+		    (((s = stat(opnd1, &b1)) == 0 &&
+		    b1.st_mtime < b2.st_mtime) || s < 0));
+
+	/* -ef */
+	case TO_FILEQ:
+		return (stat (opnd1, &b1) == 0 && stat (opnd2, &b2) == 0 &&
+		    b1.st_dev == b2.st_dev && b1.st_ino == b2.st_ino);
+
+	/* all other cases */
+	case TO_NONOP:
+	case TO_NONNULL:
+		/* throw the error */
+		break;
+
 	/* -eq */
 	case TO_INTEQ:
 	/* -ne */
@@ -3006,37 +3037,6 @@ test_eval(Test_env *te, Test_op op, const char *opnd1, const char *opnd2,
 			break;
 		}
 		/* NOTREACHED */
-
-	/* -nt */
-	case TO_FILNT:
-		/*
-		 * ksh88/ksh93 succeed if file2 can't be stated
-		 * (subtly different from 'does not exist').
-		 */
-		return (stat(opnd1, &b1) == 0 &&
-		    (((s = stat(opnd2, &b2)) == 0 &&
-		    b1.st_mtime > b2.st_mtime) || s < 0));
-
-	/* -ot */
-	case TO_FILOT:
-		/*
-		 * ksh88/ksh93 succeed if file1 can't be stated
-		 * (subtly different from 'does not exist').
-		 */
-		return (stat(opnd2, &b2) == 0 &&
-		    (((s = stat(opnd1, &b1)) == 0 &&
-		    b1.st_mtime < b2.st_mtime) || s < 0));
-
-	/* -ef */
-	case TO_FILEQ:
-		return (stat (opnd1, &b1) == 0 && stat (opnd2, &b2) == 0 &&
-		    b1.st_dev == b2.st_dev && b1.st_ino == b2.st_ino);
-
-	/* all other cases */
-	case TO_NONOP:
-	case TO_NONNULL:
-		/* throw the error */
-		break;
 	}
 	(*te->error)(te, 0, "internal error: unknown op");
 	return (1);

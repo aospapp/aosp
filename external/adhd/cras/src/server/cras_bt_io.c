@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include <sys/time.h>
 #include <syslog.h>
 
 #include "cras_bt_io.h"
@@ -112,20 +113,17 @@ static int device_using_profile(struct cras_bt_device *device,
 	return cras_bt_device_get_active_profile(device) & profile;
 }
 
-/* Checks if the condition is met to switch to a different profile
- * when trying to set the format to btio before open it. Base on two
- * rules:
+/* Checks if the condition is met to switch to a different profile based
+ * on two rules:
  * (1) Prefer to use A2DP for output since the audio quality is better.
  * (2) Must use HFP/HSP for input since A2DP doesn't support audio input.
  *
  * If the profile switch happens, return non-zero error code, otherwise
  * return zero.
  */
-static int update_supported_formats(struct cras_iodev *iodev)
+static int open_dev(struct cras_iodev *iodev)
 {
 	struct bt_io *btio = (struct bt_io *)iodev;
-	struct cras_iodev *dev = active_profile_dev(iodev);
-	int rc, length, i;
 
 	/* Force to use HFP if opening input dev. */
 	if (device_using_profile(btio->device,
@@ -136,6 +134,14 @@ static int update_supported_formats(struct cras_iodev *iodev)
 		cras_bt_device_switch_profile_enable_dev(btio->device, iodev);
 		return -EAGAIN;
 	}
+
+	return 0;
+}
+
+static int update_supported_formats(struct cras_iodev *iodev)
+{
+	struct cras_iodev *dev = active_profile_dev(iodev);
+	int rc, length, i;
 
 	if (dev->format == NULL) {
 		dev->format = (struct cras_audio_format *)
@@ -173,7 +179,7 @@ static int update_supported_formats(struct cras_iodev *iodev)
 	return 0;
 }
 
-static int open_dev(struct cras_iodev *iodev)
+static int configure_dev(struct cras_iodev *iodev)
 {
 	int rc;
 	struct cras_iodev *dev = active_profile_dev(iodev);
@@ -183,7 +189,7 @@ static int open_dev(struct cras_iodev *iodev)
 	/* Fill back the format iodev is using. */
 	*dev->format = *iodev->format;
 
-	rc = dev->open_dev(dev);
+	rc = dev->configure_dev(dev);
 	if (rc) {
 		/* Free format here to assure the update_supported_format
 		 * callback will be called before any future open_dev call. */
@@ -332,6 +338,7 @@ struct cras_iodev *cras_bt_io_create(struct cras_bt_device *device,
 	iodev->info.stable_id_new = dev->info.stable_id_new;
 
 	iodev->open_dev = open_dev;
+	iodev->configure_dev = configure_dev;
 	iodev->frames_queued = frames_queued;
 	iodev->delay_frames = delay_frames;
 	iodev->get_buffer = get_buffer;
@@ -340,9 +347,18 @@ struct cras_iodev *cras_bt_io_create(struct cras_bt_device *device,
 	iodev->close_dev = close_dev;
 	iodev->update_supported_formats = update_supported_formats;
 	iodev->update_active_node = update_active_node;
-	iodev->software_volume_needed = 1;
-	iodev->set_volume = set_bt_volume;
 	iodev->no_stream = cras_iodev_default_no_stream_playback;
+
+	/* Input also checks |software_volume_needed| flag for using software
+	 * gain. Keep it as false for BT input.
+	 * TODO(hychao): after wide band speech mode is supported, consider
+	 * enable software gain.
+	 */
+	if (dev->direction == CRAS_STREAM_OUTPUT) {
+		iodev->software_volume_needed =
+				!cras_bt_device_get_use_hardware_volume(device);
+		iodev->set_volume = set_bt_volume;
+	}
 
 	/* Create the dummy node set to plugged so it's the only node exposed
 	 * to UI, and point it to the first profile dev. */
@@ -394,12 +410,28 @@ error:
 	return NULL;
 }
 
+void cras_bt_io_free_resources(struct cras_iodev *bt_iodev)
+{
+	struct cras_ionode *node;
+	struct bt_node *n;
+
+	free(bt_iodev->supported_rates);
+	free(bt_iodev->supported_channel_counts);
+	free(bt_iodev->supported_formats);
+
+	DL_FOREACH(bt_iodev->nodes, node) {
+		n = (struct bt_node *)node;
+		cras_iodev_rm_node(bt_iodev, node);
+		free(n);
+	}
+
+	cras_iodev_free_resources(bt_iodev);
+}
+
 void cras_bt_io_destroy(struct cras_iodev *bt_iodev)
 {
 	int rc;
 	struct bt_io *btio = (struct bt_io *)bt_iodev;
-	struct cras_ionode *node;
-	struct bt_node *n;
 
 	if (bt_iodev->direction == CRAS_STREAM_OUTPUT)
 		rc = cras_iodev_list_rm_output(bt_iodev);
@@ -408,11 +440,7 @@ void cras_bt_io_destroy(struct cras_iodev *bt_iodev)
 	if (rc == -EBUSY)
 		return;
 
-	DL_FOREACH(bt_iodev->nodes, node) {
-		n = (struct bt_node *)node;
-		cras_iodev_rm_node(bt_iodev, node);
-		free(n);
-	}
+	cras_bt_io_free_resources(bt_iodev);
 	free(btio);
 }
 

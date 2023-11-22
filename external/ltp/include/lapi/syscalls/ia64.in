@@ -118,6 +118,7 @@ readv 1146
 writev 1147
 pread64 1148
 pwrite64 1149
+_sysctl 1150
 mmap 1151
 munmap 1152
 mlock 1153
@@ -292,7 +293,14 @@ recvmmsg 1322
 fanotify_init 1323
 fanotify_mark 1324
 prlimit64 1325
+process_vm_readv 1332
+process_vm_writev 1333
 renameat2 1338
 getrandom 1339
 memfd_create 1340
+membarrier 1344
+execveat 1342
+mlock2 1346
 copy_file_range 1347
+preadv2 1348
+pwritev2 1349

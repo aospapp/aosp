@@ -13,7 +13,6 @@ ATTRIBUTES = "suite:bvt-cq, suite:partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_vp8"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,4 +24,5 @@ This test verifies VP8 video decode acceleration works.
 """
 
 job.run_test('video_ChromeHWDecodeUsed', codec='vp8', is_mse=0,
-             video_file='720_vp8.webm', tag='vp8')
+             video_file='720_vp8.webm', tag='vp8',
+             capability='hw_dec_vp8_1080_30')

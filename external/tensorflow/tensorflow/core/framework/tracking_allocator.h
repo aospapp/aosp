@@ -13,12 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef TENSORFLOW_FRAMEWORK_TRACKING_ALLOCATOR_H_
-#define TENSORFLOW_FRAMEWORK_TRACKING_ALLOCATOR_H_
+#ifndef TENSORFLOW_CORE_FRAMEWORK_TRACKING_ALLOCATOR_H_
+#define TENSORFLOW_CORE_FRAMEWORK_TRACKING_ALLOCATOR_H_
 
 #include <unordered_map>
 #include "tensorflow/core/framework/allocator.h"
-#include "tensorflow/core/framework/step_stats.pb.h"
 #include "tensorflow/core/lib/core/refcount.h"
 #include "tensorflow/core/lib/gtl/inlined_vector.h"
 #include "tensorflow/core/platform/mutex.h"
@@ -67,7 +66,7 @@ class TrackingAllocator : public Allocator {
   size_t RequestedSize(const void* ptr) override;
   size_t AllocatedSize(const void* ptr) override;
   int64 AllocationId(const void* ptr) override;
-  void GetStats(AllocatorStats* stats) override;
+  absl::optional<AllocatorStats> GetStats() override;
   void ClearStats() override;
 
   // If the underlying allocator tracks allocation sizes, this returns
@@ -131,4 +130,4 @@ class TrackingAllocator : public Allocator {
 
 }  // end namespace tensorflow
 
-#endif  // TENSORFLOW_FRAMEWORK_TRACKING_ALLOCATOR_H_
+#endif  // TENSORFLOW_CORE_FRAMEWORK_TRACKING_ALLOCATOR_H_

@@ -1,0 +1,6 @@
+exe,euser,egroup,pidns,mntns,caps,nonewprivs,filter
+
+# See the baseline file for docs.
+
+# TODO(b/117882905): Update the baseline after rmtfs runs as a non-root user.
+rmtfs,root,root,Yes,Yes,Yes,Yes,No

@@ -1,9 +1,10 @@
 # Installation directories.
-PREFIX ?= $(DESTDIR)/usr
+LINGUAS ?= ru
+PREFIX ?= /usr
 BINDIR ?= $(PREFIX)/bin
 MANDIR ?= $(PREFIX)/share/man
-ETCDIR ?= $(DESTDIR)/etc
-LOCALEDIR = /usr/share/locale
+ETCDIR ?= /etc
+LOCALEDIR = $(DESTDIR)$(PREFIX)/share/locale
 PAMH ?= $(shell test -f /usr/include/security/pam_appl.h && echo y)
 AUDITH ?= $(shell test -f /usr/include/libaudit.h && echo y)
 # Enable capabilities to permit newrole to generate audit records.
@@ -61,17 +62,23 @@ newrole: newrole.o $(EXTRA_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 install: all
-	test -d $(BINDIR)      || install -m 755 -d $(BINDIR)
-	test -d $(ETCDIR)/pam.d || install -m 755 -d $(ETCDIR)/pam.d
-	test -d $(MANDIR)/man1 || install -m 755 -d $(MANDIR)/man1
-	install -m $(MODE) newrole $(BINDIR)
-	install -m 644 newrole.1 $(MANDIR)/man1/
+	test -d $(DESTDIR)$(BINDIR)      || install -m 755 -d $(DESTDIR)$(BINDIR)
+	test -d $(DESTDIR)$(ETCDIR)/pam.d || install -m 755 -d $(DESTDIR)$(ETCDIR)/pam.d
+	test -d $(DESTDIR)$(MANDIR)/man1 || install -m 755 -d $(DESTDIR)$(MANDIR)/man1
+	install -m $(MODE) newrole $(DESTDIR)$(BINDIR)
+	install -m 644 newrole.1 $(DESTDIR)$(MANDIR)/man1/
+	for lang in $(LINGUAS) ; do \
+		if [ -e $${lang} ] ; then \
+			test -d $(DESTDIR)$(MANDIR)/$${lang}/man1 || install -m 755 -d $(DESTDIR)$(MANDIR)/$${lang}/man1 ; \
+			install -m 644 $${lang}/*.1 $(DESTDIR)$(MANDIR)/$${lang}/man1/ ; \
+		fi ; \
+	done
 ifeq ($(PAMH), y)
-	test -d $(ETCDIR)/pam.d || install -m 755 -d $(ETCDIR)/pam.d
+	test -d $(DESTDIR)$(ETCDIR)/pam.d || install -m 755 -d $(DESTDIR)$(ETCDIR)/pam.d
 ifeq ($(LSPP_PRIV),y)
-	install -m 644 newrole-lspp.pamd $(ETCDIR)/pam.d/newrole
+	install -m 644 newrole-lspp.pamd $(DESTDIR)$(ETCDIR)/pam.d/newrole
 else
-	install -m 644 newrole.pamd $(ETCDIR)/pam.d/newrole
+	install -m 644 newrole.pamd $(DESTDIR)$(ETCDIR)/pam.d/newrole
 endif
 endif
 
@@ -82,4 +89,4 @@ indent:
 	../../scripts/Lindent $(wildcard *.[ch])
 
 relabel: install
-	/sbin/restorecon $(BINDIR)/newrole
+	/sbin/restorecon $(DESTDIR)$(BINDIR)/newrole

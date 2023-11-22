@@ -13,21 +13,8 @@
 #include "glsl/GrGLSLProgramBuilder.h"
 #include "glsl/GrGLSLUniformHandler.h"
 #include "glsl/GrGLSLVarying.h"
-#include "../private/GrGLSL.h"
 
 const char* GrGLSLFragmentShaderBuilder::kDstColorName = "_dstColor";
-
-static const char* sample_offset_array_name(GrGLSLFPFragmentBuilder::Coordinates coords) {
-    static const char* kArrayNames[] = {
-        "deviceSpaceSampleOffsets",
-        "windowSpaceSampleOffsets"
-    };
-    return kArrayNames[coords];
-
-    GR_STATIC_ASSERT(0 == GrGLSLFPFragmentBuilder::kSkiaDevice_Coordinates);
-    GR_STATIC_ASSERT(1 == GrGLSLFPFragmentBuilder::kGLSLWindow_Coordinates);
-    GR_STATIC_ASSERT(SK_ARRAY_COUNT(kArrayNames) == GrGLSLFPFragmentBuilder::kLast_Coordinates + 1);
-}
 
 static const char* specific_layout_qualifier_name(GrBlendEquation equation) {
     SkASSERT(GrBlendEquationIsAdvanced(equation));
@@ -66,8 +53,9 @@ static const char* specific_layout_qualifier_name(GrBlendEquation equation) {
     GR_STATIC_ASSERT(12 == kHSLSaturation_GrBlendEquation - kFirstAdvancedGrBlendEquation);
     GR_STATIC_ASSERT(13 == kHSLColor_GrBlendEquation - kFirstAdvancedGrBlendEquation);
     GR_STATIC_ASSERT(14 == kHSLLuminosity_GrBlendEquation - kFirstAdvancedGrBlendEquation);
+    // There's an illegal GrBlendEquation at the end there, hence the -1.
     GR_STATIC_ASSERT(SK_ARRAY_COUNT(kLayoutQualifierNames) ==
-                     kGrBlendEquationCnt - kFirstAdvancedGrBlendEquation);
+                     kGrBlendEquationCnt - kFirstAdvancedGrBlendEquation - 1);
 }
 
 uint8_t GrGLSLFragmentShaderBuilder::KeyForSurfaceOrigin(GrSurfaceOrigin origin) {
@@ -84,31 +72,11 @@ GrGLSLFragmentShaderBuilder::GrGLSLFragmentShaderBuilder(GrGLSLProgramBuilder* p
     , fHasCustomColorOutput(false)
     , fCustomColorOutputIndex(-1)
     , fHasSecondaryOutput(false)
-    , fUsedSampleOffsetArrays(0)
-    , fHasInitializedSampleMask(false)
     , fForceHighPrecision(false) {
     fSubstageIndices.push_back(0);
 #ifdef SK_DEBUG
-    fUsedProcessorFeatures = GrProcessor::kNone_RequiredFeatures;
     fHasReadDstColor = false;
 #endif
-}
-
-bool GrGLSLFragmentShaderBuilder::enableFeature(GLSLFeature feature) {
-    const GrShaderCaps& shaderCaps = *fProgramBuilder->shaderCaps();
-    switch (feature) {
-        case kMultisampleInterpolation_GLSLFeature:
-            if (!shaderCaps.multisampleInterpolationSupport()) {
-                return false;
-            }
-            if (const char* extension = shaderCaps.multisampleInterpolationExtensionString()) {
-                this->addFeature(1 << kMultisampleInterpolation_GLSLFeature, extension);
-            }
-            return true;
-        default:
-            SK_ABORT("Unexpected GLSLFeature requested.");
-            return false;
-    }
 }
 
 SkString GrGLSLFragmentShaderBuilder::ensureCoords2D(const GrShaderVar& coords) {
@@ -124,64 +92,8 @@ SkString GrGLSLFragmentShaderBuilder::ensureCoords2D(const GrShaderVar& coords) 
     return coords2D;
 }
 
-void GrGLSLFragmentShaderBuilder::appendOffsetToSample(const char* sampleIdx, Coordinates coords) {
-    SkASSERT(fProgramBuilder->header().fSamplePatternKey);
-    SkDEBUGCODE(fUsedProcessorFeatures |= GrProcessor::kSampleLocations_RequiredFeature);
-    if (kTopLeft_GrSurfaceOrigin == this->getSurfaceOrigin()) {
-        // With a top left origin, device and window space are equal, so we only use device coords.
-        coords = kSkiaDevice_Coordinates;
-    }
-    this->codeAppendf("%s[%s]", sample_offset_array_name(coords), sampleIdx);
-    fUsedSampleOffsetArrays |= (1 << coords);
-}
-
-void GrGLSLFragmentShaderBuilder::maskSampleCoverage(const char* mask, bool invert) {
-    const GrShaderCaps& shaderCaps = *fProgramBuilder->shaderCaps();
-    if (!shaderCaps.sampleVariablesSupport()) {
-        SkDEBUGFAIL("Attempted to mask sample coverage without support.");
-        return;
-    }
-    if (const char* extension = shaderCaps.sampleVariablesExtensionString()) {
-        this->addFeature(1 << kSampleVariables_GLSLPrivateFeature, extension);
-    }
-    if (!fHasInitializedSampleMask) {
-        this->codePrependf("gl_SampleMask[0] = -1;");
-        fHasInitializedSampleMask = true;
-    }
-    if (invert) {
-        this->codeAppendf("gl_SampleMask[0] &= ~(%s);", mask);
-    } else {
-        this->codeAppendf("gl_SampleMask[0] &= %s;", mask);
-    }
-}
-
-void GrGLSLFragmentShaderBuilder::overrideSampleCoverage(const char* mask) {
-    const GrShaderCaps& shaderCaps = *fProgramBuilder->shaderCaps();
-    if (!shaderCaps.sampleMaskOverrideCoverageSupport()) {
-        SkDEBUGFAIL("Attempted to override sample coverage without support.");
-        return;
-    }
-    SkASSERT(shaderCaps.sampleVariablesSupport());
-    if (const char* extension = shaderCaps.sampleVariablesExtensionString()) {
-        this->addFeature(1 << kSampleVariables_GLSLPrivateFeature, extension);
-    }
-    if (this->addFeature(1 << kSampleMaskOverrideCoverage_GLSLPrivateFeature,
-                         "GL_NV_sample_mask_override_coverage")) {
-        // Redeclare gl_SampleMask with layout(override_coverage) if we haven't already.
-        fOutputs.push_back().set(kInt_GrSLType, "gl_SampleMask", 1, GrShaderVar::kOut_TypeModifier,
-                                 kHigh_GrSLPrecision, "override_coverage");
-    }
-    this->codeAppendf("gl_SampleMask[0] = %s;", mask);
-    fHasInitializedSampleMask = true;
-}
-
 const char* GrGLSLFragmentShaderBuilder::dstColor() {
     SkDEBUGCODE(fHasReadDstColor = true;)
-
-    const char* override = fProgramBuilder->primitiveProcessor().getDestColorOverride();
-    if (override != nullptr) {
-        return override;
-    }
 
     const GrShaderCaps* shaderCaps = fProgramBuilder->shaderCaps();
     if (shaderCaps->fbFetchSupport()) {
@@ -189,7 +101,7 @@ const char* GrGLSLFragmentShaderBuilder::dstColor() {
                          shaderCaps->fbFetchExtensionString());
 
         // Some versions of this extension string require declaring custom color output on ES 3.0+
-        const char* fbFetchColorName = shaderCaps->fbFetchColorName();
+        const char* fbFetchColorName = "sk_LastFragColor";
         if (shaderCaps->fbFetchNeedsCustomOutput()) {
             this->enableCustomOutput();
             fOutputs[fCustomColorOutputIndex].setTypeModifier(GrShaderVar::kInOut_TypeModifier);
@@ -281,33 +193,6 @@ GrSurfaceOrigin GrGLSLFragmentShaderBuilder::getSurfaceOrigin() const {
 
 void GrGLSLFragmentShaderBuilder::onFinalize() {
     fProgramBuilder->varyingHandler()->getFragDecls(&this->inputs(), &this->outputs());
-    if (fUsedSampleOffsetArrays & (1 << kSkiaDevice_Coordinates)) {
-        this->defineSampleOffsetArray(sample_offset_array_name(kSkiaDevice_Coordinates),
-                                      SkMatrix::MakeTrans(-0.5f, -0.5f));
-    }
-    if (fUsedSampleOffsetArrays & (1 << kGLSLWindow_Coordinates)) {
-        // With a top left origin, device and window space are equal, so we only use device coords.
-        SkASSERT(kBottomLeft_GrSurfaceOrigin == this->getSurfaceOrigin());
-        SkMatrix m;
-        m.setScale(1, -1);
-        m.preTranslate(-0.5f, -0.5f);
-        this->defineSampleOffsetArray(sample_offset_array_name(kGLSLWindow_Coordinates), m);
-    }
-}
-
-void GrGLSLFragmentShaderBuilder::defineSampleOffsetArray(const char* name, const SkMatrix& m) {
-    SkASSERT(fProgramBuilder->caps()->sampleLocationsSupport());
-    const GrPipeline& pipeline = fProgramBuilder->pipeline();
-    const GrRenderTargetPriv& rtp = pipeline.renderTarget()->renderTargetPriv();
-    const GrGpu::MultisampleSpecs& specs = rtp.getMultisampleSpecs(pipeline);
-    SkSTArray<16, SkPoint, true> offsets;
-    offsets.push_back_n(specs.fEffectiveSampleCnt);
-    m.mapPoints(offsets.begin(), specs.fSampleLocations, specs.fEffectiveSampleCnt);
-    this->definitions().appendf("const float2 %s[] = float2[](", name);
-    for (int i = 0; i < specs.fEffectiveSampleCnt; ++i) {
-        this->definitions().appendf("float2(%f, %f)", offsets[i].x(), offsets[i].y());
-        this->definitions().append(i + 1 != specs.fEffectiveSampleCnt ? ", " : ");\n");
-    }
 }
 
 void GrGLSLFragmentShaderBuilder::onBeforeChildProcEmitCode() {

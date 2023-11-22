@@ -44,9 +44,13 @@ NON_PERL_FILES = {
         'src/crypto/curve25519/asm/x25519-asm-arm.S',
         'src/crypto/poly1305/poly1305_arm_asm.S',
     ],
+    ('linux', 'x86_64'): [
+        'src/crypto/hrss/asm/poly_rq_mul.S',
+    ],
 }
 
 PREFIX = None
+EMBED_TEST_DATA = True
 
 
 def PathOf(x):
@@ -220,6 +224,8 @@ class Bazel(object):
       self.PrintVariableSection(out, 'crypto_test_sources',
                                 files['crypto_test'])
       self.PrintVariableSection(out, 'ssl_test_sources', files['ssl_test'])
+      self.PrintVariableSection(out, 'crypto_test_data',
+                                files['crypto_test_data'])
 
 
 class Eureka(object):
@@ -294,11 +300,13 @@ class GN(object):
       out.write(self.header)
 
       self.PrintVariableSection(out, 'crypto_sources',
-                                files['crypto'] + files['crypto_headers'] +
+                                files['crypto'] +
                                 files['crypto_internal_headers'])
+      self.PrintVariableSection(out, 'crypto_headers',
+                                files['crypto_headers'])
       self.PrintVariableSection(out, 'ssl_sources',
-                                files['ssl'] + files['ssl_headers'] +
-                                files['ssl_internal_headers'])
+                                files['ssl'] + files['ssl_internal_headers'])
+      self.PrintVariableSection(out, 'ssl_headers', files['ssl_headers'])
 
       for ((osname, arch), asm_files) in asm_outputs:
         self.PrintVariableSection(
@@ -407,11 +415,11 @@ def NoTestRunnerFiles(path, dent, is_dir):
 
 
 def NotGTestSupport(path, dent, is_dir):
-  return 'gtest' not in dent
+  return 'gtest' not in dent and 'abi_test' not in dent
 
 
 def SSLHeaderFiles(path, dent, is_dir):
-  return dent in ['ssl.h', 'tls1.h', 'ssl23.h', 'ssl3.h', 'dtls1.h']
+  return dent in ['ssl.h', 'tls1.h', 'ssl23.h', 'ssl3.h', 'dtls1.h', 'srtp.h']
 
 
 def FindCFiles(directory, filter_func):
@@ -607,22 +615,28 @@ def main(platforms):
       FindHeaderFiles(os.path.join('src', 'crypto', 'test'), AllFiles) +
       FindHeaderFiles(os.path.join('src', 'ssl', 'test'), NoTestRunnerFiles))
 
-  # Generate crypto_test_data.cc
-  with open('crypto_test_data.cc', 'w+') as out:
-    subprocess.check_call(
-        ['go', 'run', 'util/embed_test_data.go'] + cmake['CRYPTO_TEST_DATA'],
-        cwd='src',
-        stdout=out)
+  crypto_test_files = []
+  if EMBED_TEST_DATA:
+    # Generate crypto_test_data.cc
+    with open('crypto_test_data.cc', 'w+') as out:
+      subprocess.check_call(
+          ['go', 'run', 'util/embed_test_data.go'] + cmake['CRYPTO_TEST_DATA'],
+          cwd='src',
+          stdout=out)
+    crypto_test_files += ['crypto_test_data.cc']
 
-  crypto_test_files = FindCFiles(os.path.join('src', 'crypto'), OnlyTests)
+  crypto_test_files += FindCFiles(os.path.join('src', 'crypto'), OnlyTests)
   crypto_test_files += [
-      'crypto_test_data.cc',
+      'src/crypto/test/abi_test.cc',
       'src/crypto/test/file_test_gtest.cc',
       'src/crypto/test/gtest_main.cc',
   ]
 
   ssl_test_files = FindCFiles(os.path.join('src', 'ssl'), OnlyTests)
-  ssl_test_files.append('src/crypto/test/gtest_main.cc')
+  ssl_test_files += [
+      'src/crypto/test/abi_test.cc',
+      'src/crypto/test/gtest_main.cc',
+  ]
 
   fuzz_c_files = FindCFiles(os.path.join('src', 'fuzz'), NoTests)
 
@@ -648,6 +662,7 @@ def main(platforms):
       'crypto_headers': crypto_h_files,
       'crypto_internal_headers': crypto_internal_h_files,
       'crypto_test': sorted(crypto_test_files),
+      'crypto_test_data': sorted('src/' + x for x in cmake['CRYPTO_TEST_DATA']),
       'fips_fragments': fips_fragments,
       'fuzz': fuzz_c_files,
       'ssl': ssl_source_files,
@@ -673,8 +688,13 @@ if __name__ == '__main__':
       ' [android|bazel|eureka|gn|gyp]')
   parser.add_option('--prefix', dest='prefix',
       help='For Bazel, prepend argument to all source files')
+  parser.add_option(
+      '--embed_test_data', type='choice', dest='embed_test_data',
+      action='store', default="true", choices=["true", "false"],
+      help='For Bazel, don\'t embed data files in crypto_test_data.cc')
   options, args = parser.parse_args(sys.argv[1:])
   PREFIX = options.prefix
+  EMBED_TEST_DATA = (options.embed_test_data == "true")
 
   if not args:
     parser.print_help()

@@ -24,9 +24,12 @@ DECLARE_bool(preAbandonGpuContext);
 DECLARE_bool(abandonGpuContext);
 DECLARE_bool(releaseAndAbandonGpuContext);
 DECLARE_string(skps);
-DECLARE_bool(ddl);
-DECLARE_string(jsons);
+DECLARE_int32(skpViewportSize);
+DECLARE_string(jpgs);
+DECLARE_string(lotties);
 DECLARE_string(svgs);
+DECLARE_string(nimas);
+DECLARE_bool(nativeFonts);
 DECLARE_int32(threads);
 DECLARE_string(resourcePath);
 DECLARE_bool(verbose);
@@ -39,6 +42,8 @@ DECLARE_bool(deltaAA);
 DECLARE_bool(forceDeltaAA);
 DECLARE_string(key);
 DECLARE_string(properties);
+DECLARE_int32(backendTiles);
+DECLARE_int32(backendThreads)
 
 /**
  *  Helper to assist in collecting image paths from |dir| specified through a command line flag.

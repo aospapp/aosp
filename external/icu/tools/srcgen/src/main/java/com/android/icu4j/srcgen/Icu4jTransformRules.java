@@ -19,17 +19,14 @@ import com.google.currysrc.api.input.CompoundDirectoryInputFileGenerator;
 import com.google.currysrc.api.input.DirectoryInputFileGenerator;
 import com.google.currysrc.api.input.FilesInputFileGenerator;
 import com.google.currysrc.api.input.InputFileGenerator;
-import com.google.currysrc.api.match.SourceMatchers;
 import com.google.currysrc.api.output.BasicOutputSourceFileGenerator;
-import com.google.currysrc.api.process.DefaultRule;
-import com.google.currysrc.api.process.Processor;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Useful chunks of {@link com.google.currysrc.api.Rules} code shared between various tools.
+ * Useful chunks of {@link com.google.currysrc.api.RuleSet} code shared between various tools.
  */
 public class Icu4jTransformRules {
   private Icu4jTransformRules() {}
@@ -57,14 +54,6 @@ public class Icu4jTransformRules {
       throw new IllegalArgumentException("Output dir [" + outputDir + "] does not exist.");
     }
     return new BasicOutputSourceFileGenerator(outputDir);
-  }
-
-  public static DefaultRule createMandatoryRule(Processor processor) {
-    return new DefaultRule(processor, SourceMatchers.all(), true /* mustModify */);
-  }
-
-  public static DefaultRule createOptionalRule(Processor processor) {
-    return new DefaultRule(processor, SourceMatchers.all(), false /* mustModify */);
   }
 
   private static boolean isValidDir(File dir) {

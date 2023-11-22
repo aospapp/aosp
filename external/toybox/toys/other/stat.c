@@ -2,7 +2,7 @@
  * Copyright 2012 <warior.linux@gmail.com>
  * Copyright 2013 <anand.sinha85@gmail.com>
 
-USE_STAT(NEWTOY(stat, "<1c:fLt", TOYFLAG_BIN)) 
+USE_STAT(NEWTOY(stat, "<1c:(format)fLt", TOYFLAG_BIN))
 
 config STAT
   bool stat
@@ -13,7 +13,7 @@ config STAT
     Display status of files or filesystems.
 
     -c	Output specified FORMAT string instead of default
-    -f	display filesystem status instead of file status
+    -f	Display filesystem status instead of file status
     -L	Follow symlinks
     -t	terse (-c "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o")
     	      (with -f = -c "%n %i %l %t %s %S %b %f %a %c %d")
@@ -26,8 +26,8 @@ config STAT
     %m  Mount point         |%n  Filename           |%N  Long filename
     %o  I/O block size      |%s  Size (bytes)       |%t  Devtype major (hex)
     %T  Devtype minor (hex) |%u  User ID            |%U  User name
-    %x  Access time         |%X  Access unix time   |%y  File write time
-    %Y  File write unix time|%z  Dir change time    |%Z  Dir change unix time
+    %x  Access time         |%X  Access unix time   |%y  Modification time
+    %Y  Mod unix time       |%z  Creation time      |%Z  Creation unix time
 
     The valid format escape sequences for filesystems:
     %a  Available blocks    |%b  Total blocks       |%c  Total inodes
@@ -40,7 +40,7 @@ config STAT
 #include "toys.h"
 
 GLOBALS(
-  char *fmt;
+  char *c;
 
   union {
     struct stat st;
@@ -67,11 +67,7 @@ static void strout(char *val)
 
 static void date_stat_format(struct timespec *ts)
 {
-  char *s = toybuf+128;
-  strftime(s, sizeof(toybuf)-128, "%Y-%m-%d %H:%M:%S",
-    localtime(&(ts->tv_sec)));
-  sprintf(s+strlen(s), ".%09ld", ts->tv_nsec);
-  strout(s);
+  strout(format_iso_time(toybuf+128, sizeof(toybuf)-128, ts));
 }
 
 static void print_stat(char type)
@@ -112,7 +108,7 @@ static void print_stat(char type)
     }
     llist_traverse(mt, free);
   } else if (type == 'N') {
-    xprintf("`%s'", TT.file);
+    xprintf("%s", TT.file);
     if (S_ISLNK(stat->st_mode))
       if (readlink0(TT.file, toybuf, sizeof(toybuf)))
         xprintf(" -> `%s'", toybuf);
@@ -177,16 +173,16 @@ void stat_main(void)
     format = flagf ? "%n %i %l %t %s %S %b %f %a %c %d" :
                      "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o";
   } else format = flagf
-    ? "  File: \"%n\"\n    ID: %i Namelen: %l    Type: %t\n"
+    ? "  File: \"%n\"\n    ID: %i Namelen: %l    Type: %T\n"
       "Block Size: %s    Fundamental block size: %S\n"
       "Blocks: Total: %b\tFree: %f\tAvailable: %a\n"
       "Inodes: Total: %c\tFree: %d"
     : "  File: %N\n  Size: %s\t Blocks: %b\t IO Blocks: %B\t%F\n"
       "Device: %Dh/%dd\t Inode: %i\t Links: %h\n"
-      "Access: (%a/%A)\tUid: (%5u/%8U)\tGid: (%5g/%8G)\n"
+      "Access: (0%a/%A)\tUid: (%5u/%8U)\tGid: (%5g/%8G)\n"
       "Access: %x\nModify: %y\nChange: %z";
 
-  if (toys.optflags & FLAG_c) format = TT.fmt;
+  if (toys.optflags & FLAG_c) format = TT.c;
 
   for (i = 0; toys.optargs[i]; i++) {
     int L = toys.optflags & FLAG_L;

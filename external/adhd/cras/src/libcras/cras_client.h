@@ -59,6 +59,7 @@ extern "C" {
 #include "cras_util.h"
 
 struct cras_client;
+struct cras_hotword_handle;
 struct cras_stream_params;
 
 /* Callback for audio received or transmitted.
@@ -176,6 +177,17 @@ typedef void (*cras_thread_priority_cb_t)(struct cras_client *client);
 /* Callback for handling get hotword models reply. */
 typedef void (*get_hotword_models_cb_t)(struct cras_client *client,
 					const char *hotword_models);
+
+/* Callback to wait for a hotword trigger. */
+typedef void (*cras_hotword_trigger_cb_t)(struct cras_client *client,
+					  struct cras_hotword_handle *handle,
+					  void *user_data);
+
+/* Callback for handling hotword errors. */
+typedef int (*cras_hotword_error_cb_t)(struct cras_client *client,
+				       struct cras_hotword_handle *handle,
+				       int error,
+				       void *user_data);
 
 /*
  * Client handling.
@@ -492,6 +504,17 @@ int cras_client_dump_dsp_info(struct cras_client *client);
 int cras_client_update_audio_debug_info(
 	struct cras_client *client, void (*cb)(struct cras_client *));
 
+/* Asks the server to dump current audio thread snapshots.
+ *
+ * Args:
+ *    client - The client from cras_client_create.
+ *    cb - A function to call when the data is received.
+ * Returns:
+ *    0 on success, -EINVAL if the client isn't valid or isn't running.
+ */
+int cras_client_update_audio_thread_snapshots(
+	struct cras_client *client, void (*cb)(struct cras_client *));
+
 /*
  * Stream handling.
  */
@@ -524,6 +547,19 @@ struct cras_stream_params *cras_client_stream_params_create(
 		cras_playback_cb_t aud_cb,
 		cras_error_cb_t err_cb,
 		struct cras_audio_format *format);
+
+/* Functions to enable or disable specific effect on given stream parameter.
+ * Args:
+ *    params - Stream configuration parameters.
+ */
+void cras_client_stream_params_enable_aec(struct cras_stream_params *params);
+void cras_client_stream_params_disable_aec(struct cras_stream_params *params);
+void cras_client_stream_params_enable_ns(struct cras_stream_params *params);
+void cras_client_stream_params_disable_ns(struct cras_stream_params *params);
+void cras_client_stream_params_enable_agc(struct cras_stream_params *params);
+void cras_client_stream_params_disable_agc(struct cras_stream_params *params);
+void cras_client_stream_params_enable_vad(struct cras_stream_params *params);
+void cras_client_stream_params_disable_vad(struct cras_stream_params *params);
 
 /* Setup stream configuration parameters.
  * Args:
@@ -821,6 +857,21 @@ long cras_client_get_system_max_capture_gain(const struct cras_client *client);
 const struct audio_debug_info *cras_client_get_audio_debug_info(
 		const struct cras_client *client);
 
+/* Gets audio thread snapshot buffer.
+ *
+ * Requires that the connection to the server has been established.
+ * Access to the resulting pointer is not thread-safe.
+ *
+ * Args:
+ *    client - The client from cras_client_create.
+ * Returns:
+ *    A pointer to the snapshot buffer.  This info is only updated when
+ *    requested by calling cras_client_update_audio_thread_snapshots.
+ */
+const struct cras_audio_thread_snapshot_buffer *
+	cras_client_get_audio_thread_snapshot_buffer(
+		const struct cras_client *client);
+
 /* Gets the number of streams currently attached to the server.
  *
  * This is the total number of capture and playback streams. If the ts argument
@@ -934,6 +985,25 @@ int cras_client_test_iodev_command(struct cras_client *client,
 				   unsigned int data_len,
 				   const uint8_t *data);
 
+/* Finds the first node of the given type.
+ *
+ * This is used for finding a special hotword node.
+ *
+ * Requires that the connection to the server has been established.
+ *
+ * Args:
+ *    client - The client from cras_client_create.
+ *    type - The type of device to find.
+ *    direction - Search input or output devices.
+ *    node_id - The found node on success.
+ * Returns:
+ *    0 on success, a negative error on failure.
+ */
+int cras_client_get_first_node_type_idx(const struct cras_client *client,
+					enum CRAS_NODE_TYPE type,
+					enum CRAS_STREAM_DIRECTION direction,
+					cras_node_id_t *node_id);
+
 /* Finds the first device that contains a node of the given type.
  *
  * This is used for finding a special hotword device.
@@ -1002,6 +1072,58 @@ int cras_client_get_hotword_models(struct cras_client *client,
 int cras_client_set_hotword_model(struct cras_client *client,
 				  cras_node_id_t node_id,
 				  const char *model_name);
+
+/*
+ * Creates a hotword stream and waits for the hotword to trigger.
+ *
+ * Args:
+ *    client - The client to add the stream to (from cras_client_create).
+ *    user_data - Pointer that will be passed to the callback.
+ *    trigger_cb - Called when a hotword is triggered.
+ *    err_cb - Called when there is an error with the stream.
+ *    handle_out - On success will be filled with a cras_hotword_handle.
+ * Returns:
+ *    0 on success, negative error code on failure (from errno.h).
+ */
+int cras_client_enable_hotword_callback(
+		struct cras_client *client,
+		void *user_data,
+		cras_hotword_trigger_cb_t trigger_cb,
+		cras_hotword_error_cb_t err_cb,
+		struct cras_hotword_handle **handle_out);
+
+/*
+ * Closes a hotword stream that was created by cras_client_wait_for_hotword.
+ *
+ * Args:
+ *    client - Client to remove the stream (returned from cras_client_create).
+ *    handle - cras_hotword_handle returned from cras_client_wait_for_hotword.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+int cras_client_disable_hotword_callback(struct cras_client *client,
+					 struct cras_hotword_handle *handle);
+
+/* Starts or stops the aec dump task on server side.
+ * Args:
+ *    client - The client from cras_client_create.
+ *    stream_id - The id of the input stream running with aec effect.
+ *    start - True to start APM debugging, otherwise to stop it.
+ *    fd - File descriptor of the file to store aec dump result.
+ */
+int cras_client_set_aec_dump(struct cras_client *client,
+			     cras_stream_id_t stream_id,
+			     int start,
+			     int fd);
+/*
+ * Reloads the aec.ini config file on server side.
+ */
+int cras_client_reload_aec_config(struct cras_client *client);
+
+/*
+ * Returns if AEC is supported.
+ */
+int cras_client_get_aec_supported(struct cras_client *client);
 
 /* Set the context pointer for system state change callbacks.
  * Args:

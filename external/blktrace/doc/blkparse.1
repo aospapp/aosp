@@ -58,6 +58,26 @@ option.
 
 
 .SH OPTIONS
+\-A \fIhex-mask\fR
+.br
+\-\-set-mask=\fIhex-mask\fR
+.RS
+Set filter mask to \fIhex-mask\fR, see blktrace (8) for masks
+.RE
+
+\-a \fImask\fR
+.br
+\-\-act-mask=\fImask\fR
+.RS
+Add \fImask\fR to current filter, see blktrace (8) for masks
+.RE
+
+\-D \fIdir\fR
+.br
+\-\-input-directory=\fIdir\fR
+.RS
+Prepend \fIdir\fR to input file names
+.RE
 
 \-b \fIbatch\fR
 .br
@@ -510,7 +530,7 @@ device and sector offset.
 
 
 .SH EXAMPLES
-To trace the i/o on the device \fI/dev/hda\fB and parse the output to human
+To trace the i/o on the device \fI/dev/sda\fB and parse the output to human
 readable form, use the following command:
 
     % blktrace \-d /dev/sda \-o \- | blkparse \-i \-

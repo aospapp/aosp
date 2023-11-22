@@ -10,20 +10,20 @@
 %                            M   M  A   A  P                                  %
 %                                                                             %
 %                                                                             %
-%                  Read/Write Image Colormaps As An Image File.               %
+%                  Read/Write Image Colormaps as an Image File.               %
 %                                                                             %
 %                              Software Design                                %
 %                                   Cristy                                    %
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -169,13 +169,21 @@ static Image *ReadMAPImage(const ImageInfo *image_info,ExceptionInfo *exception)
     sizeof(*colormap));
   if ((pixels == (unsigned char *) NULL) ||
       (colormap == (unsigned char *) NULL))
-    ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    {
+      pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+      colormap=(unsigned char *) RelinquishMagickMemory(colormap);
+      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    }
   /*
     Read image colormap.
   */
   count=ReadBlob(image,packet_size*image->colors,colormap);
   if (count != (ssize_t) (packet_size*image->colors))
-    ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+    {
+      pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+      colormap=(unsigned char *) RelinquishMagickMemory(colormap);
+      ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+    }
   p=colormap;
   if (image->depth <= 8)
     for (i=0; i < (ssize_t) image->colors; i++)
@@ -201,11 +209,15 @@ static Image *ReadMAPImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (image_info->ping != MagickFalse)
     {
       (void) CloseBlob(image);
+      pixels=(unsigned char *) RelinquishMagickMemory(pixels);
       return(GetFirstImageInList(image));
     }
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
-    return(DestroyImageList(image));
+    {
+      pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+      return(DestroyImageList(image));
+    }
   /*
     Read image pixels.
   */
@@ -380,8 +392,8 @@ static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image,
   /*
     Allocate colormap.
   */
-  if (IsPaletteImage(image) == MagickFalse)
-    (void) SetImageType(image,PaletteType,exception);
+  if (SetImageType(image,PaletteType,exception) == MagickFalse)
+    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
   depth=GetImageQuantumDepth(image,MagickTrue);
   packet_size=(size_t) (depth/8);
   pixels=(unsigned char *) AcquireQuantumMemory(image->columns,packet_size*
@@ -391,27 +403,35 @@ static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image,
     sizeof(*colormap));
   if ((pixels == (unsigned char *) NULL) ||
       (colormap == (unsigned char *) NULL))
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+    {
+      if (colormap != (unsigned char *) NULL)
+        colormap=(unsigned char *) RelinquishMagickMemory(colormap);
+      if (pixels != (unsigned char *) NULL)
+        pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+      ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+    }
   /*
     Write colormap to file.
   */
   q=colormap;
-  if (image->depth <= 8)
+  if (image->colors <= 256)
     for (i=0; i < (ssize_t) image->colors; i++)
     {
-      *q++=(unsigned char) image->colormap[i].red;
-      *q++=(unsigned char) image->colormap[i].green;
-      *q++=(unsigned char) image->colormap[i].blue;
+      *q++=(unsigned char) ScaleQuantumToChar(image->colormap[i].red);
+      *q++=(unsigned char) ScaleQuantumToChar(image->colormap[i].green);
+      *q++=(unsigned char) ScaleQuantumToChar(image->colormap[i].blue);
     }
   else
     for (i=0; i < (ssize_t) image->colors; i++)
     {
-      *q++=(unsigned char) ((size_t) image->colormap[i].red >> 8);
-      *q++=(unsigned char) image->colormap[i].red;
-      *q++=(unsigned char) ((size_t) image->colormap[i].green >> 8);
-      *q++=(unsigned char) image->colormap[i].green;
-      *q++=(unsigned char) ((size_t) image->colormap[i].blue >> 8);
-      *q++=(unsigned char) image->colormap[i].blue;
+      *q++=(unsigned char) (ScaleQuantumToShort(image->colormap[i].red) >> 8);
+      *q++=(unsigned char) (ScaleQuantumToShort(image->colormap[i].red) & 0xff);
+      *q++=(unsigned char) (ScaleQuantumToShort(image->colormap[i].green) >> 8);
+      *q++=(unsigned char) (ScaleQuantumToShort(image->colormap[i].green) &
+        0xff);
+      *q++=(unsigned char) (ScaleQuantumToShort(image->colormap[i].blue) >> 8);
+      *q++=(unsigned char) (ScaleQuantumToShort(image->colormap[i].blue) &
+        0xff);
     }
   (void) WriteBlob(image,packet_size*image->colors,colormap);
   colormap=(unsigned char *) RelinquishMagickMemory(colormap);

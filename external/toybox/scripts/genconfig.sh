@@ -5,7 +5,7 @@
 
 mkdir -p generated
 
-source configure
+source scripts/portability.sh
 
 probecc()
 {
@@ -98,10 +98,17 @@ EOF
   echo -e '\tdepends on !TOYBOX_MUSL_NOMMU_IS_BROKEN'
 
   probesymbol TOYBOX_PRLIMIT << EOF
+    #include <sys/types.h>
     #include <sys/time.h>
     #include <sys/resource.h>
-
+    int prlimit(pid_t pid, int resource, const struct rlimit *new_limit,
+      struct rlimit *old_limit);
     int main(int argc, char *argv[]) { prlimit(0, 0, 0, 0); }
+EOF
+
+  probesymbol TOYBOX_GETRANDOM << EOF
+    #include <sys/random.h>
+    int main(void) { char buf[100]; getrandom(buf, 100, 0); }
 EOF
 }
 
@@ -122,7 +129,7 @@ genconfig()
     do
       # Grab the config block for Config.in
       echo "# $i"
-      sed -n '/^\*\//q;/^config [A-Z]/,$p' $i || return 1
+      $SED -n '/^\*\//q;/^config [A-Z]/,$p' $i || return 1
       echo
     done
 
@@ -137,7 +144,7 @@ genconfig > generated/Config.in || rm generated/Config.in
 toys()
 {
   grep 'TOY(.*)' "$@" | grep -v TOYFLAG_NOFORK | grep -v "0))" | \
-    sed -rn 's/([^:]*):.*(OLD|NEW)TOY\( *([a-zA-Z][^,]*) *,.*/\1:\3/p'
+    $SED -En 's/([^:]*):.*(OLD|NEW)TOY\( *([a-zA-Z][^,]*) *,.*/\1:\3/p'
 }
 
 WORKING=
@@ -156,5 +163,5 @@ done &&
 echo -e "clean::\n\trm -f $WORKING $PENDING" &&
 echo -e "list:\n\t@echo $(echo $WORKING | tr ' ' '\n' | sort | xargs)" &&
 echo -e "list_pending:\n\t@echo $(echo $PENDING | tr ' ' '\n' | sort | xargs)" &&
-echo -e ".PHONY: $WORKING $PENDING" | sed 's/ \([^ ]\)/ test_\1/g'
+echo -e ".PHONY: $WORKING $PENDING" | $SED 's/ \([^ ]\)/ test_\1/g'
 ) > .singlemake

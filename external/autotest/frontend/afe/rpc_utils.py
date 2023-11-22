@@ -763,7 +763,6 @@ def create_job_common(
         keyvals=None,
         drone_set=None,
         parent_job_id=None,
-        test_retry=0,
         run_reset=True,
         require_ssp=None):
     #pylint: disable-msg=C0111
@@ -821,7 +820,8 @@ def create_job_common(
                    keyvals=keyvals,
                    drone_set=drone_set,
                    parent_job_id=parent_job_id,
-                   test_retry=test_retry,
+                   # TODO(crbug.com/873716) DEPRECATED. Remove entirely.
+                   test_retry=0,
                    run_reset=run_reset,
                    require_ssp=require_ssp)
 

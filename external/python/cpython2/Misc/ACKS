@@ -37,6 +37,7 @@ A. Amoroso
 Mark Anacker
 Shashwat Anand
 Anders Andersen
+Tycho Andersen
 John Anderson
 Pehr Anderson
 Erik Andersén
@@ -93,6 +94,7 @@ Michael R Bax
 Anthony Baxter
 Mike Bayer
 Samuel L. Bayer
+Bo Bayles
 Donald Beaudry
 David Beazley
 Carlo Beccarini
@@ -137,6 +139,7 @@ Mike Bland
 Martin Bless
 Pablo Bleyer
 Erik van Blokland
+Stéphane Blondon
 Eric Blossom
 Sergey Bobrov
 Finn Bock
@@ -151,6 +154,7 @@ Gregory Bond
 Matias Bordese
 Jonas Borgström
 Jurjen Bos
+Jay Bosamiya
 Peter Bosch
 Dan Boswell
 Eric Bouck
@@ -260,6 +264,7 @@ Brad Clements
 Robbie Clemons
 Steve Clift
 Hervé Coatanhay
+Riccardo Coccioli
 Nick Coghlan
 Josh Cogliati
 Dave Cole
@@ -314,6 +319,9 @@ Kushal Das
 Jonathan Dasteel
 Pierre-Yves David
 A. Jesse Jiryu Davis
+Jake Davis
+Jamie (James C.) Davis
+Ratnadeep Debnath
 Merlijn van Deen
 John DeGood
 Ned Deily
@@ -321,6 +329,7 @@ Vincent Delft
 Arnaud Delobelle
 Konrad Delong
 Erik Demaine
+Jeroen Demeyer
 Martin Dengler
 John Dennis
 L. Peter Deutsch
@@ -372,6 +381,7 @@ Ulrich Eckhardt
 David Edelsohn
 John Edmonds
 Grant Edwards
+Zvi Effron
 John Ehresman
 Tal Einat
 Eric Eisner
@@ -499,6 +509,7 @@ Hans de Graaff
 Tim Graham
 Nathaniel Gray
 Eddy De Greef
+Duane Griffin
 Grant Griffin
 Andrea Griffini
 Duncan Grisby
@@ -506,6 +517,7 @@ Fabian Groffen
 Eric Groo
 Dag Gruneau
 Filip Gruszczyński
+Grzegorz Grzywacz
 Thomas Guettler
 Anuj Gupta
 Michael Guravage
@@ -539,6 +551,7 @@ David Harrigan
 Brian Harring
 Jonathan Hartley
 Travis B. Hartwell
+Shane Harvey
 Larry Hastings
 Tim Hatch
 Shane Hathaway
@@ -711,11 +724,13 @@ Magnus Kessler
 Lawrence Kesteloot
 Vivek Khera
 Dhiru Kholia
+Sanyam Khurana
 Mads Kiilerich
 Jason Killen
 Jan Kim
 Taek Joo Kim
 Sam Kimbrel
+Tomohiko Kinebuchi
 W. Trevor King
 Paul Kippes
 Steve Kirsch
@@ -733,6 +748,7 @@ Kim Knapp
 Lenny Kneler
 Pat Knight
 Jeff Knupp
+Nicholas Kobald
 Kubilay Kocak
 Greg Kochanski
 Manvisha Kodali
@@ -754,6 +770,7 @@ Jerzy Kozera
 Maksim Kozyarchuk
 Stefan Krah
 Bob Kras
+Oleg Krasnikov
 Sebastian Kreft
 Holger Krekel
 Michael Kremer
@@ -763,6 +780,7 @@ Pedro Kroger
 Hannu Krosing
 Andrej Krpic
 Ivan Krstić
+Anselm Kruis
 Steven Kryskalla
 Andrew Kuchling
 Dave Kuhlman
@@ -790,6 +808,7 @@ Ben Laurie
 Simon Law
 Julia Lawall
 Chris Lawrence
+Michael Lazar
 Brian Leair
 Mathieu Leduc-Hamel
 Amandine Lee
@@ -899,6 +918,7 @@ Arnaud Mazin
 Pam McA'Nulty
 Matt McClure
 Rebecca McCreary
+Sean McCully
 Kirk McDonald
 Chris McDonough
 Greg McFarlane
@@ -986,6 +1006,7 @@ Chad Netzer
 Max Neunhöffer
 George Neville-Neil
 Hieu Nguyen
+Nam Nguyen
 Johannes Nicolai
 Samuel Nicolary
 Jonathan Niehof
@@ -1015,6 +1036,7 @@ Milan Oberkirch
 Pascal Oberndoerfer
 Jeffrey Ollie
 Adam Olsen
+Bryan Olson
 Grant Olson
 Koray Oner
 Piet van Oostrum
@@ -1023,6 +1045,7 @@ Jason Orendorff
 Douglas Orr
 William Orr
 Michele Orrù
+Tomáš Orsava
 Oleg Oshmyan
 Denis S. Otkidach
 Peter Otten
@@ -1217,6 +1240,7 @@ James Rutherford
 Chris Ryland
 Constantina S.
 Matthieu S
+Cheryl Sabella
 Patrick Sabin
 Sébastien Sablé
 Suman Saha
@@ -1329,6 +1353,7 @@ Nicholas Spies
 Per Spilling
 Joshua Spoerri
 Noah Spurrier
+Zackery Spytz
 Nathan Srebro
 RajGopal Srinivasan
 Tage Stabell-Kulo
@@ -1540,6 +1565,7 @@ Gordon Worley
 Darren Worrall
 Thomas Wouters
 Daniel Wozniak
+Marcin Niemira
 Heiko Wundram
 Doug Wyatt
 Xiang Zhang
@@ -1547,11 +1573,13 @@ Robert Xiao
 Florent Xicluna
 Alakshendra Yadav
 Hirokazu Yamamoto
+Masayuki Yamamoto
 Ka-Ping Yee
 Jason Yeo
 EungJun Yi
 Bob Yodlowski
 Danny Yoo
+Wonsup Yoon
 Rory Yorke
 George Yoshida
 Kazuhiro Yoshida
@@ -1573,3 +1601,4 @@ Tarek Ziadé
 Jelle Zijlstra
 Gennadiy Zlobin
 Peter Åstrand
+Dhushyanth Ramasamy

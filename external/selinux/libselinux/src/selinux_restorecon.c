@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -116,7 +117,7 @@ static pthread_once_t fc_once = PTHREAD_ONCE_INIT;
  *
  *  check_excluded() - Check if directory/fs is to be excluded when relabeling.
  *
- *  file_system_count() - Calculates the the number of files to be processed.
+ *  file_system_count() - Calculates the number of files to be processed.
  *                        The count is only used if SELINUX_RESTORECON_PROGRESS
  *                        is set and a mass relabel is requested.
  *
@@ -241,6 +242,8 @@ static int exclude_non_seclabel_mounts(void)
 	/* Check to see if the kernel supports seclabel */
 	if (uname(&uts) == 0 && strverscmp(uts.release, "2.6.30") < 0)
 		return 0;
+	if (is_selinux_enabled() <= 0)
+		return 0;
 
 	fp = fopen("/proc/mounts", "re");
 	if (!fp)
@@ -350,12 +353,19 @@ static int add_xattr_entry(const char *directory, bool delete_nonmatch,
 	new_entry->next = NULL;
 
 	new_entry->directory = strdup(directory);
-	if (!new_entry->directory)
+	if (!new_entry->directory) {
+		free(new_entry);
+		free(sha1_buf);
 		goto oom;
+	}
 
 	new_entry->digest = strdup(sha1_buf);
-	if (!new_entry->digest)
+	if (!new_entry->digest) {
+		free(new_entry->directory);
+		free(new_entry);
+		free(sha1_buf);
 		goto oom;
+	}
 
 	new_entry->result = digest_result;
 
@@ -630,7 +640,7 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 					     fc_count / efile_count) : 100;
 				fprintf(stdout, "\r%-.1f%%", (double)pc);
 			} else {
-				fprintf(stdout, "\r%luk", fc_count / STAR_COUNT);
+				fprintf(stdout, "\r%" PRIu64 "k", fc_count / STAR_COUNT);
 			}
 			fflush(stdout);
 		}
@@ -671,8 +681,8 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 				selinux_log(SELINUX_INFO,
 				 "%s not reset as customized by admin to %s\n",
 							    pathname, curcon);
-				goto out;
 			}
+			goto out;
 		}
 
 		if (!flags->set_specctx && curcon) {
@@ -849,6 +859,7 @@ int selinux_restorecon(const char *pathname_orig,
 
 	if (lstat(pathname, &sb) < 0) {
 		if (flags.ignore_noent && errno == ENOENT) {
+			free(xattr_value);
 			free(pathdnamer);
 			free(pathname);
 			return 0;
@@ -880,7 +891,7 @@ int selinux_restorecon(const char *pathname_orig,
 		setrestoreconlast = false;
 
 	/* Ignore restoreconlast on in-memory filesystems */
-	if (statfs(pathname, &sfsb) == 0) {
+	if (setrestoreconlast && statfs(pathname, &sfsb) == 0) {
 		if (sfsb.f_type == RAMFS_MAGIC || sfsb.f_type == TMPFS_MAGIC)
 			setrestoreconlast = false;
 	}

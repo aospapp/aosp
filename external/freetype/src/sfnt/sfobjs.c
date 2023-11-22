@@ -1,19 +1,19 @@
-/***************************************************************************/
-/*                                                                         */
-/*  sfobjs.c                                                               */
-/*                                                                         */
-/*    SFNT object management (base).                                       */
-/*                                                                         */
-/*  Copyright 1996-2018 by                                                 */
-/*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
-/*                                                                         */
-/*  This file is part of the FreeType project, and may only be used,       */
-/*  modified, and distributed under the terms of the FreeType project      */
-/*  license, LICENSE.TXT.  By continuing to use, modify, or distribute     */
-/*  this file you indicate that you have read the license and              */
-/*  understand and accept it fully.                                        */
-/*                                                                         */
-/***************************************************************************/
+/****************************************************************************
+ *
+ * sfobjs.c
+ *
+ *   SFNT object management (base).
+ *
+ * Copyright 1996-2018 by
+ * David Turner, Robert Wilhelm, and Werner Lemberg.
+ *
+ * This file is part of the FreeType project, and may only be used,
+ * modified, and distributed under the terms of the FreeType project
+ * license, LICENSE.TXT.  By continuing to use, modify, or distribute
+ * this file you indicate that you have read the license and
+ * understand and accept it fully.
+ *
+ */
 
 
 #include <ft2build.h>
@@ -41,12 +41,12 @@
 #endif
 
 
-  /*************************************************************************/
-  /*                                                                       */
-  /* The macro FT_COMPONENT is used in trace mode.  It is an implicit      */
-  /* parameter of the FT_TRACE() and FT_ERROR() macros, used to print/log  */
-  /* messages during execution.                                            */
-  /*                                                                       */
+  /**************************************************************************
+   *
+   * The macro FT_COMPONENT is used in trace mode.  It is an implicit
+   * parameter of the FT_TRACE() and FT_ERROR() macros, used to print/log
+   * messages during execution.
+   */
 #undef  FT_COMPONENT
 #define FT_COMPONENT  trace_sfobjs
 
@@ -918,7 +918,9 @@
     /* Stream may have changed in sfnt_open_font. */
     stream = face->root.stream;
 
-    FT_TRACE2(( "sfnt_init_face: %08p, %d\n", face, face_instance_index ));
+    FT_TRACE2(( "sfnt_init_face: %08p (index %d)\n",
+                face,
+                face_instance_index ));
 
     face_index = FT_ABS( face_instance_index ) & 0xFFFF;
 
@@ -1001,15 +1003,15 @@
         face->variation_support |= TT_FACE_FLAG_VAR_FVAR;
 
       /*
-       *  As documented in the OpenType specification, an entry for the
-       *  default instance may be omitted in the named instance table.  In
-       *  particular this means that even if there is no named instance
-       *  table in the font we actually do have a named instance, namely the
-       *  default instance.
+       * As documented in the OpenType specification, an entry for the
+       * default instance may be omitted in the named instance table.  In
+       * particular this means that even if there is no named instance
+       * table in the font we actually do have a named instance, namely the
+       * default instance.
        *
-       *  For consistency, we always want the default instance in our list
-       *  of named instances.  If it is missing, we try to synthesize it
-       *  later on.  Here, we have to adjust `num_instances' accordingly.
+       * For consistency, we always want the default instance in our list
+       * of named instances.  If it is missing, we try to synthesize it
+       * later on.  Here, we have to adjust `num_instances' accordingly.
        */
 
       if ( ( face->variation_support & TT_FACE_FLAG_VAR_FVAR ) &&
@@ -1144,6 +1146,8 @@
     FT_Bool       has_outline;
     FT_Bool       is_apple_sbit;
     FT_Bool       is_apple_sbix;
+    FT_Bool       has_CBLC;
+    FT_Bool       has_CBDT;
     FT_Bool       ignore_typographic_family    = FALSE;
     FT_Bool       ignore_typographic_subfamily = FALSE;
 
@@ -1223,6 +1227,13 @@
       if ( error )
         goto Exit;
     }
+
+    has_CBLC = !face->goto_table( face, TTAG_CBLC, stream, 0 );
+    has_CBDT = !face->goto_table( face, TTAG_CBDT, stream, 0 );
+
+    /* Ignore outlines for CBLC/CBDT fonts. */
+    if ( has_CBLC || has_CBDT )
+      has_outline = FALSE;
 
     /* OpenType 1.8.2 introduced limits to this value;    */
     /* however, they make sense for older SFNT fonts also */
@@ -1332,6 +1343,13 @@
     if ( sfnt->load_eblc )
       LOAD_( eblc );
 
+    /* colored glyph support */
+    if ( sfnt->load_cpal )
+    {
+      LOAD_( cpal );
+      LOAD_( colr );
+    }
+
     /* consider the pclt, kerning, and gasp tables as optional */
     LOAD_( pclt );
     LOAD_( gasp );
@@ -1380,12 +1398,13 @@
       FT_Long  flags = root->face_flags;
 
 
-      /*********************************************************************/
-      /*                                                                   */
-      /* Compute face flags.                                               */
-      /*                                                                   */
+      /**********************************************************************
+       *
+       * Compute face flags.
+       */
       if ( face->sbit_table_type == TT_SBIT_TABLE_TYPE_CBLC ||
-           face->sbit_table_type == TT_SBIT_TABLE_TYPE_SBIX )
+           face->sbit_table_type == TT_SBIT_TABLE_TYPE_SBIX ||
+           face->colr                                       )
         flags |= FT_FACE_FLAG_COLOR;      /* color glyphs */
 
       if ( has_outline == TRUE )
@@ -1429,10 +1448,10 @@
 
       root->face_flags = flags;
 
-      /*********************************************************************/
-      /*                                                                   */
-      /* Compute style flags.                                              */
-      /*                                                                   */
+      /**********************************************************************
+       *
+       * Compute style flags.
+       */
 
       flags = 0;
       if ( has_outline == TRUE && face->os2.version != 0xFFFFU )
@@ -1462,14 +1481,14 @@
 
       root->style_flags |= flags;
 
-      /*********************************************************************/
-      /*                                                                   */
-      /* Polish the charmaps.                                              */
-      /*                                                                   */
-      /*   Try to set the charmap encoding according to the platform &     */
-      /*   encoding ID of each charmap.  Emulate Unicode charmap if one    */
-      /*   is missing.                                                     */
-      /*                                                                   */
+      /**********************************************************************
+       *
+       * Polish the charmaps.
+       *
+       *   Try to set the charmap encoding according to the platform &
+       *   encoding ID of each charmap.  Emulate Unicode charmap if one
+       *   is missing.
+       */
 
       tt_face_build_cmaps( face );  /* ignore errors */
 
@@ -1524,9 +1543,9 @@
 #ifdef TT_CONFIG_OPTION_EMBEDDED_BITMAPS
 
       /*
-       *  Now allocate the root array of FT_Bitmap_Size records and
-       *  populate them.  Unfortunately, it isn't possible to indicate bit
-       *  depths in the FT_Bitmap_Size record.  This is a design error.
+       * Now allocate the root array of FT_Bitmap_Size records and
+       * populate them.  Unfortunately, it isn't possible to indicate bit
+       * depths in the FT_Bitmap_Size record.  This is a design error.
        */
       {
         FT_UInt  count;
@@ -1606,10 +1625,10 @@
         root->face_flags |= FT_FACE_FLAG_SCALABLE;
 
 
-      /*********************************************************************/
-      /*                                                                   */
-      /*  Set up metrics.                                                  */
-      /*                                                                   */
+      /**********************************************************************
+       *
+       * Set up metrics.
+       */
       if ( FT_IS_SCALABLE( root ) )
       {
         /* XXX What about if outline header is missing */
@@ -1728,6 +1747,13 @@
       /* destroy the embedded bitmaps table if it is loaded */
       if ( sfnt->free_eblc )
         sfnt->free_eblc( face );
+
+      /* destroy color table data if it is loaded */
+      if ( sfnt->free_cpal )
+      {
+        sfnt->free_cpal( face );
+        sfnt->free_colr( face );
+      }
     }
 
 #ifdef TT_CONFIG_OPTION_BDF
@@ -1783,10 +1809,17 @@
     FT_FREE( face->sbit_strike_map );
     face->root.num_fixed_sizes = 0;
 
-#ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
     FT_FREE( face->postscript_name );
+
+#ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
     FT_FREE( face->var_postscript_prefix );
 #endif
+
+    /* freeing glyph color palette data */
+    FT_FREE( face->palette_data.palette_name_ids );
+    FT_FREE( face->palette_data.palette_flags );
+    FT_FREE( face->palette_data.palette_entry_name_ids );
+    FT_FREE( face->palette );
 
     face->sfnt = NULL;
   }

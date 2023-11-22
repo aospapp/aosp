@@ -244,7 +244,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import clip_ops
@@ -354,11 +353,11 @@ def multiply_gradients(grads_and_vars, gradient_multipliers):
         raise ValueError('Requested multiple of `None` gradient.')
 
       if isinstance(grad, ops.IndexedSlices):
-        tmp = grad.values * constant_op.constant(
+        tmp = grad.values * ops.convert_to_tensor(
             gradient_multipliers[key], dtype=grad.dtype)
         grad = ops.IndexedSlices(tmp, grad.indices, grad.dense_shape)
       else:
-        grad *= constant_op.constant(
+        grad *= ops.convert_to_tensor(
             gradient_multipliers[key], dtype=grad.dtype)
     multiplied_grads_and_vars.append((grad, var))
   return multiplied_grads_and_vars
@@ -419,7 +418,7 @@ def create_train_op(total_loss,
     update_ops = set(update_ops)
   if not global_update_ops.issubset(update_ops):
     logging.warning('update_ops in create_train_op does not contain all the '
-                    ' update_ops in GraphKeys.UPDATE_OPS')
+                    'update_ops in GraphKeys.UPDATE_OPS')
 
   # Make sure update_ops are computed before total_loss.
   if update_ops:
@@ -433,7 +432,7 @@ def create_train_op(total_loss,
   else:
     # Make sure that variables_to_train are in tf.trainable_variables()
     for v in variables_to_train:
-      assert v in tf_variables.trainable_variables()
+      assert v.trainable or v in tf_variables.trainable_variables()
 
   assert variables_to_train
 
@@ -484,7 +483,8 @@ def train(train_op,
           save_checkpoint_secs=600,
           save_summaries_steps=100,
           config=None,
-          max_wait_secs=7200):
+          max_wait_secs=7200,
+          run_metadata=None):
   """Runs the training loop.
 
   Args:
@@ -511,6 +511,7 @@ def train(train_op,
       become available. This should be kept relatively short to help detect
       incorrect code, but sometimes may need to be increased if the chief takes
       a while to start up.
+    run_metadata: A [`RunMetadata`] protocol buffer.
 
   Returns:
     the value of the loss function after training.
@@ -541,5 +542,5 @@ def train(train_op,
       max_wait_secs=max_wait_secs) as session:
     loss = None
     while not session.should_stop():
-      loss = session.run(train_op)
+      loss = session.run(train_op, run_metadata=run_metadata)
   return loss

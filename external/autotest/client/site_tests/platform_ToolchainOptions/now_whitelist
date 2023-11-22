@@ -1,5 +1,7 @@
 # crbug.com/570550
 /opt/google/chrome/nacl_helper_nonsfi
+# crbug.com/887869
+/opt/intel/fw_parser
 /sbin/insmod.static
 /usr/bin/cvt
 /usr/bin/gtf

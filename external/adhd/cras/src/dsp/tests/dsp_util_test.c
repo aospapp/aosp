@@ -113,8 +113,8 @@ void TestRounding(float in, int16_t expected, int samples)
 
 	/* measure optimized interleave */
 	for (i = 0; i < ITERATIONS; ++i) {
-		dsp_util_interleave(out_floats_ptr_c, out_shorts_opt, 2,
-				    samples);
+		dsp_util_interleave(out_floats_ptr_c, (uint8_t *)out_shorts_opt,
+				    2, SND_PCM_FORMAT_S16_LE, samples);
 	}
 
 	max_diff = 0;
@@ -135,7 +135,8 @@ void TestRounding(float in, int16_t expected, int samples)
 					samples);
 
 	/* measure optimized deinterleave */
-	dsp_util_deinterleave(in_shorts, out_floats_ptr_opt, 2, samples);
+	dsp_util_deinterleave((uint8_t *)in_shorts, out_floats_ptr_opt, 2,
+			      SND_PCM_FORMAT_S16_LE, samples);
 
 	d = memcmp(out_floats_ptr_c[0], out_floats_ptr_opt[0], samples * 4);
 	if (d) printf("left compare %d, %f %f\n", d, out_floats_ptr_c[0][0],
@@ -307,8 +308,9 @@ int main(int argc, char **argv)
 		/* measure optimized interleave */
 		clock_gettime(CLOCK_MONOTONIC, &start); /* mark start time */
 		for (i = 0; i < ITERATIONS; ++i) {
-			dsp_util_interleave(out_floats_ptr_c, out_shorts_opt, 2,
-					    samples);
+			dsp_util_interleave(out_floats_ptr_c,
+					    (uint8_t *)out_shorts_opt, 2,
+					    SND_PCM_FORMAT_S16_LE, samples);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end); /* mark the end time */
 		diff = (BILLION * (end.tv_sec - start.tv_sec) +
@@ -344,8 +346,9 @@ int main(int argc, char **argv)
 		/* Measure optimized deinterleave */
 		clock_gettime(CLOCK_MONOTONIC, &start); /* mark start time */
 		for (i = 0; i < ITERATIONS; ++i) {
-			dsp_util_deinterleave(in_shorts, out_floats_ptr_opt, 2,
-					      samples);
+			dsp_util_deinterleave((uint8_t *)in_shorts,
+					      out_floats_ptr_opt, 2,
+					      SND_PCM_FORMAT_S16_LE, samples);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end); /* mark the end time */
 		diff = (BILLION * (end.tv_sec - start.tv_sec) +

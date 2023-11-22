@@ -16,11 +16,11 @@
  * logging.c - print a log message
  */
 
-#include <stdarg.h>
 #include <android/log.h>
+#include <stdarg.h>
 
-#include "logging.h"
 #include "debug.h"
+#include "logging.h"
 
 /* function: logmsg
  * prints a log message to android's log buffer

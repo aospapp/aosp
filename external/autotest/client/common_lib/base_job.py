@@ -710,8 +710,6 @@ class base_job(object):
     @property user: The user executing the job.
     @property tag: A tag identifying the job. Often used by the scheduler to
         give a name of the form NUMBER-USERNAME/HOSTNAME.
-    @property test_retry: The number of times to retry a test if the test did
-        not complete successfully.
     @property args: A list of addtional miscellaneous command-line arguments
         provided when starting the job.
 
@@ -781,7 +779,6 @@ class base_job(object):
 
     # all the generic persistent properties
     tag = _job_state.property_factory('_state', 'tag', '')
-    test_retry = _job_state.property_factory('_state', 'test_retry', 0)
     default_profile_only = _job_state.property_factory(
         '_state', 'default_profile_only', False)
     run_test_cleanup = _job_state.property_factory(

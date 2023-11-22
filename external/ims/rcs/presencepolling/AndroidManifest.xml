@@ -62,9 +62,6 @@
         android:singleUser="true"
         android:process="com.android.ims.rcsservice">
 
-        <uses-library android:name="com.android.ims.rcsmanager"
-            android:required="true"/>
-
         <service
             android:name=".PollingService"
             android:excludeFromRecents="true"

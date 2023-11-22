@@ -84,7 +84,7 @@ cc_defaults {
     static_libs: ["libcap"],
 
     // TODO: recover libaio when the external project created
-    shared_libs: ["libselinux"],
+    shared_libs: ["libselinux", "libasyncio"],
 }
 
 cc_defaults {

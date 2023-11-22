@@ -15,6 +15,7 @@ while (<LS>) {
     if (s/\.js/_JS/) {
         $upper = uc();
         print FILE "#define $upper \\\n";
+        print FILE "  u\"\"\\\n";
         while (<FH>) {
             s/\"/\\\"/g;
             chomp();

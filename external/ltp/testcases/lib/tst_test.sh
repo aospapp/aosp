@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) Linux Test Project, 2014-2017
+# Copyright (c) Linux Test Project, 2014-2018
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 # This is a LTP test library for shell.
 #
 
+[ -n "$TST_LIB_LOADED" ] && return 0
+
 export TST_PASS=0
 export TST_FAIL=0
 export TST_BROK=0
@@ -29,12 +31,17 @@ export TST_CONF=0
 export TST_COUNT=1
 export TST_ITERATIONS=1
 export TST_TMPDIR_RHOST=0
+export TST_LIB_LOADED=1
 
 . tst_ansi_color.sh
 
-tst_do_exit()
+# default trap function
+trap "tst_brk TBROK 'test interrupted'" INT
+
+_tst_do_exit()
 {
 	local ret=0
+	TST_DO_EXIT=1
 
 	if [ -n "$TST_SETUP_STARTED" -a -n "$TST_CLEANUP" -a \
 	     -z "$TST_NO_CLEANUP" ]; then
@@ -51,6 +58,11 @@ tst_do_exit()
 		cd "$LTPROOT"
 		rm -r "$TST_TMPDIR"
 		[ "$TST_TMPDIR_RHOST" = 1 ] && tst_cleanup_rhost
+	fi
+
+	if [ -n "$_tst_setup_timer_pid" ]; then
+		kill $_tst_setup_timer_pid 2>/dev/null
+		wait $_tst_setup_timer_pid 2>/dev/null
 	fi
 
 	if [ $TST_FAIL -gt 0 ]; then
@@ -79,7 +91,7 @@ tst_do_exit()
 	exit $ret
 }
 
-tst_inc_res()
+_tst_inc_res()
 {
 	case "$1" in
 	TPASS) TST_PASS=$((TST_PASS+1));;
@@ -88,7 +100,7 @@ tst_inc_res()
 	TWARN) TST_WARN=$((TST_WARN+1));;
 	TCONF) TST_CONF=$((TST_CONF+1));;
 	TINFO) ;;
-	*) tst_brk TBROK "Invalid resm type '$1'";;
+	*) tst_brk TBROK "Invalid res type '$1'";;
 	esac
 }
 
@@ -100,9 +112,9 @@ tst_res()
 	tst_color_enabled
 	local color=$?
 
-	tst_inc_res "$res"
+	_tst_inc_res "$res"
 
-	printf "$TCID $TST_COUNT "
+	printf "$TST_ID $TST_COUNT "
 	tst_print_colored $res "$res: "
 	echo "$@"
 }
@@ -112,14 +124,20 @@ tst_brk()
 	local res=$1
 	shift
 
+	if [ "$TST_DO_EXIT" = 1 ]; then
+		tst_res TWARN "$@"
+		return
+	fi
+
 	tst_res "$res" "$@"
-	tst_do_exit
+	_tst_do_exit
 }
 
 ROD_SILENT()
 {
-	tst_rod $@ > /dev/null 2>&1
+	local tst_out="$(tst_rod $@ 2>&1)"
 	if [ $? -ne 0 ]; then
+		echo "$tst_out"
 		tst_brk TBROK "$@ failed"
 	fi
 }
@@ -151,6 +169,65 @@ EXPECT_FAIL()
 	else
 		tst_res TFAIL "$@ passed unexpectedly"
 	fi
+}
+
+TST_RETRY_FN_EXP_BACKOFF()
+{
+	local tst_fun="$1"
+	local tst_exp=$2
+	local tst_sec=$(expr $3 \* 1000000)
+	local tst_delay=1
+
+	if [ $# -ne 3 ]; then
+		tst_brk TBROK "TST_RETRY_FN_EXP_BACKOFF expects 3 parameters"
+	fi
+
+	if ! tst_is_int "$tst_sec"; then
+		tst_brk TBROK "TST_RETRY_FN_EXP_BACKOFF: tst_sec must be integer ('$tst_sec')"
+	fi
+
+	while true; do
+		$tst_fun
+		if [ "$?" = "$tst_exp" ]; then
+			break
+		fi
+
+		if [ $tst_delay -lt $tst_sec ]; then
+			tst_sleep ${tst_delay}us
+			tst_delay=$((tst_delay*2))
+		else
+			tst_brk TBROK "\"$tst_fun\" timed out"
+		fi
+	done
+
+	return $tst_exp
+}
+
+TST_RETRY_FUNC()
+{
+	if [ $# -ne 2 ]; then
+		tst_brk TBROK "TST_RETRY_FUNC expects 2 parameters"
+	fi
+
+	TST_RETRY_FN_EXP_BACKOFF "$1" "$2" 1
+	return $2
+}
+
+TST_RTNL_CHK()
+{
+	local msg1="RTNETLINK answers: Function not implemented"
+	local msg2="RTNETLINK answers: Operation not supported"
+	local msg3="RTNETLINK answers: Protocol not supported"
+	local output="$($@ 2>&1 || echo 'LTP_ERR')"
+	local msg
+
+	echo "$output" | grep -q "LTP_ERR" || return 0
+
+	for msg in "$msg1" "$msg2" "$msg3"; do
+		echo "$output" | grep -q "$msg" && tst_brk TCONF "'$@': $msg"
+	done
+
+	tst_brk TBROK "$@ failed: $output"
 }
 
 tst_umount()
@@ -200,14 +277,52 @@ tst_mkfs()
 	ROD_SILENT mkfs.$fs_type $fs_opts $device
 }
 
-tst_check_cmds()
+tst_cmd_available()
+{
+	if type command > /dev/null 2>&1; then
+		command -v $1 > /dev/null 2>&1 || return 1
+	else
+		which $1 > /dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			return 0
+		elif [ $? -eq 127 ]; then
+			tst_brk TCONF "missing which command"
+		else
+			return 1
+		fi
+	fi
+}
+
+tst_test_cmds()
 {
 	local cmd
 	for cmd in $*; do
-		if ! command -v $cmd > /dev/null 2>&1; then
-			tst_brk TCONF "'$cmd' not found"
+		tst_cmd_available $cmd || tst_brk TCONF "'$cmd' not found"
+	done
+}
+
+tst_check_cmds()
+{
+	local cmd
+	for cmd; do
+		if ! tst_cmd_available $cmd; then
+			tst_res TCONF "'$cmd' not found"
+			return 1
 		fi
 	done
+	return 0
+}
+
+tst_test_drivers()
+{
+	[ $# -eq 0 ] && return 0
+
+	local drv
+
+	drv="$(tst_check_drivers $@ 2>&1)"
+
+	[ $? -ne 0 ] && tst_brk TCONF "$drv driver not available"
+	return 0
 }
 
 tst_is_int()
@@ -229,46 +344,72 @@ tst_usage()
 	echo "-i n    Execute test n times"
 }
 
-tst_resstr()
+_tst_resstr()
 {
 	echo "$TST_PASS$TST_FAIL$TST_CONF"
 }
 
-tst_rescmp()
+_tst_rescmp()
 {
-	local res=$(tst_resstr)
+	local res=$(_tst_resstr)
 
 	if [ "$1" = "$res" ]; then
 		tst_brk TBROK "Test didn't report any results"
 	fi
 }
 
+
+_tst_setup_timer()
+{
+	LTP_TIMEOUT_MUL=${LTP_TIMEOUT_MUL:-1}
+
+	local sec=$((300 * LTP_TIMEOUT_MUL))
+	local h=$((sec / 3600))
+	local m=$((sec / 60 % 60))
+	local s=$((sec % 60))
+	local pid=$$
+
+	tst_res TINFO "timeout per run is ${h}h ${m}m ${s}s"
+
+	sleep $sec && tst_res TBROK "test killed, timeout! If you are running on slow machine, try exporting LTP_TIMEOUT_MUL > 1" && kill -9 -$pid &
+
+	_tst_setup_timer_pid=$!
+}
+
 tst_run()
 {
-	local tst_i
+	local _tst_i
+	local _tst_data
+	local _tst_max
+	local _tst_name
 
 	if [ -n "$TST_TEST_PATH" ]; then
-		for tst_i in $(grep TST_ "$TST_TEST_PATH" | sed 's/.*TST_//; s/[="} \t\/:`].*//'); do
-			case "$tst_i" in
-			SETUP|CLEANUP|TESTFUNC|ID|CNT);;
+		for _tst_i in $(grep TST_ "$TST_TEST_PATH" | sed 's/.*TST_//; s/[="} \t\/:`].*//'); do
+			case "$_tst_i" in
+			SETUP|CLEANUP|TESTFUNC|ID|CNT|MIN_KVER);;
 			OPTS|USAGE|PARSE_ARGS|POS_ARGS);;
-			NEEDS_ROOT|NEEDS_TMPDIR|NEEDS_DEVICE|DEVICE);;
+			NEEDS_ROOT|NEEDS_TMPDIR|TMPDIR|NEEDS_DEVICE|DEVICE);;
 			NEEDS_CMDS|NEEDS_MODULE|MODPATH|DATAROOT);;
-			*) tst_res TWARN "Reserved variable TST_$tst_i used!";;
+			NEEDS_DRIVERS);;
+			IPV6|IPVER|TEST_DATA|TEST_DATA_IFS);;
+			RETRY_FUNC|RETRY_FN_EXP_BACKOFF);;
+			*) tst_res TWARN "Reserved variable TST_$_tst_i used!";;
 			esac
+		done
+
+		for _tst_i in $(grep _tst_ "$TST_TEST_PATH" | sed 's/.*_tst_//; s/[="} \t\/:`].*//'); do
+			tst_res TWARN "Private variable or function _tst_$_tst_i used!"
 		done
 	fi
 
-	local name
-
 	OPTIND=1
 
-	while getopts "hi:$TST_OPTS" name $TST_ARGS; do
-		case $name in
+	while getopts ":hi:$TST_OPTS" _tst_name $TST_ARGS; do
+		case $_tst_name in
 		'h') tst_usage; exit 0;;
 		'i') TST_ITERATIONS=$OPTARG;;
 		'?') tst_usage; exit 2;;
-		*) $TST_PARSE_ARGS "$name" "$OPTARG";;
+		*) $TST_PARSE_ARGS "$_tst_name" "$OPTARG";;
 		esac
 	done
 
@@ -286,7 +427,15 @@ tst_run()
 		fi
 	fi
 
-	tst_check_cmds $TST_NEEDS_CMDS
+	tst_test_cmds $TST_NEEDS_CMDS
+	tst_test_drivers $TST_NEEDS_DRIVERS
+
+	if [ -n "$TST_MIN_KVER" ]; then
+		tst_kvcmp -lt "$TST_MIN_KVER" && \
+			tst_brk TCONF "test requires kernel $TST_MIN_KVER+"
+	fi
+
+	_tst_setup_timer
 
 	if [ "$TST_NEEDS_TMPDIR" = 1 ]; then
 		if [ -z "$TMPDIR" ]; then
@@ -304,13 +453,13 @@ tst_run()
 
 	if [ "$TST_NEEDS_DEVICE" = 1 ]; then
 		if [ -z ${TST_TMPDIR} ]; then
-			tst_brk "Use TST_NEEDS_TMPDIR must be set for TST_NEEDS_DEVICE"
+			tst_brk TBROK "Use TST_NEEDS_TMPDIR must be set for TST_NEEDS_DEVICE"
 		fi
 
 		TST_DEVICE=$(tst_device acquire)
 
-		if [ -z "$TST_DEVICE" ]; then
-			tst_brk "Failed to acquire device"
+		if [ ! -b "$TST_DEVICE" -o $? -ne 0 ]; then
+			tst_brk TBROK "Failed to acquire device"
 		fi
 
 		TST_DEVICE_FLAG=1
@@ -341,69 +490,53 @@ tst_run()
 
 	#TODO check that test reports some results for each test function call
 	while [ $TST_ITERATIONS -gt 0 ]; do
-		if [ -n "$TST_CNT" ]; then
-			if type test1 > /dev/null 2>&1; then
-				for tst_i in $(seq $TST_CNT); do
-					local res=$(tst_resstr)
-					$TST_TESTFUNC$tst_i
-					tst_rescmp "$res"
-					TST_COUNT=$((TST_COUNT+1))
-				done
-			else
-				for tst_i in $(seq $TST_CNT); do
-					local res=$(tst_resstr)
-					$TST_TESTFUNC $tst_i
-					tst_rescmp "$res"
-					TST_COUNT=$((TST_COUNT+1))
-				done
-			fi
+		if [ -n "$TST_TEST_DATA" ]; then
+			tst_test_cmds cut tr wc
+			_tst_max=$(( $(echo $TST_TEST_DATA | tr -cd "$TST_TEST_DATA_IFS" | wc -c) +1))
+			for _tst_i in $(seq $_tst_max); do
+				_tst_data="$(echo "$TST_TEST_DATA" | cut -d"$TST_TEST_DATA_IFS" -f$_tst_i)"
+				_tst_run_tests "$_tst_data"
+			done
 		else
-			local res=$(tst_resstr)
-			$TST_TESTFUNC
-			tst_rescmp "$res"
-			TST_COUNT=$((TST_COUNT+1))
+			_tst_run_tests
 		fi
 		TST_ITERATIONS=$((TST_ITERATIONS-1))
 	done
 
-	tst_do_exit
+	_tst_do_exit
 }
 
-if TST_TEST_PATH=$(which $0) 2>/dev/null; then
-	if ! grep -q tst_run "$TST_TEST_PATH"; then
-		tst_brk TBROK "Test $0 must call tst_run!"
-	fi
-fi
+_tst_run_tests()
+{
+	local _tst_data="$1"
+	local _tst_i
+
+	for _tst_i in $(seq ${TST_CNT:-1}); do
+		if type ${TST_TESTFUNC}1 > /dev/null 2>&1; then
+			_tst_run_test "$TST_TESTFUNC$_tst_i" $_tst_i "$_tst_data"
+		else
+			_tst_run_test "$TST_TESTFUNC" $_tst_i "$_tst_data"
+		fi
+	done
+}
+
+_tst_run_test()
+{
+	local _tst_res=$(_tst_resstr)
+	local _tst_fnc="$1"
+	shift
+
+	$_tst_fnc "$@"
+	_tst_rescmp "$_tst_res"
+	TST_COUNT=$((TST_COUNT+1))
+}
 
 if [ -z "$TST_ID" ]; then
-	filename=$(basename $0)
-	TST_ID=${filename%%.*}
+	_tst_filename=$(basename $0) || \
+		tst_brk TCONF "Failed to set TST_ID from \$0 ('$0'), fix it with setting TST_ID before sourcing tst_test.sh"
+	TST_ID=${_tst_filename%%.*}
 fi
 export TST_ID="$TST_ID"
-
-if [ -z "$TST_TESTFUNC" ]; then
-	tst_brk TBROK "TST_TESTFUNC is not defined"
-fi
-
-if [ -n "$TST_CNT" ]; then
-	if ! tst_is_int "$TST_CNT"; then
-		tst_brk TBROK "TST_CNT must be integer"
-	fi
-
-	if [ "$TST_CNT" -le 0 ]; then
-		tst_brk TBROK "TST_CNT must be > 0"
-	fi
-fi
-
-if [ -n "$TST_POS_ARGS" ]; then
-	if ! tst_is_int "$TST_POS_ARGS"; then
-		tst_brk TBROK "TST_POS_ARGS must be integer"
-	fi
-
-	if [ "$TST_POS_ARGS" -le 0 ]; then
-		tst_brk TBROK "TST_POS_ARGS must be > 0"
-	fi
-fi
 
 if [ -z "$LTPROOT" ]; then
 	export LTPROOT="$PWD"
@@ -412,24 +545,58 @@ else
 	export TST_DATAROOT="$LTPROOT/testcases/data/$TST_ID"
 fi
 
-TST_ARGS="$@"
-
-while getopts ":hi:$TST_OPTS" tst_name; do
-	case $tst_name in
-	'h') TST_PRINT_HELP=1;;
-	*);;
-	esac
-done
-
-shift $((OPTIND - 1))
-
-if [ -n "$TST_POS_ARGS" ]; then
-	if [ -z "$TST_PRINT_HELP" -a $# -ne "$TST_POS_ARGS" ]; then
-		tst_brk TBROK "Invalid number of positional paramters:"\
-			      "have ($@) $#, expected ${TST_POS_ARGS}"
+if [ -z "$TST_NO_DEFAULT_RUN" ]; then
+	if TST_TEST_PATH=$(which $0) 2>/dev/null; then
+		if ! grep -q tst_run "$TST_TEST_PATH"; then
+			tst_brk TBROK "Test $0 must call tst_run!"
+		fi
 	fi
-else
-	if [ -z "$TST_PRINT_HELP" -a $# -ne 0 ]; then
-		tst_brk TBROK "Unexpected positional arguments '$@'"
+
+	if [ -z "$TST_TESTFUNC" ]; then
+		tst_brk TBROK "TST_TESTFUNC is not defined"
+	fi
+
+	TST_TEST_DATA_IFS="${TST_TEST_DATA_IFS:- }"
+
+	if [ -n "$TST_CNT" ]; then
+		if ! tst_is_int "$TST_CNT"; then
+			tst_brk TBROK "TST_CNT must be integer"
+		fi
+
+		if [ "$TST_CNT" -le 0 ]; then
+			tst_brk TBROK "TST_CNT must be > 0"
+		fi
+	fi
+
+	if [ -n "$TST_POS_ARGS" ]; then
+		if ! tst_is_int "$TST_POS_ARGS"; then
+			tst_brk TBROK "TST_POS_ARGS must be integer"
+		fi
+
+		if [ "$TST_POS_ARGS" -le 0 ]; then
+			tst_brk TBROK "TST_POS_ARGS must be > 0"
+		fi
+	fi
+
+	TST_ARGS="$@"
+
+	while getopts ":hi:$TST_OPTS" tst_name; do
+		case $tst_name in
+		'h') TST_PRINT_HELP=1;;
+		*);;
+		esac
+	done
+
+	shift $((OPTIND - 1))
+
+	if [ -n "$TST_POS_ARGS" ]; then
+		if [ -z "$TST_PRINT_HELP" -a $# -ne "$TST_POS_ARGS" ]; then
+			tst_brk TBROK "Invalid number of positional parameters:"\
+					  "have ($@) $#, expected ${TST_POS_ARGS}"
+		fi
+	else
+		if [ -z "$TST_PRINT_HELP" -a $# -ne 0 ]; then
+			tst_brk TBROK "Unexpected positional arguments '$@'"
+		fi
 	fi
 fi

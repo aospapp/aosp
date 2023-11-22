@@ -131,7 +131,6 @@ TOKEN_AUTH_NEW_URL = '/TokenAuth'
 UI_LOG = '/var/log/ui/ui.LATEST'
 UI_RESPAWN_TIMESTAMPS_FILE = '/tmp/ui-respawn-timestamps'
 UI_TOO_CRASHY_TIMESTAMPS_FILE = '/tmp/ui-too-crashy-timestamps'
-UPDATE_ENGINE_LOG = '/var/log/update_engine.log'
 
 RESOLV_CONF_FILE = '/etc/resolv.conf'
 
@@ -149,16 +148,8 @@ SHILL_XMLRPC_SERVER_PORT = 9989
 SHILL_XMLRPC_SERVER_COMMAND = (
         'cd /usr/local/autotest/cros/networking; '
         './shill_xmlrpc_server.py')
-SHILL_BRILLO_XMLRPC_SERVER_COMMAND = (
-        '/system/bin/shill-test-rpc-proxy --port=%s' % SHILL_XMLRPC_SERVER_PORT)
-# /usr/local/bin is write-accessible on both ChromeOS and test-station platforms
-ANDROID_XMLRPC_SERVER_FMT ='android_xmlrpc_server-%s.py'
-ANDROID_XMLRPC_SERVER_TARGET_DIR = '/usr/local/bin'
-ANDROID_XMLRPC_SERVER_COMMAND_FMT = 'cd %s; ./' + ANDROID_XMLRPC_SERVER_FMT
-ANDROID_XMLRPC_SERVER_CLEANUP_PATTERN = 'android_xmlrpc_server-%s'
 
 SHILL_XMLRPC_SERVER_CLEANUP_PATTERN = 'shill_xmlrpc_server'
-SHILL_BRILLO_XMLRPC_SERVER_CLEANUP_PATTERN = 'shill-test-rpc-proxy'
 SHILL_XMLRPC_SERVER_READY_METHOD = 'ready'
 
 BLUETOOTH_DEVICE_XMLRPC_SERVER_PORT = 9990

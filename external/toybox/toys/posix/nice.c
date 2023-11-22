@@ -4,13 +4,13 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/nice.html
 
-USE_NICE(NEWTOY(nice, "^<1n#", TOYFLAG_USR|TOYFLAG_BIN))
+USE_NICE(NEWTOY(nice, "^<1n#", TOYFLAG_BIN))
 
 config NICE
   bool "nice"
   default y
   help
-    usage: nice [-n PRIORITY] command [args...]
+    usage: nice [-n PRIORITY] COMMAND [ARG...]
 
     Run a command line at an increased or decreased scheduling priority.
 
@@ -24,15 +24,17 @@ config NICE
 #include "toys.h"
 
 GLOBALS(
-  long priority;
+  long n;
 )
 
 void nice_main(void)
 {
-  if (!toys.optflags) TT.priority = 10;
+  if (!toys.optflags) TT.n = 10;
 
   errno = 0;
-  if (nice(TT.priority)==-1 && errno) perror_exit("Can't set priority");
-
+  if (nice(TT.n)==-1 && errno) {
+    toys.exitval = 125;
+    perror_exit("Can't set priority");
+  }
   xexec(toys.optargs);
 }

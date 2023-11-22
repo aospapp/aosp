@@ -27,6 +27,7 @@
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkQueryUtil.hpp"
+#include "vkDeviceUtil.hpp"
 
 using namespace vk;
 
@@ -99,10 +100,11 @@ void SparseResourcesBaseInstance::createDeviceSupportingQueues(const QueueRequir
 			deviceExtensions.push_back("VK_KHR_device_group");
 	}
 
-	InstanceDriver						instance(m_context.getPlatformInterface(), m_useDeviceGroups ? m_deviceGroupInstance.get() : m_context.getInstance());
+	const VkInstance&					instance(m_useDeviceGroups ? m_deviceGroupInstance.get() : m_context.getInstance());
+	InstanceDriver						instanceDriver(m_context.getPlatformInterface(), instance);
 	const VkPhysicalDevice				physicalDevice = getPhysicalDevice();
 	deUint32 queueFamilyPropertiesCount = 0u;
-	instance.getPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, DE_NULL);
+	instanceDriver.getPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, DE_NULL);
 
 	if(queueFamilyPropertiesCount == 0u)
 		TCU_THROW(ResourceError, "Device reports an empty set of queue family properties");
@@ -110,7 +112,7 @@ void SparseResourcesBaseInstance::createDeviceSupportingQueues(const QueueRequir
 	std::vector<VkQueueFamilyProperties> queueFamilyProperties;
 	queueFamilyProperties.resize(queueFamilyPropertiesCount);
 
-	instance.getPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, &queueFamilyProperties[0]);
+	instanceDriver.getPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, &queueFamilyProperties[0]);
 
 	if (queueFamilyPropertiesCount == 0u)
 		TCU_THROW(ResourceError, "Device reports an empty set of queue family properties");
@@ -138,7 +140,7 @@ void SparseResourcesBaseInstance::createDeviceSupportingQueues(const QueueRequir
 
 			for (deUint32 queueNdx = 0; queueNdx < queuesPerFamilyCount; ++queueNdx)
 			{
-				Queue queue;
+				Queue queue				= {DE_NULL, 0, 0};
 				queue.queueFamilyIndex	= queueFamilyIndex;
 				queue.queueIndex		= queueNdx;
 
@@ -171,7 +173,7 @@ void SparseResourcesBaseInstance::createDeviceSupportingQueues(const QueueRequir
 		queueInfos.push_back(queueInfo);
 	}
 
-	const VkPhysicalDeviceFeatures	deviceFeatures	= getPhysicalDeviceFeatures(instance, physicalDevice);
+	const VkPhysicalDeviceFeatures	deviceFeatures	= getPhysicalDeviceFeatures(instanceDriver, physicalDevice);
 	const VkDeviceCreateInfo		deviceInfo		=
 	{
 		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,						// VkStructureType                    sType;
@@ -186,9 +188,9 @@ void SparseResourcesBaseInstance::createDeviceSupportingQueues(const QueueRequir
 		&deviceFeatures,											// const VkPhysicalDeviceFeatures*    pEnabledFeatures;
 	};
 
-	m_logicalDevice = createDevice(instance, physicalDevice, &deviceInfo);
-	m_deviceDriver	= de::MovePtr<DeviceDriver>(new DeviceDriver(instance, *m_logicalDevice));
-	m_allocator		= de::MovePtr<Allocator>(new SimpleAllocator(*m_deviceDriver, *m_logicalDevice, getPhysicalDeviceMemoryProperties(instance, physicalDevice)));
+	m_logicalDevice = createDevice(m_context.getPlatformInterface(), instance, instanceDriver, physicalDevice, &deviceInfo);
+	m_deviceDriver	= de::MovePtr<DeviceDriver>(new DeviceDriver(m_context.getPlatformInterface(), instance, *m_logicalDevice));
+	m_allocator		= de::MovePtr<Allocator>(new SimpleAllocator(*m_deviceDriver, *m_logicalDevice, getPhysicalDeviceMemoryProperties(instanceDriver, physicalDevice)));
 
 	for (QueuesMap::iterator queuesIter = m_queues.begin(); queuesIter != m_queues.end(); ++queuesIter)
 	{

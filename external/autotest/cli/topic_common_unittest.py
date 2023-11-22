@@ -471,7 +471,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': False}, options)
+                          'debug': False,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
         flist.clean()
 
@@ -494,7 +495,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': True}, options)
+                          'debug': True,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, ['left1', 'left2'])
         flist.clean()
 
@@ -531,7 +533,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': True}, options)
+                          'debug': True,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
         flist.clean()
         ulist.clean()
@@ -569,7 +572,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': True}, options)
+                          'debug': True,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
         flist.clean()
         ulist.clean()
@@ -606,7 +610,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': True}, options)
+                          'debug': True,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
         flist.clean()
         ulist.clean()
@@ -641,7 +646,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': False}, options)
+                          'debug': False,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
         flist.clean()
         ulist.clean()
@@ -672,7 +678,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': True}, options)
+                          'debug': True,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
 
 
@@ -699,7 +706,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': False}, options)
+                          'debug': False,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
 
 
@@ -720,7 +728,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': False,
                           'verbose': False,
                           'no_confirmation': False,
-                          'debug': False}, options)
+                          'debug': False,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, [])
 
 
@@ -764,7 +773,8 @@ class atest_unittest(cli_mock.cli_unittest):
                           'kill_on_failure': True,
                           'verbose': True,
                           'no_confirmation': False,
-                          'debug': True}, options)
+                          'debug': True,
+                          'log_level':'ERROR'}, options)
         self.assertEqual(leftover, ['left1', 'left2'])
 
 

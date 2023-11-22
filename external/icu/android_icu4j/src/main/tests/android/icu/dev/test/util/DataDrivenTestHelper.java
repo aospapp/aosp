@@ -8,11 +8,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import android.icu.dev.test.AbstractTestLog;
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.util.CollectionUtilities;
-import android.icu.impl.Utility;
 import android.icu.impl.locale.XCldrStub.FileUtilities;
 import android.icu.impl.locale.XCldrStub.Splitter;
 import android.icu.util.ICUUncheckedIOException;
@@ -27,8 +27,8 @@ abstract public class DataDrivenTestHelper {
     protected TestFmwk framework = null;
     protected int minArgumentCount = 3;
     protected int maxArgumentCount = 4;
-    private List<List<String>> lines = new ArrayList<List<String>>();
-    private List<String> comments = new ArrayList<String>();
+    private List<List<String>> lines = new ArrayList<>();
+    private List<String> comments = new ArrayList<>();
 
     public DataDrivenTestHelper setFramework(TestFmwk testFramework) {
         this.framework = testFramework;
@@ -166,7 +166,7 @@ abstract public class DataDrivenTestHelper {
     }
 
     protected boolean assertEquals(String message, Object expected, Object actual) {
-        return TestFmwk.handleAssert(Utility.equals(expected, actual), message, stringFor(expected), stringFor(actual), null, false);
+        return TestFmwk.handleAssert(Objects.equals(expected, actual), message, stringFor(expected), stringFor(actual), null, false);
     }
 
     private final String stringFor(Object obj) {

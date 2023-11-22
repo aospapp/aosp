@@ -103,6 +103,8 @@ class FakeAvbOpsDelegate {
 
   virtual void set_key_version(size_t rollback_index_location,
                                uint64_t key_version) = 0;
+
+  virtual AvbIOResult get_random(size_t num_bytes, uint8_t* output) = 0;
 };
 
 // Provides fake implementations of AVB ops. All instances of this class must be
@@ -178,6 +180,12 @@ class FakeAvbOps : public FakeAvbOpsDelegate {
     permanent_attributes_hash_ = hash;
   }
 
+  // All AvbOps for partitions in the given set will fail with
+  // AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION.
+  void set_hidden_partitions(const std::set<std::string>& partitions) {
+    hidden_partitions_ = partitions;
+  }
+
   void enable_get_preloaded_partition();
 
   bool preload_partition(const std::string& partition,
@@ -249,6 +257,8 @@ class FakeAvbOps : public FakeAvbOpsDelegate {
   void set_key_version(size_t rollback_index_location,
                        uint64_t key_version) override;
 
+  AvbIOResult get_random(size_t num_bytes, uint8_t* output) override;
+
  private:
   AvbOps avb_ops_;
   AvbABOps avb_ab_ops_;
@@ -271,6 +281,7 @@ class FakeAvbOps : public FakeAvbOpsDelegate {
 
   std::set<std::string> partition_names_read_from_;
   std::map<std::string, uint8_t*> preloaded_partitions_;
+  std::set<std::string> hidden_partitions_;
 
   std::map<std::string, std::string> stored_values_;
 };
@@ -376,6 +387,10 @@ class FakeAvbOpsDelegateWithDefaults : public FakeAvbOpsDelegate {
   void set_key_version(size_t rollback_index_location,
                        uint64_t key_version) override {
     ops_.set_key_version(rollback_index_location, key_version);
+  }
+
+  AvbIOResult get_random(size_t num_bytes, uint8_t* output) override {
+    return ops_.get_random(num_bytes, output);
   }
 
  protected:

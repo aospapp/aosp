@@ -1,5 +1,5 @@
 /* Accumulation of various pieces of knowledge about ELF.
-   Copyright (C) 2000-2012, 2014 Red Hat, Inc.
+   Copyright (C) 2000-2012, 2014, 2016 Red Hat, Inc.
    This file is part of elfutils.
    Written by Ulrich Drepper <drepper@redhat.com>, 2000.
 
@@ -62,30 +62,6 @@
    || ((Shdr)->sh_flags & SHF_INFO_LINK) != 0)
 
 
-/* When combining ELF section flags we must distinguish two kinds:
-
-   - flags which cause problem if not added to the result even if not
-     present in all input sections
-
-   - flags which cause problem if added to the result if not present
-     in all input sections
-
-   The following definition is for the general case.  There might be
-   machine specific extensions.  */
-#define SH_FLAGS_COMBINE(Flags1, Flags2) \
-  (((Flags1 | Flags2)							      \
-    & (SHF_WRITE | SHF_ALLOC | SHF_EXECINSTR | SHF_LINK_ORDER		      \
-       | SHF_OS_NONCONFORMING | SHF_GROUP))				      \
-   | (Flags1 & Flags2 & (SHF_MERGE | SHF_STRINGS | SHF_INFO_LINK)))
-
-/* Similar macro: return the bits of the flags which necessarily must
-   match if two sections are automatically combined.  Sections still
-   can be forcefully combined in which case SH_FLAGS_COMBINE can be
-   used to determine the combined flags.  */
-#define SH_FLAGS_IMPORTANT(Flags) \
-  ((Flags) & ~((GElf_Xword) 0 | SHF_LINK_ORDER | SHF_OS_NONCONFORMING))
-
-
 /* Size of an entry in the hash table.  The ELF specification says all
    entries are regardless of platform 32-bits in size.  Early 64-bit
    ports (namely Alpha for Linux) got this wrong.  The wording was not
@@ -100,5 +76,26 @@
   ((Ehdr)->e_machine == EM_ALPHA					      \
    || ((Ehdr)->e_machine == EM_S390					      \
        && (Ehdr)->e_ident[EI_CLASS] == ELFCLASS64) ? 8 : 4)
+
+/* GNU Annobin notes are not fully standardized and abuses the owner name.  */
+
+#define ELF_NOTE_GNU_BUILD_ATTRIBUTE_PREFIX "GA"
+
+#define NT_GNU_BUILD_ATTRIBUTE_OPEN 0x100
+#define NT_GNU_BUILD_ATTRIBUTE_FUNC 0x101
+
+#define GNU_BUILD_ATTRIBUTE_TYPE_NUMERIC	'*'
+#define GNU_BUILD_ATTRIBUTE_TYPE_STRING		'$'
+#define GNU_BUILD_ATTRIBUTE_TYPE_BOOL_TRUE	'+'
+#define GNU_BUILD_ATTRIBUTE_TYPE_BOOL_FALSE	'!'
+
+#define GNU_BUILD_ATTRIBUTE_VERSION	1
+#define GNU_BUILD_ATTRIBUTE_STACK_PROT	2
+#define GNU_BUILD_ATTRIBUTE_RELRO	3
+#define GNU_BUILD_ATTRIBUTE_STACK_SIZE	4
+#define GNU_BUILD_ATTRIBUTE_TOOL	5
+#define GNU_BUILD_ATTRIBUTE_ABI		6
+#define GNU_BUILD_ATTRIBUTE_PIC		7
+#define GNU_BUILD_ATTRIBUTE_SHORT_ENUM	8
 
 #endif	/* elf-knowledge.h */

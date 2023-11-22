@@ -16,54 +16,49 @@
 
 package com.googlecode.android_scripting.facade.webcam;
 
-import java.io.BufferedReader;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.net.Socket;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.SimpleServer;
 
+import java.io.OutputStream;
+import java.net.Socket;
+
 class MjpegServer extends SimpleServer {
 
-  private final JpegProvider mProvider;
+    private final JpegProvider mProvider;
 
-  public MjpegServer(JpegProvider provider) {
-    mProvider = provider;
-  }
-
-  @Override
-  protected void handleConnection(Socket socket) throws Exception {
-    Log.d("handle Mjpeg connection");
-    byte[] data = mProvider.getJpeg();
-    if (data == null) {
-      return;
+    MjpegServer(JpegProvider provider) {
+        mProvider = provider;
     }
-    OutputStream outputStream = socket.getOutputStream();
-    outputStream.write((
-        "HTTP/1.0 200 OK\r\n" +
-        "Server: SL4A\r\n" +
-        "Connection: close\r\n" +
-        "Max-Age: 0\r\n" +
-        "Expires: 0\r\n" +
-        "Cache-Control: no-cache, private\r\n" +
-        "Pragma: no-cache\r\n" +
-        "Content-Type: multipart/x-mixed-replace; boundary=--BoundaryString\r\n\r\n").getBytes());
-    while (true) {
-      data = mProvider.getJpeg();
-      if (data == null) {
-        return;
-      }
-      outputStream.write("--BoundaryString\r\n".getBytes());
-      outputStream.write("Content-type: image/jpg\r\n".getBytes());
-      outputStream.write(("Content-Length: " + data.length + "\r\n\r\n").getBytes());
-      outputStream.write(data);
-      outputStream.write("\r\n\r\n".getBytes());
-      outputStream.flush();
-    }
-  }
 
-  @Override
-  protected void handleRPCConnection(Socket sock, Integer UID, BufferedReader reader, PrintWriter writer)
-      throws Exception {
-  }
+    @Override
+    protected void handleConnection(Socket socket) throws Exception {
+        Log.d("handle Mjpeg connection");
+        byte[] data = mProvider.getJpeg();
+        if (data == null) {
+            return;
+        }
+        OutputStream outputStream = socket.getOutputStream();
+        outputStream.write((
+                "HTTP/1.0 200 OK\r\n"
+                        + "Server: SL4A\r\n"
+                        + "Connection: close\r\n"
+                        + "Max-Age: 0\r\n"
+                        + "Expires: 0\r\n"
+                        + "Cache-Control: no-cache, private\r\n"
+                        + "Pragma: no-cache\r\n"
+                        + "Content-Type: multipart/x-mixed-replace; "
+                        + "boundary=--BoundaryString\r\n\r\n").getBytes());
+        while (true) {
+            data = mProvider.getJpeg();
+            if (data == null) {
+                return;
+            }
+            outputStream.write("--BoundaryString\r\n".getBytes());
+            outputStream.write("Content-type: image/jpg\r\n".getBytes());
+            outputStream.write(("Content-Length: " + data.length + "\r\n\r\n").getBytes());
+            outputStream.write(data);
+            outputStream.write("\r\n\r\n".getBytes());
+            outputStream.flush();
+        }
+    }
 }

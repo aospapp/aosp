@@ -41,12 +41,10 @@ public class SuspendCountTest extends JDWPSyncTestCase {
 
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
-    static final String debuggeeSignature =
-            "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/SuspendCountDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.SuspendCountDebuggee";
+        return SuspendCountDebuggee.class.getName();
     }
 
     /**
@@ -299,7 +297,7 @@ public class SuspendCountTest extends JDWPSyncTestCase {
             }
         }
         if ( testedThreadsIDs[testedThreadsNumber] == 0 ) {
-            setStaticIntField(debuggeeSignature, SuspendCountDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), SuspendCountDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             logWriter.println("## FAILURE: Debuggee main thread is not found out among debuggee threads!");
             logWriter.println("##          Thread name = " + testedThreadsNames[testedThreadsNumber]);
             printErrorAndFail("\nCan NOT found out debuggee main thread!");
@@ -312,7 +310,7 @@ public class SuspendCountTest extends JDWPSyncTestCase {
         ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
         int errorCode = reply.getErrorCode();
         if ( errorCode !=  JDWPConstants.Error.NONE ) {
-            setStaticIntField(debuggeeSignature, SuspendCountDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), SuspendCountDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             logWriter.println("## FAILURE: VirtualMachine.Suspend command returns error = " + errorCode
                     + "(" + JDWPConstants.Error.getName(errorCode) + ")");
             printErrorAndFail("\nVirtualMachine.Suspend command FAILED!");
@@ -370,7 +368,7 @@ public class SuspendCountTest extends JDWPSyncTestCase {
             }
         }
 
-        setStaticIntField(debuggeeSignature, SuspendCountDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+        setStaticIntField(getDebuggeeClassSignature(), SuspendCountDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
 
         if ( suspendCountCommandFailed ) {
             errorMessage = "## Error found out while ThreadReference.SuspendCount command performing!\n";

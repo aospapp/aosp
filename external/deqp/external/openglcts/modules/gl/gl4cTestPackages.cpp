@@ -35,9 +35,9 @@
 #include "gl4cEnhancedLayoutsTests.hpp"
 #include "gl4cGPUShaderFP64Tests.hpp"
 #include "gl4cGetTextureSubImageTests.hpp"
+#include "gl4cGlSpirvTests.hpp"
 #include "gl4cIncompleteTextureAccessTests.hpp"
 #include "gl4cIndirectParametersTests.hpp"
-#include "gl4cKHRDebugTests.hpp"
 #include "gl4cLimitsTests.hpp"
 #include "gl4cMapBufferAlignmentTests.hpp"
 #include "gl4cMultiBindTests.hpp"
@@ -47,7 +47,6 @@
 #include "gl4cShaderAtomicCountersTests.hpp"
 #include "gl4cShaderBallotTests.hpp"
 #include "gl4cShaderDrawParametersTests.hpp"
-#include "gl4cShaderGroupVoteTests.hpp"
 #include "gl4cShaderImageLoadStoreTests.hpp"
 #include "gl4cShaderImageSizeTests.hpp"
 #include "gl4cShaderStorageBufferObjectTests.hpp"
@@ -68,15 +67,18 @@
 #include "gl4cTextureViewTests.hpp"
 #include "gl4cVertexAttrib64BitTest.hpp"
 #include "gl4cVertexAttribBindingTests.hpp"
+#include "glcAggressiveShaderOptimizationsTests.hpp"
 #include "glcBlendEquationAdvancedTests.hpp"
 #include "glcExposedExtensionsTests.hpp"
 #include "glcInfoTests.hpp"
-#include "glcPolygonOffsetClampTests.hpp"
+#include "glcInternalformatTests.hpp"
+#include "glcLayoutLocationTests.hpp"
 #include "glcParallelShaderCompileTests.hpp"
-#include "glcRobustBufferAccessBehaviorTests.hpp"
+#include "glcPolygonOffsetClampTests.hpp"
 #include "glcSampleVariablesTests.hpp"
 #include "glcSeparableProgramsTransformFeedbackTests.hpp"
 #include "glcShaderConstExprTests.hpp"
+#include "glcShaderGroupVoteTests.hpp"
 #include "glcShaderIntegerMixTests.hpp"
 #include "glcShaderLibrary.hpp"
 #include "glcShaderMultisampleInterpolationTests.hpp"
@@ -123,6 +125,7 @@ void GL40TestPackage::init(void)
 	{
 		glcts::ExtParameters extParams(glu::GLSL_VERSION_400, glcts::EXTENSIONTYPE_NONE);
 		addChild(new glcts::DrawElementsBaseVertexTests(getContext(), extParams));
+		addChild(new glcts::InternalformatTests(getContext()));
 		addChild(new gl4cts::GPUShaderFP64Tests(getContext()));
 		addChild(new gl4cts::TextureGatherTests(getContext()));
 		addChild(new glcts::DrawIndirectTestsGL40(getContext()));
@@ -174,6 +177,19 @@ void GL41TestPackage::init(void)
 
 // GL42TestPackage
 
+class GL42ShaderTests : public deqp::TestCaseGroup
+{
+public:
+	GL42ShaderTests(deqp::Context& context) : TestCaseGroup(context, "shaders42", "Shading Language Tests")
+	{
+	}
+
+	void init(void)
+	{
+		addChild(new deqp::ShaderLibraryGroup(m_context, "declarations", "Declaration Tests", "gl42/declarations.test"));
+	}
+};
+
 GL42TestPackage::GL42TestPackage(tcu::TestContext& testCtx, const char* packageName, const char* description,
 								 glu::ContextType renderContextType)
 	: GL41TestPackage(testCtx, packageName, packageName, renderContextType)
@@ -197,6 +213,7 @@ void GL42TestPackage::init(void)
 		addChild(new gl4cts::ShaderImageLoadStoreTests(getContext()));
 		addChild(new gl4cts::ShadingLanguage420PackTests(getContext()));
 		addChild(new gl4cts::TextureViewTests(getContext()));
+		addChild(new GL42ShaderTests(getContext()));
 	}
 	catch (...)
 	{
@@ -229,10 +246,8 @@ void GL43TestPackage::init(void)
 		addChild(new glcts::ArrayOfArraysTestGroupGL(getContext()));
 		addChild(new gl4cts::CopyImageTests(getContext()));
 		addChild(new glcts::DrawIndirectTestsGL43(getContext()));
-		addChild(new gl4cts::KHRDebugTests(getContext()));
 		addChild(new gl4cts::ProgramInterfaceQueryTests(getContext()));
 		addChild(new gl4cts::ComputeShaderTests(getContext()));
-		addChild(new deqp::RobustBufferAccessBehaviorTests(getContext()));
 		addChild(new gl4cts::ShaderStorageBufferObjectTests(getContext()));
 		addChild(new gl4cts::VertexAttribBindingTests(getContext()));
 		addChild(new gl4cts::ShaderImageSizeTests(getContext()));
@@ -245,6 +260,7 @@ void GL43TestPackage::init(void)
 		addChild(new gl4cts::IndirectParametersTests(getContext()));
 		addChild(new gl4cts::ShaderBallotTests(getContext()));
 		addChild(new glcts::ShaderConstExprTests(getContext()));
+		addChild(new glcts::AggressiveShaderOptimizationsTests(getContext()));
 	}
 	catch (...)
 	{
@@ -365,13 +381,15 @@ void GL45TestPackage::init(void)
 		addChild(new gl4cts::SparseTextureClampTests(getContext()));
 		addChild(new gl4cts::TextureFilterMinmax(getContext()));
 		addChild(new gl4cts::ShaderAtomicCounterOps(getContext()));
-		addChild(new gl4cts::ShaderGroupVote(getContext()));
 		addChild(new gl4cts::ShaderDrawParametersTests(getContext()));
 		addChild(new gl4cts::ShaderViewportLayerArray(getContext()));
 		addChild(new gl4cts::LimitsTests(getContext()));
+		addChild(new glcts::ShaderGroupVote(getContext()));
 		addChild(new glcts::PolygonOffsetClamp(getContext()));
 		addChild(new glcts::SeparableProgramsTransformFeedbackTests(getContext()));
+		addChild(new glcts::LayoutLocationTests(getContext()));
 		addChild(new gl4cts::SpirvExtensionsTests(getContext()));
+		addChild(new gl4cts::GlSpirvTests(getContext()));
 	}
 	catch (...)
 	{

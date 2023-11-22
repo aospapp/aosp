@@ -25,8 +25,7 @@ def verify(machine):
         with metrics.SecondsTimer(DURATION_METRIC,
                                   fields={'dut_host_name': hostname}):
             target.verify()
-            provision.run_special_task_actions(job, target, labels_list,
-                                               provision.Verify)
+            provision.Verify.run_task_actions(job, target, labels_list)
     except Exception:
         logging.exception('Verify failed due to Exception.')
         job.record('END FAIL', None, 'verify')

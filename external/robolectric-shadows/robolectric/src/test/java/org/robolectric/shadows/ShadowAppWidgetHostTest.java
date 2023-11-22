@@ -1,6 +1,6 @@
 package org.robolectric.shadows;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -8,13 +8,13 @@ import android.appwidget.AppWidgetHost;
 import android.appwidget.AppWidgetHostView;
 import android.appwidget.AppWidgetProviderInfo;
 import android.content.Context;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowAppWidgetHostTest {
   private AppWidgetHost appWidgetHost;
   private ShadowAppWidgetHost shadowAppWidgetHost;
@@ -22,7 +22,7 @@ public class ShadowAppWidgetHostTest {
 
   @Before
   public void setup() throws Exception {
-    context = RuntimeEnvironment.application;
+    context = ApplicationProvider.getApplicationContext();
     appWidgetHost = new AppWidgetHost(context, 404);
     shadowAppWidgetHost = shadowOf(appWidgetHost);
   }

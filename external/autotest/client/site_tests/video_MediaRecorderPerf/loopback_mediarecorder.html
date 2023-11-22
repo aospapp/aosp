@@ -20,7 +20,7 @@ const DEFAULT_CONSTRAINTS = {audio: true, video: {width: 1280, height: 720}};
 
 function createAndStartMediaRecorder(stream, mimeType) {
   return new Promise(function(resolve, reject) {
-    document.getElementById('video').src = URL.createObjectURL(stream);
+    document.getElementById('video').srcObject = stream;
     var recorder = new MediaRecorder(stream, {'mimeType' : mimeType});
     console.log('Recorder object created.');
     recorder.start();

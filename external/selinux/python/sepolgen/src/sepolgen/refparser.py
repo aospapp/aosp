@@ -312,7 +312,7 @@ def collect(stmts, parent, val=None):
 
 def expand(ids, s):
     for id in ids:
-        if spt.has_key(id):
+        if spt.has_key(id):  # noqa
             s.update(spt.by_name(id))
         else:
             s.add(id)
@@ -757,9 +757,9 @@ def p_attribute_def(p):
     p[0] = a
 
 def p_attribute_role_def(p):
-	'attribute_role_def : ATTRIBUTE_ROLE IDENTIFIER SEMI'
-	a = refpolicy.Attribute_Role(p[2])
-	p[0] = a
+    'attribute_role_def : ATTRIBUTE_ROLE IDENTIFIER SEMI'
+    a = refpolicy.Attribute_Role(p[2])
+    p[0] = a
 
 def p_typealias_def(p):
     'typealias_def : TYPEALIAS IDENTIFIER ALIAS names SEMI'
@@ -786,7 +786,7 @@ def p_role_allow(p):
 
 def p_permissive(p):
     'permissive : PERMISSIVE names SEMI'
-    t.skip(1)
+    pass
 
 def p_avrule_def(p):
     '''avrule_def : ALLOW names names COLON names names SEMI
@@ -1044,7 +1044,7 @@ def list_headers(root):
                 if name == "obj_perm_sets.spt":
                     support_macros = filename
                 elif len(re.findall("patterns", modname[0])):
-                         modules.append((modname[0], filename))
+                    modules.append((modname[0], filename))
             elif modname[1] == '.if':
                 modules.append((modname[0], filename))
 

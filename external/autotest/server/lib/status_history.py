@@ -43,7 +43,6 @@ from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.frontend.afe import models as afe_models
-from autotest_lib.frontend.afe import rpc_client_lib
 from autotest_lib.server import constants
 
 
@@ -110,27 +109,9 @@ class _JobEvent(object):
     """
 
     get_config_value = global_config.global_config.get_config_value
-    _LOG_URL_PATTERN = get_config_value('CROS', 'log_url_pattern')
-
-    @classmethod
-    def get_log_url(cls, afe_hostname, logdir):
-        """Return a URL to job results.
-
-        The URL is constructed from a base URL determined by the
-        global config, plus the relative path of the job's log
-        directory.
-
-        @param afe_hostname Hostname for autotest frontend
-        @param logdir Relative path of the results log directory.
-
-        @return A URL to the requested results log.
-
-        """
-        return cls._LOG_URL_PATTERN % (
-            rpc_client_lib.add_protocol(afe_hostname),
-            logdir,
-        )
-
+    _LOG_URL_PATTERN = ('%s/browse/chromeos-autotest-results/%%s/'
+                        % get_config_value('AUTOTEST_WEB', 'stainless_url',
+                                           default=None))
 
     @classmethod
     def get_gs_url(cls, logdir):
@@ -192,13 +173,13 @@ class _JobEvent(object):
     @property
     def job_url(self):
         """Return the URL for this event's job logs."""
-        raise NotImplementedError()
+        return self._LOG_URL_PATTERN % self.logdir
 
 
     @property
     def gs_url(self):
         """Return the GS URL for this event's job logs."""
-        raise NotImplementedError()
+        return self.get_gs_url(self.logdir)
 
 
     @property
@@ -262,7 +243,7 @@ class _SpecialTaskEvent(_JobEvent):
                 time_started__gte=query_start,
                 time_finished__lte=query_end,
                 is_complete=1)
-        return [cls(afe.server, t) for t in tasks]
+        return [cls(t) for t in tasks]
 
 
     @classmethod
@@ -283,11 +264,10 @@ class _SpecialTaskEvent(_JobEvent):
         """
         query_end = time_utils.epoch_time_to_date_string(end_time)
         task = afe.get_host_status_task(host_id, query_end)
-        return cls(afe.server, task) if task else None
+        return cls(task) if task else None
 
 
-    def __init__(self, afe_hostname, afetask):
-        self._afe_hostname = afe_hostname
+    def __init__(self, afetask):
         self._afetask = afetask
         super(_SpecialTaskEvent, self).__init__(
                 afetask.time_started, afetask.time_finished)
@@ -318,16 +298,6 @@ class _SpecialTaskEvent(_JobEvent):
         return ('hosts/%s/%s-%s' %
                 (self._afetask.host.hostname, self._afetask.id,
                  self._afetask.task.lower()))
-
-
-    @property
-    def job_url(self):
-        return _SpecialTaskEvent.get_log_url(self._afe_hostname, self.logdir)
-
-
-    @property
-    def gs_url(self):
-        return _SpecialTaskEvent.get_gs_url(self.logdir)
 
 
     @property
@@ -384,11 +354,10 @@ class _TestJobEvent(_JobEvent):
                 started_on__gte=query_start,
                 started_on__lte=query_end,
                 complete=1)
-        return [cls(afe.server, hqe) for hqe in hqelist]
+        return [cls(hqe) for hqe in hqelist]
 
 
-    def __init__(self, afe_hostname, hqe):
-        self._afe_hostname = afe_hostname
+    def __init__(self, hqe):
         self._hqe = hqe
         super(_TestJobEvent, self).__init__(
                 hqe.started_on, hqe.finished_on)
@@ -412,16 +381,6 @@ class _TestJobEvent(_JobEvent):
     @property
     def logdir(self):
         return _get_job_logdir(self._hqe.job)
-
-
-    @property
-    def job_url(self):
-        return _TestJobEvent.get_log_url(self._afe_hostname, self.logdir)
-
-
-    @property
-    def gs_url(self):
-        return _TestJobEvent.get_gs_url(self.logdir)
 
 
     @property

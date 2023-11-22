@@ -10,13 +10,15 @@ class dummy_PassServer(test.test):
     """Tests that server tests can pass."""
     version = 1
 
-    def run_once(self, force_ssp=False):
+    def run_once(self, expect_ssp=None):
         """There is no body for this test.
 
-        @param force_ssp: True to force the test to run using server-side
-                packaging. Test shall fail if not running inside a container.
-                Default is set to False.
+        @param expect_ssp: If True, ensure test is running inside a container.
+                If False, ensure test is not running inside a container.
+                If None (default), do nothing.
         """
-        if force_ssp and not utils.is_in_container():
-            raise error.TestFail('The test is not running inside container.')
-        return
+        if expect_ssp is not None:
+            if expect_ssp and not utils.is_in_container():
+                raise error.TestFail('The test is not running inside container')
+            if not expect_ssp and utils.is_in_container():
+                raise error.TestFail('Test test is running inside container')

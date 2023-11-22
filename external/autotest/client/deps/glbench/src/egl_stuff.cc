@@ -51,11 +51,10 @@ XVisualInfo* EGLInterface::GetXVisual() {
       EGL_STENCIL_SIZE, 1,
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
       EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-      EGL_NONE
-    };
+      EGL_NONE};
 
     EGLNativeDisplayType native_display =
-      static_cast<EGLNativeDisplayType>(g_xlib_display);
+        static_cast<EGLNativeDisplayType>(g_xlib_display);
 
     display_ = eglGetDisplay(native_display);
     CheckError();
@@ -71,9 +70,9 @@ XVisualInfo* EGLInterface::GetXVisual() {
     CheckError();
   }
 
-  // TODO: for some reason on some systems EGL_NATIVE_VISUAL_ID returns an ID
-  // that XVisualIDFromVisual cannot find.  Use default visual until this is
-  // resolved.
+// TODO: for some reason on some systems EGL_NATIVE_VISUAL_ID returns an ID
+// that XVisualIDFromVisual cannot find.  Use default visual until this is
+// resolved.
 #if 0
   EGLint visual_id;
   eglGetConfigAttrib(display_, config_, EGL_NATIVE_VISUAL_ID, &visual_id);
@@ -82,13 +81,13 @@ XVisualInfo* EGLInterface::GetXVisual() {
   vinfo_template.visualid = static_cast<VisualID>(visual_id);
 #else
   XVisualInfo vinfo_template;
-  vinfo_template.visualid = XVisualIDFromVisual(DefaultVisual(
-      g_xlib_display, DefaultScreen(g_xlib_display)));
+  vinfo_template.visualid = XVisualIDFromVisual(
+      DefaultVisual(g_xlib_display, DefaultScreen(g_xlib_display)));
 #endif
 
   int nitems = 0;
-  XVisualInfo* ret = XGetVisualInfo(g_xlib_display, VisualIDMask,
-                                    &vinfo_template, &nitems);
+  XVisualInfo* ret =
+      XGetVisualInfo(g_xlib_display, VisualIDMask, &vinfo_template, &nitems);
   CHECK(nitems == 1);
   return ret;
 }
@@ -106,10 +105,7 @@ bool EGLInterface::MakeCurrent(const GLContext& context) {
 }
 
 const GLContext EGLInterface::CreateContext() {
-  EGLint attribs[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 2,
-    EGL_NONE
-  };
+  EGLint attribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
   CHECK(display_ != EGL_NO_DISPLAY);
   CHECK(config_);
   return eglCreateContext(display_, config_, NULL, attribs);

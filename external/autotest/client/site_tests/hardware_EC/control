@@ -7,6 +7,7 @@ AUTHOR = 'The Chromium OS Authors'
 PURPOSE = 'Ensure the EC is working.'
 CRITERIA = 'Fails if communication with EC does not work.'
 TIME='SHORT'
+ATTRIBUTES = "suite:bvt-perbuild"
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = "hardware"
 TEST_TYPE = 'client'

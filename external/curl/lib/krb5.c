@@ -85,7 +85,7 @@ krb5_decode(void *app_data, void *buf, int len,
 
   enc.value = buf;
   enc.length = len;
-  maj = gss_unseal(&min, *context, &enc, &dec, NULL, NULL);
+  maj = gss_unwrap(&min, *context, &enc, &dec, NULL, NULL);
   if(maj != GSS_S_COMPLETE) {
     if(len >= 4)
       strcpy(buf, "599 ");
@@ -119,11 +119,11 @@ krb5_encode(void *app_data, const void *from, int length, int level, void **to)
   int len;
 
   /* NOTE that the cast is safe, neither of the krb5, gnu gss and heimdal
-   * libraries modify the input buffer in gss_seal()
+   * libraries modify the input buffer in gss_wrap()
    */
   dec.value = (void *)from;
   dec.length = length;
-  maj = gss_seal(&min, *context,
+  maj = gss_wrap(&min, *context,
                  level == PROT_PRIVATE,
                  GSS_C_QOP_DEFAULT,
                  &dec, &state, &enc);
@@ -206,7 +206,7 @@ krb5_auth(void *app_data, struct connectdata *conn)
     if(maj != GSS_S_COMPLETE) {
       gss_release_name(&min, &gssname);
       if(service == srv_host) {
-        Curl_failf(data, "Error importing service name %s@%s", service, host);
+        failf(data, "Error importing service name %s@%s", service, host);
         return AUTH_ERROR;
       }
       service = srv_host;
@@ -265,6 +265,7 @@ krb5_auth(void *app_data, struct connectdata *conn)
           result = CURLE_OUT_OF_MEMORY;
 
         free(p);
+        free(cmd);
 
         if(result) {
           ret = -2;
@@ -290,8 +291,7 @@ krb5_auth(void *app_data, struct connectdata *conn)
                                       (unsigned char **)&_gssresp.value,
                                       &_gssresp.length);
           if(result) {
-            Curl_failf(data, "base64-decoding: %s",
-                       curl_easy_strerror(result));
+            failf(data, "base64-decoding: %s", curl_easy_strerror(result));
             ret = AUTH_CONTINUE;
             break;
           }

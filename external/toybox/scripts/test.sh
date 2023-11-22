@@ -1,5 +1,8 @@
 #!/bin/bash
 
+source scripts/runtest.sh
+source scripts/portability.sh
+
 TOPDIR="$PWD"
 FILES="$PWD"/tests/files
 
@@ -20,28 +23,25 @@ fi
 
 cd generated/testdir
 PATH="$PWD:$PATH"
-cd testdir
+TESTDIR="$PWD"
 export LC_COLLATE=C
 
-. "$TOPDIR"/scripts/runtest.sh
-[ -f "$TOPDIR/generated/config.h" ] && export OPTIONFLAGS=:$(echo $(sed -nr 's/^#define CFG_(.*) 1/\1/p' "$TOPDIR/generated/config.h") | sed 's/ /:/g')
+[ -f "$TOPDIR/generated/config.h" ] &&
+  export OPTIONFLAGS=:$(echo $($SED -nr 's/^#define CFG_(.*) 1/\1/p' "$TOPDIR/generated/config.h") | $SED 's/ /:/g')
 
 do_test()
 {
+  cd "$TESTDIR" && rm -rf testdir && mkdir testdir && cd testdir || exit 1
   CMDNAME="${1##*/}"
   CMDNAME="${CMDNAME%.test}"
+  C="$CMDNAME"
   if [ -z "$TEST_HOST" ]
   then
-    [ -z "$2" ] && C="$(readlink -f ../$CMDNAME)" || C="$(which $CMDNAME)"
-  else
-    C="$CMDNAME"
+    C="$TESTDIR/$CMDNAME"
+    [ ! -e "$C" ] && echo "$CMDNAME disabled" && return
   fi
-  if [ ! -z "$C" ]
-  then
-    . "$1"
-  else
-    echo "$CMDNAME disabled"
-  fi
+
+  . "$1"
 }
 
 if [ $# -ne 0 ]
@@ -53,13 +53,7 @@ then
 else
   for i in "$TOPDIR"/tests/*.test
   do
-    if [ -z "$TEST_HOST" ]
-    then
-      do_test "$i" 1
-    else
-      rm -rf testdir && mkdir testdir && cd testdir || exit 1
-      do_test "$i"
-      cd ..
-    fi
+    [ -z "$TEST_ALL" ] && [ ! -x "$i" ] && continue
+    do_test "$i"
   done
 fi

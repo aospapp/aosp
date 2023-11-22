@@ -31,7 +31,7 @@
 
 #include "remote_processor_export.h"
 
-#include <stdint.h>
+#include <string>
 #include "RemoteProcessorServerInterface.h"
 #include <asio.hpp>
 
@@ -40,7 +40,7 @@ class IRemoteCommandHandler;
 class REMOTE_PROCESSOR_EXPORT CRemoteProcessorServer : public IRemoteProcessorServerInterface
 {
 public:
-    CRemoteProcessorServer(uint16_t uiPort);
+    CRemoteProcessorServer(std::string bindAddress);
     virtual ~CRemoteProcessorServer();
 
     // State
@@ -54,10 +54,10 @@ private:
     // New connection
     void handleNewConnection(IRemoteCommandHandler &commandHandler);
 
-    // Port number
-    uint16_t _uiPort;
+    // Bind address
+    std::string _bindAddress;
 
     asio::io_service _io_service;
-    asio::ip::tcp::acceptor _acceptor;
-    asio::ip::tcp::socket _socket;
+    asio::basic_socket_acceptor<asio::generic::stream_protocol> _acceptor;
+    asio::generic::stream_protocol::socket _socket;
 };

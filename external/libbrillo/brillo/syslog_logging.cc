@@ -5,6 +5,7 @@
 #include "brillo/syslog_logging.h"
 
 #include <syslog.h>
+#include <unistd.h>
 
 #include <string>
 
@@ -78,6 +79,8 @@ namespace brillo {
 void SetLogFlags(int log_flags) {
   s_log_to_syslog = (log_flags & kLogToSyslog) != 0;
   s_log_to_stderr = (log_flags & kLogToStderr) != 0;
+  if ((log_flags & kLogToStderrIfTty) && isatty(0))
+    s_log_to_stderr = true;
   s_log_header = (log_flags & kLogHeader) != 0;
 }
 int GetLogFlags() {

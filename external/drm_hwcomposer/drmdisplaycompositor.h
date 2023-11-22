@@ -17,15 +17,14 @@
 #ifndef ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 #define ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 
-#include "drmcomposition.h"
+#include "drmdisplaycomposition.h"
 #include "drmframebuffer.h"
 #include "drmhwcomposer.h"
-#include "queue_worker.h"
-#include "separate_rects.h"
+#include "resourcemanager.h"
+#include "vsyncworker.h"
 
-#include <chrono>
+#include <pthread.h>
 #include <memory>
-#include <queue>
 #include <sstream>
 #include <tuple>
 
@@ -36,98 +35,31 @@
 // squash a frame that the hw can't display with hw overlays.
 #define DRM_DISPLAY_BUFFERS 3
 
+// If a scene is still for this number of vblanks flatten it to reduce power
+// consumption.
+#define FLATTEN_COUNTDOWN_INIT 60
+
 namespace android {
 
-class GLWorkerCompositor;
-
-class SquashState {
- public:
-  static const unsigned kHistoryLength = 6;  // TODO: make this number not magic
-  static const unsigned kMaxLayers = 64;
-
-  struct Region {
-    DrmHwcRect<int> rect;
-    std::bitset<kMaxLayers> layer_refs;
-    std::bitset<kHistoryLength> change_history;
-    bool squashed = false;
-  };
-
-  bool is_stable(int region_index) const {
-    return valid_history_ >= kHistoryLength &&
-           regions_[region_index].change_history.none();
-  }
-
-  const std::vector<Region> &regions() const {
-    return regions_;
-  }
-
-  void Init(DrmHwcLayer *layers, size_t num_layers);
-  void GenerateHistory(DrmHwcLayer *layers, size_t num_layers,
-                       std::vector<bool> &changed_regions) const;
-  void StableRegionsWithMarginalHistory(
-      const std::vector<bool> &changed_regions,
-      std::vector<bool> &stable_regions) const;
-  void RecordHistory(DrmHwcLayer *layers, size_t num_layers,
-                     const std::vector<bool> &changed_regions);
-  bool RecordAndCompareSquashed(const std::vector<bool> &squashed_regions);
-
-  void Dump(std::ostringstream *out) const;
-
- private:
-  size_t generation_number_ = 0;
-  unsigned valid_history_ = 0;
-  std::vector<buffer_handle_t> last_handles_;
-
-  std::vector<Region> regions_;
-};
-
-class DrmDisplayCompositor : public QueueWorker<DrmDisplayComposition> {
+class DrmDisplayCompositor {
  public:
   DrmDisplayCompositor();
   ~DrmDisplayCompositor();
 
-  int Init(DrmResources *drm, int display);
+  int Init(ResourceManager *resource_manager, int display);
 
   std::unique_ptr<DrmDisplayComposition> CreateComposition() const;
-  int QueueComposition(std::unique_ptr<DrmDisplayComposition> composition);
-  void ProcessWork(std::unique_ptr<DrmDisplayComposition> composition);
-  void ProcessIdle();
-  int SquashAll();
+  std::unique_ptr<DrmDisplayComposition> CreateInitializedComposition() const;
+  int ApplyComposition(std::unique_ptr<DrmDisplayComposition> composition);
+  int TestComposition(DrmDisplayComposition *composition);
+  int Composite();
   void Dump(std::ostringstream *out) const;
+  void Vsync(int display, int64_t timestamp);
+  void ClearDisplay();
 
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
 
-  SquashState *squash_state() {
-    return &squash_state_;
-  }
-
  private:
-  struct FrameState {
-    FrameState(std::unique_ptr<DrmDisplayComposition> composition, int status)
-        : composition(std::move(composition)), status(status) {
-    }
-
-    std::unique_ptr<DrmDisplayComposition> composition;
-    int status = 0;
-  };
-
-  class FrameWorker : public QueueWorker<FrameState> {
-   public:
-    FrameWorker(DrmDisplayCompositor *compositor);
-
-    int Init();
-    void QueueFrame(std::unique_ptr<DrmDisplayComposition> composition,
-                    int status);
-
-    mutable uint64_t max_duration_us;
-
-   protected:
-    void ProcessWork(std::unique_ptr<FrameState> frame);
-
-   private:
-    DrmDisplayCompositor *compositor_;
-  };
-
   struct ModeState {
     bool needs_modeset = false;
     DrmMode mode;
@@ -142,29 +74,34 @@ class DrmDisplayCompositor : public QueueWorker<DrmDisplayComposition> {
   static const int kAcquireWaitTries = 5;
   static const int kAcquireWaitTimeoutMs = 100;
 
-  int PrepareFramebuffer(DrmFramebuffer &fb,
-                         DrmDisplayComposition *display_comp);
-  int ApplySquash(DrmDisplayComposition *display_comp);
-  int ApplyPreComposite(DrmDisplayComposition *display_comp);
-  int PrepareFrame(DrmDisplayComposition *display_comp);
-  int CommitFrame(DrmDisplayComposition *display_comp, bool test_only);
-  int SquashFrame(DrmDisplayComposition *src, DrmDisplayComposition *dst);
+  int CommitFrame(DrmDisplayComposition *display_comp, bool test_only,
+                  DrmConnector *writeback_conn = NULL,
+                  DrmHwcBuffer *writeback_buffer = NULL);
+  int SetupWritebackCommit(drmModeAtomicReqPtr pset, uint32_t crtc_id,
+                           DrmConnector *writeback_conn,
+                           DrmHwcBuffer *writeback_buffer);
   int ApplyDpms(DrmDisplayComposition *display_comp);
   int DisablePlanes(DrmDisplayComposition *display_comp);
 
-  void ClearDisplay();
   void ApplyFrame(std::unique_ptr<DrmDisplayComposition> composition,
-                  int status);
+                  int status, bool writeback = false);
+  int FlattenActiveComposition();
+  int FlattenSerial(DrmConnector *writeback_conn);
+  int FlattenConcurrent(DrmConnector *writeback_conn);
+  int FlattenOnDisplay(std::unique_ptr<DrmDisplayComposition> &src,
+                       DrmConnector *writeback_conn, DrmMode &src_mode,
+                       DrmHwcLayer *writeback_layer);
+
+  bool CountdownExpired() const;
 
   std::tuple<int, uint32_t> CreateModeBlob(const DrmMode &mode);
 
-  DrmResources *drm_;
+  ResourceManager *resource_manager_;
   int display_;
-
-  FrameWorker frame_worker_;
 
   std::unique_ptr<DrmDisplayComposition> active_composition_;
 
+  bool initialized_;
   bool active_;
   bool use_hw_overlays_;
 
@@ -172,21 +109,19 @@ class DrmDisplayCompositor : public QueueWorker<DrmDisplayComposition> {
 
   int framebuffer_index_;
   DrmFramebuffer framebuffers_[DRM_DISPLAY_BUFFERS];
-  std::unique_ptr<GLWorkerCompositor> pre_compositor_;
 
-  SquashState squash_state_;
-  int squash_framebuffer_index_;
-  DrmFramebuffer squash_framebuffers_[2];
-
-  // mutable since we need to acquire in HaveQueuedComposites
-  mutable std::mutex mutex_;
+  // mutable since we need to acquire in Dump()
+  mutable pthread_mutex_t lock_;
 
   // State tracking progress since our last Dump(). These are mutable since
   // we need to reset them on every Dump() call.
   mutable uint64_t dump_frames_composited_;
   mutable uint64_t dump_last_timestamp_ns_;
-  mutable uint64_t max_duration_us;
+  VSyncWorker vsync_worker_;
+  int64_t flatten_countdown_;
+  std::unique_ptr<Planner> planner_;
+  int writeback_fence_;
 };
-}
+}  // namespace android
 
 #endif  // ANDROID_DRM_DISPLAY_COMPOSITOR_H_

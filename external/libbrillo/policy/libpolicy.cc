@@ -4,6 +4,8 @@
 
 #include "policy/libpolicy.h"
 
+#include <memory>
+
 #include <base/logging.h>
 
 #include "policy/device_policy.h"
@@ -13,17 +15,23 @@
 
 namespace policy {
 
-PolicyProvider::PolicyProvider()
-    : device_policy_(nullptr),
-      device_policy_is_loaded_(false) {
+PolicyProvider::PolicyProvider() {
 #ifndef __ANDROID__
-  device_policy_.reset(new DevicePolicyImpl());
+  device_policy_ = std::make_unique<DevicePolicyImpl>();
+  install_attributes_reader_ = std::make_unique<InstallAttributesReader>();
 #endif
 }
 
 PolicyProvider::PolicyProvider(std::unique_ptr<DevicePolicy> device_policy)
     : device_policy_(std::move(device_policy)),
-      device_policy_is_loaded_(true) {}
+#ifdef __ANDROID__
+      device_policy_is_loaded_(true) {
+}
+#else
+      device_policy_is_loaded_(true),
+      install_attributes_reader_(std::make_unique<InstallAttributesReader>()) {
+}
+#endif  // __ANDROID__
 
 PolicyProvider::~PolicyProvider() {}
 
@@ -42,10 +50,34 @@ bool PolicyProvider::device_policy_is_loaded() const {
 }
 
 const DevicePolicy& PolicyProvider::GetDevicePolicy() const {
-  if (!device_policy_is_loaded_)
-    DCHECK("Trying to get policy data but policy was not loaded!");
-
+  DCHECK(device_policy_is_loaded_)
+      << "Trying to get policy data but policy was not loaded!";
   return *device_policy_;
+}
+
+bool PolicyProvider::IsConsumerDevice() const {
+#ifdef __ANDROID__
+  return true;
+#else
+  if (!install_attributes_reader_->IsLocked())
+    return false;
+
+  const std::string& device_mode = install_attributes_reader_->GetAttribute(
+      InstallAttributesReader::kAttrMode);
+  return device_mode != InstallAttributesReader::kDeviceModeEnterprise &&
+         device_mode != InstallAttributesReader::kDeviceModeEnterpriseAD;
+#endif  // __ANDROID__
+}
+
+void PolicyProvider::SetDevicePolicyForTesting(
+    std::unique_ptr<DevicePolicy> device_policy) {
+  device_policy_ = std::move(device_policy);
+  device_policy_is_loaded_ = true;
+}
+
+void PolicyProvider::SetInstallAttributesReaderForTesting(
+    std::unique_ptr<InstallAttributesReader> install_attributes_reader) {
+  install_attributes_reader_ = std::move(install_attributes_reader);
 }
 
 }  // namespace policy

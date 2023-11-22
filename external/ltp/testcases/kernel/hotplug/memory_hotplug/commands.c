@@ -29,9 +29,6 @@
  */
 
 #include "config.h"
-#if HAVE_NUMA_H
-#include <numa.h>
-#endif
 
 #ifdef HAVE_NUMA_V2
 #include <sys/types.h>
@@ -435,7 +432,7 @@ static int get_arg_nodeid_list(char *args, unsigned int *list)
 static int get_current_nodeid_list(unsigned int *fromids)
 {
 	/*
-	 * FIXME (garrcoop): gcp is unitialized and shortly hereafter used in
+	 * FIXME (garrcoop): gcp is uninitialized and shortly hereafter used in
 	 * an initialization statement..... UHHHHHHH... test writer fail?
 	 */
 	glctx_t *gcp;

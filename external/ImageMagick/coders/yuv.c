@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -124,9 +124,12 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
   ssize_t
     count,
     horizontal_factor,
-    quantum,
     vertical_factor,
     y;
+
+  size_t
+    length,
+    quantum;
 
   unsigned char
     *scanline;
@@ -147,7 +150,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
     return(DestroyImageList(image));
-  quantum=image->depth <= 8 ? 1 : 2;
+  quantum=(ssize_t) (image->depth <= 8 ? 1 : 2);
   interlace=image_info->interlace;
   horizontal_factor=2;
   vertical_factor=2;
@@ -186,7 +189,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
           image=DestroyImageList(image);
           return((Image *) NULL);
         }
-      if (DiscardBlobBytes(image,image->offset) == MagickFalse)
+      if (DiscardBlobBytes(image,(MagickSizeType) image->offset) == MagickFalse)
         ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",
           image->filename);
     }
@@ -194,20 +197,24 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
     Allocate memory for a scanline.
   */
   if (interlace == NoInterlace)
-    scanline=(unsigned char *) AcquireQuantumMemory((size_t) 2UL*
-      image->columns+2UL,quantum*sizeof(*scanline));
+    scanline=(unsigned char *) AcquireQuantumMemory((size_t) (2UL*
+      image->columns+2UL),(size_t) quantum*sizeof(*scanline));
   else
     scanline=(unsigned char *) AcquireQuantumMemory(image->columns,
-      quantum*sizeof(*scanline));
+      (size_t) quantum*sizeof(*scanline));
   if (scanline == (unsigned char *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+  status=MagickTrue;
   do
   {
     chroma_image=CloneImage(image,(image->columns+horizontal_factor-1)/
       horizontal_factor,(image->rows+vertical_factor-1)/vertical_factor,
       MagickTrue,exception);
     if (chroma_image == (Image *) NULL)
-      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      {
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline); 
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      }
     /*
       Convert raster image to pixel packets.
     */
@@ -216,13 +223,14 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
         break;
     status=SetImageExtent(image,image->columns,image->rows,exception);
     if (status == MagickFalse)
-      return(DestroyImageList(image));
+      break;
     if (interlace == PartitionInterlace)
       {
         AppendImageFormat("Y",image->filename);
         status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
         if (status == MagickFalse)
           {
+            scanline=(unsigned char *) RelinquishMagickMemory(scanline); 
             image=DestroyImageList(image);
             return((Image *) NULL);
           }
@@ -235,7 +243,17 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (interlace == NoInterlace)
         {
           if ((y > 0) || (GetPreviousImageInList(image) == (Image *) NULL))
-            count=ReadBlob(image,(size_t) (2*quantum*image->columns),scanline);
+            {
+              length=2*quantum*image->columns;
+              count=ReadBlob(image,length,scanline);
+              if (count != (ssize_t) length)
+                {
+                  status=MagickFalse;
+                  ThrowFileException(exception,CorruptImageError,
+                    "UnexpectedEndOfFile",image->filename);
+                  break;
+                }
+            }
           p=scanline;
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
           if (q == (Quantum *) NULL)
@@ -246,13 +264,14 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
             break;
           for (x=0; x < (ssize_t) image->columns; x+=2)
           {
-            SetPixelRed(image,0,chroma_pixels);
+            SetPixelRed(chroma_image,0,chroma_pixels);
             if (quantum == 1)
-              SetPixelGreen(image,ScaleCharToQuantum(*p++),chroma_pixels);
+              SetPixelGreen(chroma_image,ScaleCharToQuantum(*p++),
+                chroma_pixels);
             else
               {
-                SetPixelGreen(image,ScaleShortToQuantum(((*p) << 8) | *(p+1)),
-                  chroma_pixels);
+                SetPixelGreen(chroma_image,ScaleShortToQuantum(((*p) << 8) |
+                  *(p+1)),chroma_pixels);
                 p+=2;
               }
             if (quantum == 1)
@@ -268,11 +287,11 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
             SetPixelGreen(image,0,q);
             SetPixelBlue(image,0,q);
             if (quantum == 1)
-              SetPixelBlue(image,ScaleCharToQuantum(*p++),chroma_pixels);
+              SetPixelBlue(chroma_image,ScaleCharToQuantum(*p++),chroma_pixels);
             else
               {
-                SetPixelBlue(image,ScaleShortToQuantum(((*p) << 8) | *(p+1)),
-                  chroma_pixels);
+                SetPixelBlue(chroma_image,ScaleShortToQuantum(((*p) << 8) |
+                  *(p+1)),chroma_pixels);
                 p+=2;
               }
             if (quantum == 1)
@@ -282,14 +301,24 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
                 SetPixelRed(image,ScaleShortToQuantum(((*p) << 8) | *(p+1)),q);
                 p+=2;
               }
-            chroma_pixels++;
+            chroma_pixels+=GetPixelChannels(chroma_image);
             q+=GetPixelChannels(image);
           }
         }
       else
         {
           if ((y > 0) || (GetPreviousImageInList(image) == (Image *) NULL))
-            count=ReadBlob(image,(size_t) quantum*image->columns,scanline);
+            {
+              length=quantum*image->columns;
+              count=ReadBlob(image,length,scanline);
+              if (count != (ssize_t) length)
+                {
+                  status=MagickFalse;
+                  ThrowFileException(exception,CorruptImageError,
+                    "UnexpectedEndOfFile",image->filename);
+                  break;
+                }
+            }
           p=scanline;
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
           if (q == (Quantum *) NULL)
@@ -328,6 +357,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
         status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
         if (status == MagickFalse)
           {
+            scanline=(unsigned char *) RelinquishMagickMemory(scanline); 
             image=DestroyImageList(image);
             return((Image *) NULL);
           }
@@ -336,7 +366,15 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         for (y=0; y < (ssize_t) chroma_image->rows; y++)
         {
-          count=ReadBlob(image,(size_t) quantum*chroma_image->columns,scanline);
+          length=quantum*chroma_image->columns;
+          count=ReadBlob(image,length,scanline);
+          if (count != (ssize_t) length)
+            {
+              status=MagickFalse;
+              ThrowFileException(exception,CorruptImageError,
+                "UnexpectedEndOfFile",image->filename);
+              break;
+            }
           p=scanline;
           q=QueueAuthenticPixels(chroma_image,0,y,chroma_image->columns,1,
             exception);
@@ -366,13 +404,22 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
           status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
           if (status == MagickFalse)
             {
+              scanline=(unsigned char *) RelinquishMagickMemory(scanline); 
               image=DestroyImageList(image);
               return((Image *) NULL);
             }
         }
       for (y=0; y < (ssize_t) chroma_image->rows; y++)
       {
-        count=ReadBlob(image,(size_t) quantum*chroma_image->columns,scanline);
+        length=quantum*chroma_image->columns;
+        count=ReadBlob(image,length,scanline);
+        if (count != (ssize_t) length)
+          {
+            status=MagickFalse;
+            ThrowFileException(exception,CorruptImageError,
+              "UnexpectedEndOfFile",image->filename);
+            break;
+          }
         p=scanline;
         q=GetAuthenticPixels(chroma_image,0,y,chroma_image->columns,1,
           exception);
@@ -401,7 +448,10 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
       TriangleFilter,exception);
     chroma_image=DestroyImage(chroma_image);
     if (resize_image == (Image *) NULL)
-      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      {
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline);   
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      }
     for (y=0; y < (ssize_t) image->rows; y++)
     {
       q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
@@ -412,16 +462,17 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
       {
-        SetPixelGreen(image,GetPixelGreen(image,chroma_pixels),q);
-        SetPixelBlue(image,GetPixelBlue(image,chroma_pixels),q);
-        chroma_pixels++;
+        SetPixelGreen(image,GetPixelGreen(resize_image,chroma_pixels),q);
+        SetPixelBlue(image,GetPixelBlue(resize_image,chroma_pixels),q);
+        chroma_pixels+=GetPixelChannels(resize_image);
         q+=GetPixelChannels(image);
       }
       if (SyncAuthenticPixels(image,exception) == MagickFalse)
         break;
     }
     resize_image=DestroyImage(resize_image);
-    SetImageColorspace(image,YCbCrColorspace,exception);
+    if (SetImageColorspace(image,YCbCrColorspace,exception) == MagickFalse)
+      break;
     if (interlace == PartitionInterlace)
       (void) CopyMagickString(image->filename,image_info->filename,
         MagickPathExtent);
@@ -449,8 +500,8 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -461,6 +512,8 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
   } while (count != 0);
   scanline=(unsigned char *) RelinquishMagickMemory(scanline);
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -579,6 +632,7 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
 
   size_t
     height,
+    imageListLength,
     quantum,
     width;
 
@@ -638,6 +692,7 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
         return(status);
     }
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
     /*
@@ -678,7 +733,7 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
             exception);
           if (s == (const Quantum *) NULL)
             break;
-          for (x=0; x < (ssize_t) yuv_image->columns; x++)
+          for (x=0; x < (ssize_t) yuv_image->columns; x+=2)
           {
             if (quantum == 1)
               {
@@ -706,7 +761,6 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
               }
             p+=GetPixelChannels(yuv_image);
             s++;
-            x++;
           }
           if (image->previous == (Image *) NULL)
             {
@@ -829,8 +883,7 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

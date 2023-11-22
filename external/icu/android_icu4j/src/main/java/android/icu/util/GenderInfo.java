@@ -36,6 +36,7 @@ public class GenderInfo {
     /**
      * Gender: OTHER means either the information is unavailable, or the person has declined to state MALE or FEMALE.
      * @deprecated This API is ICU internal only.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
@@ -87,6 +88,7 @@ public class GenderInfo {
      * This only affects gender for lists more than one. For lists of 1 item, the gender
      * of the list always equals the gender of that sole item.
      * @deprecated This API is ICU internal only.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated

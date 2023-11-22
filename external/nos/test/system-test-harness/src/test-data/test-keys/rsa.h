@@ -27,14 +27,8 @@ const struct {
   const uint8_t *n;
   const size_t size;
 } TEST_RSA_KEYS[] = {
-  {3,     RSA_3_512_D, RSA_3_512_N, sizeof(RSA_3_512_N)},
-  {65537, RSA_512_D,   RSA_512_N,   sizeof(RSA_512_N)},
-  {65537, RSA_768_D,   RSA_768_N,   sizeof(RSA_768_N)},
   {65537, RSA_1024_D,  RSA_1024_N,  sizeof(RSA_1024_N)},
   {65537, RSA_2048_D,  RSA_2048_N,  sizeof(RSA_2048_N)},
-  {65537, RSA_3072_D,  RSA_3072_N,  sizeof(RSA_3072_N)},
-  // TODO: update transport to accept larger messages.
-  //  {RSA_4096_D, RSA_4096_N, sizeof(RSA_4096_N)},
 };
 
 

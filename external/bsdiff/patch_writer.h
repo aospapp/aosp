@@ -23,11 +23,11 @@ class BsdiffPatchWriter : public PatchWriterInterface {
   explicit BsdiffPatchWriter(const std::string& patch_filename);
 
   // Create the patch writer using the "BSDF2" format. It uses the compressor
-  // with algorithm |type| and quality |quality|. This writer also writes the
-  // patch data to the file |patch_filename|.
+  // with algorithm |type|; and quality |brotli_quality| if it's brotli. This
+  // writer also writes the patch data to the file |patch_filename|.
   BsdiffPatchWriter(const std::string& patch_filename,
-                    CompressorType type,
-                    int quality);
+                    const std::vector<CompressorType>& types,
+                    int brotli_quality);
 
   // PatchWriterInterface overrides.
   bool Init(size_t new_size) override;
@@ -37,9 +37,24 @@ class BsdiffPatchWriter : public PatchWriterInterface {
   bool Close() override;
 
  private:
-  // Write the BSDIFF patch header to the |fp_| given the size of the compressed
-  // control block and the compressed diff block.
-  bool WriteHeader(uint64_t ctrl_size, uint64_t diff_size);
+  // Add supported compressors to |compressor_list|; return false if we failed
+  // to initialize one of them.
+  bool InitializeCompressorList(
+      std::vector<std::unique_ptr<CompressorInterface>>* compressor_list);
+
+  // Select the compressor in |compressor_list| that produces the smallest
+  // patch, and put the result in |smallest_compressor|.
+  bool SelectSmallestResult(
+      const std::vector<std::unique_ptr<CompressorInterface>>& compressor_list,
+      CompressorInterface** smallest_compressor);
+
+
+  // Write the BSDIFF patch header to the |fp_|.
+  // Arguments:
+  //   A three bytes array with the compressor types of ctrl|diff|extra stream
+  //   Size of the compressed control block
+  //   Size of the compressed diff block.
+  bool WriteHeader(uint8_t types[3], uint64_t ctrl_size, uint64_t diff_size);
 
   // Bytes of the new files already written. Needed to store the new length in
   // the header of the file.
@@ -52,10 +67,16 @@ class BsdiffPatchWriter : public PatchWriterInterface {
   // The format of bsdiff we're using.
   BsdiffFormat format_;
 
-  // The three internal compressed streams.
-  std::unique_ptr<CompressorInterface> ctrl_stream_{nullptr};
-  std::unique_ptr<CompressorInterface> diff_stream_{nullptr};
-  std::unique_ptr<CompressorInterface> extra_stream_{nullptr};
+  // The compressors we're using.
+  std::vector<CompressorType> types_;
+
+  // The compression quality of the brotli compressor.
+  int brotli_quality_;
+
+  // The list of compressors to try for each stream.
+  std::vector<std::unique_ptr<CompressorInterface>> ctrl_stream_list_;
+  std::vector<std::unique_ptr<CompressorInterface>> diff_stream_list_;
+  std::vector<std::unique_ptr<CompressorInterface>> extra_stream_list_;
 };
 
 }  // namespace bsdiff

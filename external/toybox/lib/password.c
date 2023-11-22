@@ -8,7 +8,7 @@
 #include "toys.h"
 #include <time.h>
 
-// generate appropriate random salt string for given encryption algorithm.
+// generate ID prefix and random salt for given encryption algorithm.
 int get_salt(char *salt, char *algo)
 {
   struct {
@@ -24,9 +24,7 @@ int get_salt(char *salt, char *algo)
       if (al[i].id) s += sprintf(s, "$%c$", '0'+al[i].id);
 
       // Read appropriate number of random bytes for salt
-      i = xopenro("/dev/urandom");
-      xreadall(i, libbuf, ((len*6)+7)/8);
-      close(i);
+      xgetrandom(libbuf, ((len*6)+7)/8, 0);
 
       // Grab 6 bit chunks and convert to characters in ./0-9a-zA-Z
       for (i=0; i<len; i++) {
@@ -55,13 +53,14 @@ int read_password(char *buf, int buflen, char *mesg)
   struct sigaction sa, oldsa;
   int i, ret = 1;
 
-  // NOP signal handler to return from the read
+  // NOP signal handler to return from the read. Use sigaction() instead
+  // of xsignal() because we want to restore the old handler afterwards.
   memset(&sa, 0, sizeof(sa));
   sa.sa_handler = generic_signal;
   sigaction(SIGINT, &sa, &oldsa);
 
   tcflush(0, TCIFLUSH);
-  set_terminal(0, 1, &oldtermio);
+  xset_terminal(0, 1, 0, &oldtermio);
 
   xprintf("%s", mesg);
 

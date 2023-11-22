@@ -143,11 +143,11 @@ static void TestString() {
     EXPECT_DEATH(stpcpy(small_buffer, large_string));
     // expected-warning@+1{{called with bigger length than the destination}}
     EXPECT_DEATH(strncpy(small_buffer, large_string, sizeof(large_string)));
-    // FIXME(gbiv): Clang (and GCC, for that matter) should diagnose this.
+    // expected-warning@+1{{called with bigger length than the destination}}
     EXPECT_DEATH(stpncpy(small_buffer, large_string, sizeof(large_string)));
     // expected-warning@+1{{destination buffer will always be overflown}}
     EXPECT_DEATH(strcat(small_buffer, large_string));
-    // expected-warning@+1{{called with bigger length than the destination}}
+    // expected-warning@+1{{destination buffer will always be overflown}}
     EXPECT_DEATH(strncat(small_buffer, large_string, sizeof(large_string)));
   }
 
@@ -185,7 +185,9 @@ static void TestString() {
     EXPECT_DEATH_STRUCT(
         strncpy(split.tiny_buffer, small_string, sizeof(small_string)));
 
-    // FIXME(gbiv): Clang (and GCC, for that matter) should diagnose this.
+#if _FORTIFY_SOURCE > 1
+    // expected-warning@+2{{called with bigger length than the destination}}
+#endif
     EXPECT_DEATH_STRUCT(
         stpncpy(split.tiny_buffer, small_string, sizeof(small_string)));
 
@@ -195,7 +197,7 @@ static void TestString() {
     EXPECT_DEATH_STRUCT(strcat(split.tiny_buffer, small_string));
 
 #if _FORTIFY_SOURCE > 1
-    // expected-warning@+2{{called with bigger length than the destination}}
+    // expected-warning@+2{{destination buffer will always be overflown}}
 #endif
     EXPECT_DEATH_STRUCT(
         strncat(split.tiny_buffer, small_string, sizeof(small_string)));
@@ -323,10 +325,9 @@ static void TestStdio() {
   EXPECT_NO_DEATH(gets(small_buffer));
 
   char *volatile unknown_size_buffer = small_buffer;
-  // FIXME(gbiv): This should issue a "don't use me" warning, besides just
-  // deprecation (which is suppressed)...
   // Since stdin is /dev/null, gets on a tiny buffer is safe here.
-  // expected-warning@+1{{ignoring return value}}
+  // expected-warning@+2{{ignoring return value}}
+  // expected-warning@+1{{please use fgets or getline}}
   EXPECT_NO_DEATH(gets(unknown_size_buffer));
 }
 
@@ -364,7 +365,7 @@ static void TestUnistd() {
 
     char *volatile unknown_size_buffer = large_buffer;
     // expected-warning@+2{{ignoring return value of function}}
-    // FIXME(gbiv): We should emit a "use getcwd" complaint here.
+    // expected-warning@+1{{please use getcwd instead}}
     EXPECT_NO_DEATH(getwd(unknown_size_buffer));
   }
 

@@ -56,11 +56,10 @@ class ui_AppLauncher(ui_test_base.ui_TestBase):
             playback_file = os.path.join(self.bindir, self._KEYBOARD_PLAYBACK)
 
             # Setup and playback the keyboard commands to open the launcher
-            player = input_playback.InputPlayback()
-            player.emulate('keyboard', property_file)
-            player.find_connected_inputs()
-            player.blocking_playback(playback_file, 'keyboard')
-            player.close()
+            with input_playback.InputPlayback() as player:
+                player.emulate('keyboard', property_file)
+                player.find_connected_inputs()
+                player.blocking_playback(playback_file, 'keyboard')
 
             # Take a screenshot and crop to just the launcher
             w, h = graphics_utils.get_internal_resolution()

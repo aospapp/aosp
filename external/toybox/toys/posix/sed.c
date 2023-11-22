@@ -6,28 +6,30 @@
  *
  * TODO: lines > 2G could wrap signed int length counters. Not just getline()
  * but N and s///
- * TODO: make y// handle unicode
+ * TODO: make y// handle unicode, unicode delimiters
  * TODO: handle error return from emit(), error_msg/exit consistently
  *       What's the right thing to do for -i when write fails? Skip to next?
+ * test '//q' with no previous regex, also repeat previous regex?
 
-USE_SED(NEWTOY(sed, "(help)(version)e*f*inEr[+Er]", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE|TOYFLAG_NOHELP))
+USE_SED(NEWTOY(sed, "(help)(version)e*f*i:;nErz(null-data)[+Er]", TOYFLAG_BIN|TOYFLAG_LOCALE|TOYFLAG_NOHELP))
 
 config SED
   bool "sed"
   default y
   help
-    usage: sed [-inrE] [-e SCRIPT]...|SCRIPT [-f SCRIPT_FILE]... [FILE...]
+    usage: sed [-inrzE] [-e SCRIPT]...|SCRIPT [-f SCRIPT_FILE]... [FILE...]
 
     Stream editor. Apply one or more editing SCRIPTs to each line of input
     (from FILE or stdin) producing output (by default to stdout).
 
-    -e	add SCRIPT to list
-    -f	add contents of SCRIPT_FILE to list
-    -i	Edit each file in place
+    -e	Add SCRIPT to list
+    -f	Add contents of SCRIPT_FILE to list
+    -i	Edit each file in place (-iEXT keeps backup file with extension EXT)
     -n	No default output (use the p command to output matched lines)
     -r	Use extended regular expression syntax
-    -E	Alias for -r
+    -E	POSIX alias for -r
     -s	Treat input files separately (implied by -i)
+    -z	Use \0 rather than \n as the input line separator
 
     A SCRIPT is a series of one or more COMMANDs separated by newlines or
     semicolons. All -e SCRIPTs are concatenated together as if separated
@@ -54,7 +56,7 @@ config SED
     Backslashes may be used to escape the delimiter if it occurs in the
     regex, and for the usual printf escapes (\abcefnrtv and octal, hex,
     and unicode). An empty regex repeats the previous one. ADDRESS regexes
-    (above) require the first delimeter to be escaped with a backslash when
+    (above) require the first delimiter to be escaped with a backslash when
     it isn't a forward slash (to distinguish it from the COMMANDs below).
 
     Sed mostly operates on individual lines one at a time. It reads each line,
@@ -158,19 +160,19 @@ config SED
 
       #  Comment, ignore rest of this line of SCRIPT
 
-    Deviations from posix: allow extended regular expressions with -r,
-    editing in place with -i, separate with -s, printf escapes in text, line
-    continuations, semicolons after all commands, 2-address anywhere an
-    address is allowed, "T" command, multiline continuations for [abc],
-    \; to end [abc] argument before end of line.
+    Deviations from POSIX: allow extended regular expressions with -r,
+    editing in place with -i, separate with -s, NUL-separated input with -z,
+    printf escapes in text, line continuations, semicolons after all commands,
+    2-address anywhere an address is allowed, "T" command, multiline
+    continuations for [abc], \; to end [abc] argument before end of line.
 */
 
 #define FOR_sed
 #include "toys.h"
 
 GLOBALS(
-  struct arg_list *f;
-  struct arg_list *e;
+  char *i;
+  struct arg_list *f, *e;
 
   // processed pattern list
   struct double_list *pattern;
@@ -180,6 +182,7 @@ GLOBALS(
   long nextlen, rememberlen, count;
   int fdout, noeol;
   unsigned xx;
+  char delim;
 )
 
 // Linked list of parsed sed commands. Offset fields indicate location where
@@ -247,7 +250,7 @@ static void *get_regex(void *trump, int offset)
 }
 
 // Apply pattern to line from input file
-static void process_line(char **pline, long plen)
+static void sed_line(char **pline, long plen)
 {
   struct append {
     struct append *next, *prev;
@@ -258,6 +261,9 @@ static void process_line(char **pline, long plen)
   long len = TT.nextlen;
   struct sedcmd *command;
   int eol = 0, tea = 0;
+
+  // Ignore EOF for all files before last unless -i
+  if (!pline && !FLAG(i)) return;
 
   // Grab next line for deferred processing (EOF detection: we get a NULL
   // pline at EOF to flush last line). Note that only end of _last_ input
@@ -522,15 +528,18 @@ static void process_line(char **pline, long plen)
                 rswap[mlen-1] = new[off];
 
               continue;
-            } else if (match[cc].rm_so == -1) error_exit("no s//\\%d/", cc);
+            } else if (cc > reg->re_nsub) error_exit("no s//\\%d/", cc);
           } else if (new[off] != '&') {
             rswap[mlen++] = new[off];
 
             continue;
           }
 
-          ll = match[cc].rm_eo-match[cc].rm_so;
-          memcpy(rswap+mlen, rline+match[cc].rm_so, ll);
+          if (match[cc].rm_so == -1) ll = 0; // Empty match.
+          else {
+            ll = match[cc].rm_eo-match[cc].rm_so;
+            memcpy(rswap+mlen, rline+match[cc].rm_so, ll);
+          }
           mlen += ll;
         }
 
@@ -591,13 +600,13 @@ writenow:
       }
     } else if (c=='=') {
       sprintf(toybuf, "%ld", TT.count);
-      emit(toybuf, strlen(toybuf), 1);
+      if (emit(toybuf, strlen(toybuf), 1)) break;
     }
 
     command = command->next;
   }
 
-  if (line && !(toys.optflags & FLAG_n)) emit(line, len, eol);
+  if (line && !FLAG(n)) emit(line, len, eol);
 
 done:
   if (dlist_terminate(append)) while (append) {
@@ -622,26 +631,27 @@ done:
 }
 
 // Callback called on each input file
-static void do_sed(int fd, char *name)
+static void do_sed_file(int fd, char *name)
 {
-  int i = toys.optflags & FLAG_i;
   char *tmp;
 
-  if (i) {
+  if (FLAG(i)) {
     struct sedcmd *command;
 
-    if (!fd) {
-      error_msg("-i on stdin");
-      return;
-    }
+    if (!fd) return error_msg("-i on stdin");
     TT.fdout = copy_tempfile(fd, name, &tmp);
     TT.count = 0;
     for (command = (void *)TT.pattern; command; command = command->next)
       command->hit = 0;
   }
-  do_lines(fd, process_line);
-  if (i) {
-    process_line(0, 0);
+  do_lines(fd, TT.delim, sed_line);
+  if (FLAG(i)) {
+    if (TT.i && *TT.i) {
+      char *s = xmprintf("%s%s", name, TT.i);
+
+      xrename(name, s);
+      free(s);
+    }
     replace_tempfile(-1, TT.fdout, &tmp);
     TT.fdout = 1;
     TT.nextline = 0;
@@ -727,7 +737,7 @@ static void parse_pattern(char **pline, long len)
 
   // Append this line to previous multiline command? (hit indicates type.)
   // During parsing "hit" stores data about line continuations, but in
-  // process_line() it means the match range attached to this command
+  // sed_line() it means the match range attached to this command
   // is active, so processing the continuation must zero it again.
   if (command && command->prev->hit) {
     // Remove half-finished entry from list so remalloc() doesn't confuse it
@@ -781,7 +791,7 @@ static void parse_pattern(char **pline, long len)
         if (!(s = unescape_delimited_string(&line, 0))) goto error;
         if (!*s) command->rmatch[i] = 0;
         else {
-          xregcomp((void *)reg, s, (toys.optflags & FLAG_r)*REG_EXTENDED);
+          xregcomp((void *)reg, s, REG_EXTENDED*!!FLAG(r));
           command->rmatch[i] = reg-toybuf;
           reg += sizeof(regex_t);
         }
@@ -875,7 +885,7 @@ resume_s:
       // allocating the space was done by extend_string() above
       if (!*TT.remember) command->arg1 = 0;
       else xregcomp((void *)(command->arg1 + (char *)command), TT.remember,
-        ((toys.optflags & FLAG_r)*REG_EXTENDED)|((command->sflags&1)*REG_ICASE));
+        (REG_EXTENDED*!!FLAG(r))|((command->sflags&1)*REG_ICASE));
       free(TT.remember);
       TT.remember = 0;
       if (*line == 'w') {
@@ -939,7 +949,7 @@ resume_a:
       command->hit = 0;
 
       // btT: end with space or semicolon, aicrw continue to newline.
-      if (!(end = strcspn(line, strchr(":btT", c) ? "; \t\r\n\v\f" : "\n"))) {
+      if (!(end = strcspn(line, strchr(":btT", c) ? "}; \t\r\n\v\f" : "\n"))) {
         // Argument's optional for btT
         if (strchr("btT", c)) continue;
         else if (!command->arg1) break;
@@ -993,16 +1003,18 @@ void sed_main(void)
   struct arg_list *al;
   char **args = toys.optargs;
 
+  if (!FLAG(z)) TT.delim = '\n';
+
   // Lie to autoconf when it asks stupid questions, so configure regexes
   // that look for "GNU sed version %f" greater than some old buggy number
   // don't fail us for not matching their narrow expectations.
-  if (toys.optflags & FLAG_version) {
+  if (FLAG(version)) {
     xprintf("This is not GNU sed version 9.0\n");
     return;
   }
 
   // Handling our own --version means we handle our own --help too.
-  if (toys.optflags&FLAG_help) help_exit(0);
+  if (FLAG(help)) help_exit(0);
 
   // Parse pattern into commands.
 
@@ -1016,8 +1028,9 @@ void sed_main(void)
   // so handle all -e, then all -f. (At least the behavior's consistent.)
 
   for (al = TT.e; al; al = al->next) parse_pattern(&al->arg, strlen(al->arg));
-  for (al = TT.f; al; al = al->next) do_lines(xopenro(al->arg), parse_pattern);
   parse_pattern(0, 0);
+  for (al = TT.f; al; al = al->next)
+    do_lines(xopenro(al->arg), TT.delim, parse_pattern);
   dlist_terminate(TT.pattern);
   if (TT.nextlen) error_exit("no }");  
 
@@ -1025,9 +1038,13 @@ void sed_main(void)
   TT.remember = xstrdup("");
 
   // Inflict pattern upon input files. Long version because !O_CLOEXEC
-  loopfiles_rw(args, O_RDONLY|WARN_ONLY, 0, do_sed);
+  loopfiles_rw(args, O_RDONLY|WARN_ONLY, 0, do_sed_file);
 
-  if (!(toys.optflags & FLAG_i)) process_line(0, 0);
+  // Provide EOF flush at end of cumulative input for non-i mode.
+  if (!FLAG(i)) {
+    toys.optflags |= FLAG_i;
+    sed_line(0, 0);
+  }
 
   // todo: need to close fd when done for TOYBOX_FREE?
 }

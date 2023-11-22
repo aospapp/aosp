@@ -76,12 +76,12 @@ public class MarshalHashtable implements Marshal {
         SoapObject item = new SoapObject(null, null);
         item.addProperty("key", null);
         item.addProperty("value", null);
-        for (Enumeration keys = h.keys(); keys.hasMoreElements();) {
+        for (Enumeration keys = h.keys(); keys.hasMoreElements(); ) {
             writer.startTag("", "item");
             Object key = keys.nextElement();
             item.setProperty(0, key);
             item.setProperty(1, h.get(key));
-            envelope.writeObjectBody(writer, item);
+            envelope.writeObjectBodyWithAttributes(writer, item);
             writer.endTag("", "item");
         }
     }

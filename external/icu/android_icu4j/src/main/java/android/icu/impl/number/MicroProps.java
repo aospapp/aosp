@@ -3,11 +3,10 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 package android.icu.impl.number;
 
-import android.icu.number.Grouper;
 import android.icu.number.IntegerWidth;
 import android.icu.number.NumberFormatter.DecimalSeparatorDisplay;
 import android.icu.number.NumberFormatter.SignDisplay;
-import android.icu.number.Rounder;
+import android.icu.number.Precision;
 import android.icu.text.DecimalFormatSymbols;
 
 /**
@@ -25,7 +24,7 @@ public class MicroProps implements Cloneable, MicroPropsGenerator {
     public Modifier modOuter;
     public Modifier modMiddle;
     public Modifier modInner;
-    public Rounder rounding;
+    public Precision rounder;
     public Grouper grouping;
     public boolean useCurrency;
 
@@ -35,8 +34,8 @@ public class MicroProps implements Cloneable, MicroPropsGenerator {
 
     /**
      * @param immutable
-     *            Whether this MicroProps should behave as an immutable after construction with respect to the quantity
-     *            chain.
+     *            Whether this MicroProps should behave as an immutable after construction with respect
+     *            to the quantity chain.
      */
     public MicroProps(boolean immutable) {
         this.immutable = immutable;

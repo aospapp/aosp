@@ -33,6 +33,18 @@ link Skia against the headers and libaries found on the system paths.
 use `extra_cflags` and `extra_ldflags` to add include or library paths if
 needed.
 
+A note on software backend performance
+--------------------------------------
+
+A number of routines in Skia's software backend have been written to run
+fastest when compiled by Clang.  If you depend on software rasterization, image
+decoding, or color space conversion and compile Skia with GCC, MSVC or another
+compiler, you will see dramatically worse performance than if you use Clang.
+
+This choice was only a matter of prioritization; there is nothing fundamentally
+wrong with non-Clang compilers.  So if this is a serious issue for you, please
+let us know on the mailing list.
+
 Quickstart
 ----------
 
@@ -66,6 +78,10 @@ Having generated your build files, run Ninja to compile and link Skia.
     ninja -C out/Clang
     ninja -C out/Cached
     ninja -C out/RTTI
+
+If some header files are missing, install the corresponding dependencies
+
+    tools/install_dependencies.sh
 
 Android
 -------
@@ -232,17 +248,35 @@ Skia can build on Windows with Visual Studio 2017 or Visual Studio 2015 Update 3
 If GN is unable to locate either of those, it will print an error message. In that
 case, you can pass your `VC` path to GN via `win_vc`.
 
+Skia can be compiled with the free [Build Tools for Visual Studio
+2017](https://www.visualstudio.com/downloads/#build-tools-for-visual-studio-2017).
+
 The bots use a packaged 2017 toolchain, which Googlers can download like this:
 
     python infra/bots/assets/win_toolchain/download.py -t C:/toolchain
 
 You can then pass the VC and SDK paths to GN by setting your GN args:
 
-    win_vc = "C:\toolchain\depot_tools\win_toolchain\vs_files\a9e1098bba66d2acccc377d5ee81265910f29272\VC"
-    win_sdk = "C:\toolchain\depot_tools\win_toolchain\vs_files\a9e1098bba66d2acccc377d5ee81265910f29272\win_sdk"
+    win_vc = "C:\toolchain\VC"
+    win_sdk = "C:\toolchain\win_sdk"
 
 This toolchain is the only way we support 32-bit builds, by also setting `target_cpu="x86"`.
 There is also a corresponding 2015 toolchain, downloaded via `infra/bots/assets/win_toolchain_2015`.
+
+The Skia build assumes that the PATHEXT environment variable contains ".EXE".
+
+### **Highly Recommended**: Build with clang-cl
+
+Skia uses generated code that is only optimized when Skia is built with clang. Other compilers get generic
+unoptimized code.
+
+Setting the `cc` and `cxx` gn args is _not_ sufficient to build with clang-cl. These variables
+are ignored on Windows. Instead set the variable `clang_win` to your LLVM installation directory.
+If you installed the prebuilt LLVM downloaded from [here](https://releases.llvm.org/download.html "LLVM Download") in the default location that would be:
+
+    clang_win = "C:\Program Files\LLVM"
+
+Follow the standard Windows path specification and not MinGW convention (e.g. `C:\Program Files\LLVM` not ~~`/c/Program Files/LLVM`~~).
 
 ### Visual Studio Solutions
 
@@ -262,6 +296,23 @@ This creates a new dedicated output directory and solution file
 and supports building and running any of them. It also adjusts syntax highlighting
 of inactive code blocks based on preprocessor definitions from the selected
 solution configuration.
+
+Windows ARM64
+-------------
+
+There is early, experimental support for [Windows 10 on ARM](https://docs.microsoft.com/en-us/windows/arm/).
+This currently requires (a recent version of) MSVC, and the `Visual C++ compilers and libraries for ARM64`
+individual component in the Visual Studio Installer. For Googlers, the win_toolchain asset includes the
+ARM64 compiler.
+
+To use that toolchain, set the `target_cpu` GN argument to `"arm64"`. Note that OpenGL is not supported
+by Windows 10 on ARM, so Skia's GL backends are stubbed out, and will not work. ANGLE is supported:
+
+    bin/gn gen out/win-arm64 --args='target_cpu="arm64" skia_use_angle=true'
+
+This will produce a build of Skia that can use the software or ANGLE backends, in DM. Viewer only works
+when launched with `--backend angle`, because the software backend tries to use OpenGL to display the
+window contents.
 
 CMake
 -----

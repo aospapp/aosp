@@ -22,20 +22,20 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+#include "absl/memory/memory.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/ExecutionEngine/ObjectMemoryBuffer.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/Object/ObjectFile.h"
+#include "llvm/Support/SmallVectorMemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "tensorflow/compiler/xla/ptr_util.h"
 #include "tensorflow/compiler/xla/service/cpu/cpu_runtime.h"
 #include "tensorflow/compiler/xla/service/cpu/llvm_ir_runtime.h"
 #include "tensorflow/compiler/xla/service/llvm_ir/llvm_util.h"
@@ -61,27 +61,19 @@ Disabling these as a starting point.
 // TODO(b/64227304) Creating a custom pass pipeline will replace this.
 
 namespace {
-class FilteredFunctionPassManager : public llvm::legacy::FunctionPassManager {
- public:
-  FilteredFunctionPassManager(llvm::Module* m, bool disable_expensive_passes)
-      : llvm::legacy::FunctionPassManager(m),
-        disable_expensive_passes_(disable_expensive_passes) {}
-  void add(llvm::Pass* p) override {
-    llvm::legacy::FunctionPassManager::add(p);
-  }
-
- private:
-  bool disable_expensive_passes_;
-};
-
 class FilteredPassManager : public llvm::legacy::PassManager {
  public:
   explicit FilteredPassManager(bool disable_expensive_passes)
       : disable_expensive_passes_(disable_expensive_passes) {}
   void add(llvm::Pass* p) override {
+    llvm::StringRef PassName = p->getPassName();
+    if (PassName.contains("Warn about non-applied transformations")) {
+      delete p;
+      return;
+    }
     if (disable_expensive_passes_) {
-      llvm::StringRef PassName = p->getPassName();
       if (PassName.contains("Unroll loops")) {
+        delete p;
         return;
       }
     }
@@ -93,17 +85,16 @@ class FilteredPassManager : public llvm::legacy::PassManager {
 };
 }  // anonymous namespace
 
-llvm::object::OwningBinary<llvm::object::ObjectFile> CompilerFunctor::
-operator()(llvm::Module& module) const {
+std::unique_ptr<llvm::MemoryBuffer> CompilerFunctor::operator()(
+    llvm::Module& module) const {
   FilteredPassManager module_passes(disable_expensive_passes_);
-  FilteredFunctionPassManager function_passes(&module,
-                                              disable_expensive_passes_);
+  llvm::legacy::FunctionPassManager function_passes(&module);
 
   VLOG(2) << "IR before optimizations";
   XLA_VLOG_LINES(2, llvm_ir::DumpModuleToString(module));
 
   if (pre_optimization_hook_) {
-    TF_CHECK_OK(pre_optimization_hook_(module));
+    pre_optimization_hook_(module);
   }
 
   // Add the appropriate TargetLibraryInfo and TargetTransformInfo.
@@ -147,7 +138,7 @@ operator()(llvm::Module& module) const {
   XLA_VLOG_LINES(2, llvm_ir::DumpModuleToString(module));
 
   if (post_optimization_hook_) {
-    TF_CHECK_OK(post_optimization_hook_(module));
+    post_optimization_hook_(module);
   }
 
   // Generate code.
@@ -156,28 +147,20 @@ operator()(llvm::Module& module) const {
   target_machine_->addPassesToEmitMC(codegen_passes, mc_context, ostream);
   codegen_passes.run(module);
 
-  // Construct ObjectFile from machine code buffer.
   std::unique_ptr<llvm::MemoryBuffer> memory_buffer(
-      new llvm::ObjectMemoryBuffer(std::move(stream_buffer)));
-  llvm::Expected<std::unique_ptr<llvm::object::ObjectFile>>
-      object_file_or_error = llvm::object::ObjectFile::createObjectFile(
-          memory_buffer->getMemBufferRef());
-  CHECK(object_file_or_error);
+      new llvm::SmallVectorMemoryBuffer(std::move(stream_buffer)));
 
-  std::unique_ptr<llvm::object::ObjectFile> object_file =
-      std::move(object_file_or_error.get());
-  if (VLOG_IS_ON(2)) {
-    StatusOr<DisassemblerResult> disassembly_status =
-        disassembler_->DisassembleObjectFile(*object_file);
-    if (disassembly_status.ok()) {
-      auto result = disassembly_status.ValueOrDie();
-      XLA_VLOG_LINES(2, result.text);
-      VLOG(2) << "compiled code size: " << result.code_size_bytes << " bytes";
+  if (post_codegen_hook_) {
+    llvm::Expected<std::unique_ptr<llvm::object::ObjectFile>> obj_file =
+        llvm::object::ObjectFile::createObjectFile(*memory_buffer);
+    if (obj_file) {
+      post_codegen_hook_(*obj_file.get());
+    } else {
+      LOG(WARNING) << "Could convert memory buffer to object file!";
     }
   }
 
-  return llvm::object::OwningBinary<llvm::object::ObjectFile>(
-      std::move(object_file), std::move(memory_buffer));
+  return memory_buffer;
 }
 
 static std::vector<llvm::VecDesc> VectorFunctionsForTargetLibraryInfoImpl() {
@@ -207,7 +190,7 @@ void CompilerFunctor::AddTargetInfoPasses(
     llvm::legacy::PassManagerBase* passes) const {
   llvm::Triple target_triple(target_machine_->getTargetTriple());
   auto target_library_info_impl =
-      MakeUnique<llvm::TargetLibraryInfoImpl>(target_triple);
+      absl::make_unique<llvm::TargetLibraryInfoImpl>(target_triple);
   target_library_info_impl->addVectorizableFunctions(
       VectorFunctionsForTargetLibraryInfoImpl());
   passes->add(

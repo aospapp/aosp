@@ -58,6 +58,16 @@
 #define HOSTAPD_CHAN_VHT_130_30 0x04000000
 #define HOSTAPD_CHAN_VHT_150_10 0x08000000
 
+/* Allowed bandwidth mask */
+enum hostapd_chan_width_attr {
+	HOSTAPD_CHAN_WIDTH_10   = BIT(0),
+	HOSTAPD_CHAN_WIDTH_20   = BIT(1),
+	HOSTAPD_CHAN_WIDTH_40P  = BIT(2),
+	HOSTAPD_CHAN_WIDTH_40M  = BIT(3),
+	HOSTAPD_CHAN_WIDTH_80   = BIT(4),
+	HOSTAPD_CHAN_WIDTH_160  = BIT(5),
+};
+
 /* Filter gratuitous ARP */
 #define WPA_DATA_FRAME_FILTER_FLAG_ARP BIT(0)
 /* Filter unsolicited Neighbor Advertisement */
@@ -109,6 +119,13 @@ struct hostapd_channel_data {
 	 * flag - Channel flags (HOSTAPD_CHAN_*)
 	 */
 	int flag;
+
+	/**
+	 * allowed_bw - Allowed channel width bitmask
+	 *
+	 * See enum hostapd_chan_width_attr.
+	 */
+	u32 allowed_bw;
 
 	/**
 	 * max_tx_power - Regulatory transmit power limit in dBm
@@ -567,6 +584,18 @@ struct wpa_driver_scan_params {
 	 */
 	s8 relative_adjust_rssi;
 
+	/**
+	 * oce_scan
+	 *
+	 * Enable the following OCE scan features: (WFA OCE TechSpec v1.0)
+	 * - Accept broadcast Probe Response frame.
+	 * - Probe Request frame deferral and suppression.
+	 * - Max Channel Time - driver fills FILS request params IE with
+	 *   Maximum Channel Time.
+	 * - Send 1st Probe Request frame in rate of minimum 5.5 Mbps.
+	 */
+	unsigned int oce_scan:1;
+
 	/*
 	 * NOTE: Whenever adding new parameters here, please make sure
 	 * wpa_scan_clone_params() and wpa_scan_free_params() get updated with
@@ -902,10 +931,10 @@ struct wpa_driver_associate_params {
 	 * passphrase - RSN passphrase for PSK
 	 *
 	 * This value is made available only for WPA/WPA2-Personal (PSK) and
-	 * only for drivers that set WPA_DRIVER_FLAGS_4WAY_HANDSHAKE. This is
-	 * the 8..63 character ASCII passphrase, if available. Please note that
-	 * this can be %NULL if passphrase was not used to generate the PSK. In
-	 * that case, the psk field must be used to fetch the PSK.
+	 * only for drivers that set WPA_DRIVER_FLAGS_4WAY_HANDSHAKE_PSK. This
+	 * is the 8..63 character ASCII passphrase, if available. Please note
+	 * that this can be %NULL if passphrase was not used to generate the
+	 * PSK. In that case, the psk field must be used to fetch the PSK.
 	 */
 	const char *passphrase;
 
@@ -913,9 +942,9 @@ struct wpa_driver_associate_params {
 	 * psk - RSN PSK (alternative for passphrase for PSK)
 	 *
 	 * This value is made available only for WPA/WPA2-Personal (PSK) and
-	 * only for drivers that set WPA_DRIVER_FLAGS_4WAY_HANDSHAKE. This is
-	 * the 32-octet (256-bit) PSK, if available. The driver wrapper should
-	 * be prepared to handle %NULL value as an error.
+	 * only for drivers that set WPA_DRIVER_FLAGS_4WAY_HANDSHAKE_PSK. This
+	 * is the 32-octet (256-bit) PSK, if available. The driver wrapper
+	 * should be prepared to handle %NULL value as an error.
 	 */
 	const u8 *psk;
 
@@ -1355,6 +1384,23 @@ struct wpa_driver_ap_params {
 	 * service).
 	 */
 	int multicast_to_unicast;
+
+	/**
+	 * ftm_responder - Whether FTM responder is enabled
+	 */
+	int ftm_responder;
+
+	/**
+	 * lci - Binary data, the content of an LCI report IE with type 8 as
+	 * defined in IEEE Std 802.11-2016, 9.4.2.22.10
+	 */
+	const struct wpabuf *lci;
+
+	/**
+	 * civic - Binary data, the content of a measurement report IE with
+	 * type 11 as defined in IEEE Std 802.11-2016, 9.4.2.22.13
+	 */
+	const struct wpabuf *civic;
 };
 
 struct wpa_driver_mesh_bss_params {
@@ -1412,6 +1458,7 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_CAPA_KEY_MGMT_FILS_SHA384    0x00002000
 #define WPA_DRIVER_CAPA_KEY_MGMT_FT_FILS_SHA256 0x00004000
 #define WPA_DRIVER_CAPA_KEY_MGMT_FT_FILS_SHA384 0x00008000
+#define WPA_DRIVER_CAPA_KEY_MGMT_SAE 		0x00010000
 	/** Bitfield of supported key management suites */
 	unsigned int key_mgmt;
 
@@ -1445,7 +1492,7 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS_DFS_OFFLOAD			0x00000004
 /** Driver takes care of RSN 4-way handshake internally; PMK is configured with
  * struct wpa_driver_ops::set_key using alg = WPA_ALG_PMK */
-#define WPA_DRIVER_FLAGS_4WAY_HANDSHAKE 0x00000008
+#define WPA_DRIVER_FLAGS_4WAY_HANDSHAKE_8021X		0x00000008
 /** Driver is for a wired Ethernet interface */
 #define WPA_DRIVER_FLAGS_WIRED		0x00000010
 /** Driver provides separate commands for authentication and association (SME in
@@ -1563,6 +1610,14 @@ struct wpa_driver_capa {
  * functionality but can support only OCE STA-CFON functionality.
  */
 #define WPA_DRIVER_FLAGS_OCE_STA_CFON		0x0020000000000000ULL
+/** Driver supports MFP-optional in the connect command */
+#define WPA_DRIVER_FLAGS_MFP_OPTIONAL		0x0040000000000000ULL
+/** Driver is a self-managed regulatory device */
+#define WPA_DRIVER_FLAGS_SELF_MANAGED_REGULATORY       0x0080000000000000ULL
+/** Driver supports FTM responder functionality */
+#define WPA_DRIVER_FLAGS_FTM_RESPONDER		0x0100000000000000ULL
+/** Driver support 4-way handshake offload for WPA-Personal */
+#define WPA_DRIVER_FLAGS_4WAY_HANDSHAKE_PSK	0x0200000000000000ULL
 	u64 flags;
 
 #define FULL_AP_CLIENT_STATE_SUPP(drv_flags) \
@@ -1692,6 +1747,7 @@ struct hostapd_data;
 #define STA_DRV_DATA_RX_VHT_NSS BIT(5)
 #define STA_DRV_DATA_TX_SHORT_GI BIT(6)
 #define STA_DRV_DATA_RX_SHORT_GI BIT(7)
+#define STA_DRV_DATA_LAST_ACK_RSSI BIT(8)
 
 struct hostap_sta_driver_data {
 	unsigned long rx_packets, tx_packets;
@@ -1704,8 +1760,7 @@ struct hostap_sta_driver_data {
 	unsigned long num_ps_buf_frames;
 	unsigned long tx_retry_failed;
 	unsigned long tx_retry_count;
-	int last_rssi;
-	int last_ack_rssi;
+	s8 last_ack_rssi;
 	s8 signal;
 	u8 rx_vhtmcs;
 	u8 tx_vhtmcs;
@@ -1875,19 +1930,32 @@ enum wnm_oper {
 	WNM_SLEEP_TFS_IE_DEL        /* AP delete the TFS IE */
 };
 
-/* enum chan_width - Channel width definitions */
-enum chan_width {
-	CHAN_WIDTH_20_NOHT,
-	CHAN_WIDTH_20,
-	CHAN_WIDTH_40,
-	CHAN_WIDTH_80,
-	CHAN_WIDTH_80P80,
-	CHAN_WIDTH_160,
-	CHAN_WIDTH_UNKNOWN
+/* enum smps_mode - SMPS mode definitions */
+enum smps_mode {
+	SMPS_AUTOMATIC,
+	SMPS_OFF,
+	SMPS_DYNAMIC,
+	SMPS_STATIC,
+
+	/* Keep last */
+	SMPS_INVALID,
 };
+
+#define WPA_INVALID_NOISE 9999
 
 /**
  * struct wpa_signal_info - Information about channel signal quality
+ * @frequency: control frequency
+ * @above_threshold: true if the above threshold was crossed
+ *	(relevant for a CQM event)
+ * @current_signal: in dBm
+ * @avg_signal: in dBm
+ * @avg_beacon_signal: in dBm
+ * @current_noise: %WPA_INVALID_NOISE if not supported
+ * @current_txrate: current TX rate
+ * @chanwidth: channel width
+ * @center_frq1: center frequency for the first segment
+ * @center_frq2: center frequency for the second segment (if relevant)
  */
 struct wpa_signal_info {
 	u32 frequency;
@@ -1900,6 +1968,26 @@ struct wpa_signal_info {
 	enum chan_width chanwidth;
 	int center_frq1;
 	int center_frq2;
+};
+
+/**
+ * struct wpa_channel_info - Information about the current channel
+ * @frequency: Center frequency of the primary 20 MHz channel
+ * @chanwidth: Width of the current operating channel
+ * @sec_channel: Location of the secondary 20 MHz channel (either +1 or -1).
+ *	This field is only filled in when using a 40 MHz channel.
+ * @center_frq1: Center frequency of frequency segment 0
+ * @center_frq2: Center frequency of frequency segment 1 (for 80+80 channels)
+ * @seg1_idx: Frequency segment 1 index when using a 80+80 channel. This is
+ *	derived from center_frq2 for convenience.
+ */
+struct wpa_channel_info {
+	u32 frequency;
+	enum chan_width chanwidth;
+	int sec_channel;
+	int center_frq1;
+	int center_frq2;
+	u8 seg1_idx;
 };
 
 /**
@@ -2049,6 +2137,38 @@ enum wpa_drv_update_connect_params_mask {
 	WPA_DRV_UPDATE_ASSOC_IES	= BIT(0),
 	WPA_DRV_UPDATE_FILS_ERP_INFO	= BIT(1),
 	WPA_DRV_UPDATE_AUTH_TYPE	= BIT(2),
+};
+
+/**
+ * struct external_auth - External authentication trigger parameters
+ *
+ * These are used across the external authentication request and event
+ * interfaces.
+ * @action: Action type / trigger for external authentication. Only significant
+ *	for the event interface.
+ * @bssid: BSSID of the peer with which the authentication has to happen. Used
+ *	by both the request and event interface.
+ * @ssid: SSID of the AP. Used by both the request and event interface.
+ * @ssid_len: SSID length in octets.
+ * @key_mgmt_suite: AKM suite of the respective authentication. Optional for
+ *	the request interface.
+ * @status: Status code, %WLAN_STATUS_SUCCESS for successful authentication,
+ *	use %WLAN_STATUS_UNSPECIFIED_FAILURE if wpa_supplicant cannot give
+ *	the real status code for failures. Used only for the request interface
+ *	from user space to the driver.
+ * @pmkid: Generated PMKID as part of external auth exchange (e.g., SAE).
+ */
+struct external_auth {
+	enum {
+		EXT_AUTH_START,
+		EXT_AUTH_ABORT,
+	} action;
+	const u8 *bssid;
+	const u8 *ssid;
+	size_t ssid_len;
+	unsigned int key_mgmt_suite;
+	u16 status;
+	const u8 *pmkid;
 };
 
 /**
@@ -3308,6 +3428,14 @@ struct wpa_driver_ops {
 	int (*signal_poll)(void *priv, struct wpa_signal_info *signal_info);
 
 	/**
+	 * channel_info - Get parameters of the current operating channel
+	 * @priv: Private driver interface data
+	 * @channel_info: Channel info structure
+	 * Returns: 0 on success, negative (<0) on failure
+	 */
+	int (*channel_info)(void *priv, struct wpa_channel_info *channel_info);
+
+	/**
 	 * set_authmode - Set authentication algorithm(s) for static WEP
 	 * @priv: Private driver interface data
 	 * @authmode: 1=Open System, 2=Shared Key, 3=both
@@ -3588,7 +3716,7 @@ struct wpa_driver_ops {
 	/**
 	 * status - Get driver interface status information
 	 * @priv: Private driver interface data
-	 * @buf: Buffer for printing tou the status information
+	 * @buf: Buffer for printing the status information
 	 * @buflen: Maximum length of the buffer
 	 * Returns: Length of written status information or -1 on failure
 	 */
@@ -3609,6 +3737,17 @@ struct wpa_driver_ops {
 	 * is no need to implement or react to this callback.
 	 */
 	int (*roaming)(void *priv, int allowed, const u8 *bssid);
+
+	/**
+	 * disable_fils - Enable/disable FILS feature
+	 * @priv: Private driver interface data
+	 * @disable: 0-enable and 1-disable FILS feature
+	 * Returns: 0 on success, -1 on failure
+	 *
+	 * This callback can be used to configure driver and below layers to
+	 * enable/disable all FILS features.
+	 */
+	int (*disable_fils)(void *priv, int disable);
 
 	/**
 	 * set_mac_addr - Set MAC address
@@ -3699,6 +3838,14 @@ struct wpa_driver_ops {
 	 * Returns: 0 on success, -1 on failure (or if not supported)
 	 */
 	int (*set_transmit_next_pn)(void *priv, struct transmit_sa *sa);
+
+	/**
+	 * set_receive_lowest_pn - Set receive lowest PN
+	 * @priv: Private driver interface data
+	 * @sa: secure association
+	 * Returns: 0 on success, -1 on failure (or if not supported)
+	 */
+	int (*set_receive_lowest_pn)(void *priv, struct receive_sa *sa);
 
 	/**
 	 * create_receive_sc - create secure channel for receiving
@@ -4001,6 +4148,25 @@ struct wpa_driver_ops {
 	int (*update_connect_params)(
 		void *priv, struct wpa_driver_associate_params *params,
 		enum wpa_drv_update_connect_params_mask mask);
+
+	/**
+	 * send_external_auth_status - Indicate the status of external
+	 * authentication processing to the host driver.
+	 * @priv: Private driver interface data
+	 * @params: Status of authentication processing.
+	 * Returns: 0 on success, -1 on failure
+	 */
+	int (*send_external_auth_status)(void *priv,
+					 struct external_auth *params);
+
+	/**
+	 * set_4addr_mode - Set 4-address mode
+	 * @priv: Private driver interface data
+	 * @bridge_ifname: Bridge interface name
+	 * @val: 0 - disable 4addr mode, 1 - enable 4addr mode
+	 * Returns: 0 on success, < 0 on failure
+	 */
+	int (*set_4addr_mode)(void *priv, const char *bridge_ifname, int val);
 };
 
 /**
@@ -4496,6 +4662,47 @@ enum wpa_event_type {
 	 * performed before start operating on this channel.
 	 */
 	EVENT_DFS_PRE_CAC_EXPIRED,
+
+	/**
+	 * EVENT_EXTERNAL_AUTH - This event interface is used by host drivers
+	 * that do not define separate commands for authentication and
+	 * association (~WPA_DRIVER_FLAGS_SME) but offload the 802.11
+	 * authentication to wpa_supplicant. This event carries all the
+	 * necessary information from the host driver for the authentication to
+	 * happen.
+	 */
+	EVENT_EXTERNAL_AUTH,
+
+	/**
+	 * EVENT_PORT_AUTHORIZED - Notification that a connection is authorized
+	 *
+	 * This event should be indicated when the driver completes the 4-way
+	 * handshake. This event should be preceded by an EVENT_ASSOC that
+	 * indicates the completion of IEEE 802.11 association.
+	 */
+	EVENT_PORT_AUTHORIZED,
+
+	/**
+	 * EVENT_STATION_OPMODE_CHANGED - Notify STA's HT/VHT operation mode
+	 * change event.
+	 */
+	EVENT_STATION_OPMODE_CHANGED,
+
+	/**
+	 * EVENT_INTERFACE_MAC_CHANGED - Notify that interface MAC changed
+	 *
+	 * This event is emitted when the MAC changes while the interface is
+	 * enabled. When an interface was disabled and becomes enabled, it
+	 * must be always assumed that the MAC possibly changed.
+	 */
+	EVENT_INTERFACE_MAC_CHANGED,
+
+	/**
+	 * EVENT_WDS_STA_INTERFACE_STATUS - Notify WDS STA interface status
+	 *
+	 * This event is emitted when an interface is added/removed for WDS STA.
+	 */
+	EVENT_WDS_STA_INTERFACE_STATUS,
 };
 
 
@@ -5298,6 +5505,37 @@ union wpa_event_data {
 			P2P_LO_STOPPED_REASON_NOT_SUPPORTED,
 		} reason_code;
 	} p2p_lo_stop;
+
+	/* For EVENT_EXTERNAL_AUTH */
+	struct external_auth external_auth;
+
+	/**
+	 * struct sta_opmode - Station's operation mode change event
+	 * @addr: The station MAC address
+	 * @smps_mode: SMPS mode of the station
+	 * @chan_width: Channel width of the station
+	 * @rx_nss: RX_NSS of the station
+	 *
+	 * This is used as data with EVENT_STATION_OPMODE_CHANGED.
+	 */
+	struct sta_opmode {
+		const u8 *addr;
+		enum smps_mode smps_mode;
+		enum chan_width chan_width;
+		u8 rx_nss;
+	} sta_opmode;
+
+	/**
+	 * struct wds_sta_interface - Data for EVENT_WDS_STA_INTERFACE_STATUS.
+	 */
+	struct wds_sta_interface {
+		const u8 *sta_addr;
+		const char *ifname;
+		enum {
+			INTERFACE_ADDED,
+			INTERFACE_REMOVED
+		} istatus;
+	} wds_sta_interface;
 };
 
 /**
@@ -5370,6 +5608,8 @@ const char * event_to_string(enum wpa_event_type event);
 
 /* Convert chan_width to a string for logging and control interfaces */
 const char * channel_width_to_string(enum chan_width width);
+
+int channel_width_to_int(enum chan_width width);
 
 int ht_supported(const struct hostapd_hw_modes *mode);
 int vht_supported(const struct hostapd_hw_modes *mode);

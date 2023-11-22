@@ -9,11 +9,13 @@
 
 #include "SkTypes.h"
 
-#if SK_SUPPORT_GPU && defined(SK_VULKAN)
+#if defined(SK_VULKAN)
 
+#include "vk/GrVkVulkan.h"
+
+#include "GrBackendSurface.h"
 #include "GrContextFactory.h"
 #include "GrContextPriv.h"
-#include "GrTest.h"
 #include "GrTexture.h"
 #include "Test.h"
 #include "vk/GrVkCopyPipeline.h"
@@ -62,9 +64,11 @@ public:
             "}";
 
         SkSL::Program::Settings settings;
+        SkSL::String spirv;
         SkSL::Program::Inputs inputs;
         if (!GrCompileVkShaderModule(gpu, vertShaderText, VK_SHADER_STAGE_VERTEX_BIT,
-                                     &fVertShaderModule, &fShaderStageInfo[0], settings, &inputs)) {
+                                     &fVertShaderModule, &fShaderStageInfo[0], settings,
+                                     &spirv, &inputs)) {
             this->destroyResources(gpu);
             REPORTER_ASSERT(reporter, false);
             return;
@@ -72,7 +76,8 @@ public:
         SkASSERT(inputs.isEmpty());
 
         if (!GrCompileVkShaderModule(gpu, fragShaderText, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                     &fFragShaderModule, &fShaderStageInfo[1], settings, &inputs)) {
+                                     &fFragShaderModule, &fShaderStageInfo[1], settings,
+                                     &spirv, &inputs)) {
             this->destroyResources(gpu);
             REPORTER_ASSERT(reporter, false);
             return;
@@ -115,7 +120,6 @@ public:
 
         GrSurfaceDesc surfDesc;
         surfDesc.fFlags = kRenderTarget_GrSurfaceFlag;
-        surfDesc.fOrigin = kTopLeft_GrSurfaceOrigin;
         surfDesc.fWidth = 16;
         surfDesc.fHeight = 16;
         surfDesc.fConfig = kRGBA_8888_GrPixelConfig;

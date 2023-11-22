@@ -32,8 +32,6 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class SingleStepWithLocationTest extends JDWPEventTestCase {
 
-    private String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/SingleStepDebuggee;";
-
     private static final String BREAKPOINT_METHOD_NAME = "breakpointTest";
 
     @Override
@@ -55,7 +53,7 @@ public class SingleStepWithLocationTest extends JDWPEventTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Set breakpoint.
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

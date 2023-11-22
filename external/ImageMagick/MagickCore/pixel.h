@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,7 +46,8 @@ typedef enum
   IndexChannel = 0x0020,             /* Color Index Table? */
   ReadMaskChannel = 0x0040,          /* Pixel is Not Readable? */
   WriteMaskChannel = 0x0080,         /* Pixel is Write Protected? */
-  MetaChannel = 0x0100,              /* ???? */
+  MetaChannel = 0x0100,              /* not used */
+  CompositeMaskChannel = 0x0200,     /* SVG mask */
   CompositeChannels = 0x001F,
   AllChannels = 0x7ffffff,
   /*
@@ -86,6 +87,7 @@ typedef enum
   ReadMaskPixelChannel = 6,
   WriteMaskPixelChannel = 7,
   MetaPixelChannel = 8,
+  CompositeMaskPixelChannel = 9,
   IntensityPixelChannel = MaxPixelChannels,  /* ???? */
   CompositePixelChannel = MaxPixelChannels,  /* ???? */
   SyncPixelChannel = MaxPixelChannels+1      /* not a real channel */
@@ -126,7 +128,8 @@ typedef enum
 {
   UndefinedPixelMask = 0x000000,
   ReadPixelMask = 0x000001,
-  WritePixelMask = 0x000002
+  WritePixelMask = 0x000002,
+  CompositePixelMask = 0x000004
 } PixelMask;
 
 typedef enum
@@ -227,8 +230,9 @@ extern MagickExport MagickBooleanType
     const PixelInterpolateMethod,const double,const double,PixelInfo *,
     ExceptionInfo *),
   IsFuzzyEquivalencePixel(const Image *,const Quantum *,const Image *,
-    const Quantum *),
-  IsFuzzyEquivalencePixelInfo(const PixelInfo *,const PixelInfo *),
+    const Quantum *) magick_attribute((__pure__)),
+  IsFuzzyEquivalencePixelInfo(const PixelInfo *,const PixelInfo *)
+    magick_attribute((__pure__)),
   SetPixelMetaChannels(Image *,const size_t,ExceptionInfo *);
 
 extern MagickExport MagickRealType

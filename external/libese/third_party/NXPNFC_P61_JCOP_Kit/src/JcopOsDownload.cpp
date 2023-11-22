@@ -13,7 +13,7 @@
   * See the License for the specific language governing permissions and
   * limitations under the License.
   */
-#include <cutils/log.h>
+#include <log/log.h>
 #include <semaphore.h>
 #include <AlaLib.h>
 #include <JcopOsDownload.h>

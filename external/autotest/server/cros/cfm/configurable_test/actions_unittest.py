@@ -27,12 +27,14 @@ class TestActions(unittest.TestCase):
         self.usb_device_collector_mock = mock.MagicMock()
         self.usb_port_manager_mock = mock.MagicMock()
         self.crash_detector_mock = mock.MagicMock()
+        self.metrics_collector_mock = mock.MagicMock()
         self.context_with_mocks = action_context.ActionContext(
                 host=self.host_mock,
                 cfm_facade=self.cfm_facade_mock,
                 usb_device_collector=self.usb_device_collector_mock,
                 usb_port_manager=self.usb_port_manager_mock,
-                crash_detector=self.crash_detector_mock)
+                crash_detector=self.crash_detector_mock,
+                perf_metrics_collector=self.metrics_collector_mock)
 
 
     def test_assert_file_does_not_contain_no_match(self):
@@ -187,6 +189,22 @@ class TestActions(unittest.TestCase):
         self.assertRaises(
                 AssertionError,
                 lambda: action.do_execute(self.context_with_mocks))
+
+    def test_start_metrics_colllection(self):
+        action = actions.StartPerfMetricsCollection()
+        action.execute(self.context_with_mocks)
+        self.metrics_collector_mock.start.assert_called_once_with()
+
+    def test_stop_metrics_colllection(self):
+        action = actions.StopPerfMetricsCollection()
+        action.execute(self.context_with_mocks)
+        self.metrics_collector_mock.stop.assert_called_once_with()
+
+    def test_upload_metrics(self):
+        action = actions.UploadPerfMetrics()
+        action.execute(self.context_with_mocks)
+        self.metrics_collector_mock.upload_metrics.assert_called_once_with()
+
 
 
 class FakeCollector(object):

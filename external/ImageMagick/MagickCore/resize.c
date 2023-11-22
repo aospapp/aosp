@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -241,6 +241,46 @@ static double CubicBC(const double x,const ResizeFilter *resize_filter)
   if (x < 2.0)
     return(resize_filter->coefficient[3]+x*(resize_filter->coefficient[4]+x*
       (resize_filter->coefficient[5]+x*resize_filter->coefficient[6])));
+  return(0.0);
+}
+
+static double CubicSpline(const double x,const ResizeFilter *resize_filter)
+{
+  if (resize_filter->support <= 2.0)
+    {
+      /*
+        2-lobe Spline filter.
+      */
+      if (x < 1.0)
+        return(((x-9.0/5.0)*x-1.0/5.0)*x+1.0);
+      if (x < 2.0)
+        return(((-1.0/3.0*(x-1.0)+4.0/5.0)*(x-1.0)-7.0/15.0)*(x-1.0));
+      return(0.0);
+    }
+  if (resize_filter->support <= 3.0)
+    {
+      /*
+        3-lobe Spline filter.
+      */
+      if (x < 1.0)
+        return(((13.0/11.0*x-453.0/209.0)*x-3.0/209.0)*x+1.0);
+      if (x < 2.0)
+        return(((-6.0/11.0*(x-1.0)+270.0/209.0)*(x-1.0)-156.0/209.0)*(x-1.0));
+      if (x < 3.0)
+        return(((1.0/11.0*(x-2.0)-45.0/209.0)*(x-2.0)+26.0/209.0)*(x-2.0));
+      return(0.0);
+    }
+  /*
+    4-lobe Spline filter.
+  */
+  if (x < 1.0)
+    return(((49.0/41.0*x-6387.0/2911.0)*x-3.0/2911.0)*x+1.0);
+  if (x < 2.0)
+    return(((-24.0/41.0*(x-1.0)+4032.0/2911.0)*(x-1.0)-2328.0/2911.0)*(x-1.0));
+  if (x < 3.0)
+    return(((6.0/41.0*(x-2.0)-1008.0/2911.0)*(x-2.0)+582.0/2911.0)*(x-2.0));
+  if (x < 4.0)
+    return(((-1.0/41.0*(x-3.0)+168.0/2911.0)*(x-3.0)-97.0/2911.0)*(x-3.0));
   return(0.0);
 }
 
@@ -784,6 +824,7 @@ MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
     { LanczosFilter,       CosineFilter   },  /* Cosine window (3 lobes)      */
     { SplineFilter,        BoxFilter      },  /* Spline Cubic Filter          */
     { LanczosRadiusFilter, LanczosFilter  },  /* Lanczos with integer radius  */
+    { CubicSplineFilter,   BoxFilter      },  /* CubicSpline (2/3/4 lobes)    */
   };
   /*
     Table mapping the filter/window from the above table to an actual function.
@@ -847,6 +888,7 @@ MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
     { Cosine,    1.0, 1.0, 0.0, 0.0, CosineWeightingFunction },   /* Low level cosine window     */
     { CubicBC,   2.0, 2.0, 1.0, 0.0, CubicBCWeightingFunction },  /* Cubic B-Spline (B=1,C=0)    */
     { SincFast,  3.0, 1.0, 0.0, 0.0, SincFastWeightingFunction }, /* Lanczos, Interger Radius    */
+    { CubicSpline,2.0, 0.5, 0.0, 0.0, BoxWeightingFunction },  /* Spline Lobes 2-lobed */
   };
   /*
     The known zero crossings of the Jinc() or more accurately the Jinc(x*PI)
@@ -890,10 +932,9 @@ MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
   assert(UndefinedFilter < filter && filter < SentinelFilter);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  resize_filter=(ResizeFilter *) AcquireMagickMemory(sizeof(*resize_filter));
-  if (resize_filter == (ResizeFilter *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(resize_filter,0,sizeof(*resize_filter));
+  (void) exception;
+  resize_filter=(ResizeFilter *) AcquireCriticalMemory(sizeof(*resize_filter));
+  (void) memset(resize_filter,0,sizeof(*resize_filter));
   /*
     Defaults for the requested filter.
   */
@@ -901,7 +942,7 @@ MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
   window_type=mapping[filter].window;
   resize_filter->blur=1.0;
   /* Promote 1D Windowed Sinc Filters to a 2D Windowed Jinc filters */
-  if ( cylindrical != MagickFalse && (filter_type == SincFastFilter) &&
+  if ((cylindrical != MagickFalse) && (filter_type == SincFastFilter) &&
       (filter != SincFastFilter))
     filter_type=JincFilter;  /* 1D Windowed Sinc => 2D Windowed Jinc filters */
 
@@ -1178,18 +1219,18 @@ MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
         (void) FormatLocaleFile(stdout,"# window-support = %.*g\n",
           GetMagickPrecision(),(double) resize_filter->window_support);
         (void) FormatLocaleFile(stdout,"# scale-blur = %.*g\n",
-          GetMagickPrecision(),(double)resize_filter->blur);
+          GetMagickPrecision(),(double) resize_filter->blur);
         if ((filter_type == GaussianFilter) || (window_type == GaussianFilter))
           (void) FormatLocaleFile(stdout,"# gaussian-sigma = %.*g\n",
-            GetMagickPrecision(),(double)resize_filter->coefficient[0]);
+            GetMagickPrecision(),(double) resize_filter->coefficient[0]);
         if ( filter_type == KaiserFilter || window_type == KaiserFilter )
           (void) FormatLocaleFile(stdout,"# kaiser-beta = %.*g\n",
-            GetMagickPrecision(),(double)resize_filter->coefficient[0]);
+            GetMagickPrecision(),(double) resize_filter->coefficient[0]);
         (void) FormatLocaleFile(stdout,"# practical-support = %.*g\n",
-          GetMagickPrecision(), (double)support);
-        if ( filter_type == CubicFilter || window_type == CubicFilter )
+          GetMagickPrecision(), (double) support);
+        if ((filter_type == CubicFilter) || (window_type == CubicFilter))
           (void) FormatLocaleFile(stdout,"# B,C = %.*g,%.*g\n",
-            GetMagickPrecision(),(double)B, GetMagickPrecision(),(double)C);
+            GetMagickPrecision(),(double) B,GetMagickPrecision(),(double) C);
         (void) FormatLocaleFile(stdout,"\n");
         /*
           Output values of resulting filter graph -- for graphing filter result.
@@ -1715,8 +1756,8 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
   scale.x=(double) image->columns/resize_image->columns;
   scale.y=(double) image->rows/resize_image->rows;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(image,resize_image,resize_image->rows,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,resize_image,resize_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) resize_image->rows; y++)
   {
@@ -1741,11 +1782,6 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelReadMask(resize_image,q) == 0)
-        {
-          q+=GetPixelChannels(resize_image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -1764,6 +1800,8 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
         offset.x=((double) x+0.5)*scale.x-0.5;
         status=InterpolatePixelChannels(image,image_view,resize_image,method,
           offset.x,offset.y,q,exception);
+        if (status == MagickFalse)
+          break;
       }
       q+=GetPixelChannels(resize_image);
     }
@@ -1775,9 +1813,10 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_InterpolativeResizeImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,InterpolativeResizeImageTag,progress++,
+        progress++;
+        proceed=SetImageProgress(image,InterpolativeResizeImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -1879,8 +1918,8 @@ MagickExport Image *LiquidRescaleImage(const Image *image,const size_t columns,
     return(CloneImage(image,0,0,MagickTrue,exception));
   if ((columns <= 2) || (rows <= 2))
     return(ResizeImage(image,columns,rows,image->filter,exception));
-  pixel_info=AcquireVirtualMemory(image->columns,image->rows*
-    GetPixelChannels(image)*sizeof(*pixels));
+  pixel_info=AcquireVirtualMemory(image->columns,image->rows*MaxPixelChannels*
+    sizeof(*pixels));
   if (pixel_info == (MemoryInfo *) NULL)
     return((Image *) NULL);
   pixels=(gfloat *) GetVirtualMemoryBlob(pixel_info);
@@ -1943,14 +1982,14 @@ MagickExport Image *LiquidRescaleImage(const Image *image,const size_t columns,
   while (lqr_carver_scan_ext(carver,&x_offset,&y_offset,(void **) &packet) != 0)
   {
     register Quantum
-      *magick_restrict q;
+      *magick_restrict p;
 
     register ssize_t
       i;
 
-    q=QueueCacheViewAuthenticPixels(rescale_view,x_offset,y_offset,1,1,
+    p=QueueCacheViewAuthenticPixels(rescale_view,x_offset,y_offset,1,1,
       exception);
-    if (q == (Quantum *) NULL)
+    if (p == (Quantum *) NULL)
       break;
     for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
     {
@@ -1968,7 +2007,7 @@ MagickExport Image *LiquidRescaleImage(const Image *image,const size_t columns,
           (rescale_traits == UndefinedPixelTrait))
         continue;
       SetPixelChannel(rescale_image,channel,ClampToQuantum(QuantumRange*
-        packet[i]),q);
+        packet[i]),p);
     }
     if (SyncCacheViewAuthenticPixels(rescale_view,exception) == MagickFalse)
       break;
@@ -2062,8 +2101,8 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
   image_view=AcquireVirtualCacheView(image,exception);
   magnify_view=AcquireAuthenticCacheView(magnify_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(image,magnify_image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,magnify_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2173,9 +2212,10 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_MagnifyImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,MagnifyImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,MagnifyImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2375,7 +2415,7 @@ static ContributionInfo **AcquireContributionThreadSet(const size_t count)
     sizeof(*contribution));
   if (contribution == (ContributionInfo **) NULL)
     return((ContributionInfo **) NULL);
-  (void) ResetMagickMemory(contribution,0,number_threads*sizeof(*contribution));
+  (void) memset(contribution,0,number_threads*sizeof(*contribution));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
     contribution[i]=(ContributionInfo *) MagickAssumeAligned(
@@ -2386,9 +2426,11 @@ static ContributionInfo **AcquireContributionThreadSet(const size_t count)
   return(contribution);
 }
 
-static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
-  const Image *image,Image *resize_image,const double x_factor,
-  const MagickSizeType span,MagickOffsetType *offset,ExceptionInfo *exception)
+static MagickBooleanType HorizontalFilter(
+  const ResizeFilter *magick_restrict resize_filter,
+  const Image *magick_restrict image,Image *magick_restrict resize_image,
+  const double x_factor,const MagickSizeType span,
+  MagickOffsetType *magick_restrict progress,ExceptionInfo *exception)
 {
 #define ResizeImageTag  "Resize/Image"
 
@@ -2440,8 +2482,8 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   image_view=AcquireVirtualCacheView(image,exception);
   resize_view=AcquireAuthenticCacheView(resize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,resize_image,resize_image->columns,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,resize_image,resize_image->columns,1)
 #endif
   for (x=0; x < (ssize_t) resize_image->columns; x++)
   {
@@ -2538,7 +2580,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
             (resize_traits == UndefinedPixelTrait))
           continue;
         if (((resize_traits & CopyPixelTrait) != 0) ||
-            (GetPixelReadMask(resize_image,q) == 0))
+            (GetPixelWriteMask(resize_image,q) <= (QuantumRange/2)))
           {
             j=(ssize_t) (MagickMin(MagickMax(bisect,(double) start),(double)
               stop-1.0)+0.5);
@@ -2590,9 +2632,10 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_HorizontalFilter)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ResizeImageTag,(*offset)++,span);
+        (*progress)++;
+        proceed=SetImageProgress(image,ResizeImageTag,*progress,span);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2603,9 +2646,11 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   return(status);
 }
 
-static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
-  const Image *image,Image *resize_image,const double y_factor,
-  const MagickSizeType span,MagickOffsetType *offset,ExceptionInfo *exception)
+static MagickBooleanType VerticalFilter(
+  const ResizeFilter *magick_restrict resize_filter,
+  const Image *magick_restrict image,Image *magick_restrict resize_image,
+  const double y_factor,const MagickSizeType span,
+  MagickOffsetType *magick_restrict progress,ExceptionInfo *exception)
 {
   CacheView
     *image_view,
@@ -2655,8 +2700,8 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
   image_view=AcquireVirtualCacheView(image,exception);
   resize_view=AcquireAuthenticCacheView(resize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,resize_image,resize_image->rows,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,resize_image,resize_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) resize_image->rows; y++)
   {
@@ -2754,7 +2799,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
             (resize_traits == UndefinedPixelTrait))
           continue;
         if (((resize_traits & CopyPixelTrait) != 0) ||
-            (GetPixelReadMask(resize_image,q) == 0))
+            (GetPixelWriteMask(resize_image,q) <= (QuantumRange/2)))
           {
             j=(ssize_t) (MagickMin(MagickMax(bisect,(double) start),(double)
               stop-1.0)+0.5);
@@ -2803,9 +2848,10 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_VerticalFilter)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ResizeImageTag,(*offset)++,span);
+        (*progress)++;
+        proceed=SetImageProgress(image,ResizeImageTag,*progress,span);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2981,7 +3027,7 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
     progress;
 
   register ssize_t
-    x;
+    x1;
 
   ssize_t
     *x_offset,
@@ -3040,8 +3086,8 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
       sample_image=DestroyImage(sample_image);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  for (x=0; x < (ssize_t) sample_image->columns; x++)
-    x_offset[x]=(ssize_t) ((((double) x+sample_offset.x)*image->columns)/
+  for (x1=0; x1 < (ssize_t) sample_image->columns; x1++)
+    x_offset[x1]=(ssize_t) ((((double) x1+sample_offset.x)*image->columns)/
       sample_image->columns);
   /*
     Sample each row.
@@ -3051,8 +3097,8 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
   image_view=AcquireVirtualCacheView(image,exception);
   sample_view=AcquireAuthenticCacheView(sample_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,sample_image,1,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,sample_image,sample_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) sample_image->rows; y++)
   {
@@ -3089,7 +3135,7 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
       register ssize_t
         i;
 
-      if (GetPixelReadMask(sample_image,q) == 0)
+      if (GetPixelWriteMask(sample_image,q) <= (QuantumRange/2))
         {
           q+=GetPixelChannels(sample_image);
           continue;
@@ -3100,14 +3146,14 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
           channel;
 
         PixelTrait
-          sample_traits,
+          image_traits,
           traits;
 
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        sample_traits=GetPixelChannelTraits(sample_image,channel);
+        channel=GetPixelChannelChannel(sample_image,i);
+        traits=GetPixelChannelTraits(sample_image,channel);
+        image_traits=GetPixelChannelTraits(image,channel);
         if ((traits == UndefinedPixelTrait) ||
-            (sample_traits == UndefinedPixelTrait))
+            (image_traits == UndefinedPixelTrait))
           continue;
         SetPixelChannel(sample_image,channel,p[x_offset[x]*GetPixelChannels(
           image)+i],q);
@@ -3121,9 +3167,6 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
         MagickBooleanType
           proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_SampleImage)
-#endif
         proceed=SetImageProgress(image,SampleImageTag,progress++,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -3193,12 +3236,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     proceed,
     status;
 
-  PixelChannel
-    channel;
-
   PixelTrait
-    scale_traits,
-    traits;
+    scale_traits;
 
   PointInfo
     scale,
@@ -3237,20 +3276,26 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     Allocate memory.
   */
   x_vector=(double *) AcquireQuantumMemory((size_t) image->columns,
-    GetPixelChannels(image)*sizeof(*x_vector));
+    MaxPixelChannels*sizeof(*x_vector));
   scanline=x_vector;
   if (image->rows != scale_image->rows)
     scanline=(double *) AcquireQuantumMemory((size_t) image->columns,
-      GetPixelChannels(image)*sizeof(*scanline));
-  scale_scanline=(double *) AcquireQuantumMemory((size_t)
-    scale_image->columns,GetPixelChannels(image)*sizeof(*scale_scanline));
+      MaxPixelChannels*sizeof(*scanline));
+  scale_scanline=(double *) AcquireQuantumMemory((size_t) scale_image->columns,
+    MaxPixelChannels*sizeof(*scale_scanline));
   y_vector=(double *) AcquireQuantumMemory((size_t) image->columns,
-    GetPixelChannels(image)*sizeof(*y_vector));
-  if ((scanline == (double *) NULL) ||
-      (scale_scanline == (double *) NULL) ||
-      (x_vector == (double *) NULL) ||
-      (y_vector == (double *) NULL))
+    MaxPixelChannels*sizeof(*y_vector));
+  if ((scanline == (double *) NULL) || (scale_scanline == (double *) NULL) ||
+      (x_vector == (double *) NULL) || (y_vector == (double *) NULL))
     {
+      if ((image->rows != scale_image->rows) && (scanline != (double *) NULL))
+        scanline=(double *) RelinquishMagickMemory(scanline);
+      if (scale_scanline != (double *) NULL)
+        scale_scanline=(double *) RelinquishMagickMemory(scale_scanline);
+      if (x_vector != (double *) NULL)
+        x_vector=(double *) RelinquishMagickMemory(x_vector);
+      if (y_vector != (double *) NULL)
+        y_vector=(double *) RelinquishMagickMemory(y_vector);
       scale_image=DestroyImage(scale_image);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
@@ -3261,8 +3306,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
   next_row=MagickTrue;
   span.y=1.0;
   scale.y=(double) scale_image->rows/(double) image->rows;
-  (void) ResetMagickMemory(y_vector,0,(size_t) GetPixelChannels(image)*
-    image->columns*sizeof(*y_vector));
+  (void) memset(y_vector,0,(size_t) MaxPixelChannels*image->columns*
+    sizeof(*y_vector));
   n=0;
   status=MagickTrue;
   image_view=AcquireVirtualCacheView(image,exception);
@@ -3302,7 +3347,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
           }
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          if (GetPixelReadMask(image,p) == 0)
+          if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
             {
               p+=GetPixelChannels(image);
               continue;
@@ -3311,8 +3356,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
             alpha=QuantumScale*GetPixelAlpha(image,p);
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            PixelChannel channel=GetPixelChannelChannel(image,i);
-            PixelTrait traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel = GetPixelChannelChannel(image,i);
+            PixelTrait traits = GetPixelChannelTraits(image,channel);
             if ((traits & BlendPixelTrait) == 0)
               {
                 x_vector[x*GetPixelChannels(image)+i]=(double) p[i];
@@ -3345,7 +3390,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
                 }
               for (x=0; x < (ssize_t) image->columns; x++)
               {
-                if (GetPixelReadMask(image,p) == 0)
+                if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
                   {
                     p+=GetPixelChannels(image);
                     continue;
@@ -3354,8 +3399,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
                   alpha=QuantumScale*GetPixelAlpha(image,p);
                 for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
                 {
-                  PixelChannel channel=GetPixelChannelChannel(image,i);
-                  PixelTrait traits=GetPixelChannelTraits(image,channel);
+                  PixelChannel channel = GetPixelChannelChannel(image,i);
+                  PixelTrait traits = GetPixelChannelTraits(image,channel);
                   if ((traits & BlendPixelTrait) == 0)
                     {
                       x_vector[x*GetPixelChannels(image)+i]=(double) p[i];
@@ -3389,7 +3434,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
               }
             for (x=0; x < (ssize_t) image->columns; x++)
             {
-              if (GetPixelReadMask(image,p) == 0)
+              if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
                 {
                   p+=GetPixelChannels(image);
                   continue;
@@ -3398,8 +3443,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
                 alpha=QuantumScale*GetPixelAlpha(image,p);
               for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
               {
-                PixelChannel channel=GetPixelChannelChannel(image,i);
-                PixelTrait traits=GetPixelChannelTraits(image,channel);
+                PixelChannel channel = GetPixelChannelChannel(image,i);
+                PixelTrait traits = GetPixelChannelTraits(image,channel);
                 if ((traits & BlendPixelTrait) == 0)
                   {
                     x_vector[x*GetPixelChannels(image)+i]=(double) p[i];
@@ -3437,7 +3482,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
         */
         for (x=0; x < (ssize_t) scale_image->columns; x++)
         {
-          if (GetPixelReadMask(scale_image,q) == 0)
+          if (GetPixelWriteMask(scale_image,q) <= (QuantumRange/2))
             {
               q+=GetPixelChannels(scale_image);
               continue;
@@ -3450,8 +3495,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
             }
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel = GetPixelChannelChannel(image,i);
+            PixelTrait traits = GetPixelChannelTraits(image,channel);
             scale_traits=GetPixelChannelTraits(scale_image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (scale_traits == UndefinedPixelTrait))
@@ -3494,8 +3539,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
               }
             for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
             {
-              PixelChannel channel=GetPixelChannelChannel(image,i);
-              PixelTrait traits=GetPixelChannelTraits(image,channel);
+              PixelChannel channel = GetPixelChannelChannel(image,i);
+              PixelTrait traits = GetPixelChannelTraits(image,channel);
               if (traits == UndefinedPixelTrait)
                 continue;
               pixel[i]+=span.x*scanline[x*GetPixelChannels(image)+i];
@@ -3533,7 +3578,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
       */
       for (x=0; x < (ssize_t) scale_image->columns; x++)
       {
-        if (GetPixelReadMask(scale_image,q) == 0)
+        if (GetPixelWriteMask(scale_image,q) <= (QuantumRange/2))
           {
             q+=GetPixelChannels(scale_image);
             continue;
@@ -3546,8 +3591,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
           }
         for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
         {
-          PixelChannel channel=GetPixelChannelChannel(image,i);
-          PixelTrait traits=GetPixelChannelTraits(image,channel);
+          PixelChannel channel = GetPixelChannelChannel(image,i);
+          PixelTrait traits = GetPixelChannelTraits(image,channel);
           scale_traits=GetPixelChannelTraits(scale_image,channel);
           if ((traits == UndefinedPixelTrait) ||
               (scale_traits == UndefinedPixelTrait))
@@ -3630,6 +3675,7 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
 #define SampleFactor  5
 
   char
+    filename[MagickPathExtent],
     value[MagickPathExtent];
 
   const char
@@ -3641,9 +3687,6 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
   double
     x_factor,
     y_factor;
-
-  size_t
-    version;
 
   struct stat
     attributes;
@@ -3700,7 +3743,8 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
     (void) FormatLocaleString(value,MagickPathExtent,"file://%s",
       image->magick_filename);
   (void) SetImageProperty(thumbnail_image,"Thumb::URI",value,exception);
-  (void) CopyMagickString(value,image->magick_filename,MagickPathExtent);
+  GetPathComponent(image->magick_filename,TailPath,filename);
+  (void) CopyMagickString(value,filename,MagickPathExtent);
   if ( GetPathAttributes(image->filename,&attributes) != MagickFalse )
     {
       (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
@@ -3715,7 +3759,7 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
   (void) FormatLocaleString(value,MagickPathExtent,"image/%s",image->magick);
   LocaleLower(value);
   (void) SetImageProperty(thumbnail_image,"Thumb::Mimetype",value,exception);
-  (void) SetImageProperty(thumbnail_image,"software",GetMagickVersion(&version),
+  (void) SetImageProperty(thumbnail_image,"software",MagickAuthoritativeURL,
     exception);
   (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
     image->magick_columns);

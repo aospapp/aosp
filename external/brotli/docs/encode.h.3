@@ -1,4 +1,4 @@
-.TH "encode.h" 3 "Wed Sep 20 2017" "Brotli" \" -*- nroff -*-
+.TH "encode.h" 3 "Thu Feb 22 2018" "Brotli" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -22,6 +22,10 @@ encode.h \- API for Brotli compression\&.
 .RI "#define \fBBROTLI_DEFAULT_WINDOW\fP   22"
 .br
 .RI "\fIDefault value for \fBBROTLI_PARAM_LGWIN\fP parameter\&. \fP"
+.ti -1c
+.RI "#define \fBBROTLI_LARGE_MAX_WINDOW_BITS\fP   30"
+.br
+.RI "\fIMaximal value for \fBBROTLI_PARAM_LGWIN\fP parameter in 'Large Window Brotli' (32-bit)\&. \fP"
 .ti -1c
 .RI "#define \fBBROTLI_MAX_INPUT_BLOCK_BITS\fP   24"
 .br
@@ -287,6 +291,19 @@ Flag that affects usage of 'literal context modeling' format feature\&. This fla
 .TP
 \fB\fIBROTLI_PARAM_SIZE_HINT \fP\fP
 Estimated total input size for all \fBBrotliEncoderCompressStream\fP calls\&. The default value is 0, which means that the total input size is unknown\&. 
+.TP
+\fB\fIBROTLI_PARAM_LARGE_WINDOW \fP\fP
+Flag that determines if 'Large Window Brotli' is used\&. 
+.TP
+\fB\fIBROTLI_PARAM_NPOSTFIX \fP\fP
+Recommended number of postfix bits (NPOSTFIX)\&. Encoder may change this value\&.
+.PP
+Range is from 0 to ::BROTLI_MAX_NPOSTFIX\&. 
+.TP
+\fB\fIBROTLI_PARAM_NDIRECT \fP\fP
+Recommended number of direct distance codes (NDIRECT)\&. Encoder may change this value\&.
+.PP
+Range is from 0 to (15 << NPOSTFIX) in steps of (1 << NPOSTFIX)\&. 
 .SH "Function Documentation"
 .PP 
 .SS "\fBBROTLI_BOOL\fP BrotliEncoderCompress (int quality, int lgwin, \fBBrotliEncoderMode\fP mode, size_t input_size, const uint8_t input_buffer[input_size], size_t * encoded_size, uint8_t encoded_buffer[*encoded_size])"
@@ -335,7 +352,7 @@ Compresses input stream to output stream\&. The values \fC*available_in\fP and \
 .PP
 After each call, \fC*available_in\fP will be decremented by the amount of input bytes consumed, and the \fC*next_in\fP pointer will be incremented by that amount\&. Similarly, \fC*available_out\fP will be decremented by the amount of output bytes written, and the \fC*next_out\fP pointer will be incremented by that amount\&.
 .PP
-\fCtotal_out\fP, if it is not a null-pointer, will be set to the number of bytes decompressed since the last \fCstate\fP initialization\&.
+\fCtotal_out\fP, if it is not a null-pointer, will be set to the number of bytes compressed since the last \fCstate\fP initialization\&.
 .PP
 Internally workflow consists of 3 tasks:
 .IP "1." 4
@@ -391,13 +408,13 @@ When flushing and finishing, \fCop\fP should not change until operation is compl
 .SS "\fBBrotliEncoderState\fP* BrotliEncoderCreateInstance (\fBbrotli_alloc_func\fP alloc_func, \fBbrotli_free_func\fP free_func, void * opaque)"
 
 .PP
-Creates an instance of \fBBrotliEncoderState\fP and initializes it\&. \fCalloc_func\fP and \fCfree_func\fP \fBMUST\fP be both zero or both non-zero\&. In the case they are both zero, default memory allocators are used\&. \fCopaque\fP is passed to \fCalloc_func\fP and \fCfree_func\fP when they are called\&.
+Creates an instance of \fBBrotliEncoderState\fP and initializes it\&. \fCalloc_func\fP and \fCfree_func\fP \fBMUST\fP be both zero or both non-zero\&. In the case they are both zero, default memory allocators are used\&. \fCopaque\fP is passed to \fCalloc_func\fP and \fCfree_func\fP when they are called\&. \fCfree_func\fP has to return without doing anything when asked to free a NULL pointer\&.
 .PP
 \fBParameters:\fP
 .RS 4
 \fIalloc_func\fP custom memory allocation function 
 .br
-\fIfree_func\fP custom memory fee function 
+\fIfree_func\fP custom memory free function 
 .br
 \fIopaque\fP custom memory manager handle 
 .RE
@@ -464,7 +481,7 @@ Calculates the output size bound for the given \fCinput_size\fP\&.
 .PP
 \fBWarning:\fP
 .RS 4
-Result is not applicable to \fBBrotliEncoderCompressStream\fP output, because every 'flush' adds extra overhead bytes, and some encoder settings (e\&.g\&. quality \fC0\fP and \fC1\fP) might imply a 'soft flush' after every chunk of input\&.
+Result is only valid if quality is at least \fC2\fP and, in case \fBBrotliEncoderCompressStream\fP was used, no flushes (\fBBROTLI_OPERATION_FLUSH\fP) were performed\&.
 .RE
 .PP
 \fBParameters:\fP

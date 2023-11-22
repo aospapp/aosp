@@ -17,13 +17,13 @@
 %                                 July 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -51,6 +51,7 @@
 #include "MagickCore/locale-private.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/nt-base-private.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/splay-tree.h"
@@ -69,7 +70,6 @@
 #  define MAGICKCORE_LOCALE_SUPPORT
 #endif
 #define LocaleFilename  "locale.xml"
-#define MaxRecursionDepth  200
 
 /*
   Static declarations.
@@ -85,6 +85,38 @@ static const char
     "    </Exception>"
     "  </locale>"
     "</localemap>";
+
+#ifdef __VMS
+#define asciimap AsciiMap
+#endif
+#if !defined(MAGICKCORE_HAVE_STRCASECMP) || !defined(MAGICKCORE_HAVE_STRNCASECMP)
+static const unsigned char
+  AsciiMap[] =
+  {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+    0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23,
+    0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b,
+    0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+    0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73,
+    0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+    0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b,
+    0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+    0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80, 0x81, 0x82, 0x83,
+    0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0x9b,
+    0x9c, 0x9d, 0x9e, 0x9f, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+    0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0, 0xb1, 0xb2, 0xb3,
+    0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
+    0xc0, 0xe1, 0xe2, 0xe3, 0xe4, 0xc5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb,
+    0xec, 0xed, 0xee, 0xef, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+    0xf8, 0xf9, 0xfa, 0xdb, 0xdc, 0xdd, 0xde, 0xdf, 0xe0, 0xe1, 0xe2, 0xe3,
+    0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
+    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb,
+    0xfc, 0xfd, 0xfe, 0xff,
+  };
+#endif
 
 static SemaphoreInfo
   *locale_semaphore = (SemaphoreInfo *) NULL;
@@ -193,8 +225,6 @@ static SplayTreeInfo *AcquireLocaleSplayTree(const char *filename,
 
   cache=NewSplayTree(CompareSplayTreeString,(void *(*)(void *)) NULL,
     DestroyLocaleNode);
-  if (cache == (SplayTreeInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   status=MagickTrue;
 #if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   {
@@ -257,13 +287,8 @@ static SplayTreeInfo *AcquireLocaleSplayTree(const char *filename,
 */
 static void DestroyCLocale(void)
 {
-#if defined(MAGICKCORE_HAVE_NEWLOCALE)
   if (c_locale != (locale_t) NULL)
     freelocale(c_locale);
-#elif defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__MINGW32__)
-  if (c_locale != (locale_t) NULL)
-    _free_locale(c_locale);
-#endif
   c_locale=(locale_t) NULL;
 }
 #endif
@@ -1245,7 +1270,7 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
             }
           if (LocaleCompare(keyword,"file") == 0)
             {
-              if (depth > 200)
+              if (depth > MagickMaxRecursionDepth)
                 (void) ThrowMagickException(exception,GetMagickModule(),
                   ConfigureError,"IncludeElementNestedTooDeeply","`%s'",token);
               else
@@ -1326,10 +1351,8 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
           q--;
         (void) CopyMagickString(message,p,MagickMin((size_t) (q-p+2),
           MagickLocaleExtent));
-        locale_info=(LocaleInfo *) AcquireMagickMemory(sizeof(*locale_info));
-        if (locale_info == (LocaleInfo *) NULL)
-          ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-        (void) ResetMagickMemory(locale_info,0,sizeof(*locale_info));
+        locale_info=(LocaleInfo *) AcquireCriticalMemory(sizeof(*locale_info));
+        (void) memset(locale_info,0,sizeof(*locale_info));
         locale_info->path=ConstantString(filename);
         locale_info->tag=ConstantString(tag);
         locale_info->message=ConstantString(message);
@@ -1411,10 +1434,12 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
 */
 MagickExport int LocaleCompare(const char *p,const char *q)
 {
-  if ((p == (char *) NULL) && (q == (char *) NULL))
-    return(0);
   if (p == (char *) NULL)
-    return(-1);
+    {
+      if (q == (char *) NULL)
+        return(0);
+      return(-1);
+    }
   if (q == (char *) NULL)
     return(1);
 #if defined(MAGICKCORE_HAVE_STRCASECMP)
@@ -1469,7 +1494,38 @@ MagickExport void LocaleLower(char *string)
 
   assert(string != (char *) NULL);
   for (q=string; *q != '\0'; q++)
-    *q=(char) tolower((int) *q);
+    *q=(char) LocaleLowercase((int) *q);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   L o c a l e L o w e r c a s e                                             %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  LocaleLowercase() convert to lowercase.
+%
+%  The format of the LocaleLowercase method is:
+%
+%      void LocaleLowercase(const int c)
+%
+%  A description of each parameter follows:
+%
+%    o If c is a uppercase letter, return its lowercase equivalent.
+%
+*/
+MagickExport int LocaleLowercase(const int c)
+{
+#if defined(MAGICKCORE_LOCALE_SUPPORT)
+  if (c_locale != (locale_t) NULL)
+    return(tolower_l(c,c_locale));
+#endif
+  return(tolower(c));
 }
 
 /*
@@ -1511,10 +1567,12 @@ MagickExport void LocaleLower(char *string)
 */
 MagickExport int LocaleNCompare(const char *p,const char *q,const size_t length)
 {
-  if ((p == (char *) NULL) && (q == (char *) NULL))
-    return(0);
   if (p == (char *) NULL)
-    return(-1);
+    {
+      if (q == (char *) NULL)
+        return(0);
+      return(-1);
+    }
   if (q == (char *) NULL)
     return(1);
 #if defined(MAGICKCORE_HAVE_STRNCASECMP)
@@ -1574,7 +1632,38 @@ MagickExport void LocaleUpper(char *string)
 
   assert(string != (char *) NULL);
   for (q=string; *q != '\0'; q++)
-    *q=(char) toupper((int) *q);
+    *q=(char) LocaleUppercase((int) *q);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   L o c a l e U p p e r c a s e                                             %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  LocaleUppercase() convert to uppercase.
+%
+%  The format of the LocaleUppercase method is:
+%
+%      void LocaleUppercase(const int c)
+%
+%  A description of each parameter follows:
+%
+%    o If c is a lowercase letter, return its uppercase equivalent.
+%
+*/
+MagickExport int LocaleUppercase(const int c)
+{
+#if defined(MAGICKCORE_LOCALE_SUPPORT)
+  if (c_locale != (locale_t) NULL)
+    return(toupper_l(c,c_locale));
+#endif
+  return(toupper(c));
 }
 
 /*

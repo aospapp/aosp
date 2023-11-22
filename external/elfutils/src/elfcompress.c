@@ -1,5 +1,5 @@
 /* Compress or decompress an ELF file.
-   Copyright (C) 2015 Red Hat, Inc.
+   Copyright (C) 2015, 2016, 2018 Red Hat, Inc.
    This file is part of elfutils.
 
    This file is free software; you can redistribute it and/or modify
@@ -18,7 +18,6 @@
 #include <config.h>
 #include <assert.h>
 #include <argp.h>
-#include <error.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -32,11 +31,13 @@
 #include <unistd.h>
 #include ELFUTILS_HEADER(elf)
 #include ELFUTILS_HEADER(ebl)
+#include ELFUTILS_HEADER(dwelf)
 #include <gelf.h>
 #include "system.h"
+#include "libeu.h"
+#include "printversion.h"
 
 /* Name and version of program.  */
-static void print_version (FILE *stream, struct argp_state *state);
 ARGP_PROGRAM_VERSION_HOOK_DEF = print_version;
 
 /* Bug report address.  */
@@ -52,12 +53,6 @@ static const char *foutput = NULL;
 #define T_COMPRESS_ZLIB 2 /* zlib */
 #define T_COMPRESS_GNU  3 /* zlib-gnu */
 static int type = T_UNSET;
-
-static void
-print_version (FILE *stream, struct argp_state *state __attribute__ ((unused)))
-{
-  fprintf (stream, "elfcompress (%s) %s\n", PACKAGE_NAME, PACKAGE_VERSION);
-}
 
 struct section_pattern
 {
@@ -101,6 +96,7 @@ parse_opt (int key, char *arg __attribute__ ((unused)),
 
     case 'q':
       verbose--;
+      break;
 
     case 'f':
       force = true;
@@ -152,7 +148,8 @@ parse_opt (int key, char *arg __attribute__ ((unused)),
 	argp_error (state,
 		    N_("Only one input file allowed together with '-o'"));
       /* We only use this for checking the number of arguments, we don't
-	 actually want to consume them, so fallthrough.  */
+	 actually want to consume them.  */
+      FALLTHROUGH;
     default:
       return ARGP_ERR_UNKNOWN;
     }
@@ -264,9 +261,9 @@ process_file (const char *fname)
   char *snamebuf = NULL;
 
   /* String table (and symbol table), if section names need adjusting.  */
-  struct Ebl_Strtab *names = NULL;
-  struct Ebl_Strent **scnstrents = NULL;
-  struct Ebl_Strent **symstrents = NULL;
+  Dwelf_Strtab *names = NULL;
+  Dwelf_Strent **scnstrents = NULL;
+  Dwelf_Strent **symstrents = NULL;
   char **scnnames = NULL;
 
   /* Section data from names.  */
@@ -289,6 +286,15 @@ process_file (const char *fname)
     return (sections[ndx / WORD_BITS] & (1U << (ndx % WORD_BITS))) != 0;
   }
 
+  /* How many sections are we going to change?  */
+  size_t get_sections (void)
+  {
+    size_t s = 0;
+    for (size_t i = 0; i < shnum / WORD_BITS + 1; i++)
+      s += __builtin_popcount (sections[i]);
+    return s;
+  }
+
   int cleanup (int res)
   {
     elf_end (elf);
@@ -307,7 +313,7 @@ process_file (const char *fname)
     free (snamebuf);
     if (names != NULL)
       {
-	ebl_strtabfree (names);
+	dwelf_strtab_free (names);
 	free (scnstrents);
 	free (symstrents);
 	free (namesbuf);
@@ -425,6 +431,9 @@ process_file (const char *fname)
      names change and whether there is a symbol table that might need
      to be adjusted be if the section header name table is changed.
 
+     If nothing needs changing, and the input and output file are the
+     same, we are done.
+
      Second a collection pass that creates the Elf sections and copies
      the data.  This pass will compress/decompress section data when
      needed.  And it will collect all data needed if we'll need to
@@ -467,7 +476,26 @@ process_file (const char *fname)
 
       if (section_name_matches (sname))
 	{
-	  if (shdr->sh_type != SHT_NOBITS
+	  if (!force && type == T_DECOMPRESS
+	      && (shdr->sh_flags & SHF_COMPRESSED) == 0
+	      && strncmp (sname, ".zdebug", strlen (".zdebug")) != 0)
+	    {
+	      if (verbose > 0)
+		printf ("[%zd] %s already decompressed\n", ndx, sname);
+	    }
+	  else if (!force && type == T_COMPRESS_ZLIB
+		   && (shdr->sh_flags & SHF_COMPRESSED) != 0)
+	    {
+	      if (verbose > 0)
+		printf ("[%zd] %s already compressed\n", ndx, sname);
+	    }
+	  else if (!force && type == T_COMPRESS_GNU
+		   && strncmp (sname, ".zdebug", strlen (".zdebug")) == 0)
+	    {
+	      if (verbose > 0)
+		printf ("[%zd] %s already GNU compressed\n", ndx, sname);
+	    }
+	  else if (shdr->sh_type != SHT_NOBITS
 	      && (shdr->sh_flags & SHF_ALLOC) == 0)
 	    {
 	      set_section (ndx);
@@ -521,16 +549,24 @@ process_file (const char *fname)
 	  }
     }
 
+  if (foutput == NULL && get_sections () == 0)
+    {
+      if (verbose > 0)
+	printf ("Nothing to do.\n");
+      fnew = NULL;
+      return cleanup (0);
+    }
+
   if (adjust_names)
     {
-      names = ebl_strtabinit (true);
+      names = dwelf_strtab_init (true);
       if (names == NULL)
 	{
 	  error (0, 0, "Not enough memory for new strtab");
 	  return cleanup (-1);
 	}
       scnstrents = xmalloc (shnum
-			    * sizeof (struct Ebl_Strent *));
+			    * sizeof (Dwelf_Strent *));
       scnnames = xcalloc (shnum, sizeof (char *));
     }
 
@@ -869,7 +905,7 @@ process_file (const char *fname)
 
 	  /* We need to keep a copy of the name till the strtab is done.  */
 	  name = scnnames[ndx] = xstrdup (name);
-	  if ((scnstrents[ndx] = ebl_strtabadd (names, name, 0)) == NULL)
+	  if ((scnstrents[ndx] = dwelf_strtab_add (names, name)) == NULL)
 	    {
 	      error (0, 0, "No memory to add section name string table");
 	      return cleanup (-1);
@@ -915,7 +951,7 @@ process_file (const char *fname)
 		}
 	      size_t elsize = gelf_fsize (elfnew, ELF_T_SYM, 1, EV_CURRENT);
 	      size_t syms = symd->d_size / elsize;
-	      symstrents = xmalloc (syms * sizeof (struct Ebl_Strent *));
+	      symstrents = xmalloc (syms * sizeof (Dwelf_Strent *));
 	      for (size_t i = 0; i < syms; i++)
 		{
 		  GElf_Sym sym_mem;
@@ -937,7 +973,7 @@ process_file (const char *fname)
 			  error (0, 0, "Couldn't get symbol %zd name", i);
 			  return cleanup (-1);
 			}
-		      symstrents[i] = ebl_strtabadd (names, symname, 0);
+		      symstrents[i] = dwelf_strtab_add (names, symname);
 		      if (symstrents[i] == NULL)
 			{
 			  error (0, 0, "No memory to add to symbol name");
@@ -969,7 +1005,11 @@ process_file (const char *fname)
 	  error (0, 0, "Couldn't create new section header string table data");
 	  return cleanup (-1);
 	}
-      ebl_strtabfinalize (names, data);
+      if (dwelf_strtab_finalize (names, data) == NULL)
+	{
+	  error (0, 0, "Not enough memory to create string table");
+	  return cleanup (-1);
+	}
       namesbuf = data->d_buf;
 
       GElf_Shdr shdr_mem;
@@ -983,7 +1023,7 @@ process_file (const char *fname)
 
       /* Note that we also might have to compress and possibly set
 	 sh_off below */
-      shdr->sh_name = ebl_strtaboffset (scnstrents[shdrstrndx]);
+      shdr->sh_name = dwelf_strent_off (scnstrents[shdrstrndx]);
       shdr->sh_type = SHT_STRTAB;
       shdr->sh_flags = 0;
       shdr->sh_addr = 0;
@@ -1098,7 +1138,7 @@ process_file (const char *fname)
 	    }
 
 	  if (adjust_names)
-	    shdr->sh_name = ebl_strtaboffset (scnstrents[ndx]);
+	    shdr->sh_name = dwelf_strent_off (scnstrents[ndx]);
 
 	  if (gelf_update_shdr (scn, shdr) == 0)
 	    {
@@ -1132,7 +1172,7 @@ process_file (const char *fname)
 
 		  if (sym->st_name != 0)
 		    {
-		      sym->st_name = ebl_strtaboffset (symstrents[i]);
+		      sym->st_name = dwelf_strent_off (symstrents[i]);
 
 		      if (gelf_update_sym (symd, i, sym) == 0)
 			{
@@ -1234,13 +1274,16 @@ process_file (const char *fname)
   elf_end (elfnew);
   elfnew = NULL;
 
-  /* Try to match mode and owner.group of the original file.  */
-  if (fchmod (fdnew, st.st_mode & ALLPERMS) != 0)
-    if (verbose >= 0)
-      error (0, errno, "Couldn't fchmod %s", fnew);
+  /* Try to match mode and owner.group of the original file.
+     Note to set suid bits we have to make sure the owner is setup
+     correctly first. Otherwise fchmod will drop them silently
+     or fchown may clear them.  */
   if (fchown (fdnew, st.st_uid, st.st_gid) != 0)
     if (verbose >= 0)
       error (0, errno, "Couldn't fchown %s", fnew);
+  if (fchmod (fdnew, st.st_mode & ALLPERMS) != 0)
+    if (verbose >= 0)
+      error (0, errno, "Couldn't fchmod %s", fnew);
 
   /* Finally replace the old file with the new file.  */
   if (foutput == NULL)
@@ -1275,7 +1318,7 @@ main (int argc, char **argv)
 	N_("Print a message for each section being (de)compressed"),
 	0 },
       { "force", 'f', NULL, 0,
-	N_("Force compression of section even if it would become larger"),
+	N_("Force compression of section even if it would become larger or update/rewrite the file even if no section would be (de)compressed"),
 	0 },
       { "permissive", 'p', NULL, 0,
 	N_("Relax a few rules to handle slightly broken ELF files"),

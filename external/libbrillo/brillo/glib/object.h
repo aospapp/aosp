@@ -71,9 +71,6 @@ details::ResetHelper<T> Resetter(T* x) {
   return details::ResetHelper<T>(x);
 }
 
-// \precondition No functions in the glib namespace can be called before
-// ::g_type_init();
-
 namespace glib {
 
 // \brief type_to_gtypeid is a type function mapping from a canonical type to

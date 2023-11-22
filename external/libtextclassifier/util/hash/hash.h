@@ -19,9 +19,11 @@
 
 #include <string>
 
-#include "util/base/integral_types.h"
+#include "utils/base/integral_types.h"
 
 namespace libtextclassifier2 {
+
+using namespace libtextclassifier3;
 
 uint32 Hash32(const char *data, size_t n, uint32 seed);
 

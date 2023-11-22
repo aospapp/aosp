@@ -22,8 +22,8 @@ import file_lock_machine
 # to run together.
 
 telemetry_perfv2_tests = [
-    'dromaeo.domcoreattr', 'dromaeo.domcoremodify', 'dromaeo.domcorequery',
-    'dromaeo.domcoretraverse', 'kraken', 'octane', 'robohornet_pro', 'sunspider'
+    'kraken',
+    'octane',
 ]
 
 telemetry_pagecycler_tests = [
@@ -32,27 +32,24 @@ telemetry_pagecycler_tests = [
     'page_cycler_v2.intl_hi_ru',
     'page_cycler_v2.intl_ja_zh',
     'page_cycler_v2.intl_ko_th_vi',
-    #                              'page_cycler_v2.morejs',
-    #                              'page_cycler_v2.moz',
-    #                              'page_cycler_v2.netsim.top_10',
-    'page_cycler_v2.tough_layout_cases',
-    'page_cycler_v2.typical_25'
+    'page_cycler_v2.typical_25',
 ]
 
 telemetry_toolchain_old_perf_tests = [
-    'dromaeo.domcoremodify', 'page_cycler_v2.intl_es_fr_pt-BR',
-    'page_cycler_v2.intl_hi_ru', 'page_cycler_v2.intl_ja_zh',
-    'page_cycler_v2.intl_ko_th_vi', 'page_cycler_v2.netsim.top_10',
-    'page_cycler_v2.typical_25', 'robohornet_pro', 'spaceport',
-    'tab_switching.top_10'
+    'page_cycler_v2.intl_es_fr_pt-BR',
+    'page_cycler_v2.intl_hi_ru',
+    'page_cycler_v2.intl_ja_zh',
+    'page_cycler_v2.intl_ko_th_vi',
+    'page_cycler_v2.netsim.top_10',
+    'page_cycler_v2.typical_25',
+    'spaceport',
+    'tab_switching.top_10',
 ]
 telemetry_toolchain_perf_tests = [
     'octane',
     'kraken',
     'speedometer',
-    'dromaeo.domcoreattr',
-    'dromaeo.domcoremodify',
-    'smoothness.tough_webgl_cases',
+    'speedometer2',
 ]
 graphics_perf_tests = [
     'graphics_GLBench',
@@ -65,9 +62,9 @@ telemetry_crosbolt_perf_tests = [
     'octane',
     'kraken',
     'speedometer',
+    'speedometer2',
     'jetstream',
-    'startup.cold.blank_page',
-    'smoothness.top_25_smooth',
+    'cros_ui_smoothness',
 ]
 crosbolt_perf_tests = [
     'graphics_WebGLAquarium',
@@ -76,7 +73,6 @@ crosbolt_perf_tests = [
     'video_WebRtcPerf',
     'BootPerfServerCrosPerf',
     'power_Resume',
-    'video_PlaybackPerf.h264',
     'build_RootFilesystemSize',
 ]
 

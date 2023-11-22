@@ -16,6 +16,8 @@
 
 """Utility methods associated with ICU source and builds."""
 
+from __future__ import print_function
+
 import glob
 import os
 import shutil
@@ -24,6 +26,14 @@ import sys
 
 import i18nutil
 import ziputil
+
+def cldrDir():
+  """Returns the location of CLDR in the Android source tree."""
+  android_build_top = i18nutil.GetAndroidRootOrDie()
+  cldr_dir = os.path.realpath('%s/external/cldr' % android_build_top)
+  i18nutil.CheckDirExists(cldr_dir, 'external/cldr')
+  return cldr_dir
+
 
 def icuDir():
   """Returns the location of ICU in the Android source tree."""
@@ -52,7 +62,7 @@ def datFile(icu_build_dir):
   dat_file_pattern = '%s/data/out/tmp/icudt??l.dat' % icu_build_dir
   dat_files = glob.glob(dat_file_pattern)
   if len(dat_files) != 1:
-    print 'ERROR: Unexpectedly found %d .dat files (%s). Halting.' % (len(datfiles), datfiles)
+    print('ERROR: Unexpectedly found %d .dat files (%s). Halting.' % (len(datfiles), datfiles))
     sys.exit(1)
   dat_file = dat_files[0]
   return dat_file
@@ -71,7 +81,7 @@ def PrepareIcuBuild(icu_build_dir):
   os.chdir(icu_build_dir)
 
   # Build the ICU tools.
-  print 'Configuring ICU tools...'
+  print('Configuring ICU tools...')
   subprocess.check_call(['%s/runConfigureICU' % icu4cDir(), 'Linux'])
 
   os.chdir(original_working_dir)
@@ -96,16 +106,17 @@ def MakeTzDataFiles(icu_build_dir, iana_tar_file):
   working_iana_tar_file = '%s/%s' % (tzcode_working_dir, iana_tar_filename)
   shutil.copyfile(iana_tar_file, working_iana_tar_file)
 
-  print 'Making ICU tz data files...'
+  print('Making ICU tz data files...')
   # The Makefile assumes the existence of the bin directory.
   os.mkdir('%s/bin' % icu_build_dir)
 
-  subprocess.check_call(['make', '-C', tzcode_working_dir])
+  # -j1 is needed because the build is not parallelizable. http://b/109641429
+  subprocess.check_call(['make', '-j1', '-C', tzcode_working_dir])
 
   # Copy the source file to its ultimate destination.
   zoneinfo_file = '%s/zoneinfo64.txt' % tzcode_working_dir
   icu_txt_data_dir = '%s/data/misc' % icu4cDir()
-  print 'Copying zoneinfo64.txt to %s ...' % icu_txt_data_dir
+  print('Copying zoneinfo64.txt to %s ...' % icu_txt_data_dir)
   shutil.copy(zoneinfo_file, icu_txt_data_dir)
 
 
@@ -125,25 +136,25 @@ def MakeAndCopyIcuDataFiles(icu_build_dir):
   icu_dat_data_dir = '%s/stubdata' % icu4cDir()
   dat_file = datFile(icu_build_dir)
 
-  print 'Copying %s to %s ...' % (dat_file, icu_dat_data_dir)
+  print('Copying %s to %s ...' % (dat_file, icu_dat_data_dir))
   shutil.copy(dat_file, icu_dat_data_dir)
 
   # Generate the ICU4J .jar files
   os.chdir('%s/data' % icu_build_dir)
-  subprocess.check_call(['make', 'icu4j-data'])
+  subprocess.check_call(['make', '-j32', 'icu4j-data'])
 
   # Copy the ICU4J .jar files to their ultimate destination.
   icu_jar_data_dir = '%s/main/shared/data' % icu4jDir()
   jarfiles = glob.glob('out/icu4j/*.jar')
   if len(jarfiles) != 2:
-    print 'ERROR: Unexpectedly found %d .jar files (%s). Halting.' % (len(jarfiles), jarfiles)
+    print('ERROR: Unexpectedly found %d .jar files (%s). Halting.' % (len(jarfiles), jarfiles))
     sys.exit(1)
   for jarfile in jarfiles:
     icu_jarfile = os.path.join(icu_jar_data_dir, os.path.basename(jarfile))
     if ziputil.ZipCompare(jarfile, icu_jarfile):
-      print 'Ignoring %s which is identical to %s ...' % (jarfile, icu_jarfile)
+      print('Ignoring %s which is identical to %s ...' % (jarfile, icu_jarfile))
     else:
-      print 'Copying %s to %s ...' % (jarfile, icu_jar_data_dir)
+      print('Copying %s to %s ...' % (jarfile, icu_jar_data_dir))
       shutil.copy(jarfile, icu_jar_data_dir)
 
   # Switch back to the original working cwd.
@@ -174,7 +185,7 @@ def MakeAndCopyOverlayTzIcuData(icu_build_dir, dest_file):
   dat_file = datFile(icu_build_dir)
   icu_package_dat = os.path.basename(dat_file)
   if not icu_package_dat.endswith('.dat'):
-      print '%s does not end with .dat' % icu_package_dat
+      print('%s does not end with .dat' % icu_package_dat)
       sys.exit(1)
   icu_package = icu_package_dat[:-4]
 
@@ -216,13 +227,21 @@ def MakeAndCopyOverlayTzIcuData(icu_build_dir, dest_file):
       env=icu_env)
   p.wait()
   if p.returncode != 0:
-    print 'pkgdata failed with status code: %s' % p.returncode
+    print('pkgdata failed with status code: %s' % p.returncode)
 
   # Copy the .dat to the chosen place / name.
   generated_dat_file = '%s/%s' % (res_staging_dir, icu_package_dat)
   shutil.copyfile(generated_dat_file, dest_file)
-  print 'ICU overlay .dat can be found here: %s' % dest_file
+  print('ICU overlay .dat can be found here: %s' % dest_file)
 
   # Switch back to the original working cwd.
   os.chdir(original_working_dir)
+
+
+def CopyLicenseFiles(target_dir):
+  """Copies ICU license files to the target_dir"""
+
+  license_file = '%s/main/shared/licenses/LICENSE' % icu4jDir()
+  print('Copying %s to %s ...' % (license_file, target_dir))
+  shutil.copy(license_file, target_dir)
 

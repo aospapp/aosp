@@ -60,14 +60,9 @@
 
 #include <openssl/mem.h>
 
+#include "internal.h"
 #include "../../internal.h"
 
-
-#if !defined(OPENSSL_NO_ASM) &&                         \
-    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || \
-     defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
-#define SHA256_ASM
-#endif
 
 int SHA224_Init(SHA256_CTX *sha) {
   OPENSSL_memset(sha, 0, sizeof(SHA256_CTX));
@@ -172,9 +167,9 @@ int SHA224_Final(uint8_t *md, SHA256_CTX *ctx) {
 #define HASH_FINAL SHA256_Final
 #define HASH_BLOCK_DATA_ORDER sha256_block_data_order
 #ifndef SHA256_ASM
-static
+static void sha256_block_data_order(uint32_t *state, const uint8_t *in,
+                                    size_t num);
 #endif
-void sha256_block_data_order(uint32_t *state, const uint8_t *in, size_t num);
 
 #include "../digest/md32_common.h"
 
@@ -315,6 +310,11 @@ static void sha256_block_data_order(uint32_t *state, const uint8_t *data,
 }
 
 #endif  // !SHA256_ASM
+
+void SHA256_TransformBlocks(uint32_t state[8], const uint8_t *data,
+                            size_t num_blocks) {
+  sha256_block_data_order(state, data, num_blocks);
+}
 
 #undef DATA_ORDER_IS_BIG_ENDIAN
 #undef HASH_CTX

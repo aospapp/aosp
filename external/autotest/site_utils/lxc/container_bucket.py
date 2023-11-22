@@ -4,7 +4,6 @@
 
 import logging
 import os
-import socket
 import time
 
 import common
@@ -14,7 +13,6 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.global_config import global_config
 from autotest_lib.site_utils.lxc import config as lxc_config
 from autotest_lib.site_utils.lxc import constants
-from autotest_lib.site_utils.lxc import container_pool
 from autotest_lib.site_utils.lxc import lxc
 from autotest_lib.site_utils.lxc.cleanup_if_fail import cleanup_if_fail
 from autotest_lib.site_utils.lxc.base_image import BaseImage
@@ -55,13 +53,6 @@ class ContainerBucket(object):
         if container_factory is not None:
             self._factory = container_factory
         else:
-            # Pick the correct factory class to use (pool-based, or regular)
-            # based on the config variable.
-            factory_class = ContainerFactory
-            if _USE_LXC_POOL:
-                logging.debug('Using container pool')
-                factory_class = _PoolBasedFactory
-
             # Pass in the container path so that the bucket is hermetic (i.e. so
             # that if the container path is customized, the base image doesn't
             # fall back to using the default container path).
@@ -76,7 +67,7 @@ class ContainerBucket(object):
                                 field_spec=[ts_mon.BooleanField('corrupted')]
                                 ).increment(
                                     fields={'corrupted': not base_image_ok})
-            self._factory = factory_class(
+            self._factory = ContainerFactory(
                 base_container=container,
                 lxc_path=self.container_path)
         self.container_cache = {}
@@ -151,7 +142,7 @@ class ContainerBucket(object):
     @cleanup_if_fail()
     def setup_test(self, container_id, job_id, server_package_url, result_path,
                    control=None, skip_cleanup=False, job_folder=None,
-                   dut_name=None):
+                   dut_name=None, isolate_hash=None):
         """Setup test container for the test job to run.
 
         The setup includes:
@@ -175,6 +166,9 @@ class ContainerBucket(object):
         @param job_folder: Folder name of the job, e.g., 123-debug_user.
         @param dut_name: Name of the dut to run test, used as the hostname of
                          the container. Default is None.
+        @param isolate_hash: String key to look up the isolate package needed
+                             to run test. Default is None, supersedes
+                             server_package_url if present.
         @return: A Container object for the test container.
 
         @raise ContainerError: If container does not exist, or not running.
@@ -202,7 +196,10 @@ class ContainerBucket(object):
         container = self._factory.create_container(container_id)
 
         # Deploy server side package
-        container.install_ssp(server_package_url)
+        if isolate_hash:
+          container.install_ssp_isolate(isolate_hash)
+        else:
+          container.install_ssp(server_package_url)
 
         deploy_config_manager = lxc_config.DeployConfigManager(container)
         deploy_config_manager.deploy_pre_start()
@@ -251,61 +248,3 @@ class ContainerBucket(object):
 
         logging.debug('Test container %s is set up.', container.name)
         return container
-
-
-class _PoolBasedFactory(ContainerFactory):
-    """A ContainerFactory that queries the running container pool.
-
-    Implementation falls back to the regular container factory behaviour
-    (i.e. locally cloning a container) if the pool is unavailable or if it does
-    not return a bucket before the specified timeout.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(_PoolBasedFactory, self).__init__(*args, **kwargs)
-        try:
-            self._client = container_pool.Client()
-        except (socket.error, socket.timeout) as e:
-            # If an error occurs connecting to the container pool, fall back to
-            # the default container factory.
-            logging.exception('Container pool connection failed.')
-            self._client = None
-
-
-    def create_container(self, new_id):
-        """Creates a new container.
-
-        Attempts to retrieve a container from the container pool.  If that
-        operation fails, this falls back to the parent class behaviour.
-
-        @param new_id: ContainerId to assign to the new container.  Containers
-                       must be assigned an ID before they can be released from
-                       the container pool.
-
-        @return: The new container.
-        """
-        container = None
-        if self._client:
-            try:
-                container = self._client.get_container(new_id,
-                                                       _CONTAINER_POOL_TIMEOUT)
-            except Exception:
-                logging.exception('Error communicating with container pool.')
-            else:
-                if container is not None:
-                    logging.debug('Retrieved container from pool: %s',
-                                  container.name)
-                    return container
-        metrics.Counter(METRICS_PREFIX + '/containers_served',
-                        field_spec = [ts_mon.BooleanField('from_pool')]
-                        ).increment(fields={
-                            'from_pool': (container is not None)})
-        if container is not None:
-            return container
-
-        # If the container pool did not yield a container, make one locally.
-        logging.warning('Unable to obtain container from pre-populated pool.  '
-                        'Creating container locally.  This slows server tests '
-                        'down and should be debugged even if local creation '
-                        'works out.')
-        return super(_PoolBasedFactory, self).create_container(new_id)

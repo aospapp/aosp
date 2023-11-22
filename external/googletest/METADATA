@@ -1,0 +1,18 @@
+name: "googletest"
+description: "Google\'s C++ test framework!"
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://github.com/google/googletest"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/google/googletest.git"
+  }
+  version: "8b6d3f9c4a774bef3081195d422993323b6bb2e0"
+  last_upgrade_date {
+    year: 2019
+    month: 3
+    day: 13
+  }
+}

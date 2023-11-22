@@ -29,6 +29,7 @@ class firmware_Cr50InvalidateRW(test.test):
     LOGIN_ATTEMPTS = 5
 
     def initialize(self, host):
+        """Initialize servo and cr50"""
         super(firmware_Cr50InvalidateRW, self).initialize()
 
         self.host = host
@@ -126,7 +127,7 @@ class firmware_Cr50InvalidateRW(test.test):
     def clear_tpm_owner(self):
         """Clear the tpm owner."""
         logging.info('Clearing the TPM owner')
-        tpm_utils.ClearTPMOwnerRequest(self.host)
+        tpm_utils.ClearTPMOwnerRequest(self.host, wait_for_ready=True)
 
 
     def after_run_once(self):
@@ -135,6 +136,7 @@ class firmware_Cr50InvalidateRW(test.test):
 
 
     def run_once(self, host):
+        """Login to validate ChromeOS corrupts the inactive header"""
         # After clearing the tpm owner the header will be corrupted on the
         # second login
         self.clear_tpm_owner()

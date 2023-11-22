@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -49,6 +49,7 @@
 #include "MagickCore/cache.h"
 #include "MagickCore/cache-private.h"
 #include "MagickCore/cache-view.h"
+#include "MagickCore/channel.h"
 #include "MagickCore/client.h"
 #include "MagickCore/color.h"
 #include "MagickCore/color-private.h"
@@ -74,6 +75,7 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/magick-private.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/module.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
@@ -95,6 +97,7 @@
 #include "MagickCore/threshold.h"
 #include "MagickCore/timer.h"
 #include "MagickCore/token.h"
+#include "MagickCore/token-private.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
@@ -104,7 +107,6 @@
   Constant declaration.
 */
 const char
-  AlphaColor[] = "#bdbdbd",  /* gray */
   BackgroundColor[] = "#ffffff",  /* white */
   BorderColor[] = "#dfdfdf",  /* gray */
   DefaultTileFrame[] = "15x15+3+3",
@@ -113,6 +115,7 @@ const char
   ForegroundColor[] = "#000",  /* black */
   LoadImageTag[] = "Load/Image",
   LoadImagesTag[] = "Load/Images",
+  MatteColor[] = "#bdbdbd",  /* gray */
   PSDensityGeometry[] = "72.0x72.0",
   PSPageGeometry[] = "612x792",
   SaveImageTag[] = "Save/Image",
@@ -165,10 +168,8 @@ MagickExport Image *AcquireImage(const ImageInfo *image_info,
     Allocate image structure.
   */
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
-  image=(Image *) AcquireMagickMemory(sizeof(*image));
-  if (image == (Image *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(image,0,sizeof(*image));
+  image=(Image *) AcquireCriticalMemory(sizeof(*image));
+  (void) memset(image,0,sizeof(*image));
   /*
     Initialize Image structure.
   */
@@ -193,7 +194,7 @@ MagickExport Image *AcquireImage(const ImageInfo *image_info,
   image->interlace=NoInterlace;
   image->ticks_per_second=UndefinedTicksPerSecond;
   image->compose=OverCompositeOp;
-  (void) QueryColorCompliance(AlphaColor,AllCompliance,&image->alpha_color,
+  (void) QueryColorCompliance(MatteColor,AllCompliance,&image->matte_color,
     exception);
   (void) QueryColorCompliance(BackgroundColor,AllCompliance,
     &image->background_color,exception);
@@ -237,6 +238,7 @@ MagickExport Image *AcquireImage(const ImageInfo *image_info,
       RectangleInfo
         geometry;
 
+      (void) memset(&geometry,0,sizeof(geometry));
       flags=ParseAbsoluteGeometry(image_info->extract,&geometry);
       if (((flags & XValue) != 0) || ((flags & YValue) != 0))
         {
@@ -274,7 +276,7 @@ MagickExport Image *AcquireImage(const ImageInfo *image_info,
   if (image_info->depth != 0)
     image->depth=image_info->depth;
   image->dither=image_info->dither;
-  image->alpha_color=image_info->alpha_color;
+  image->matte_color=image_info->matte_color;
   image->background_color=image_info->background_color;
   image->border_color=image_info->border_color;
   image->transparent_color=image_info->transparent_color;
@@ -343,9 +345,7 @@ MagickExport ImageInfo *AcquireImageInfo(void)
   ImageInfo
     *image_info;
 
-  image_info=(ImageInfo *) AcquireMagickMemory(sizeof(*image_info));
-  if (image_info == (ImageInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  image_info=(ImageInfo *) AcquireCriticalMemory(sizeof(*image_info));
   GetImageInfo(image_info);
   return(image_info);
 }
@@ -450,6 +450,7 @@ MagickExport Image *AppendImages(const Image *images,
     *append_image;
 
   MagickBooleanType
+    homogeneous_colorspace,
     status;
 
   MagickOffsetType
@@ -489,11 +490,14 @@ MagickExport Image *AppendImages(const Image *images,
   width=images->columns;
   height=images->rows;
   depth=images->depth;
+  homogeneous_colorspace=MagickTrue;
   next=GetNextImageInList(images);
   for ( ; next != (Image *) NULL; next=GetNextImageInList(next))
   {
     if (next->depth > depth)
       depth=next->depth;
+    if (next->colorspace != images->colorspace)
+      homogeneous_colorspace=MagickFalse;
     if (next->alpha_trait != UndefinedPixelTrait)
       alpha_trait=BlendPixelTrait;
     number_images++;
@@ -519,8 +523,11 @@ MagickExport Image *AppendImages(const Image *images,
       append_image=DestroyImage(append_image);
       return((Image *) NULL);
     }
+  if (homogeneous_colorspace == MagickFalse)
+    (void) SetImageColorspace(append_image,sRGBColorspace,exception);
   append_image->depth=depth;
   append_image->alpha_trait=alpha_trait;
+  append_image->page=images->page;
   (void) SetImageBackgroundColor(append_image,exception);
   status=MagickTrue;
   x_offset=0;
@@ -543,8 +550,8 @@ MagickExport Image *AppendImages(const Image *images,
       y_offset-=geometry.y;
     image_view=AcquireVirtualCacheView(next,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(static,4) shared(status) \
-      magick_threads(next,next,next->rows,1)
+    #pragma omp parallel for schedule(static) shared(status) \
+      magick_number_threads(next,next,next->rows,1)
 #endif
     for (y=0; y < (ssize_t) next->rows; y++)
     {
@@ -576,13 +583,6 @@ MagickExport Image *AppendImages(const Image *images,
       GetPixelInfo(next,&pixel);
       for (x=0; x < (ssize_t) next->columns; x++)
       {
-        if (GetPixelReadMask(next,p) == 0)
-          {
-            SetPixelBackgoundColor(append_image,q);
-            p+=GetPixelChannels(next);
-            q+=GetPixelChannels(append_image);
-            continue;
-          }
         GetPixelInfoPixel(next,p,&pixel);
         SetPixelViaPixelInfo(append_image,&pixel,q);
         p+=GetPixelChannels(next);
@@ -747,7 +747,7 @@ MagickExport MagickBooleanType ClipImagePath(Image *image,const char *pathname,
     (void) NegateImage(clip_mask,MagickFalse,exception);
   (void) FormatLocaleString(clip_mask->magick_filename,MagickPathExtent,
     "8BIM:1999,2998:%s\nPS",pathname);
-  (void) SetImageMask(image,ReadPixelMask,clip_mask,exception);
+  (void) SetImageMask(image,WritePixelMask,clip_mask,exception);
   clip_mask=DestroyImage(clip_mask);
   return(MagickTrue);
 }
@@ -818,39 +818,20 @@ MagickExport Image *CloneImage(const Image *image,const size_t columns,
         "NegativeOrZeroImageSize","`%s'",image->filename);
       return((Image *) NULL);
     }
-  clone_image=(Image *) AcquireMagickMemory(sizeof(*clone_image));
-  if (clone_image == (Image *) NULL)
-    ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(clone_image,0,sizeof(*clone_image));
+  clone_image=(Image *) AcquireCriticalMemory(sizeof(*clone_image));
+  (void) memset(clone_image,0,sizeof(*clone_image));
   clone_image->signature=MagickCoreSignature;
   clone_image->storage_class=image->storage_class;
   clone_image->number_channels=image->number_channels;
   clone_image->number_meta_channels=image->number_meta_channels;
   clone_image->metacontent_extent=image->metacontent_extent;
   clone_image->colorspace=image->colorspace;
-  clone_image->read_mask=image->read_mask;
-  clone_image->write_mask=image->write_mask;
   clone_image->alpha_trait=image->alpha_trait;
+  clone_image->channels=image->channels;
+  clone_image->mask_trait=image->mask_trait;
   clone_image->columns=image->columns;
   clone_image->rows=image->rows;
   clone_image->dither=image->dither;
-  if (image->colormap != (PixelInfo *) NULL)
-    {
-      /*
-        Allocate and copy the image colormap.
-      */
-      clone_image->colors=image->colors;
-      length=(size_t) image->colors;
-      clone_image->colormap=(PixelInfo *) AcquireQuantumMemory(length,
-        sizeof(*clone_image->colormap));
-      if (clone_image->colormap == (PixelInfo *) NULL)
-        {
-          clone_image=DestroyImage(clone_image);
-          ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
-        }
-      (void) CopyMagickMemory(clone_image->colormap,image->colormap,length*
-        sizeof(*clone_image->colormap));
-    }
   clone_image->image_info=CloneImageInfo(image->image_info);
   (void) CloneImageProfiles(clone_image,image);
   (void) CloneImageProperties(clone_image,image);
@@ -858,6 +839,7 @@ MagickExport Image *CloneImage(const Image *image,const size_t columns,
   GetTimerInfo(&clone_image->timer);
   if (image->ascii85 != (void *) NULL)
     Ascii85Initialize(clone_image);
+  clone_image->extent=image->extent;
   clone_image->magick_columns=image->magick_columns;
   clone_image->magick_rows=image->magick_rows;
   clone_image->type=image->type;
@@ -885,6 +867,23 @@ MagickExport Image *CloneImage(const Image *image,const size_t columns,
   clone_image->ping=image->ping;
   clone_image->debug=IsEventLogging();
   clone_image->semaphore=AcquireSemaphoreInfo();
+  if (image->colormap != (PixelInfo *) NULL)
+    {
+      /*
+        Allocate and copy the image colormap.
+      */
+      clone_image->colors=image->colors;
+      length=(size_t) image->colors;
+      clone_image->colormap=(PixelInfo *) AcquireQuantumMemory(length+1,
+        sizeof(*clone_image->colormap));
+      if (clone_image->colormap == (PixelInfo *) NULL)
+        {
+          clone_image=DestroyImage(clone_image);
+          ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
+        }
+      (void) memcpy(clone_image->colormap,image->colormap,length*
+        sizeof(*clone_image->colormap));
+    }
   if ((columns == 0) || (rows == 0))
     {
       if (image->montage != (char *) NULL)
@@ -951,22 +950,32 @@ MagickExport ImageInfo *CloneImageInfo(const ImageInfo *image_info)
   clone_info->scene=image_info->scene;
   clone_info->number_scenes=image_info->number_scenes;
   clone_info->depth=image_info->depth;
-  (void) CloneString(&clone_info->size,image_info->size);
-  (void) CloneString(&clone_info->extract,image_info->extract);
-  (void) CloneString(&clone_info->scenes,image_info->scenes);
-  (void) CloneString(&clone_info->page,image_info->page);
+  if (image_info->size != (char *) NULL)
+    (void) CloneString(&clone_info->size,image_info->size);
+  if (image_info->extract != (char *) NULL)
+    (void) CloneString(&clone_info->extract,image_info->extract);
+  if (image_info->scenes != (char *) NULL)
+    (void) CloneString(&clone_info->scenes,image_info->scenes);
+  if (image_info->page != (char *) NULL)
+    (void) CloneString(&clone_info->page,image_info->page);
   clone_info->interlace=image_info->interlace;
   clone_info->endian=image_info->endian;
   clone_info->units=image_info->units;
   clone_info->quality=image_info->quality;
-  (void) CloneString(&clone_info->sampling_factor,image_info->sampling_factor);
-  (void) CloneString(&clone_info->server_name,image_info->server_name);
-  (void) CloneString(&clone_info->font,image_info->font);
-  (void) CloneString(&clone_info->texture,image_info->texture);
-  (void) CloneString(&clone_info->density,image_info->density);
+  if (image_info->sampling_factor != (char *) NULL)
+    (void) CloneString(&clone_info->sampling_factor,
+      image_info->sampling_factor);
+  if (image_info->server_name != (char *) NULL)
+    (void) CloneString(&clone_info->server_name,image_info->server_name);
+  if (image_info->font != (char *) NULL)
+    (void) CloneString(&clone_info->font,image_info->font);
+  if (image_info->texture != (char *) NULL)
+    (void) CloneString(&clone_info->texture,image_info->texture);
+  if (image_info->density != (char *) NULL)
+    (void) CloneString(&clone_info->density,image_info->density);
   clone_info->pointsize=image_info->pointsize;
   clone_info->fuzz=image_info->fuzz;
-  clone_info->alpha_color=image_info->alpha_color;
+  clone_info->matte_color=image_info->matte_color;
   clone_info->background_color=image_info->background_color;
   clone_info->border_color=image_info->border_color;
   clone_info->transparent_color=image_info->transparent_color;
@@ -988,6 +997,7 @@ MagickExport ImageInfo *CloneImageInfo(const ImageInfo *image_info)
   SetImageInfoFile(clone_info,image_info->file);
   SetImageInfoBlob(clone_info,image_info->blob,image_info->length);
   clone_info->stream=image_info->stream;
+  clone_info->custom_stream=image_info->custom_stream;
   (void) CopyMagickString(clone_info->magick,image_info->magick,
     MagickPathExtent);
   (void) CopyMagickString(clone_info->unique,image_info->unique,
@@ -1074,8 +1084,8 @@ MagickExport MagickBooleanType CopyImagePixels(Image *image,
   source_view=AcquireVirtualCacheView(source_image,exception);
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(image,source_image,geometry->height,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,source_image,geometry->height,1)
 #endif
   for (y=0; y < (ssize_t) geometry->height; y++)
   {
@@ -1109,10 +1119,11 @@ MagickExport MagickBooleanType CopyImagePixels(Image *image,
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel channel=GetPixelChannelChannel(image,i);
-        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel = GetPixelChannelChannel(image,i);
+        PixelTrait traits = GetPixelChannelTraits(image,channel);
         PixelTrait source_traits=GetPixelChannelTraits(source_image,channel);
         if ((traits == UndefinedPixelTrait) ||
+            ((traits & UpdatePixelTrait) == 0) ||
             (source_traits == UndefinedPixelTrait))
           continue;
         SetPixelChannel(image,channel,p[i],q);
@@ -1129,9 +1140,10 @@ MagickExport MagickBooleanType CopyImagePixels(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_CopyImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,CopyImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,CopyImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1341,7 +1353,7 @@ MagickExport void GetImageInfo(ImageInfo *image_info)
   */
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(image_info != (ImageInfo *) NULL);
-  (void) ResetMagickMemory(image_info,0,sizeof(*image_info));
+  (void) memset(image_info,0,sizeof(*image_info));
   image_info->adjoin=MagickTrue;
   image_info->interlace=NoInterlace;
   image_info->channel=DefaultChannels;
@@ -1355,12 +1367,12 @@ MagickExport void GetImageInfo(ImageInfo *image_info)
       synchronize=DestroyString(synchronize);
     }
   exception=AcquireExceptionInfo();
-  (void) QueryColorCompliance(AlphaColor,AllCompliance,&image_info->alpha_color,
-    exception);
   (void) QueryColorCompliance(BackgroundColor,AllCompliance,
     &image_info->background_color,exception);
   (void) QueryColorCompliance(BorderColor,AllCompliance,
     &image_info->border_color,exception);
+  (void) QueryColorCompliance(MatteColor,AllCompliance,&image_info->matte_color,
+    exception);
   (void) QueryColorCompliance(TransparentColor,AllCompliance,
     &image_info->transparent_color,exception);
   exception=DestroyExceptionInfo(exception);
@@ -1443,13 +1455,34 @@ MagickExport Image *GetImageMask(const Image *image,const PixelMask type,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(image->signature == MagickCoreSignature);
-  mask_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
-  if (mask_image == (Image *) NULL)
-    return((Image *) NULL);
+  switch (type)
+  {
+    case ReadPixelMask:
+    {
+      if ((image->channels & ReadMaskChannel) == 0)
+        return((Image *) NULL);
+      break;
+    }
+    case WritePixelMask:
+    {
+      if ((image->channels & WriteMaskChannel) == 0)
+        return((Image *) NULL);
+      break;
+    }
+    default:
+    {
+      if ((image->channels & CompositeMaskChannel) == 0)
+        return((Image *) NULL);
+      break;
+    }
+  }
+  mask_image=AcquireImage((ImageInfo *) NULL,exception);
+  status=SetImageExtent(mask_image,image->columns,image->rows,exception);
+  if (status == MagickFalse)
+    return(DestroyImage(mask_image));
   status=MagickTrue;
   mask_image->alpha_trait=UndefinedPixelTrait;
   (void) SetImageColorspace(mask_image,GRAYColorspace,exception);
-  mask_image->read_mask=MagickFalse;
   image_view=AcquireVirtualCacheView(image,exception);
   mask_view=AcquireAuthenticCacheView(mask_image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -1477,6 +1510,11 @@ MagickExport Image *GetImageMask(const Image *image,const PixelMask type,
     {
       switch (type)
       {
+        case ReadPixelMask:
+        {
+          SetPixelGray(mask_image,GetPixelReadMask(image,p),q);
+          break;
+        }
         case WritePixelMask:
         {
           SetPixelGray(mask_image,GetPixelWriteMask(image,p),q);
@@ -1484,7 +1522,7 @@ MagickExport Image *GetImageMask(const Image *image,const PixelMask type,
         }
         default:
         {
-          SetPixelGray(mask_image,GetPixelReadMask(image,p),q);
+          SetPixelGray(mask_image,GetPixelCompositeMask(image,p),q);
           break;
         }
       }
@@ -1622,11 +1660,12 @@ MagickExport size_t InterpretImageFilename(const ImageInfo *image_info,
   register const char
     *p;
 
-  size_t
-    length;
+  ssize_t
+    field_width,
+    offset;
 
   canonical=MagickFalse;
-  length=0;
+  offset=0;
   (void) CopyMagickString(filename,format,MagickPathExtent);
   for (p=strchr(format,'%'); p != (char *) NULL; p=strchr(p+1,'%'))
   {
@@ -1636,14 +1675,9 @@ MagickExport size_t InterpretImageFilename(const ImageInfo *image_info,
         p=q+1;
         continue;
       }
+    field_width=0;
     if (*q == '0')
-      {
-        ssize_t
-          foo;
-
-        foo=(ssize_t) strtol(q,&q,10);
-        (void) foo;
-      }
+      field_width=(ssize_t) strtol(q,&q,10);
     switch (*q)
     {
       case 'd':
@@ -1653,8 +1687,9 @@ MagickExport size_t InterpretImageFilename(const ImageInfo *image_info,
         q++;
         c=(*q);
         *q='\0';
-        (void) FormatLocaleString(filename+(p-format),(size_t)
-          (MagickPathExtent-(p-format)),p,value);
+        (void) FormatLocaleString(filename+(p-format-offset),(size_t)
+          (MagickPathExtent-(p-format-offset)),p,value);
+        offset+=(4-field_width);
         *q=c;
         (void) ConcatenateMagickString(filename,q,MagickPathExtent);
         canonical=MagickTrue;
@@ -1682,9 +1717,6 @@ MagickExport size_t InterpretImageFilename(const ImageInfo *image_info,
 
         /*
           Image option.
-        */
-        /* FUTURE: Compare update with code from InterpretImageProperties()
-           Note that a 'filename:' property should not need depth recursion.
         */
         if (strchr(p,']') == (char *) NULL)
           break;
@@ -1716,9 +1748,9 @@ MagickExport size_t InterpretImageFilename(const ImageInfo *image_info,
         q--;
         c=(*q);
         *q='\0';
-        (void) CopyMagickString(filename+(p-format-length),option,(size_t)
-          (MagickPathExtent-(p-format-length)));
-        length+=strlen(pattern)-1;
+        (void) CopyMagickString(filename+(p-format-offset),option,(size_t)
+          (MagickPathExtent-(p-format-offset)));
+        offset+=strlen(pattern)-strlen(option)+3;
         *q=c;
         (void) ConcatenateMagickString(filename,r+1,MagickPathExtent);
         canonical=MagickTrue;
@@ -1793,8 +1825,8 @@ MagickExport MagickBooleanType IsHighDynamicRangeImage(const Image *image,
   status=MagickTrue;
   image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1817,11 +1849,6 @@ MagickExport MagickBooleanType IsHighDynamicRangeImage(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelReadMask(image,p) == 0)
-        {
-          p+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
@@ -2048,8 +2075,8 @@ MagickExport Image *NewMagickImage(const ImageInfo *image_info,
   status=MagickTrue;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2190,6 +2217,179 @@ MagickExport MagickBooleanType ResetImagePage(Image *image,const char *page)
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   R e s e t I m a g e P i x e l s                                           %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  ResetImagePixels() reset the image pixels, that is, all the pixel components
+%  are zereod.
+%
+%  The format of the SetImage method is:
+%
+%      MagickBooleanType ResetImagePixels(Image *image,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport MagickBooleanType ResetImagePixels(Image *image,
+  ExceptionInfo *exception)
+{
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  size_t
+    length;
+
+  ssize_t
+    y;
+
+  void
+    *pixels;
+
+  assert(image != (Image *) NULL);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
+  assert(image->signature == MagickCoreSignature);
+  pixels=AcquirePixelCachePixels(image,&length,exception);
+  if (pixels != (void *) NULL)
+    {
+      /*
+        Reset in-core image pixels.
+      */
+      (void) memset(pixels,0,length);
+      return(MagickTrue);
+    }
+  /*
+    Reset image pixels.
+  */
+  status=MagickTrue;
+  image_view=AcquireAuthenticCacheView(image,exception);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
+#endif
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    register Quantum
+      *magick_restrict q;
+
+    register ssize_t
+      x;
+
+    if (status == MagickFalse)
+      continue;
+    q=QueueCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      (void) memset(q,0,GetPixelChannels(image)*sizeof(Quantum));
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      status=MagickFalse;
+  }
+  image_view=DestroyCacheView(image_view);
+  return(status);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%     S e t I m a g e A l p h a                                               %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  SetImageAlpha() sets the alpha levels of the image.
+%
+%  The format of the SetImageAlpha method is:
+%
+%      MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o alpha: the level of transparency: 0 is fully transparent and QuantumRange
+%      is fully opaque.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
+  ExceptionInfo *exception)
+{
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  ssize_t
+    y;
+
+  assert(image != (Image *) NULL);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
+  assert(image->signature == MagickCoreSignature);
+  image->alpha_trait=BlendPixelTrait;
+  status=MagickTrue;
+  image_view=AcquireAuthenticCacheView(image,exception);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
+#endif
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    register Quantum
+      *magick_restrict q;
+
+    register ssize_t
+      x;
+
+    if (status == MagickFalse)
+      continue;
+    q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      SetPixelAlpha(image,alpha,q);
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      status=MagickFalse;
+  }
+  image_view=DestroyCacheView(image_view);
+  return(status);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %   S e t I m a g e B a c k g r o u n d C o l o r                             %
 %                                                                             %
 %                                                                             %
@@ -2233,6 +2433,9 @@ MagickExport MagickBooleanType SetImageBackgroundColor(Image *image,
   assert(image->signature == MagickCoreSignature);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
+  if ((image->background_color.alpha != OpaqueAlpha) &&
+      (image->alpha_trait == UndefinedPixelTrait))
+    (void) SetImageAlphaChannel(image,OnAlphaChannel,exception);
   ConformPixelInfo(image,&image->background_color,&background,exception);
   /*
     Set image background color.
@@ -2350,8 +2553,8 @@ MagickExport MagickBooleanType SetImageColor(Image *image,
   status=MagickTrue;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2412,6 +2615,12 @@ MagickExport MagickBooleanType SetImageColor(Image *image,
 MagickExport MagickBooleanType SetImageStorageClass(Image *image,
   const ClassType storage_class,ExceptionInfo *exception)
 {
+  assert(image != (Image *) NULL);
+  assert(image->signature == MagickCoreSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickCoreSignature);
   image->storage_class=storage_class;
   return(SyncImagePixelCache(image,exception));
 }
@@ -2452,7 +2661,7 @@ MagickExport MagickBooleanType SetImageExtent(Image *image,const size_t columns,
     ThrowBinaryException(ImageError,"NegativeOrZeroImageSize",image->filename);
   image->columns=columns;
   image->rows=rows;
-  if (image->depth > (8*sizeof(MagickSizeType)))
+  if ((image->depth == 0) || (image->depth > (8*sizeof(MagickSizeType))))
     ThrowBinaryException(ImageError,"ImageDepthNotSupported",image->filename);
   return(SyncImagePixelCache(image,exception));
 }
@@ -2603,7 +2812,7 @@ MagickExport MagickBooleanType SetImageInfo(ImageInfo *image_info,
 #endif
   image_info->affirm=MagickFalse;
   sans_exception=AcquireExceptionInfo();
-  if (*component != '\0')
+  if ((*component != '\0') && (IsGlob(component) == MagickFalse))
     {
       MagickFormatType
         format_type;
@@ -2675,7 +2884,10 @@ MagickExport MagickBooleanType SetImageInfo(ImageInfo *image_info,
     {
       (void) CopyMagickString(magic,image_info->magick,MagickPathExtent);
       magick_info=GetMagickInfo(magic,sans_exception);
-      GetPathComponent(image_info->filename,CanonicalPath,component);
+      if (frames == 0)
+        GetPathComponent(image_info->filename,CanonicalPath,component);
+      else
+        GetPathComponent(image_info->filename,SubcanonicalPath,component);
       (void) CopyMagickString(image_info->filename,component,MagickPathExtent);
     }
   else
@@ -2756,7 +2968,7 @@ MagickExport MagickBooleanType SetImageInfo(ImageInfo *image_info,
           (IsBlobExempt(image) != MagickFalse))
         {
           /*
-            Copy standard input or pipe to temporary file.
+            Copy image to seekable temporary file.
           */
           *component='\0';
           status=ImageToFile(image,component,exception);
@@ -2785,13 +2997,13 @@ MagickExport MagickBooleanType SetImageInfo(ImageInfo *image_info,
           image=DestroyImage(image);
           return(MagickFalse);
         }
-      (void) ResetMagickMemory(magick,0,magick_size);
+      (void) memset(magick,0,magick_size);
       count=ReadBlob(image,magick_size,magick);
       (void) SeekBlob(image,-((MagickOffsetType) count),SEEK_CUR);
       (void) CloseBlob(image);
       image=DestroyImage(image);
       /*
-        Check magic.xml configuration file.
+        Check magic cache.
       */
       sans_exception=AcquireExceptionInfo();
       magic_info=GetMagicInfo(magick,(size_t) count,sans_exception);
@@ -2866,6 +3078,42 @@ MagickExport void SetImageInfoBlob(ImageInfo *image_info,const void *blob,
       image_info->filename);
   image_info->blob=(void *) blob;
   image_info->length=length;
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   S e t I m a g e I n f o C u s t o m S t r e a m                           %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  SetImageInfoCustomStream() sets the image info custom stream handlers.
+%
+%  The format of the SetImageInfoCustomStream method is:
+%
+%      void SetImageInfoCustomStream(ImageInfo *image_info,
+%        CustomStreamInfo *custom_stream)
+%
+%  A description of each parameter follows:
+%
+%    o image_info: the image info.
+%
+%    o custom_stream: your custom stream methods.
+%
+*/
+MagickExport void SetImageInfoCustomStream(ImageInfo *image_info,
+  CustomStreamInfo *custom_stream)
+{
+  assert(image_info != (ImageInfo *) NULL);
+  assert(image_info->signature == MagickCoreSignature);
+  if (image_info->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
+      image_info->filename);
+  image_info->custom_stream=(CustomStreamInfo *) custom_stream;
 }
 
 /*
@@ -2956,24 +3204,50 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
     {
       switch (type)
       {
-        case WritePixelMask: image->write_mask=MagickFalse; break;
-        default: image->read_mask=MagickFalse; break;
+        case ReadPixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~ReadMaskChannel);
+          break;
+        }
+        case WritePixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~WriteMaskChannel);
+        }
+        default:
+        {
+          image->channels=(ChannelType) (image->channels & ~CompositeMaskChannel);
+          break;
+        }
       }
       return(SyncImagePixelCache(image,exception));
     }
   switch (type)
   {
-    case WritePixelMask: image->write_mask=MagickTrue; break;
-    default: image->read_mask=MagickTrue; break;
+    case ReadPixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | ReadMaskChannel);
+      break;
+    }
+    case WritePixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | WriteMaskChannel);
+      break;
+    }
+    default:
+    {
+      image->channels=(ChannelType) (image->channels | CompositeMaskChannel);
+      break;
+    }
   }
   if (SyncImagePixelCache(image,exception) == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
+  image->mask_trait=UpdatePixelTrait;
   mask_view=AcquireVirtualCacheView(mask,exception);
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(mask,image,1,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(mask,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3000,17 +3274,24 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
       MagickRealType
         intensity;
 
-      intensity=GetPixelIntensity(mask,p);
+      intensity=0.0;
+      if ((x < (ssize_t) mask->columns) && (y < (ssize_t) mask->rows))
+        intensity=GetPixelIntensity(mask,p);
       switch (type)
       {
+        case ReadPixelMask:
+        {
+          SetPixelReadMask(image,ClampToQuantum(intensity),q);
+          break;
+        }
         case WritePixelMask:
         {
-          SetPixelWriteMask(image,ClampToQuantum(QuantumRange-intensity),q);
+          SetPixelWriteMask(image,ClampToQuantum(intensity),q);
           break;
         }
         default:
         {
-          SetPixelReadMask(image,ClampToQuantum(QuantumRange-intensity),q);
+          SetPixelCompositeMask(image,ClampToQuantum(intensity),q);
           break;
         }
       }
@@ -3020,6 +3301,7 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
       status=MagickFalse;
   }
+  image->mask_trait=UndefinedPixelTrait;
   mask_view=DestroyCacheView(mask_view);
   image_view=DestroyCacheView(image_view);
   return(status);
@@ -3030,29 +3312,33 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%     S e t I m a g e A l p h a                                               %
+%   S e t I m a g e R e g i o n M a s k                                       %
 %                                                                             %
 %                                                                             %
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  SetImageAlpha() sets the alpha levels of the image.
+%  SetImageRegionMask() associates a mask with the image as defined by the
+%  specified region.
 %
-%  The format of the SetImageAlpha method is:
+%  The format of the SetImageRegionMask method is:
 %
-%      MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
-%        ExceptionInfo *exception)
+%      MagickBooleanType SetImageRegionMask(Image *image,const PixelMask type,
+%        const RectangleInfo *region,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
-%    o Alpha: the level of transparency: 0 is fully opaque and QuantumRange is
-%      fully transparent.
+%    o type: the mask type, ReadPixelMask or WritePixelMask.
+%
+%    o geometry: the mask region.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
-  ExceptionInfo *exception)
+MagickExport MagickBooleanType SetImageRegionMask(Image *image,
+  const PixelMask type,const RectangleInfo *region,ExceptionInfo *exception)
 {
   CacheView
     *image_view;
@@ -3063,16 +3349,61 @@ MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
   ssize_t
     y;
 
+  /*
+    Set image mask as defined by the region.
+  */
   assert(image != (Image *) NULL);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(image->signature == MagickCoreSignature);
-  image->alpha_trait=BlendPixelTrait;
+  if (region == (const RectangleInfo *) NULL)
+    {
+      switch (type)
+      {
+        case ReadPixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~ReadMaskChannel);
+          break;
+        }
+        case WritePixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~WriteMaskChannel);
+          break;
+        }
+        default:
+        {
+          image->channels=(ChannelType) (image->channels & ~CompositeMaskChannel);
+          break;
+        }
+      }
+      return(SyncImagePixelCache(image,exception));
+    }
+  switch (type)
+  {
+    case ReadPixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | ReadMaskChannel);
+      break;
+    }
+    case WritePixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | WriteMaskChannel);
+      break;
+    }
+    default:
+    {
+      image->channels=(ChannelType) (image->channels | CompositeMaskChannel);
+      break;
+    }
+  }
+  if (SyncImagePixelCache(image,exception) == MagickFalse)
+    return(MagickFalse);
   status=MagickTrue;
+  image->mask_trait=UpdatePixelTrait;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3092,13 +3423,37 @@ MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      if (GetPixelReadMask(image,q) != 0)
-        SetPixelAlpha(image,alpha,q);
+      Quantum
+        pixel;
+
+      pixel=QuantumRange;
+      if (((x >= region->x) && (x < (region->x+(ssize_t) region->width))) &&
+          ((y >= region->y) && (y < (region->y+(ssize_t) region->height))))
+        pixel=(Quantum) 0;
+      switch (type)
+      {
+        case ReadPixelMask:
+        {
+          SetPixelReadMask(image,pixel,q);
+          break;
+        }
+        case WritePixelMask:
+        {
+          SetPixelWriteMask(image,pixel,q);
+          break;
+        }
+        default:
+        {
+          SetPixelCompositeMask(image,pixel,q);
+          break;
+        }
+      }
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
       status=MagickFalse;
   }
+  image->mask_trait=UndefinedPixelTrait;
   image_view=DestroyCacheView(image_view);
   return(status);
 }
@@ -3484,7 +3839,7 @@ MagickExport MagickBooleanType StripImage(Image *image,ExceptionInfo *exception)
   (void) DeleteImageProperty(image,"date:create");
   (void) DeleteImageProperty(image,"date:modify");
   status=SetImageArtifact(image,"png:exclude-chunk",
-    "bKGD,cHRM,EXIF,gAMA,iCCP,iTXt,sRGB,tEXt,zCCP,zTXt,date");
+    "bKGD,caNv,cHRM,eXIf,gAMA,iCCP,iTXt,pHYs,sRGB,tEXt,zCCP,zTXt,date");
   return(status);
 }
 
@@ -3540,15 +3895,18 @@ MagickExport MagickBooleanType SyncImage(Image *image,ExceptionInfo *exception)
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(image->signature == MagickCoreSignature);
-  if (image->storage_class == DirectClass)
+  if (image->ping != MagickFalse)
+    return(MagickTrue);
+  if (image->storage_class != PseudoClass)
     return(MagickFalse);
+  assert(image->colormap != (PixelInfo *) NULL);
   range_exception=MagickFalse;
   status=MagickTrue;
   taint=image->taint;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(range_exception,status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(range_exception,status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3666,10 +4024,6 @@ MagickExport MagickBooleanType SyncImageSettings(const ImageInfo *image_info,
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  option=GetImageOption(image_info,"alpha-color");
-  if (option != (const char *) NULL)
-    (void) QueryColorCompliance(option,AllCompliance,&image->alpha_color,
-      exception);
   option=GetImageOption(image_info,"background");
   if (option != (const char *) NULL)
     (void) QueryColorCompliance(option,AllCompliance,&image->background_color,
@@ -3708,9 +4062,6 @@ MagickExport MagickBooleanType SyncImageSettings(const ImageInfo *image_info,
   option=GetImageOption(image_info,"density");
   if (option != (const char *) NULL)
     {
-      GeometryInfo
-        geometry_info;
-
       flags=ParseGeometry(option,&geometry_info);
       image->resolution.x=geometry_info.rho;
       image->resolution.y=geometry_info.sigma;
@@ -3763,6 +4114,10 @@ MagickExport MagickBooleanType SyncImageSettings(const ImageInfo *image_info,
   option=GetImageOption(image_info,"loop");
   if (option != (const char *) NULL)
     image->iterations=StringToUnsignedLong(option);
+  option=GetImageOption(image_info,"mattecolor");
+  if (option != (const char *) NULL)
+    (void) QueryColorCompliance(option,AllCompliance,&image->matte_color,
+      exception);
   option=GetImageOption(image_info,"orient");
   if (option != (const char *) NULL)
     image->orientation=(OrientationType) ParseCommandOption(

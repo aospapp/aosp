@@ -33,7 +33,7 @@ static void handle_queue(struct io *q_iop)
 		update_lq(&last_q, &all_avgs.q2q, q_iop->t.time);
 	}
 
-	q_iop->i_time = q_iop->g_time = q_iop->i_time = q_iop->m_time =
+	q_iop->i_time = q_iop->g_time = q_iop->c_time = q_iop->m_time =
 						q_iop->d_time = (__u64)-1;
 	q_iop->dip->n_qs++;
 

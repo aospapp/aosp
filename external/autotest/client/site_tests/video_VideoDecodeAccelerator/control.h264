@@ -16,10 +16,8 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
 JOB_RETRIES = 2
-DEPENDENCIES = "hw_video_acc_h264"
 # Reboot in the lab after the test ends.
-DEPENDENCIES = "cleanup-reboot, hw_video_acc_h264"
-RETRIES = 1
+DEPENDENCIES = "cleanup-reboot"
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -33,5 +31,5 @@ This is a wrapper test for Chrome video_decode_accelerator_unittest.
 # the bots green.
 videos = ['test-25fps.h264:320:240:250:258:35:150:1']
 
-args_dict = utils.args_to_dict(args)
-job.run_test('video_VideoDecodeAccelerator', videos=videos, **args_dict)
+job.run_test('video_VideoDecodeAccelerator', videos=videos,
+             capability='hw_dec_h264_1080_30')

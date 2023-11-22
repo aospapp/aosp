@@ -32,6 +32,8 @@
 #include "vkBuilderUtil.hpp"
 #include "vkRefUtil.hpp"
 #include "vkPrograms.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuResource.hpp"
@@ -97,7 +99,7 @@ StateObjects::StateObjects (const vk::DeviceInterface&vk, vkt::Context &context,
 		const ImageCreateInfo colorImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_colorAttachmentFormat, imageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT, vk::VK_IMAGE_TILING_OPTIMAL,
 												   vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
-		m_colorAttachmentImage	= Image::createAndAlloc(vk, device, colorImageCreateInfo, m_context.getDefaultAllocator());
+		m_colorAttachmentImage	= Image::createAndAlloc(vk, device, colorImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 		const ImageViewCreateInfo attachmentViewInfo(m_colorAttachmentImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, m_colorAttachmentFormat);
 		m_attachmentView		= vk::createImageView(vk, device, &attachmentViewInfo);
@@ -105,7 +107,7 @@ StateObjects::StateObjects (const vk::DeviceInterface&vk, vkt::Context &context,
 		ImageCreateInfo depthImageCreateInfo(vk::VK_IMAGE_TYPE_2D, depthFormat, imageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT, vk::VK_IMAGE_TILING_OPTIMAL,
 			vk::VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-		m_DepthImage			= Image::createAndAlloc(vk, device, depthImageCreateInfo, m_context.getDefaultAllocator());
+		m_DepthImage			= Image::createAndAlloc(vk, device, depthImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 		// Construct a depth  view from depth image
 		const ImageViewCreateInfo depthViewInfo(m_DepthImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, depthFormat);
@@ -209,27 +211,8 @@ StateObjects::StateObjects (const vk::DeviceInterface&vk, vkt::Context &context,
 		pipelineCreateInfo.addShader(PipelineCreateInfo::PipelineShaderStage(*fs, "main", vk::VK_SHADER_STAGE_FRAGMENT_BIT));
 		pipelineCreateInfo.addState(PipelineCreateInfo::InputAssemblerState(primitive));
 		pipelineCreateInfo.addState(PipelineCreateInfo::ColorBlendState(1, &attachmentState));
-		const vk::VkViewport viewport	=
-		{
-			0,		// float x;
-			0,		// float y;
-			WIDTH,	// float width;
-			HEIGHT,	// float height;
-			0.0f,	// float minDepth;
-			1.0f	// float maxDepth;
-		};
-
-		const vk::VkRect2D scissor		=
-		{
-			{
-				0,		// deInt32 x
-				0,		// deInt32 y
-			},		// VkOffset2D	offset;
-			{
-				WIDTH,	// deInt32 width;
-				HEIGHT,	// deInt32 height
-			},		// VkExtent2D	extent;
-		};
+		const vk::VkViewport viewport	= vk::makeViewport(WIDTH, HEIGHT);
+		const vk::VkRect2D scissor		= vk::makeRect2D(WIDTH, HEIGHT);
 		pipelineCreateInfo.addState(PipelineCreateInfo::ViewportState(1, std::vector<vk::VkViewport>(1, viewport), std::vector<vk::VkRect2D>(1, scissor)));
 		pipelineCreateInfo.addState(PipelineCreateInfo::DepthStencilState(true, true, vk::VK_COMPARE_OP_GREATER_OR_EQUAL));
 		pipelineCreateInfo.addState(PipelineCreateInfo::RasterizerState());
@@ -241,7 +224,7 @@ StateObjects::StateObjects (const vk::DeviceInterface&vk, vkt::Context &context,
 	{
 		// Vertex buffer
 		const size_t kBufferSize = numVertices * sizeof(tcu::Vec4);
-		m_vertexBuffer = Buffer::createAndAlloc(vk, device, BufferCreateInfo(kBufferSize, vk::VK_BUFFER_USAGE_STORAGE_BUFFER_BIT), m_context.getDefaultAllocator(), vk::MemoryRequirement::HostVisible);
+		m_vertexBuffer = Buffer::createAndAlloc(vk, device, BufferCreateInfo(kBufferSize, vk::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT), m_context.getDefaultAllocator(), vk::MemoryRequirement::HostVisible);
 	}
 }
 
@@ -252,7 +235,7 @@ void StateObjects::setVertices (const vk::DeviceInterface&vk, std::vector<tcu::V
 	tcu::Vec4 *ptr = reinterpret_cast<tcu::Vec4*>(m_vertexBuffer->getBoundMemory().getHostPtr());
 	std::copy(vertices.begin(), vertices.end(), ptr);
 
-	vk::flushMappedMemoryRange(vk, device,	m_vertexBuffer->getBoundMemory().getMemory(), m_vertexBuffer->getBoundMemory().getOffset(),	vertices.size() * sizeof(vertices[0]));
+	vk::flushAlloc(vk, device,	m_vertexBuffer->getBoundMemory());
 }
 
 enum OcclusionQueryResultSize
@@ -369,27 +352,20 @@ tcu::TestStatus	BasicOcclusionQueryTestInstance::iterate (void)
 	vk::Move<vk::VkCommandPool>		cmdPool				= vk::createCommandPool(vk, device, &cmdPoolCreateInfo);
 
 	vk::Unique<vk::VkCommandBuffer> cmdBuffer			(vk::allocateCommandBuffer(vk, device, *cmdPool, vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY));
-	const CmdBufferBeginInfo		beginInfo			(0u);
 
-	vk.beginCommandBuffer(*cmdBuffer, &beginInfo);
+	beginCommandBuffer(vk, *cmdBuffer);
 
-	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_ASPECT_COLOR_BIT, vk::VK_IMAGE_LAYOUT_UNDEFINED, vk::VK_IMAGE_LAYOUT_GENERAL, 0, vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_DepthImage->object(), vk::VK_IMAGE_ASPECT_DEPTH_BIT, vk::VK_IMAGE_LAYOUT_UNDEFINED, vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0, vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+	initialTransitionColor2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+								  vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	initialTransitionDepth2DImage(vk, *cmdBuffer, m_stateObjects->m_DepthImage->object(), vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+								  vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, vk::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | vk::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
 	std::vector<vk::VkClearValue> renderPassClearValues(2);
 	deMemset(&renderPassClearValues[0], 0, static_cast<int>(renderPassClearValues.size()) * sizeof(vk::VkClearValue));
 
-	const vk::VkRect2D renderArea =
-	{
-		{ 0,					0 },
-		{ StateObjects::WIDTH,	StateObjects::HEIGHT }
-	};
-
-	RenderPassBeginInfo renderPassBegin(*m_stateObjects->m_renderPass, *m_stateObjects->m_framebuffer, renderArea, renderPassClearValues);
-
 	vk.cmdResetQueryPool(*cmdBuffer, m_queryPool, 0, NUM_QUERIES_IN_POOL);
 
-	vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+	beginRenderPass(vk, *cmdBuffer, *m_stateObjects->m_renderPass, *m_stateObjects->m_framebuffer, vk::makeRect2D(0, 0, StateObjects::WIDTH, StateObjects::HEIGHT), (deUint32)renderPassClearValues.size(), &renderPassClearValues[0]);
 
 	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *m_stateObjects->m_pipeline);
 
@@ -404,28 +380,15 @@ tcu::TestStatus	BasicOcclusionQueryTestInstance::iterate (void)
 	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_DRAWCALL, 1, 0, 0);
 	vk.cmdEndQuery(*cmdBuffer, m_queryPool,	QUERY_INDEX_CAPTURE_DRAWCALL);
 
-	vk.cmdEndRenderPass(*cmdBuffer);
+	endRenderPass(vk, *cmdBuffer);
 
-	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_ASPECT_COLOR_BIT, vk::VK_IMAGE_LAYOUT_GENERAL, vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT);
+	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_ASPECT_COLOR_BIT,
+					  vk::VK_IMAGE_LAYOUT_GENERAL, vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					  vk::VK_ACCESS_TRANSFER_READ_BIT, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-	vk.endCommandBuffer(*cmdBuffer);
+	endCommandBuffer(vk, *cmdBuffer);
 
-	// Submit command buffer
-	const vk::VkSubmitInfo submitInfo =
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType			sType;
-		DE_NULL,							// const void*				pNext;
-		0,									// deUint32					waitSemaphoreCount;
-		DE_NULL,							// const VkSemaphore*		pWaitSemaphores;
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-		1,									// deUint32					commandBufferCount;
-		&cmdBuffer.get(),					// const VkCommandBuffer*	pCommandBuffers;
-		0,									// deUint32					signalSemaphoreCount;
-		DE_NULL								// const VkSemaphore*		pSignalSemaphores;
-	};
-	vk.queueSubmit(queue, 1, &submitInfo, DE_NULL);
-
-	VK_CHECK(vk.queueWaitIdle(queue));
+	submitCommandsAndWait(vk, device, queue, cmdBuffer.get());
 
 	deUint64 queryResults[NUM_QUERIES_IN_POOL] = { 0 };
 	size_t queryResultsSize		= sizeof(queryResults);
@@ -773,11 +736,10 @@ vk::Move<vk::VkCommandBuffer> OcclusionQueryTestInstance::recordQueryPoolReset (
 	DE_ASSERT(hasSeparateResetCmdBuf());
 
 	vk::Move<vk::VkCommandBuffer>	cmdBuffer	(vk::allocateCommandBuffer(vk, device, cmdPool, vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY));
-	CmdBufferBeginInfo				beginInfo	(0u);
 
-	vk.beginCommandBuffer(*cmdBuffer, &beginInfo);
+	beginCommandBuffer(vk, *cmdBuffer);
 	vk.cmdResetQueryPool(*cmdBuffer, m_queryPool, 0, NUM_QUERIES_IN_POOL);
-	vk.endCommandBuffer(*cmdBuffer);
+	endCommandBuffer(vk, *cmdBuffer);
 
 	return cmdBuffer;
 }
@@ -788,30 +750,23 @@ vk::Move<vk::VkCommandBuffer> OcclusionQueryTestInstance::recordRender (vk::VkCo
 	const vk::DeviceInterface&		vk			= m_context.getDeviceInterface();
 
 	vk::Move<vk::VkCommandBuffer>	cmdBuffer	(vk::allocateCommandBuffer(vk, device, cmdPool, vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY));
-	CmdBufferBeginInfo				beginInfo	(0u);
 
-	vk.beginCommandBuffer(*cmdBuffer, &beginInfo);
+	beginCommandBuffer(vk, *cmdBuffer);
 
-	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_ASPECT_COLOR_BIT, vk::VK_IMAGE_LAYOUT_UNDEFINED, vk::VK_IMAGE_LAYOUT_GENERAL, 0, vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_DepthImage->object(), vk::VK_IMAGE_ASPECT_DEPTH_BIT, vk::VK_IMAGE_LAYOUT_UNDEFINED, vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0, vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+	initialTransitionColor2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+								  vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	initialTransitionDepth2DImage(vk, *cmdBuffer, m_stateObjects->m_DepthImage->object(), vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+								  vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, vk::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | vk::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
 	std::vector<vk::VkClearValue>	renderPassClearValues(2);
 	deMemset(&renderPassClearValues[0], 0, static_cast<int>(renderPassClearValues.size()) * sizeof(vk::VkClearValue));
-
-	const vk::VkRect2D renderArea =
-	{
-		{ 0,					0 },
-		{ StateObjects::WIDTH,	StateObjects::HEIGHT }
-	};
-
-	RenderPassBeginInfo renderPassBegin(*m_stateObjects->m_renderPass, *m_stateObjects->m_framebuffer, renderArea, renderPassClearValues);
 
 	if (!hasSeparateResetCmdBuf())
 	{
 		vk.cmdResetQueryPool(*cmdBuffer, m_queryPool, 0, NUM_QUERIES_IN_POOL);
 	}
 
-	vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+	beginRenderPass(vk, *cmdBuffer, *m_stateObjects->m_renderPass, *m_stateObjects->m_framebuffer, vk::makeRect2D(0, 0, StateObjects::WIDTH, StateObjects::HEIGHT), (deUint32)renderPassClearValues.size(), &renderPassClearValues[0]);
 
 	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS,	*m_stateObjects->m_pipeline);
 
@@ -824,6 +779,15 @@ vk::Move<vk::VkCommandBuffer> OcclusionQueryTestInstance::recordRender (vk::VkCo
 	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_DRAWCALL, 1, START_VERTEX, 0);
 	vk.cmdEndQuery(*cmdBuffer, m_queryPool,	QUERY_INDEX_CAPTURE_ALL);
 
+	endRenderPass(vk, *cmdBuffer);
+
+	beginRenderPass(vk, *cmdBuffer, *m_stateObjects->m_renderPass, *m_stateObjects->m_framebuffer, vk::makeRect2D(0, 0, StateObjects::WIDTH, StateObjects::HEIGHT), (deUint32)renderPassClearValues.size(), &renderPassClearValues[0]);
+
+	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *m_stateObjects->m_pipeline);
+
+	// Draw un-occluded geometry
+	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_DRAWCALL, 1, START_VERTEX, 0);
+
 	// Partially occlude geometry
 	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_PARTIALLY_OCCLUDED_DRAWCALL, 1, START_VERTEX_PARTIALLY_OCCLUDED, 0);
 
@@ -831,6 +795,18 @@ vk::Move<vk::VkCommandBuffer> OcclusionQueryTestInstance::recordRender (vk::VkCo
 	vk.cmdBeginQuery(*cmdBuffer, m_queryPool, QUERY_INDEX_CAPTURE_PARTIALLY_OCCLUDED, m_testVector.queryControlFlags);
 	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_DRAWCALL, 1, START_VERTEX, 0);
 	vk.cmdEndQuery(*cmdBuffer, m_queryPool, QUERY_INDEX_CAPTURE_PARTIALLY_OCCLUDED);
+
+	endRenderPass(vk, *cmdBuffer);
+
+	beginRenderPass(vk, *cmdBuffer, *m_stateObjects->m_renderPass, *m_stateObjects->m_framebuffer, vk::makeRect2D(0, 0, StateObjects::WIDTH, StateObjects::HEIGHT), (deUint32)renderPassClearValues.size(), &renderPassClearValues[0]);
+
+	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *m_stateObjects->m_pipeline);
+
+	// Draw un-occluded geometry
+	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_DRAWCALL, 1, START_VERTEX, 0);
+
+	// Partially occlude geometry
+	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_PARTIALLY_OCCLUDED_DRAWCALL, 1, START_VERTEX_PARTIALLY_OCCLUDED, 0);
 
 	// Occlude geometry
 	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_OCCLUDER_DRAWCALL, 1, START_VERTEX_OCCLUDER, 0);
@@ -840,16 +816,18 @@ vk::Move<vk::VkCommandBuffer> OcclusionQueryTestInstance::recordRender (vk::VkCo
 	vk.cmdDraw(*cmdBuffer, NUM_VERTICES_IN_DRAWCALL, 1, START_VERTEX, 0);
 	vk.cmdEndQuery(*cmdBuffer, m_queryPool,	QUERY_INDEX_CAPTURE_OCCLUDED);
 
-	vk.cmdEndRenderPass(*cmdBuffer);
+	endRenderPass(vk, *cmdBuffer);
 
 	if (m_testVector.queryResultsMode == RESULTS_MODE_COPY && !hasSeparateCopyCmdBuf())
 	{
 		vk.cmdCopyQueryPoolResults(*cmdBuffer, m_queryPool, 0, NUM_QUERIES_IN_POOL, m_queryPoolResultsBuffer->object(), /*dstOffset*/ 0, m_testVector.queryResultsStride, m_queryResultFlags);
 	}
 
-	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_ASPECT_COLOR_BIT, vk::VK_IMAGE_LAYOUT_GENERAL, vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT);
+	transition2DImage(vk, *cmdBuffer, m_stateObjects->m_colorAttachmentImage->object(), vk::VK_IMAGE_ASPECT_COLOR_BIT, vk::VK_IMAGE_LAYOUT_GENERAL,
+					  vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT,
+					  vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-	vk.endCommandBuffer(*cmdBuffer);
+	endCommandBuffer(vk, *cmdBuffer);
 
 	return cmdBuffer;
 }
@@ -860,11 +838,10 @@ vk::Move<vk::VkCommandBuffer> OcclusionQueryTestInstance::recordCopyResults (vk:
 	const vk::DeviceInterface&		vk			= m_context.getDeviceInterface();
 
 	vk::Move<vk::VkCommandBuffer>	cmdBuffer	(vk::allocateCommandBuffer(vk, device, cmdPool, vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY));
-	const CmdBufferBeginInfo		beginInfo	(0u);
 
-	vk.beginCommandBuffer(*cmdBuffer, &beginInfo);
+	beginCommandBuffer(vk, *cmdBuffer);
 	vk.cmdCopyQueryPoolResults(*cmdBuffer, m_queryPool, 0, NUM_QUERIES_IN_POOL, m_queryPoolResultsBuffer->object(), /*dstOffset*/ 0, m_testVector.queryResultsStride, m_queryResultFlags);
-	vk.endCommandBuffer(*cmdBuffer);
+	endCommandBuffer(vk, *cmdBuffer);
 
 	return cmdBuffer;
 }
@@ -893,7 +870,7 @@ void OcclusionQueryTestInstance::captureResults (deUint64* retResults, deUint64*
 		const vk::Allocation& allocation = m_queryPoolResultsBuffer->getBoundMemory();
 		const void* allocationData = allocation.getHostPtr();
 
-		vk::invalidateMappedMemoryRange(vk, device, allocation.getMemory(), allocation.getOffset(), resultsBuffer.size());
+		vk::invalidateAlloc(vk, device, allocation);
 
 		deMemcpy(&resultsBuffer[0], allocationData, resultsBuffer.size());
 	}

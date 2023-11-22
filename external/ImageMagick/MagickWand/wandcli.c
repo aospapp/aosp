@@ -15,13 +15,13 @@
 %                              Anthony Thyssen                                %
 %                                 April 2011                                  %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -241,8 +241,10 @@ WandExport MagickBooleanType CLICatchException(MagickCLI *cli_wand,
   if (cli_wand->wand.debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",cli_wand->wand.name);
 
-  // FUTURE: '-regard_warning' should make this more sensitive.
-  // Note pipelined options may like more control over this level
+  /*
+    FUTURE: '-regard_warning' should make this more sensitive.
+    Note pipelined options may like more control over this level
+  */
 
   status=cli_wand->wand.exception->severity > ErrorException ? MagickTrue :
     MagickFalse;
@@ -280,6 +282,9 @@ WandExport MagickBooleanType CLILogEvent(MagickCLI *cli_wand,
 
   va_list
     operands;
+
+  if (IsEventLogging() == MagickFalse)
+    return(MagickFalse);
 
   /* HACK - prepend the CLI location to format string.
      The better way would be add more arguments to to the 'va' oparands

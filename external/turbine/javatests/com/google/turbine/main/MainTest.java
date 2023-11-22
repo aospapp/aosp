@@ -16,23 +16,30 @@
 
 package com.google.turbine.main;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_CLASS_VERSION;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.turbine.testing.TestClassPaths.optionsWithBootclasspath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
+import com.google.common.io.MoreFiles;
+import com.google.turbine.diag.TurbineError;
 import com.google.turbine.options.TurbineOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -41,9 +48,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class MainTest {
-
-  static final ImmutableList<String> BOOTCLASSPATH =
-      ImmutableList.of(Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString());
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -63,29 +67,27 @@ public class MainTest {
 
     try {
       Main.compile(
-          TurbineOptions.builder()
+          optionsWithBootclasspath()
               .setSourceJars(ImmutableList.of(sourcesa.toString(), sourcesb.toString()))
-              .addBootClassPathEntries(BOOTCLASSPATH)
               .setOutput(output.toString())
               .build());
       fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Multiple entries with same key: Test");
+    } catch (TurbineError e) {
+      assertThat(e).hasMessageThat().contains("error: duplicate declaration of Test");
     }
   }
 
   @Test
   public void packageInfo() throws IOException {
     Path src = temporaryFolder.newFile("package-info.jar").toPath();
-    Files.write(src, "@Deprecated package test;".getBytes(UTF_8));
+    MoreFiles.asCharSink(src, UTF_8).write("@Deprecated package test;");
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
     boolean ok =
         Main.compile(
-            TurbineOptions.builder()
+            optionsWithBootclasspath()
                 .addSources(ImmutableList.of(src.toString()))
-                .addBootClassPathEntries(BOOTCLASSPATH)
                 .setOutput(output.toString())
                 .build());
     assertThat(ok).isTrue();
@@ -106,9 +108,8 @@ public class MainTest {
 
     boolean ok =
         Main.compile(
-            TurbineOptions.builder()
+            optionsWithBootclasspath()
                 .setSourceJars(ImmutableList.of(srcjar.toString()))
-                .addBootClassPathEntries(BOOTCLASSPATH)
                 .setOutput(output.toString())
                 .build());
     assertThat(ok).isTrue();
@@ -131,6 +132,11 @@ public class MainTest {
 
   @Test
   public void moduleInfos() throws IOException {
+    if (Double.parseDouble(JAVA_CLASS_VERSION.value()) < 53) {
+      // only run on JDK 9 and later
+      return;
+    }
+
     Path srcjar = temporaryFolder.newFile("lib.srcjar").toPath();
     try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(srcjar))) {
       jos.putNextEntry(new JarEntry("module-info.java"));
@@ -140,7 +146,58 @@ public class MainTest {
     }
 
     Path src = temporaryFolder.newFile("module-info.java").toPath();
-    Files.write(src, "module baz {}".getBytes(UTF_8));
+    MoreFiles.asCharSink(src, UTF_8).write("module baz {}");
+
+    Path output = temporaryFolder.newFile("output.jar").toPath();
+
+    boolean ok =
+        Main.compile(
+            TurbineOptions.builder()
+                .setRelease("9")
+                .addSources(ImmutableList.of(src.toString()))
+                .setSourceJars(ImmutableList.of(srcjar.toString()))
+                .setOutput(output.toString())
+                .build());
+    assertThat(ok).isTrue();
+
+    Map<String, byte[]> data = readJar(output);
+    assertThat(data.keySet())
+        .containsExactly("foo/module-info.class", "bar/module-info.class", "baz/module-info.class");
+  }
+
+  @Test
+  public void testManifest() throws IOException {
+    Path src = temporaryFolder.newFile("Foo.java").toPath();
+    MoreFiles.asCharSink(src, UTF_8).write("class Foo {}");
+
+    Path output = temporaryFolder.newFile("output.jar").toPath();
+
+    boolean ok =
+        Main.compile(
+            optionsWithBootclasspath()
+                .addSources(ImmutableList.of(src.toString()))
+                .setTargetLabel("//foo:foo")
+                .setInjectingRuleKind("foo_library")
+                .setOutput(output.toString())
+                .build());
+    assertThat(ok).isTrue();
+
+    try (JarFile jarFile = new JarFile(output.toFile())) {
+      Manifest manifest = jarFile.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
+      assertThat(jarFile.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
+          .isEqualTo(
+              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneId.systemDefault()).toInstant());
+    }
+  }
+
+  @Test
+  public void emptyBootClassPath() throws IOException {
+    Path src = temporaryFolder.newFolder().toPath().resolve("java/lang/Object.java");
+    Files.createDirectories(src.getParent());
+    MoreFiles.asCharSink(src, UTF_8).write("package java.lang; public class Object {}");
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
@@ -148,13 +205,43 @@ public class MainTest {
         Main.compile(
             TurbineOptions.builder()
                 .addSources(ImmutableList.of(src.toString()))
-                .setSourceJars(ImmutableList.of(srcjar.toString()))
-                .addBootClassPathEntries(BOOTCLASSPATH)
                 .setOutput(output.toString())
                 .build());
     assertThat(ok).isTrue();
 
     Map<String, byte[]> data = readJar(output);
-    assertThat(data.keySet()).isEmpty();
+    assertThat(data.keySet()).containsExactly("java/lang/Object.class");
+  }
+
+  @Test
+  public void emptyBootClassPath_noJavaLang() throws IOException {
+    Path src = temporaryFolder.newFile("Test.java").toPath();
+    MoreFiles.asCharSink(src, UTF_8).write("public class Test {}");
+
+    Path output = temporaryFolder.newFile("output.jar").toPath();
+
+    try {
+      Main.compile(
+          TurbineOptions.builder()
+              .addSources(ImmutableList.of(src.toString()))
+              .setOutput(output.toString())
+              .build());
+      fail();
+    } catch (IllegalArgumentException expected) {
+      assertThat(expected).hasMessageThat().contains("java.lang");
+    }
+  }
+
+  @Test
+  public void usage() throws IOException {
+    Path src = temporaryFolder.newFile("Test.java").toPath();
+    MoreFiles.asCharSink(src, UTF_8).write("public class Test {}");
+
+    try {
+      Main.compile(optionsWithBootclasspath().addSources(ImmutableList.of(src.toString())).build());
+      fail();
+    } catch (UsageException expected) {
+      assertThat(expected).hasMessageThat().contains("--output is required");
+    }
   }
 }

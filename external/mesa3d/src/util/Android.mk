@@ -31,13 +31,18 @@ include $(LOCAL_PATH)/Makefile.sources
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-	$(MESA_UTIL_FILES)
+	$(MESA_UTIL_FILES) \
+	$(XMLCONFIG_FILES)
 
 LOCAL_C_INCLUDES := \
+	external/zlib \
 	$(MESA_TOP)/src/mesa \
 	$(MESA_TOP)/src/mapi \
 	$(MESA_TOP)/src/gallium/include \
 	$(MESA_TOP)/src/gallium/auxiliary
+
+LOCAL_SHARED_LIBRARIES := \
+	libexpat
 
 LOCAL_MODULE := libmesa_util
 
@@ -45,48 +50,27 @@ LOCAL_MODULE := libmesa_util
 
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
+prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
 intermediates := $(call local-generated-sources-dir)
-LOCAL_GENERATED_SOURCES := $(addprefix $(intermediates)/,$(MESA_UTIL_GENERATED_FILES))
 
-$(LOCAL_GENERATED_SOURCES): PRIVATE_PYTHON := $(MESA_PYTHON2)
-$(LOCAL_GENERATED_SOURCES): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PYTHON) $^ > $@
-$(LOCAL_GENERATED_SOURCES): $(intermediates)/%.c: $(LOCAL_PATH)/%.py
-	$(transform-generated-source)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(intermediates)
+
+UTIL_GENERATED_SOURCES := $(addprefix $(intermediates)/,$(MESA_UTIL_GENERATED_FILES))
+LOCAL_GENERATED_SOURCES := $(UTIL_GENERATED_SOURCES)
+
+$(intermediates)/xmlpool/options.h: $(prebuilt_intermediates)/xmlpool/options.h
+	@mkdir -p $(dir $@)
+	@cp -f $< $@
+
+MESA_DRI_OPTIONS_H := $(intermediates)/xmlpool/options.h
+LOCAL_GENERATED_SOURCES := $(MESA_DRI_OPTIONS_H)
+
+$(intermediates)/format_srgb.c: $(prebuilt_intermediates)/util/format_srgb.c
+	@mkdir -p $(dir $@)
+	@cp -f $< $@
+
+MESA_FORMAT_SRGB_C := $(intermediates)/format_srgb.c
+LOCAL_GENERATED_SOURCES += $(MESA_FORMAT_SRGB_C)
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
-
-# ---------------------------------------
-# Build host libmesa_util
-# ---------------------------------------
-
-include $(CLEAR_VARS)
-
-LOCAL_IS_HOST_MODULE := true
-LOCAL_CFLAGS := -D_POSIX_C_SOURCE=199309L
-
-LOCAL_SRC_FILES := \
-	$(MESA_UTIL_FILES)
-
-LOCAL_C_INCLUDES := \
-	$(MESA_TOP)/src/mesa \
-	$(MESA_TOP)/src/mapi \
-	$(MESA_TOP)/src/gallium/include \
-	$(MESA_TOP)/src/gallium/auxiliary
-
-LOCAL_MODULE := libmesa_util
-
-# Generated sources
-
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-
-intermediates := $(call local-generated-sources-dir)
-LOCAL_GENERATED_SOURCES := $(addprefix $(intermediates)/,$(MESA_UTIL_GENERATED_FILES))
-
-$(LOCAL_GENERATED_SOURCES): PRIVATE_PYTHON := $(MESA_PYTHON2)
-$(LOCAL_GENERATED_SOURCES): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PYTHON) $^ > $@
-$(LOCAL_GENERATED_SOURCES): $(intermediates)/%.c: $(LOCAL_PATH)/%.py
-	$(transform-generated-source)
-
-include $(MESA_COMMON_MK)
-include $(BUILD_HOST_STATIC_LIBRARY)

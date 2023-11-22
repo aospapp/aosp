@@ -11,6 +11,7 @@ const char kSessionManagerServicePath[] = "/org/chromium/SessionManager";
 const char kSessionManagerServiceName[] = "org.chromium.SessionManager";
 // Methods
 const char kSessionManagerEmitLoginPromptVisible[] = "EmitLoginPromptVisible";
+const char kSessionManagerEmitAshInitialized[] = "EmitAshInitialized";
 const char kSessionManagerEnableChromeTesting[] = "EnableChromeTesting";
 const char kSessionManagerSaveLoginPassword[] = "SaveLoginPassword";
 const char kSessionManagerStartSession[] = "StartSession";
@@ -32,8 +33,11 @@ const char kSessionManagerStoreDeviceLocalAccountPolicy[] =
     "StoreDeviceLocalAccountPolicy";
 const char kSessionManagerRetrieveDeviceLocalAccountPolicy[] =
     "RetrieveDeviceLocalAccountPolicy";
+const char kSessionManagerListStoredComponentPolicies[] =
+    "ListStoredComponentPolicies";
 const char kSessionManagerRetrieveSessionState[] = "RetrieveSessionState";
 const char kSessionManagerRetrieveActiveSessions[] = "RetrieveActiveSessions";
+const char kSessionManagerRetrievePrimarySession[] = "RetrievePrimarySession";
 const char kSessionManagerStartTPMFirmwareUpdate[] = "StartTPMFirmwareUpdate";
 const char kSessionManagerStartDeviceWipe[] = "StartDeviceWipe";
 const char kSessionManagerHandleSupervisedUserCreationStarting[] =
@@ -49,7 +53,6 @@ const char kSessionManagerGetServerBackedStateKeys[] =
     "GetServerBackedStateKeys";
 const char kSessionManagerInitMachineInfo[] = "InitMachineInfo";
 const char kSessionManagerCheckArcAvailability[] = "CheckArcAvailability";
-const char kSessionManagerStartArcInstance[] = "StartArcInstance";
 const char kSessionManagerStartArcMiniContainer[] = "StartArcMiniContainer";
 const char kSessionManagerUpgradeArcContainer[] = "UpgradeArcContainer";
 const char kSessionManagerStopArcInstance[] = "StopArcInstance";
@@ -83,6 +86,7 @@ const char kArcInstanceRunning[] = INTERFACE ".ArcInstanceRunning";
 const char kArcContainerNotFound[] = INTERFACE ".ArcContainerNotFound";
 const char kContainerStartupFail[] = INTERFACE ".ContainerStartupFail";
 const char kContainerShutdownFail[] = INTERFACE ".ContainerShutdownFail";
+const char kDeleteFail[] = INTERFACE ".DeleteFail";
 const char kEmitFailed[] = INTERFACE ".EmitFailed";
 const char kGetServiceFail[] = INTERFACE ".kGetServiceFail";
 const char kInitMachineInfoFail[] = INTERFACE ".InitMachineInfoFail";
@@ -112,6 +116,27 @@ enum ContainerCpuRestrictionState {
   CONTAINER_CPU_RESTRICTION_FOREGROUND = 0,
   CONTAINER_CPU_RESTRICTION_BACKGROUND = 1,
   NUM_CONTAINER_CPU_RESTRICTION_STATES = 2,
+};
+
+enum class ArcContainerStopReason {
+  // The ARC container is crashed.
+  CRASH = 0,
+
+  // Stopped by the user request, e.g. disabling ARC.
+  USER_REQUEST = 1,
+
+  // Session manager is shut down. So, ARC is also shut down along with it.
+  SESSION_MANAGER_SHUTDOWN = 2,
+
+  // Browser was shut down. ARC is also shut down along with it.
+  BROWSER_SHUTDOWN = 3,
+
+  // Disk space is too small to upgrade ARC.
+  LOW_DISK_SPACE = 4,
+
+  // Failed to upgrade ARC mini container into full container.
+  // Note that this will be used if the reason is other than low-disk-space.
+  UPGRADE_FAILURE = 5,
 };
 
 }  // namespace login_manager

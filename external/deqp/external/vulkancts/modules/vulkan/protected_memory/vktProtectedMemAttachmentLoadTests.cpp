@@ -33,6 +33,7 @@
 #include "vktTestGroupUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkBuilderUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "vktProtectedMemContext.hpp"
 #include "vktProtectedMemUtils.hpp"
@@ -166,21 +167,11 @@ tcu::TestStatus AttachmentLoadTestInstance::iterate()
 	}
 
 	// Image clear
-	const vk::VkRenderPassBeginInfo		passBeginInfo		=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,		// sType
-		DE_NULL,											// pNext
-		*renderPass,										// renderPass
-		*framebuffer,										// framebuffer
-		{ {0, 0}, {RENDER_WIDTH, RENDER_HEIGHT} },			// renderArea
-		1u,													// clearValueCount
-		&m_clearValue,										// pClearValues
-	};
-
-	vk.cmdBeginRenderPass(*cmdBuffer, &passBeginInfo, vk::VK_SUBPASS_CONTENTS_INLINE);
-	vk.cmdEndRenderPass(*cmdBuffer);
+	beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, vk::makeRect2D(0, 0, RENDER_WIDTH, RENDER_HEIGHT), m_clearValue);
+	endRenderPass(vk, *cmdBuffer);
 
 	{
+		// Image validator reads image in compute shader
 		const vk::VkImageMemoryBarrier	endImgBarrier		=
 		{
 			vk::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// sType
@@ -201,15 +192,15 @@ tcu::TestStatus AttachmentLoadTestInstance::iterate()
 			}
 		};
 		vk.cmdPipelineBarrier(*cmdBuffer,
-								vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 								vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+								vk::VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 								(vk::VkDependencyFlags)0,
 								0, (const vk::VkMemoryBarrier*)DE_NULL,
 								0, (const vk::VkBufferMemoryBarrier*)DE_NULL,
 								1, &endImgBarrier);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 
 	// Submit command buffer
 	const vk::Unique<vk::VkFence>	fence		(vk::createFence(vk, device));
@@ -222,7 +213,7 @@ tcu::TestStatus AttachmentLoadTestInstance::iterate()
 		<< tcu::TestLog::Message << "Stencil clear value: " << m_clearValue.depthStencil.stencil << tcu::TestLog::EndMessage;
 
 	// Validate resulting image
-	if (m_validator.validateImage(ctx, m_refData, **colorImage, m_imageFormat))
+	if (m_validator.validateImage(ctx, m_refData, **colorImage, m_imageFormat, vk::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
 		return tcu::TestStatus::pass("Everything went OK");
 	else
 		return tcu::TestStatus::fail("Something went really wrong");

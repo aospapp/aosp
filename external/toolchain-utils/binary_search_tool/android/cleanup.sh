@@ -9,3 +9,7 @@
 #
 
 rm android/common.sh
+# Remove build command script if pass_bisect enabled
+rm -f android/cmd_script.sh
+# Remove tmp IR file used for ir_diff in pass beisction
+rm -f /tmp/bisection_bad_item.o

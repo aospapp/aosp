@@ -48,16 +48,12 @@ set(GLCTS_GL_SRCS
 	gl4cES31CompatibilityShaderStorageBufferObjectTests.cpp
 	gl4cES31CompatibilityTests.cpp
 	gl4cES31CompatibilityTests.hpp
-	gl4cKHRDebugTests.cpp
-	gl4cKHRDebugTests.hpp
 	gl4cMapBufferAlignmentTests.cpp
 	gl4cMapBufferAlignmentTests.hpp
 	gl4cMultiBindTests.cpp
 	gl4cMultiBindTests.hpp
 	gl4cShaderAtomicCountersTests.cpp
 	gl4cShaderAtomicCountersTests.hpp
-	gl4cShaderGroupVoteTests.cpp
-	gl4cShaderGroupVoteTests.hpp
 	gl4cShaderDrawParametersTests.cpp
 	gl4cShaderDrawParametersTests.hpp
 	gl4cTextureGatherTests.hpp
@@ -124,6 +120,8 @@ set(GLCTS_GL_SRCS
 	gl4cIndirectParametersTests.hpp
 	gl4cLimitsTests.cpp
 	gl4cLimitsTests.hpp
+	gl4cGlSpirvTests.cpp
+	gl4cGlSpirvTests.hpp
 	)
 
 set(GLCTS_GL_LIBS
@@ -132,9 +130,36 @@ set(GLCTS_GL_LIBS
 	tcutil
 	)
 
+# Add glslang
+if (DEQP_HAVE_GLSLANG)
+	include_directories(${GLSLANG_INCLUDE_PATH})
+	add_definitions(-DDEQP_HAVE_GLSLANG=1)
+
+	# \note Code interfacing with glslang needs to include third-party headers
+	#       that cause all sorts of warnings to appear.
+	if (DE_COMPILER_IS_GCC OR DE_COMPILER_IS_CLANG)
+		set_source_files_properties(
+			FILES gl4cGlSpirvTests.cpp
+			PROPERTIES COMPILE_FLAGS "${DE_3RD_PARTY_CXX_FLAGS} -std=c++11")
+	endif ()
+
+	set(GLCTS_GL_LIBS ${GLCTS_GL_LIBS} ${GLSLANG_LIBRARIES})
+endif ()
+
+# Add spirv-tools
+if(DEQP_HAVE_SPIRV_TOOLS)
+	include_directories(${spirv-tools_SOURCE_DIR}/include)
+	include_directories(${spirv-tools_SOURCE_DIR}/external/include)
+
+	add_definitions(-DDEQP_HAVE_SPIRV_TOOLS=1)
+	set(GLCTS_GL_LIBS ${GLCTS_GL_LIBS} SPIRV-Tools)
+endif()
+
 if (DEQP_GTF_AVAILABLE)
 	list(APPEND GLCTS_GL_LIBS glcts-gtf)
 endif ()
+
+PCH(GLCTS_GL_SRCS ../pch.cpp)
 
 add_library(glcts-gl STATIC ${GLCTS_GL_SRCS})
 target_link_libraries(glcts-gl ${GLCTS_GL_LIBS})

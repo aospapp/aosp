@@ -17,13 +17,15 @@
  */
 #include <string.h>
 
-#include "icmp.h"
-#include "translate.h"
-#include "checksum.h"
+#include "netutils/checksum.h"
+
 #include "clatd.h"
+#include "common.h"
 #include "config.h"
-#include "logging.h"
 #include "debug.h"
+#include "icmp.h"
+#include "logging.h"
+#include "translate.h"
 #include "tun.h"
 
 /* function: packet_checksum
@@ -97,7 +99,7 @@ struct in6_addr ipv4_addr_to_ipv6_addr(uint32_t addr4) {
     return Global_Clatd_Config.ipv6_local_subnet;
   } else {
     // Assumes a /96 plat subnet.
-    addr6 = Global_Clatd_Config.plat_subnet;
+    addr6              = Global_Clatd_Config.plat_subnet;
     addr6.s6_addr32[3] = addr4;
     return addr6;
   }
@@ -125,15 +127,15 @@ void fill_ip_header(struct iphdr *ip, uint16_t payload_len, uint8_t protocol,
   int ttl_guess;
   memset(ip, 0, sizeof(struct iphdr));
 
-  ip->ihl = 5;
-  ip->version = 4;
-  ip->tos = 0;
-  ip->tot_len = htons(sizeof(struct iphdr) + payload_len);
-  ip->id = 0;
+  ip->ihl      = 5;
+  ip->version  = 4;
+  ip->tos      = 0;
+  ip->tot_len  = htons(sizeof(struct iphdr) + payload_len);
+  ip->id       = 0;
   ip->frag_off = htons(IP_DF);
-  ip->ttl = old_header->ip6_hlim;
+  ip->ttl      = old_header->ip6_hlim;
   ip->protocol = protocol;
-  ip->check = 0;
+  ip->check    = 0;
 
   ip->saddr = ipv6_addr_to_ipv4_addr(&old_header->ip6_src);
   ip->daddr = ipv6_addr_to_ipv4_addr(&old_header->ip6_dst);
@@ -141,7 +143,7 @@ void fill_ip_header(struct iphdr *ip, uint16_t payload_len, uint8_t protocol,
   // Third-party ICMPv6 message. This may have been originated by an native IPv6 address.
   // In that case, the source IPv6 address can't be translated and we need to make up an IPv4
   // source address. For now, use 255.0.0.<ttl>, which at least looks useful in traceroute.
-  if ((uint32_t) ip->saddr == INADDR_NONE) {
+  if ((uint32_t)ip->saddr == INADDR_NONE) {
     ttl_guess = icmp_guess_ttl(old_header->ip6_hlim);
     ip->saddr = htonl((0xff << 24) + ttl_guess);
   }
@@ -158,9 +160,9 @@ void fill_ip6_header(struct ip6_hdr *ip6, uint16_t payload_len, uint8_t protocol
                      const struct iphdr *old_header) {
   memset(ip6, 0, sizeof(struct ip6_hdr));
 
-  ip6->ip6_vfc = 6 << 4;
+  ip6->ip6_vfc  = 6 << 4;
   ip6->ip6_plen = htons(payload_len);
-  ip6->ip6_nxt = protocol;
+  ip6->ip6_nxt  = protocol;
   ip6->ip6_hlim = old_header->ttl;
 
   ip6->ip6_src = ipv4_addr_to_ipv6_addr(old_header->saddr);
@@ -178,13 +180,13 @@ void fill_ip6_header(struct ip6_hdr *ip6, uint16_t payload_len, uint8_t protocol
 size_t maybe_fill_frag_header(struct ip6_frag *frag_hdr, struct ip6_hdr *ip6_targ,
                               const struct iphdr *old_header) {
   uint16_t frag_flags = ntohs(old_header->frag_off);
-  uint16_t frag_off = frag_flags & IP_OFFMASK;
+  uint16_t frag_off   = frag_flags & IP_OFFMASK;
   if (frag_off == 0 && (frag_flags & IP_MF) == 0) {
     // Not a fragment.
     return 0;
   }
 
-  frag_hdr->ip6f_nxt = ip6_targ->ip6_nxt;
+  frag_hdr->ip6f_nxt      = ip6_targ->ip6_nxt;
   frag_hdr->ip6f_reserved = 0;
   // In IPv4, the offset is the bottom 13 bits; in IPv6 it's the top 13 bits.
   frag_hdr->ip6f_offlg = htons(frag_off << 3);
@@ -192,7 +194,7 @@ size_t maybe_fill_frag_header(struct ip6_frag *frag_hdr, struct ip6_hdr *ip6_tar
     frag_hdr->ip6f_offlg |= IP6F_MORE_FRAG;
   }
   frag_hdr->ip6f_ident = htonl(ntohs(old_header->id));
-  ip6_targ->ip6_nxt = IPPROTO_FRAGMENT;
+  ip6_targ->ip6_nxt    = IPPROTO_FRAGMENT;
 
   return sizeof(*frag_hdr);
 }
@@ -210,7 +212,7 @@ uint8_t parse_frag_header(const struct ip6_frag *frag_hdr, struct iphdr *ip_targ
     frag_off |= IP_MF;
   }
   ip_targ->frag_off = htons(frag_off);
-  ip_targ->id = htons(ntohl(frag_hdr->ip6f_ident) & 0xffff);
+  ip_targ->id       = htons(ntohl(frag_hdr->ip6f_ident) & 0xffff);
   ip_targ->protocol = frag_hdr->ip6f_nxt;
   return frag_hdr->ip6f_nxt;
 }
@@ -232,15 +234,13 @@ int icmp_to_icmp6(clat_packet out, clat_packet_index pos, const struct icmphdr *
 
   memset(icmp6_targ, 0, sizeof(struct icmp6_hdr));
 
-  icmp6_type = icmp_to_icmp6_type(icmp->type, icmp->code);
+  icmp6_type             = icmp_to_icmp6_type(icmp->type, icmp->code);
   icmp6_targ->icmp6_type = icmp6_type;
   icmp6_targ->icmp6_code = icmp_to_icmp6_code(icmp->type, icmp->code);
 
   out[pos].iov_len = sizeof(struct icmp6_hdr);
 
-  if (pos == CLAT_POS_TRANSPORTHDR &&
-      is_icmp_error(icmp->type) &&
-      icmp6_type != ICMP6_PARAM_PROB) {
+  if (pos == CLAT_POS_TRANSPORTHDR && is_icmp_error(icmp->type) && icmp6_type != ICMP6_PARAM_PROB) {
     // An ICMP error we understand, one level deep.
     // Translate the nested packet (the one that caused the error).
     clat_packet_len = ipv4_packet(out, pos + 1, payload, payload_size);
@@ -254,11 +254,11 @@ int icmp_to_icmp6(clat_packet out, clat_packet_index pos, const struct icmphdr *
     checksum = checksum + htons(20);
   } else if (icmp6_type == ICMP6_ECHO_REQUEST || icmp6_type == ICMP6_ECHO_REPLY) {
     // Ping packet.
-    icmp6_targ->icmp6_id = icmp->un.echo.id;
-    icmp6_targ->icmp6_seq = icmp->un.echo.sequence;
-    out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *) payload;
-    out[CLAT_POS_PAYLOAD].iov_len = payload_size;
-    clat_packet_len = CLAT_POS_PAYLOAD + 1;
+    icmp6_targ->icmp6_id           = icmp->un.echo.id;
+    icmp6_targ->icmp6_seq          = icmp->un.echo.sequence;
+    out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *)payload;
+    out[CLAT_POS_PAYLOAD].iov_len  = payload_size;
+    clat_packet_len                = CLAT_POS_PAYLOAD + 1;
   } else {
     // Unknown type/code. The type/code conversion functions have already logged an error.
     return 0;
@@ -286,27 +286,26 @@ int icmp6_to_icmp(clat_packet out, clat_packet_index pos, const struct icmp6_hdr
 
   memset(icmp_targ, 0, sizeof(struct icmphdr));
 
-  icmp_type = icmp6_to_icmp_type(icmp6->icmp6_type, icmp6->icmp6_code);
+  icmp_type       = icmp6_to_icmp_type(icmp6->icmp6_type, icmp6->icmp6_code);
   icmp_targ->type = icmp_type;
   icmp_targ->code = icmp6_to_icmp_code(icmp6->icmp6_type, icmp6->icmp6_code);
 
   out[pos].iov_len = sizeof(struct icmphdr);
 
-  if (pos == CLAT_POS_TRANSPORTHDR &&
-      is_icmp6_error(icmp6->icmp6_type) &&
+  if (pos == CLAT_POS_TRANSPORTHDR && is_icmp6_error(icmp6->icmp6_type) &&
       icmp_type != ICMP_PARAMETERPROB) {
     // An ICMPv6 error we understand, one level deep.
     // Translate the nested packet (the one that caused the error).
     clat_packet_len = ipv6_packet(out, pos + 1, payload, payload_size);
   } else if (icmp_type == ICMP_ECHO || icmp_type == ICMP_ECHOREPLY) {
     // Ping packet.
-    icmp_targ->un.echo.id = icmp6->icmp6_id;
-    icmp_targ->un.echo.sequence = icmp6->icmp6_seq;
-    out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *) payload;
-    out[CLAT_POS_PAYLOAD].iov_len = payload_size;
-    clat_packet_len = CLAT_POS_PAYLOAD + 1;
+    icmp_targ->un.echo.id          = icmp6->icmp6_id;
+    icmp_targ->un.echo.sequence    = icmp6->icmp6_seq;
+    out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *)payload;
+    out[CLAT_POS_PAYLOAD].iov_len  = payload_size;
+    clat_packet_len                = CLAT_POS_PAYLOAD + 1;
   } else {
-      // Unknown type/code. The type/code conversion functions have already logged an error.
+    // Unknown type/code. The type/code conversion functions have already logged an error.
     return 0;
   }
 
@@ -325,9 +324,9 @@ int icmp6_to_icmp(clat_packet out, clat_packet_index pos, const struct icmp6_hdr
  * returns: the highest position in the output clat_packet that's filled in
  */
 int generic_packet(clat_packet out, clat_packet_index pos, const uint8_t *payload, size_t len) {
-  out[pos].iov_len = 0;
-  out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *) payload;
-  out[CLAT_POS_PAYLOAD].iov_len = len;
+  out[pos].iov_len               = 0;
+  out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *)payload;
+  out[CLAT_POS_PAYLOAD].iov_len  = len;
 
   return CLAT_POS_PAYLOAD + 1;
 }
@@ -340,17 +339,17 @@ int generic_packet(clat_packet out, clat_packet_index pos, const uint8_t *payloa
  * new_sum  - pseudo-header checksum of new header
  * len      - size of ip payload
  */
-int udp_packet(clat_packet out, clat_packet_index pos, const struct udphdr *udp,
-               uint32_t old_sum, uint32_t new_sum, size_t len) {
+int udp_packet(clat_packet out, clat_packet_index pos, const struct udphdr *udp, uint32_t old_sum,
+               uint32_t new_sum, size_t len) {
   const uint8_t *payload;
   size_t payload_size;
 
-  if(len < sizeof(struct udphdr)) {
-    logmsg_dbg(ANDROID_LOG_ERROR,"udp_packet/(too small)");
+  if (len < sizeof(struct udphdr)) {
+    logmsg_dbg(ANDROID_LOG_ERROR, "udp_packet/(too small)");
     return 0;
   }
 
-  payload = (const uint8_t *) (udp + 1);
+  payload      = (const uint8_t *)(udp + 1);
   payload_size = len - sizeof(struct udphdr);
 
   return udp_translate(out, pos, udp, old_sum, new_sum, payload, payload_size);
@@ -364,28 +363,28 @@ int udp_packet(clat_packet out, clat_packet_index pos, const struct udphdr *udp,
  * len      - size of ip payload
  * returns: the highest position in the output clat_packet that's filled in
  */
-int tcp_packet(clat_packet out, clat_packet_index pos, const struct tcphdr *tcp,
-               uint32_t old_sum, uint32_t new_sum, size_t len) {
+int tcp_packet(clat_packet out, clat_packet_index pos, const struct tcphdr *tcp, uint32_t old_sum,
+               uint32_t new_sum, size_t len) {
   const uint8_t *payload;
   size_t payload_size, header_size;
 
-  if(len < sizeof(struct tcphdr)) {
-    logmsg_dbg(ANDROID_LOG_ERROR,"tcp_packet/(too small)");
+  if (len < sizeof(struct tcphdr)) {
+    logmsg_dbg(ANDROID_LOG_ERROR, "tcp_packet/(too small)");
     return 0;
   }
 
-  if(tcp->doff < 5) {
-    logmsg_dbg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set to less than 5: %x", tcp->doff);
+  if (tcp->doff < 5) {
+    logmsg_dbg(ANDROID_LOG_ERROR, "tcp_packet/tcp header length set to less than 5: %x", tcp->doff);
     return 0;
   }
 
-  if((size_t) tcp->doff*4 > len) {
-    logmsg_dbg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set too large: %x", tcp->doff);
+  if ((size_t)tcp->doff * 4 > len) {
+    logmsg_dbg(ANDROID_LOG_ERROR, "tcp_packet/tcp header length set too large: %x", tcp->doff);
     return 0;
   }
 
-  header_size = tcp->doff * 4;
-  payload = ((const uint8_t *) tcp) + header_size;
+  header_size  = tcp->doff * 4;
+  payload      = ((const uint8_t *)tcp) + header_size;
   payload_size = len - header_size;
 
   return tcp_translate(out, pos, tcp, header_size, old_sum, new_sum, payload, payload_size);
@@ -407,9 +406,9 @@ int udp_translate(clat_packet out, clat_packet_index pos, const struct udphdr *u
 
   memcpy(udp_targ, udp, sizeof(struct udphdr));
 
-  out[pos].iov_len = sizeof(struct udphdr);
-  out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *) payload;
-  out[CLAT_POS_PAYLOAD].iov_len = payload_size;
+  out[pos].iov_len               = sizeof(struct udphdr);
+  out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *)payload;
+  out[CLAT_POS_PAYLOAD].iov_len  = payload_size;
 
   if (udp_targ->check) {
     udp_targ->check = ip_checksum_adjust(udp->check, old_sum, new_sum);
@@ -442,23 +441,23 @@ int udp_translate(clat_packet out, clat_packet_index pos, const struct udphdr *u
  * returns: the highest position in the output clat_packet that's filled in
  */
 int tcp_translate(clat_packet out, clat_packet_index pos, const struct tcphdr *tcp,
-                  size_t header_size, uint32_t old_sum, uint32_t new_sum,
-                  const uint8_t *payload, size_t payload_size) {
+                  size_t header_size, uint32_t old_sum, uint32_t new_sum, const uint8_t *payload,
+                  size_t payload_size) {
   struct tcphdr *tcp_targ = out[pos].iov_base;
-  out[pos].iov_len = header_size;
+  out[pos].iov_len        = header_size;
 
   if (header_size > MAX_TCP_HDR) {
     // A TCP header cannot be more than MAX_TCP_HDR bytes long because it's a 4-bit field that
     // counts in 4-byte words. So this can never happen unless there is a bug in the caller.
-    logmsg(ANDROID_LOG_ERROR, "tcp_translate: header too long %d > %d, truncating",
-           header_size, MAX_TCP_HDR);
+    logmsg(ANDROID_LOG_ERROR, "tcp_translate: header too long %d > %d, truncating", header_size,
+           MAX_TCP_HDR);
     header_size = MAX_TCP_HDR;
   }
 
   memcpy(tcp_targ, tcp, header_size);
 
-  out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *) payload;
-  out[CLAT_POS_PAYLOAD].iov_len = payload_size;
+  out[CLAT_POS_PAYLOAD].iov_base = (uint8_t *)payload;
+  out[CLAT_POS_PAYLOAD].iov_len  = payload_size;
 
   tcp_targ->check = ip_checksum_adjust(tcp->check, old_sum, new_sum);
 
@@ -474,14 +473,13 @@ void send_rawv6(int fd, clat_packet out, int iov_len) {
   // destination address in the packet header only affects what appears on the wire, not where the
   // packet is sent to.
   static struct sockaddr_in6 sin6 = { AF_INET6, 0, 0, { { { 0, 0, 0, 0 } } }, 0 };
-  static struct msghdr msg = {
-    .msg_name = &sin6,
+  static struct msghdr msg        = {
+    .msg_name    = &sin6,
     .msg_namelen = sizeof(sin6),
   };
 
-  msg.msg_iov = out,
-  msg.msg_iovlen = iov_len,
-  sin6.sin6_addr = ((struct ip6_hdr *) out[CLAT_POS_IPHDR].iov_base)->ip6_dst;
+  msg.msg_iov = out, msg.msg_iovlen = iov_len,
+  sin6.sin6_addr = ((struct ip6_hdr *)out[CLAT_POS_IPHDR].iov_base)->ip6_dst;
   sendmsg(fd, &msg, 0);
 }
 
@@ -506,14 +504,14 @@ void translate_packet(int fd, int to_ipv6, const uint8_t *packet, size_t packets
 
   // iovec of the packets we'll send. This gets passed down to the translation functions.
   clat_packet out = {
-    { &tun_targ, 0 },                 // Tunnel header.
-    { iphdr, 0 },                     // IP header.
-    { fraghdr, 0 },                   // Fragment header.
-    { transporthdr, 0 },              // Transport layer header.
-    { icmp_iphdr, 0 },                // ICMP error inner IP header.
-    { icmp_fraghdr, 0 },              // ICMP error fragmentation header.
-    { icmp_transporthdr, 0 },         // ICMP error transport layer header.
-    { NULL, 0 },                      // Payload. No buffer, it's a pointer to the original payload.
+    { &tun_targ, 0 },          // Tunnel header.
+    { iphdr, 0 },              // IP header.
+    { fraghdr, 0 },            // Fragment header.
+    { transporthdr, 0 },       // Transport layer header.
+    { icmp_iphdr, 0 },         // ICMP error inner IP header.
+    { icmp_fraghdr, 0 },       // ICMP error fragmentation header.
+    { icmp_transporthdr, 0 },  // ICMP error transport layer header.
+    { NULL, 0 },               // Payload. No buffer, it's a pointer to the original payload.
   };
 
   if (to_ipv6) {

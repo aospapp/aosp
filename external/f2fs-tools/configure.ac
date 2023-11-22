@@ -20,14 +20,14 @@ AC_DEFINE([F2FS_MINOR_VERSION], m4_bpatsubst(f2fs_tools_version,
 				[\([0-9]*\).\([0-9]*\)\(\w\|\W\)*], [\2]),
 				[Minor version for f2fs-tools])
 
-AC_CHECK_FILE(.git,
+AS_IF([test -d .git],[
 	AC_DEFINE([F2FS_TOOLS_DATE],
 		"m4_bpatsubst(f2fs_tools_gitdate,
 		[\([0-9-]*\)\(\w\|\W\)*], [\1])",
-		[f2fs-tools date based on Git commits]),
+		[f2fs-tools date based on Git commits])],[
 	AC_DEFINE([F2FS_TOOLS_DATE],
 		"f2fs_tools_date",
-		[f2fs-tools date based on Source releases]))
+		[f2fs-tools date based on Source releases])])
 
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADER([config.h])
@@ -166,7 +166,7 @@ build_mac=no
 
 # Detect the target system
 case "${host_os}" in
-linux*)
+linux*|uclinux*)
 	build_linux=yes
 	;;
 cygwin*|mingw*)
@@ -190,6 +190,17 @@ AM_CONDITIONAL([OSX], [test "$build_mac" = "yes"])
 #AC_SUBST([sbindir], [/sbin])
 #AC_SUBST([sysconfdir], [/etc])
 #AC_SUBST([localstatedir], [/var])
+
+AC_ARG_WITH([root-libdir],
+[  --with-root-libdir=DIR override location for /lib/libf2fs.so],
+root_libdir=$withval,
+root_libdir=NONE)dnl
+
+if test "$root_libdir" = NONE ; then
+   root_libdir="$libdir"
+fi
+AC_SUBST(root_libdir)
+
 AC_CONFIG_FILES([
 	Makefile
 	man/Makefile
@@ -198,15 +209,16 @@ AC_CONFIG_FILES([
 	fsck/Makefile
 	tools/Makefile
 	tools/sg_write_buffer/Makefile
+	tools/f2fs_io/Makefile
 ])
 
 # export library version info for mkfs/libf2fs_format_la
-AC_SUBST(FMT_CURRENT, 3)
+AC_SUBST(FMT_CURRENT, 5)
 AC_SUBST(FMT_REVISION, 0)
 AC_SUBST(FMT_AGE, 0)
 
 # export library version info for lib/libf2fs_la
-AC_SUBST(LIBF2FS_CURRENT, 4)
+AC_SUBST(LIBF2FS_CURRENT, 6)
 AC_SUBST(LIBF2FS_REVISION, 0)
 AC_SUBST(LIBF2FS_AGE, 0)
 

@@ -15,12 +15,12 @@ limitations under the License.
 
 // See docs in ../ops/array_ops.cc.
 
+#include "tensorflow/core/framework/bounds_check.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/variant.h"
 #include "tensorflow/core/framework/variant_encode_decode.h"
-#include "tensorflow/core/kernels/bounds_check.h"
 #include "tensorflow/core/kernels/gather_functor.h"
 #include "tensorflow/core/platform/mem.h"
 #include "tensorflow/core/platform/types.h"
@@ -143,6 +143,8 @@ TF_CALL_ALL_TYPES(REGISTER_GATHER_CPU);
 TF_CALL_QUANTIZED_TYPES(REGISTER_GATHER_CPU);
 TF_CALL_quint16(REGISTER_GATHER_CPU);
 TF_CALL_qint16(REGISTER_GATHER_CPU);
+TF_CALL_uint32(REGISTER_GATHER_CPU);
+TF_CALL_uint64(REGISTER_GATHER_CPU);
 
 #undef REGISTER_GATHER_CPU
 
@@ -151,6 +153,9 @@ TF_CALL_qint16(REGISTER_GATHER_CPU);
 // Registration of the GPU implementations.
 #define REGISTER_GATHER_GPU(type) REGISTER_GATHER_ALL_INDICES(GPU, type)
 
+TF_CALL_bool(REGISTER_GATHER_GPU);
+TF_CALL_int32(REGISTER_GATHER_GPU);
+TF_CALL_int64(REGISTER_GATHER_GPU);
 TF_CALL_GPU_NUMBER_TYPES(REGISTER_GATHER_GPU);
 TF_CALL_complex64(REGISTER_GATHER_GPU);
 TF_CALL_complex128(REGISTER_GATHER_GPU);

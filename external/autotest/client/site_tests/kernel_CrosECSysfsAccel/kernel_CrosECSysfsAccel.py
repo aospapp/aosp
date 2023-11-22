@@ -140,9 +140,12 @@ class kernel_CrosECSysfsAccel(test.test):
         # First make sure that the motion sensors are active. If this
         # check fails it means the EC motion sense task is not running and
         # therefore not updating acceleration values in shared memory.
-        active = utils.system_output('ectool motionsense active')
-        if active == "0":
-            raise error.TestFail("Motion sensing is inactive")
+        # Note that this check only works for x86 boards.
+        arch = utils.get_arch()
+        if arch.startswith('x86'):
+            active = utils.system_output('ectool motionsense active')
+            if active == "0":
+                raise error.TestFail("Motion sensing is inactive")
 
         # Find the iio sysfs directory for EC accels
         self._find_sysfs_accel_dir()

@@ -1,0 +1,39 @@
+<html>
+<head>
+  <title>Canvas 2D</title>
+</head>
+<body>
+  <canvas id='canvas1' style="border: 1px solid black;"></canvas>
+</body>
+<script type="text/javascript">
+  var canvas = document.getElementById('canvas1');
+  // Make the canvas very large but still falling inside the viewport; |height|
+  // also has to account for the Shelf (taskbar) at the bottom.
+  const dpr = window.devicePixelRatio || 1;
+  const width = (window.innerWidth / dpr) * 0.9 / dpr;
+  const height = (window.innerHeight / dpr) * 0.9 / dpr;
+  canvas.width = width;
+  canvas.height = height;
+
+  var ctx = canvas.getContext('2d');
+  var draw_passes_count = 0;
+
+  function draw_pass() {
+    ctx.beginPath();
+    ctx.lineWidth = '5';
+    // Consider a seeded random number generator if there are reproducibility
+    // problems.
+    ctx.strokeStyle = 'rgb(' + 0 + ',' + Math.random() * 255 + ',0)';
+    ctx.moveTo(Math.random() * width, Math.random() * height);
+    ctx.lineTo(Math.random() * width, Math.random() * height);
+    ctx.stroke(); // Draw it
+    draw_passes_count++;
+  }
+  setInterval(draw_pass, 1000);
+
+  function get_draw_passes_count() {
+    return draw_passes_count;
+  }
+
+</script>
+</html>

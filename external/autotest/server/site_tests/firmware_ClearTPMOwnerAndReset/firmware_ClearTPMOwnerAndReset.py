@@ -37,3 +37,5 @@ class firmware_ClearTPMOwnerAndReset(FirmwareTest):
 
         self.check_state((self.checkers.crossystem_checker,
                           {'mainfw_type': 'normal'}))
+        if not self.faft_client.system.dev_tpm_present():
+            raise error.TestError('/dev/tpm0 does not exist on the client')

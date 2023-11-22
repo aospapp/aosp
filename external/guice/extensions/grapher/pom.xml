@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.google.inject.extensions</groupId>
     <artifactId>extensions-parent</artifactId>
-    <version>4.0</version>
+    <version>4.2.0</version>
   </parent>
 
   <artifactId>guice-grapher</artifactId>
@@ -20,11 +20,6 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.google.inject.extensions</groupId>
-      <artifactId>guice-multibindings</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.easymock</groupId>
       <artifactId>easymock</artifactId>
       <version>3.0</version>
@@ -32,4 +27,18 @@
     </dependency>
   </dependencies>
 
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>com.google.guice.extensions.grapher</Automatic-Module-Name>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

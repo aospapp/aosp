@@ -37,7 +37,9 @@
 #include "vkBuilderUtil.hpp"
 #include "vkRefUtil.hpp"
 #include "vkQueryUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "vkMemUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "tcuTextureUtil.hpp"
 
 #include <string>
@@ -122,88 +124,8 @@ void uploadImage (Context&								context,
 		VK_CHECK(vk.bindBufferMemory(device, *buffer, bufferAlloc->getMemory(), bufferAlloc->getOffset()));
 	}
 
-	// Create command pool and buffer
-	{
-		cmdPool = createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
-
-		const VkCommandBufferAllocateInfo cmdBufferAllocateInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,	// VkStructureType			sType;
-			DE_NULL,										// const void*				pNext;
-			*cmdPool,										// VkCommandPool			commandPool;
-			VK_COMMAND_BUFFER_LEVEL_PRIMARY,				// VkCommandBufferLevel		level;
-			1u,												// deUint32					bufferCount;
-		};
-		cmdBuffer = allocateCommandBuffer(vk, device, &cmdBufferAllocateInfo);
-	}
-
-	// Create fence
-	fence = createFence(vk, device);
-
-	// Barriers for copying buffer to image
-	const VkBufferMemoryBarrier preBufferBarrier =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType	sType;
-		DE_NULL,									// const void*		pNext;
-		VK_ACCESS_HOST_WRITE_BIT,					// VkAccessFlags	srcAccessMask;
-		VK_ACCESS_TRANSFER_READ_BIT,				// VkAccessFlags	dstAccessMask;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32			srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32			dstQueueFamilyIndex;
-		*buffer,									// VkBuffer			buffer;
-		0u,											// VkDeviceSize		offset;
-		bufferSize									// VkDeviceSize		size;
-	};
-
-	const VkImageMemoryBarrier preImageBarrier =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		0u,											// VkAccessFlags			srcAccessMask;
-		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			dstAccessMask;
-		VK_IMAGE_LAYOUT_UNDEFINED,					// VkImageLayout			oldLayout;
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			newLayout;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32					srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32					dstQueueFamilyIndex;
-		destImage,									// VkImage					image;
-		{											// VkImageSubresourceRange	subresourceRange;
-			aspectMask,								// VkImageAspect	aspect;
-			0u,										// deUint32			baseMipLevel;
-			1u,										// deUint32			mipLevels;
-			0u,										// deUint32			baseArraySlice;
-			1u										// deUint32			arraySize;
-		}
-	};
-
-	const VkImageMemoryBarrier postImageBarrier =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			srcAccessMask;
-		VK_ACCESS_SHADER_READ_BIT,					// VkAccessFlags			dstAccessMask;
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			oldLayout;
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,	// VkImageLayout			newLayout;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32					srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32					dstQueueFamilyIndex;
-		destImage,									// VkImage					image;
-		{											// VkImageSubresourceRange	subresourceRange;
-			aspectMask,								// VkImageAspect	aspect;
-			0u,										// deUint32			baseMipLevel;
-			1u,										// deUint32			mipLevels;
-			0u,										// deUint32			baseArraySlice;
-			1u										// deUint32			arraySize;
-		}
-	};
-
-	const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType;
-		DE_NULL,										// const void*						pNext;
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags		flags;
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-
 	// Get copy regions and write buffer data
-	const VkBufferImageCopy			copyRegions	=
+	const VkBufferImageCopy			copyRegion	=
 	{
 		0u,								// VkDeviceSize				bufferOffset;
 		(deUint32)access.getWidth(),	// deUint32					bufferRowLength;
@@ -222,34 +144,16 @@ void uploadImage (Context&								context,
 		}
 	};
 
+	vector<VkBufferImageCopy>		copyRegions	(1, copyRegion);
+
 	{
 		const tcu::PixelBufferAccess	destAccess	(access.getFormat(), access.getSize(), bufferAlloc->getHostPtr());
 		tcu::copy(destAccess, access);
-		flushMappedMemoryRange(vk, device, bufferAlloc->getMemory(), bufferAlloc->getOffset(), bufferSize);
+		flushAlloc(vk, device, *bufferAlloc);
 	}
 
 	// Copy buffer to image
-	VK_CHECK(vk.beginCommandBuffer(*cmdBuffer, &cmdBufferBeginInfo));
-	vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &preBufferBarrier, 1, &preImageBarrier);
-	vk.cmdCopyBufferToImage(*cmdBuffer, *buffer, destImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &copyRegions);
-	vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, &postImageBarrier);
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
-
-	const VkSubmitInfo submitInfo =
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType				sType;
-		DE_NULL,						// const void*					pNext;
-		0u,								// deUint32						waitSemaphoreCount;
-		DE_NULL,						// const VkSemaphore*			pWaitSemaphores;
-		DE_NULL,						// const VkPipelineStageFlags*	pWaitDstStageMask;
-		1u,								// deUint32						commandBufferCount;
-		&cmdBuffer.get(),				// const VkCommandBuffer*		pCommandBuffers;
-		0u,								// deUint32						signalSemaphoreCount;
-		DE_NULL							// const VkSemaphore*			pSignalSemaphores;
-	};
-
-	VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-	VK_CHECK(vk.waitForFences(device, 1, &fence.get(), true, ~(0ull) /* infinity */));
+	copyBufferToImage(vk, device, queue, queueFamilyIndex, *buffer, bufferSize, copyRegions, DE_NULL, aspectMask, 1, 1, destImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 class GeometryOutputCountTestInstance : public GeometryExpanderRenderTestInstance
@@ -436,7 +340,7 @@ void VaryingOutputCountTestInstance::bindDescriptorSets (const DeviceInterface& 
 		VK_CHECK(vk.bindBufferMemory(device, *m_buffer, m_allocation->getMemory(), m_allocation->getOffset()));
 		{
 			deMemcpy(m_allocation->getHostPtr(), &emitCount[0], sizeof(emitCount));
-			flushMappedMemoryRange(vk, device, m_allocation->getMemory(), m_allocation->getOffset(), sizeof(emitCount));
+			flushAlloc(vk, device, *m_allocation);
 
 			const VkDescriptorBufferInfo bufferDescriptorInfo = makeDescriptorBufferInfo(*m_buffer, 0ull, sizeof(emitCount));
 
@@ -634,7 +538,7 @@ void BuiltinVariableRenderTestInstance::createIndicesBuffer (void)
 	VK_CHECK(vk.bindBufferMemory(device, *m_indicesBuffer, m_allocation->getMemory(), m_allocation->getOffset()));
 	// Load indices into buffer
 	deMemcpy(m_allocation->getHostPtr(), &m_indices[0], (size_t)indexBufferSize);
-	flushMappedMemoryRange(vk, device, m_allocation->getMemory(), m_allocation->getOffset(), indexBufferSize);
+	flushAlloc(vk, device, *m_allocation);
 }
 
 void BuiltinVariableRenderTestInstance::drawCommand (const VkCommandBuffer&	cmdBuffer)

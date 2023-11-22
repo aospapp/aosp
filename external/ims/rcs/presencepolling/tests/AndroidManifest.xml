@@ -23,13 +23,13 @@
 
     <!--
         To run all tests:
-            adb shell am instrument -w com.android.service.ims.presence.tests/android.support.test.runner.AndroidJUnitRunner
+            adb shell am instrument -w com.android.service.ims.presence.tests/androidx.test.runner.AndroidJUnitRunner
 
         To run a single class test:
-            adb shell am instrument -e class com.android.phone.unit.FooUnitTest -w com.android.service.ims.presence.tests/android.support.test.runner.AndroidJUnitRunner
+            adb shell am instrument -e class com.android.phone.unit.FooUnitTest -w com.android.service.ims.presence.tests/androidx.test.runner.AndroidJUnitRunner
 
     -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.service.ims.presence"
         android:label="PresencePolling Tests" />
 </manifest>

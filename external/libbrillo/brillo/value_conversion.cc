@@ -24,7 +24,7 @@ bool FromValue(const base::Value& in_value,
   const base::ListValue* list = nullptr;
   if (!in_value.GetAsList(&list))
     return false;
-  out_value->reset(list->DeepCopy());
+  *out_value = list->CreateDeepCopy();
   return true;
 }
 
@@ -33,28 +33,28 @@ bool FromValue(const base::Value& in_value,
   const base::DictionaryValue* dict = nullptr;
   if (!in_value.GetAsDictionary(&dict))
     return false;
-  out_value->reset(dict->DeepCopy());
+  *out_value = dict->CreateDeepCopy();
   return true;
 }
 
 std::unique_ptr<base::Value> ToValue(int value) {
-  return std::unique_ptr<base::Value>(new base::Value(value));
+  return std::make_unique<base::Value>(value);
 }
 
 std::unique_ptr<base::Value> ToValue(bool value) {
-  return std::unique_ptr<base::Value>(new base::Value(value));
+  return std::make_unique<base::Value>(value);
 }
 
 std::unique_ptr<base::Value> ToValue(double value) {
-  return std::unique_ptr<base::Value>(new base::Value(value));
+  return std::make_unique<base::Value>(value);
 }
 
 std::unique_ptr<base::Value> ToValue(const char* value) {
-  return std::unique_ptr<base::Value>(new base::Value(value));
+  return std::make_unique<base::Value>(value);
 }
 
 std::unique_ptr<base::Value> ToValue(const std::string& value) {
-  return std::unique_ptr<base::Value>(new base::Value(value));
+  return std::make_unique<base::Value>(value);
 }
 
 }  // namespace brillo

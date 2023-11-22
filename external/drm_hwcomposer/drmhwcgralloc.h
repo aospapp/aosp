@@ -19,46 +19,17 @@
 
 #include <stdint.h>
 
-enum {
-  /* perform(const struct gralloc_module_t *mod,
-   *	   int op,
-   *	   int drm_fd,
-   *	   buffer_handle_t buffer,
-   *	   struct hwc_drm_bo *bo);
-   */
-  GRALLOC_MODULE_PERFORM_DRM_IMPORT = 0xffeeff00,
-
-  /* perform(const struct gralloc_module_t *mod,
-   *	   int op,
-   *	   buffer_handle_t buffer,
-   *	   void (*free_callback)(void *),
-   *	   void *priv);
-   */
-  GRALLOC_MODULE_PERFORM_SET_IMPORTER_PRIVATE = 0xffeeff01,
-
-  /* perform(const struct gralloc_module_t *mod,
-   *	   int op,
-   *	   buffer_handle_t buffer,
-   *	   void (*free_callback)(void *),
-   *	   void **priv);
-   */
-  GRALLOC_MODULE_PERFORM_GET_IMPORTER_PRIVATE = 0xffeeff02,
-
-  /* perform(const struct gralloc_module_t *mod,
-   *     int op,
-   *     buffer_handle_t buffer,
-   *     int *usage);
-   */
-  GRALLOC_MODULE_PERFORM_GET_USAGE = 0xffeeff03,
-};
-
+#define HWC_DRM_BO_MAX_PLANES 4
 typedef struct hwc_drm_bo {
   uint32_t width;
   uint32_t height;
-  uint32_t format; /* DRM_FORMAT_* from drm_fourcc.h */
-  uint32_t pitches[4];
-  uint32_t offsets[4];
-  uint32_t gem_handles[4];
+  uint32_t format;     /* DRM_FORMAT_* from drm_fourcc.h */
+  uint32_t hal_format; /* HAL_PIXEL_FORMAT_* */
+  uint32_t usage;
+  uint32_t pixel_stride;
+  uint32_t pitches[HWC_DRM_BO_MAX_PLANES];
+  uint32_t offsets[HWC_DRM_BO_MAX_PLANES];
+  uint32_t gem_handles[HWC_DRM_BO_MAX_PLANES];
   uint32_t fb_id;
   int acquire_fence_fd;
   void *priv;

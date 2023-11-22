@@ -77,12 +77,12 @@ CONFIGURATOR_ANY = 3
 # Default values
 DEFAULT_BAND = BAND_2GHZ
 
-DEFAULT_2GHZ_MODE = MODE_G
-DEFAULT_5GHZ_MODE = MODE_A
+DEFAULT_2GHZ_MODE = MODE_N
+DEFAULT_5GHZ_MODE = MODE_AC_N
 
-DEFAULT_SECURITY_TYPE = SECURITY_TYPE_DISABLED
+DEFAULT_SECURITY_TYPE = SECURITY_TYPE_WPA2PSK
 
-DEFAULT_2GHZ_CHANNEL = 5
+DEFAULT_2GHZ_CHANNEL = 6
 DEFAULT_5GHZ_CHANNEL = 149
 
 # Convenience method to convert modes and bands to human readable strings.
@@ -135,7 +135,7 @@ class APSpec(object):
     """
 
 
-    def __init__(self, visible=True, security=SECURITY_TYPE_DISABLED,
+    def __init__(self, visible=True, security=SECURITY_TYPE_WPA2PSK,
                  band=None, mode=None, channel=None, hostnames=None,
                  configurator_type=CONFIGURATOR_ANY,
                  # lab_ap set to true means the AP must be in the lab;
@@ -166,7 +166,9 @@ class APSpec(object):
         self._validate_channel_and_mode()
 
         if ((band == BAND_2GHZ and self._mode not in VALID_2GHZ_MODES) or
-            (band == BAND_5GHZ and self._mode not in VALID_5GHZ_MODES)):
+            (band == BAND_5GHZ and self._mode not in VALID_5GHZ_MODES) or
+            (band == BAND_2GHZ and self._channel not in VALID_2GHZ_CHANNELS) or
+            (band == BAND_5GHZ and self._channel not in VALID_5GHZ_CHANNELS)):
             raise ValueError('Conflicting band and modes/channels.')
 
         self._validate_security()

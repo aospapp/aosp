@@ -48,15 +48,14 @@ static void initialize_environment(struct cras_expr_env *env)
 	cras_expr_env_set_variable_boolean(env, "swap_lr_disabled", 1);
 }
 
-static struct pipeline *prepare_pipeline(struct cras_dsp_context *ctx)
+static struct pipeline *prepare_pipeline(
+		struct cras_dsp_context *ctx,
+		struct ini *target_ini)
 {
 	struct pipeline *pipeline;
 	const char *purpose = ctx->purpose;
 
-	if (!ini)
-		return NULL;
-
-	pipeline = cras_dsp_pipeline_create(ini, &ctx->env, purpose);
+	pipeline = cras_dsp_pipeline_create(target_ini, &ctx->env, purpose);
 
 	if (pipeline) {
 		syslog(LOG_DEBUG, "pipeline created");
@@ -90,11 +89,12 @@ bail:
 	return NULL;
 }
 
-static void cmd_load_pipeline(struct cras_dsp_context *ctx)
+static void cmd_load_pipeline(struct cras_dsp_context *ctx,
+			      struct ini *target_ini)
 {
 	struct pipeline *pipeline, *old_pipeline;
 
-	pipeline = prepare_pipeline(ctx);
+	pipeline = target_ini ? prepare_pipeline(ctx, target_ini) : NULL;
 
 	/* This locking is short to avoild blocking audio thread. */
 	pthread_mutex_lock(&ctx->mutex);
@@ -112,11 +112,14 @@ static void cmd_reload_ini()
 	struct cras_dsp_context *ctx;
 
 	ini = cras_dsp_ini_create(ini_filename);
-	if (!ini)
+	if (!ini) {
 		syslog(LOG_ERR, "cannot create dsp ini");
+		return;
+	}
+
 
 	DL_FOREACH(context_list, ctx) {
-		cmd_load_pipeline(ctx);
+		cmd_load_pipeline(ctx, ini);
 	}
 
 	if (old_ini)
@@ -186,7 +189,16 @@ void cras_dsp_set_variable_boolean(struct cras_dsp_context *ctx,
 
 void cras_dsp_load_pipeline(struct cras_dsp_context *ctx)
 {
-	cmd_load_pipeline(ctx);
+	cmd_load_pipeline(ctx, ini);
+}
+
+void cras_dsp_load_dummy_pipeline(struct cras_dsp_context *ctx,
+				  unsigned int num_channels)
+{
+	struct ini *dummy_ini;
+	dummy_ini = create_dummy_ini(ctx->purpose, num_channels);
+	cmd_load_pipeline(ctx, dummy_ini);
+	cras_dsp_ini_free((dummy_ini));
 }
 
 struct pipeline *cras_dsp_get_pipeline(struct cras_dsp_context *ctx)

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -69,7 +69,7 @@
 /*
   Define declarations.
 */
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__MINGW32__)
 #define BI_RGB  0
 #define BI_RLE8  1
 #define BI_BITFIELDS  3
@@ -252,6 +252,9 @@ static Image *ReadICONImage(const ImageInfo *image_info,
   MagickBooleanType
     status;
 
+  MagickSizeType
+    extent;
+
   register ssize_t
     i,
     x;
@@ -296,6 +299,7 @@ static Image *ReadICONImage(const ImageInfo *image_info,
       ((icon_file.resource_type != 1) && (icon_file.resource_type != 2)) ||
       (icon_file.count > MaxIcons))
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+  extent=0;
   for (i=0; i < icon_file.count; i++)
   {
     icon_file.directory[i].width=(unsigned char) ReadBlobByte(image);
@@ -309,8 +313,9 @@ static Image *ReadICONImage(const ImageInfo *image_info,
     icon_file.directory[i].offset=ReadBlobLSBLong(image);
     if (EOFBlob(image) != MagickFalse)
       break;
+    extent=MagickMax(extent,icon_file.directory[i].size);
   }
-  if (EOFBlob(image) != MagickFalse)
+  if ((EOFBlob(image) != MagickFalse) || (extent > GetBlobSize(image)))
     ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
   one=1;
   for (i=0; i < icon_file.count; i++)
@@ -357,29 +362,25 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         png=(unsigned char *) AcquireQuantumMemory(length+16,sizeof(*png));
         if (png == (unsigned char *) NULL)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-        (void) CopyMagickMemory(png,"\211PNG\r\n\032\n\000\000\000\015",12);
+        (void) memcpy(png,"\211PNG\r\n\032\n\000\000\000\015",12);
         png[12]=(unsigned char) icon_info.planes;
         png[13]=(unsigned char) (icon_info.planes >> 8);
         png[14]=(unsigned char) icon_info.bits_per_pixel;
         png[15]=(unsigned char) (icon_info.bits_per_pixel >> 8);
         count=ReadBlob(image,length-16,png+16);
-        icon_image=(Image *) NULL;
-        if (count > 0)
+        if (count != (ssize_t) (length-16))
           {
-            read_info=CloneImageInfo(image_info);
-            (void) CopyMagickString(read_info->magick,"PNG",MagickPathExtent);
-            icon_image=BlobToImage(read_info,png,length+16,exception);
-            read_info=DestroyImageInfo(read_info);
+            png=(unsigned char *) RelinquishMagickMemory(png);
+            ThrowReaderException(CorruptImageError,
+                "InsufficientImageDataInFile");
           }
+        read_info=CloneImageInfo(image_info);
+        (void) CopyMagickString(read_info->magick,"PNG",MagickPathExtent);
+        icon_image=BlobToImage(read_info,png,length+16,exception);
+        read_info=DestroyImageInfo(read_info);
         png=(unsigned char *) RelinquishMagickMemory(png);
         if (icon_image == (Image *) NULL)
-          {
-            if (count != (ssize_t) (length-16))
-              ThrowReaderException(CorruptImageError,
-                "InsufficientImageDataInFile");
-            image=DestroyImageList(image);
-            return((Image *) NULL);
-          }
+          return(DestroyImageList(image));
         DestroyBlob(icon_image);
         icon_image->blob=ReferenceBlob(image->blob);
         ReplaceImageInList(&image,icon_image);
@@ -393,6 +394,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         icon_info.x_pixels=ReadBlobLSBLong(image);
         icon_info.y_pixels=ReadBlobLSBLong(image);
         icon_info.number_colors=ReadBlobLSBLong(image);
+        if (icon_info.number_colors > GetBlobSize(image))
+          ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
         icon_info.colors_important=ReadBlobLSBLong(image);
         image->alpha_trait=BlendPixelTrait;
         image->columns=(size_t) icon_file.directory[i].width;
@@ -406,6 +409,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         if (image->rows == 0)
           image->rows=256;
         image->depth=icon_info.bits_per_pixel;
+        if (image->depth > 16)
+          image->depth=8;
         if (image->debug != MagickFalse)
           {
             (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -427,13 +432,13 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         {
           image->storage_class=PseudoClass;
           image->colors=icon_info.number_colors;
-          if (image->colors == 0)
+          if ((image->colors == 0) || (image->colors > 256))
             image->colors=one << icon_info.bits_per_pixel;
         }
       if (image->storage_class == PseudoClass)
         {
           register ssize_t
-            i;
+            j;
 
           unsigned char
             *icon_colormap;
@@ -441,6 +446,9 @@ static Image *ReadICONImage(const ImageInfo *image_info,
           /*
             Read Icon raster colormap.
           */
+          if (image->colors > GetBlobSize(image))
+            ThrowReaderException(CorruptImageError,
+              "InsufficientImageDataInFile");
           if (AcquireImageColormap(image,image->colors,exception) ==
               MagickFalse)
             ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -450,14 +458,18 @@ static Image *ReadICONImage(const ImageInfo *image_info,
             ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
           count=ReadBlob(image,(size_t) (4*image->colors),icon_colormap);
           if (count != (ssize_t) (4*image->colors))
-            ThrowReaderException(CorruptImageError,
-              "InsufficientImageDataInFile");
+            {
+              icon_colormap=(unsigned char *) RelinquishMagickMemory(
+                icon_colormap);
+              ThrowReaderException(CorruptImageError,
+                "InsufficientImageDataInFile");
+            }
           p=icon_colormap;
-          for (i=0; i < (ssize_t) image->colors; i++)
+          for (j=0; j < (ssize_t) image->colors; j++)
           {
-            image->colormap[i].blue=(Quantum) ScaleCharToQuantum(*p++);
-            image->colormap[i].green=(Quantum) ScaleCharToQuantum(*p++);
-            image->colormap[i].red=(Quantum) ScaleCharToQuantum(*p++);
+            image->colormap[j].blue=(Quantum) ScaleCharToQuantum(*p++);
+            image->colormap[j].green=(Quantum) ScaleCharToQuantum(*p++);
+            image->colormap[j].red=(Quantum) ScaleCharToQuantum(*p++);
             p++;
           }
           icon_colormap=(unsigned char *) RelinquishMagickMemory(icon_colormap);
@@ -604,7 +616,7 @@ static Image *ReadICONImage(const ImageInfo *image_info,
               for (x=0; x < (ssize_t) image->columns; x++)
               {
                 byte=(size_t) ReadBlobByte(image);
-                byte|=(size_t) (ReadBlobByte(image) << 8);
+                byte|=((size_t) ReadBlobByte(image) << 8);
                 SetPixelIndex(image,(Quantum) byte,q);
                 q+=GetPixelChannels(image);
               }
@@ -726,8 +738,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -737,6 +749,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
       }
   }
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -772,18 +786,21 @@ ModuleExport size_t RegisterICONImage(void)
   entry->decoder=(DecodeImageHandler *) ReadICONImage;
   entry->encoder=(EncodeImageHandler *) WriteICONImage;
   entry->flags^=CoderAdjoinFlag;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
+  entry->flags|=CoderEncoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("ICON","ICO","Microsoft icon");
   entry->decoder=(DecodeImageHandler *) ReadICONImage;
   entry->encoder=(EncodeImageHandler *) WriteICONImage;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
+  entry->flags|=CoderEncoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("ICON","ICON","Microsoft icon");
   entry->decoder=(DecodeImageHandler *) ReadICONImage;
   entry->encoder=(EncodeImageHandler *) WriteICONImage;
   entry->flags^=CoderAdjoinFlag;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
+  entry->flags|=CoderEncoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -882,14 +899,13 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
 
   size_t
     bytes_per_line,
+    imageListLength,
     scanline_pad;
 
   ssize_t
     y;
 
   unsigned char
-    bit,
-    byte,
     *pixels;
 
   /*
@@ -931,8 +947,8 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
   (void) WriteBlobLSBShort(image,0);
   (void) WriteBlobLSBShort(image,1);
   (void) WriteBlobLSBShort(image,(unsigned char) scene);
-  (void) ResetMagickMemory(&icon_file,0,sizeof(icon_file));
-  (void) ResetMagickMemory(&icon_info,0,sizeof(icon_info));
+  (void) memset(&icon_file,0,sizeof(icon_file));
+  (void) memset(&icon_info,0,sizeof(icon_info));
   scene=0;
   next=(images != (Image *) NULL) ? images : image;
   do
@@ -952,6 +968,7 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
   } while ((next != (Image *) NULL) && (image_info->adjoin != MagickFalse));
   scene=0;
   next=(images != (Image *) NULL) ? images : image;
+  imageListLength=GetImageListLength(image);
   do
   {
     if ((next->columns > 255L) && (next->rows > 255L) &&
@@ -977,7 +994,8 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
             return(MagickFalse);
           }
         write_info=CloneImageInfo(image_info);
-        (void) CopyMagickString(write_info->filename,"PNG:",MagickPathExtent);
+        (void) CopyMagickString(write_info->magick,"PNG",MagickPathExtent);
+        length=0;
 
         /* Don't write any ancillary chunks except for gAMA */
         (void) SetImageArtifact(write_image,"png:include-chunk","none,gama");
@@ -1051,9 +1069,6 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
               }
             else
               {
-                size_t
-                  one;
-
                 one=1;
                 icon_info.file_size+=3*(one << icon_info.bits_per_pixel);
                 icon_info.offset_bits+=3*(one << icon_info.bits_per_pixel);
@@ -1102,7 +1117,7 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
             images=DestroyImageList(images);
             ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
           }
-        (void) ResetMagickMemory(pixels,0,(size_t) icon_info.image_size);
+        (void) memset(pixels,0,(size_t) icon_info.image_size);
         switch (icon_info.bits_per_pixel)
         {
           case 1:
@@ -1315,6 +1330,10 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
         scanline_pad=(((next->columns+31) & ~31)-next->columns) >> 3;
         for (y=((ssize_t) next->rows - 1); y >= 0; y--)
         {
+          unsigned char
+            bit,
+            byte;
+
           p=GetVirtualPixels(next,0,y,next->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
@@ -1343,8 +1362,7 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
       }
     if (GetNextImageInList(next) == (Image *) NULL)
       break;
-    status=SetImageProgress(next,SaveImagesTag,scene++,
-      GetImageListLength(next));
+    status=SetImageProgress(next,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
     next=SyncNextImageInList(next);

@@ -158,6 +158,14 @@ class HostapConfig(object):
     VHT_CHANNEL_WIDTH_160 = object()
     VHT_CHANNEL_WIDTH_80_80 = object()
 
+    # Human readable names for these channel widths.
+    VHT_NAMES = {
+        VHT_CHANNEL_WIDTH_40: 'VHT40',
+        VHT_CHANNEL_WIDTH_80: 'VHT80',
+        VHT_CHANNEL_WIDTH_160: 'VHT160',
+        VHT_CHANNEL_WIDTH_80_80: 'VHT80+80',
+    }
+
     # This is a loose merging of the rules for US and EU regulatory
     # domains as taken from IEEE Std 802.11-2012 Appendix E.  For instance,
     # we tolerate HT40 in channels 149-161 (not allowed in EU), but also
@@ -281,7 +289,7 @@ class HostapConfig(object):
 
 
     @property
-    def _require_vht(self):
+    def require_vht(self):
         """@return True iff clients should be required to support VHT."""
         return self._mode == self.MODE_11AC_PURE
 
@@ -407,6 +415,12 @@ class HostapConfig(object):
     @property
     def printable_mode(self):
         """@return human readable mode string."""
+
+        # Note: VHT capture is not yet supported in ht_packet_capture_mode()
+        # (nor cros.network.packet_capturer).
+        if self.vht_channel_width is not None:
+            return self.VHT_NAMES[self.vht_channel_width]
+
         if self._is_11n:
             return self.ht_packet_capture_mode
 
@@ -454,6 +468,20 @@ class HostapConfig(object):
         """@return int frag threshold value, or None."""
         return self._frag_threshold
 
+    @property
+    def bridge(self):
+        """@return string _bridge value, or None."""
+        return self._bridge
+
+    @property
+    def use_bridge(self):
+        """@return bool _use_bridge value, or None."""
+        return self._use_bridge
+
+    @property
+    def max_stas(self):
+        """@return int _max_stas value, or None."""
+        return self._max_stas
 
     def __init__(self, mode=MODE_11B, channel=None, frequency=None,
                  n_capabilities=[], hide_ssid=None, beacon_interval=None,
@@ -467,7 +495,14 @@ class HostapConfig(object):
                  beacon_footer='',
                  spectrum_mgmt_required=None,
                  scenario_name=None,
-                 min_streams=None):
+                 min_streams=None,
+                 nas_id=None,
+                 mdid=None,
+                 r1kh_id=None,
+                 r0kh=None,
+                 r1kh=None,
+                 use_bridge=False,
+                 max_stas=None):
         """Construct a HostapConfig.
 
         You may specify channel or frequency, but not both.  Both options
@@ -501,6 +536,13 @@ class HostapConfig(object):
         @param scenario_name string to be included in file names, instead
             of the interface name.
         @param min_streams int number of spatial streams required.
+        @param nas_id string for RADIUS messages (needed for 802.11r)
+        @param mdid string used to indicate a group of APs for FT
+        @param r1kh_id string PMK-R1 key holder id for FT
+        @param r0kh string R0KHs in the same mobility domain
+        @param r1kh string R1KHs in the same mobility domain
+        @param use_bridge True if we should use a bridge
+        @param max_stas int maximum number of STAs allowed to connect to AP.
 
         """
         super(HostapConfig, self).__init__()
@@ -562,6 +604,7 @@ class HostapConfig(object):
             self._vht_oper_chwidth = 3
         elif vht_channel_width is not None:
             raise error.TestFail('Invalid channel width')
+        self.vht_channel_width = vht_channel_width
         # TODO(zqiu) Add checking for center channel based on the channel width
         # and operating channel.
         self._vht_oper_centr_freq_seg0_idx = vht_center_channel
@@ -570,6 +613,18 @@ class HostapConfig(object):
         self._spectrum_mgmt_required = spectrum_mgmt_required
         self._scenario_name = scenario_name
         self._min_streams = min_streams
+        self._nas_id = nas_id
+        self._mdid = mdid
+        self._r1kh_id = r1kh_id
+        self._r0kh = r0kh
+        self._r1kh = r1kh
+        self._bridge = None
+        self._use_bridge = use_bridge
+        # keep _max_stas in [0, 2007], as valid AIDs must be in [1, 2007]
+        if max_stas is None:
+            self._max_stas = None
+        else:
+            self._max_stas = max(0, min(max_stas, 2007))
 
 
     def __repr__(self):
@@ -677,7 +732,7 @@ class HostapConfig(object):
             conf['wmm_enabled'] = 1
         if self._require_ht:
             conf['require_ht'] = 1
-        if self._require_vht:
+        if self.require_vht:
             conf['require_vht'] = 1
         if self._beacon_interval:
             conf['beacon_int'] = self._beacon_interval
@@ -689,6 +744,20 @@ class HostapConfig(object):
             conf['ieee80211w'] = self._pmf_support
         if self._obss_interval:
             conf['obss_interval'] = self._obss_interval
+        if self._nas_id:
+            conf['nas_identifier'] = self._nas_id
+        if self._mdid:
+            conf['mobility_domain'] = self._mdid
+        if self._r1kh_id:
+            conf['r1_key_holder'] = self._r1kh_id
+        if self._r0kh:
+            conf['r0kh'] = self._r0kh
+        if self._r1kh:
+            conf['r1kh'] = self._r1kh
+        if self._bridge:
+            conf['bridge'] = self._bridge
+        if self._max_stas is not None:
+            conf['max_num_sta'] = self._max_stas
         conf['interface'] = interface
         conf['ctrl_interface'] = control_interface
         if self._spectrum_mgmt_required:

@@ -21,14 +21,13 @@
 #include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/include/puffin/puffpatch.h"
 #include "puffin/src/include/puffin/utils.h"
+#include "puffin/src/logging.h"
 #include "puffin/src/memory_stream.h"
 #include "puffin/src/puffin_stream.h"
-#include "puffin/src/set_errors.h"
 
 using puffin::BitExtent;
 using puffin::Buffer;
 using puffin::ByteExtent;
-using puffin::Error;
 using puffin::ExtentStream;
 using puffin::FileStream;
 using puffin::Huffer;
@@ -37,6 +36,7 @@ using puffin::Puffer;
 using puffin::PuffinStream;
 using puffin::UniqueStreamPtr;
 using std::string;
+using std::stringstream;
 using std::vector;
 
 namespace {
@@ -48,10 +48,10 @@ template <typename T>
 vector<T> StringToExtents(const string& str) {
   vector<T> extents;
   if (!str.empty()) {
-    std::stringstream ss(str);
+    stringstream ss(str);
     string extent_str;
     while (getline(ss, extent_str, kExtentDelimeter)) {
-      std::stringstream extent_ss(extent_str);
+      stringstream extent_ss(extent_str);
       string offset_str, length_str;
       getline(extent_ss, offset_str, kOffsetLengthDelimeter);
       getline(extent_ss, length_str, kOffsetLengthDelimeter);
@@ -92,7 +92,7 @@ FileType StringToFileType(const string& file_type) {
 bool LocateDeflatesBasedOnFileType(const UniqueStreamPtr& stream,
                                    const string& file_name,
                                    const string& file_type_to_override,
-                                   vector<ByteExtent>* deflates) {
+                                   vector<BitExtent>* deflates) {
   auto file_type = FileType::kUnknown;
 
   auto last_dot = file_name.find_last_of(".");
@@ -125,15 +125,13 @@ bool LocateDeflatesBasedOnFileType(const UniqueStreamPtr& stream,
 
   uint64_t stream_size;
   TEST_AND_RETURN_FALSE(stream->GetSize(&stream_size));
-  if (file_type == FileType::kDeflate) {
-    // Assume the whole stream is a deflate block.
-    *deflates = {ByteExtent(0, stream_size)};
-    return true;
-  }
-
   Buffer data(stream_size);
   TEST_AND_RETURN_FALSE(stream->Read(data.data(), data.size()));
   switch (file_type) {
+    case FileType::kDeflate:
+      TEST_AND_RETURN_FALSE(puffin::LocateDeflatesInDeflateStream(
+          data.data(), data.size(), 0, deflates, nullptr));
+      break;
     case FileType::kZlib:
       TEST_AND_RETURN_FALSE(puffin::LocateDeflatesInZlib(data, deflates));
       break;
@@ -199,7 +197,7 @@ SETUP_FLAGS;
 #endif
 
 // Main entry point to the application.
-int main(int argc, char** argv) {
+bool Main(int argc, char** argv) {
 #ifdef USE_BRILLO
   SETUP_FLAGS;
   brillo::FlagHelper::Init(argc, argv, "Puffin tool");
@@ -208,9 +206,9 @@ int main(int argc, char** argv) {
   google::ParseCommandLineFlags(&argc, &argv, true);
 #endif
 
-  TEST_AND_RETURN_VALUE(!FLAGS_operation.empty(), -1);
-  TEST_AND_RETURN_VALUE(!FLAGS_src_file.empty(), -1);
-  TEST_AND_RETURN_VALUE(!FLAGS_dst_file.empty(), -1);
+  TEST_AND_RETURN_FALSE(!FLAGS_operation.empty());
+  TEST_AND_RETURN_FALSE(!FLAGS_src_file.empty());
+  TEST_AND_RETURN_FALSE(!FLAGS_dst_file.empty());
 
   auto src_deflates_byte = StringToExtents<ByteExtent>(FLAGS_src_deflates_byte);
   auto dst_deflates_byte = StringToExtents<ByteExtent>(FLAGS_dst_deflates_byte);
@@ -222,35 +220,31 @@ int main(int argc, char** argv) {
   auto dst_extents = StringToExtents<ByteExtent>(FLAGS_dst_extents);
 
   auto src_stream = FileStream::Open(FLAGS_src_file, true, false);
-  TEST_AND_RETURN_VALUE(src_stream, -1);
+  TEST_AND_RETURN_FALSE(src_stream);
   if (!src_extents.empty()) {
     src_stream =
         ExtentStream::CreateForRead(std::move(src_stream), src_extents);
-    TEST_AND_RETURN_VALUE(src_stream, -1);
+    TEST_AND_RETURN_FALSE(src_stream);
   }
 
   if (FLAGS_operation == "puff" || FLAGS_operation == "puffhuff") {
-    TEST_AND_RETURN_VALUE(
-        LocateDeflatesBasedOnFileType(src_stream, FLAGS_src_file,
-                                      FLAGS_src_file_type, &src_deflates_byte),
-        -1);
+    TEST_AND_RETURN_FALSE(LocateDeflatesBasedOnFileType(
+        src_stream, FLAGS_src_file, FLAGS_src_file_type, &src_deflates_bit));
 
     if (src_deflates_bit.empty() && src_deflates_byte.empty()) {
       LOG(WARNING) << "You should pass source deflates, is this intentional?";
     }
     if (src_deflates_bit.empty()) {
-      TEST_AND_RETURN_VALUE(FindDeflateSubBlocks(src_stream, src_deflates_byte,
-                                                 &src_deflates_bit),
-                            -1);
+      TEST_AND_RETURN_FALSE(FindDeflateSubBlocks(src_stream, src_deflates_byte,
+                                                 &src_deflates_bit));
     }
-    TEST_AND_RETURN_VALUE(dst_puffs.empty(), -1);
+    TEST_AND_RETURN_FALSE(dst_puffs.empty());
     uint64_t dst_puff_size;
-    TEST_AND_RETURN_VALUE(FindPuffLocations(src_stream, src_deflates_bit,
-                                            &dst_puffs, &dst_puff_size),
-                          -1);
+    TEST_AND_RETURN_FALSE(FindPuffLocations(src_stream, src_deflates_bit,
+                                            &dst_puffs, &dst_puff_size));
 
     auto dst_stream = FileStream::Open(FLAGS_dst_file, false, true);
-    TEST_AND_RETURN_VALUE(dst_stream, -1);
+    TEST_AND_RETURN_FALSE(dst_stream);
     auto puffer = std::make_shared<Puffer>();
     auto reader =
         PuffinStream::CreateForPuff(std::move(src_stream), puffer,
@@ -266,8 +260,8 @@ int main(int argc, char** argv) {
     while (bytes_wrote < dst_puff_size) {
       auto write_size = std::min(static_cast<uint64_t>(buffer.size()),
                                  dst_puff_size - bytes_wrote);
-      TEST_AND_RETURN_VALUE(reader->Read(buffer.data(), write_size), -1);
-      TEST_AND_RETURN_VALUE(writer->Write(buffer.data(), write_size), -1);
+      TEST_AND_RETURN_FALSE(reader->Read(buffer.data(), write_size));
+      TEST_AND_RETURN_FALSE(writer->Write(buffer.data(), write_size));
       bytes_wrote += write_size;
     }
 
@@ -288,9 +282,8 @@ int main(int argc, char** argv) {
       while (bytes_read < dst_puff_size) {
         auto read_size = std::min(static_cast<uint64_t>(buffer.size()),
                                   dst_puff_size - bytes_read);
-        TEST_AND_RETURN_VALUE(read_puff_stream->Read(buffer.data(), read_size),
-                              -1);
-        TEST_AND_RETURN_VALUE(huff_writer->Write(buffer.data(), read_size), -1);
+        TEST_AND_RETURN_FALSE(read_puff_stream->Read(buffer.data(), read_size));
+        TEST_AND_RETURN_FALSE(huff_writer->Write(buffer.data(), read_size));
         bytes_read += read_size;
       }
     }
@@ -299,11 +292,11 @@ int main(int argc, char** argv) {
       LOG(WARNING) << "You should pass source puffs and destination deflates"
                    << ", is this intentional?";
     }
-    TEST_AND_RETURN_VALUE(src_puffs.size() == dst_deflates_bit.size(), -1);
+    TEST_AND_RETURN_FALSE(src_puffs.size() == dst_deflates_bit.size());
     uint64_t src_stream_size;
-    TEST_AND_RETURN_VALUE(src_stream->GetSize(&src_stream_size), -1);
+    TEST_AND_RETURN_FALSE(src_stream->GetSize(&src_stream_size));
     auto dst_file = FileStream::Open(FLAGS_dst_file, false, true);
-    TEST_AND_RETURN_VALUE(dst_file, -1);
+    TEST_AND_RETURN_FALSE(dst_file);
 
     auto huffer = std::make_shared<Huffer>();
     auto dst_stream = PuffinStream::CreateForHuff(std::move(dst_file), huffer,
@@ -315,22 +308,18 @@ int main(int argc, char** argv) {
     while (bytes_read < src_stream_size) {
       auto read_size = std::min(static_cast<uint64_t>(buffer.size()),
                                 src_stream_size - bytes_read);
-      TEST_AND_RETURN_VALUE(src_stream->Read(buffer.data(), read_size), -1);
-      TEST_AND_RETURN_VALUE(dst_stream->Write(buffer.data(), read_size), -1);
+      TEST_AND_RETURN_FALSE(src_stream->Read(buffer.data(), read_size));
+      TEST_AND_RETURN_FALSE(dst_stream->Write(buffer.data(), read_size));
       bytes_read += read_size;
     }
   } else if (FLAGS_operation == "puffdiff") {
     auto dst_stream = FileStream::Open(FLAGS_dst_file, true, false);
-    TEST_AND_RETURN_VALUE(dst_stream, -1);
+    TEST_AND_RETURN_FALSE(dst_stream);
 
-    TEST_AND_RETURN_VALUE(
-        LocateDeflatesBasedOnFileType(src_stream, FLAGS_src_file,
-                                      FLAGS_src_file_type, &src_deflates_byte),
-        -1);
-    TEST_AND_RETURN_VALUE(
-        LocateDeflatesBasedOnFileType(dst_stream, FLAGS_dst_file,
-                                      FLAGS_dst_file_type, &dst_deflates_byte),
-        -1);
+    TEST_AND_RETURN_FALSE(LocateDeflatesBasedOnFileType(
+        src_stream, FLAGS_src_file, FLAGS_src_file_type, &src_deflates_bit));
+    TEST_AND_RETURN_FALSE(LocateDeflatesBasedOnFileType(
+        dst_stream, FLAGS_dst_file, FLAGS_dst_file_type, &dst_deflates_bit));
 
     if (src_deflates_bit.empty() && src_deflates_byte.empty()) {
       LOG(WARNING) << "You should pass source deflates, is this intentional?";
@@ -341,57 +330,54 @@ int main(int argc, char** argv) {
     if (!dst_extents.empty()) {
       dst_stream =
           ExtentStream::CreateForWrite(std::move(dst_stream), dst_extents);
-      TEST_AND_RETURN_VALUE(dst_stream, -1);
+      TEST_AND_RETURN_FALSE(dst_stream);
     }
 
     if (src_deflates_bit.empty()) {
-      TEST_AND_RETURN_VALUE(FindDeflateSubBlocks(src_stream, src_deflates_byte,
-                                                 &src_deflates_bit),
-                            -1);
+      TEST_AND_RETURN_FALSE(FindDeflateSubBlocks(src_stream, src_deflates_byte,
+                                                 &src_deflates_bit));
     }
 
     if (dst_deflates_bit.empty()) {
-      TEST_AND_RETURN_VALUE(FindDeflateSubBlocks(dst_stream, dst_deflates_byte,
-                                                 &dst_deflates_bit),
-                            -1);
+      TEST_AND_RETURN_FALSE(FindDeflateSubBlocks(dst_stream, dst_deflates_byte,
+                                                 &dst_deflates_bit));
     }
 
+    // TODO(xunchang) add flags to select the bsdiff compressors.
     Buffer puffdiff_delta;
-    TEST_AND_RETURN_VALUE(
-        puffin::PuffDiff(std::move(src_stream), std::move(dst_stream),
-                         src_deflates_bit, dst_deflates_bit, "/tmp/patch.tmp",
-                         &puffdiff_delta),
-        -1);
+    TEST_AND_RETURN_FALSE(puffin::PuffDiff(
+        std::move(src_stream), std::move(dst_stream), src_deflates_bit,
+        dst_deflates_bit,
+        {bsdiff::CompressorType::kBZ2, bsdiff::CompressorType::kBrotli},
+        "/tmp/patch.tmp", &puffdiff_delta));
     if (FLAGS_verbose) {
       LOG(INFO) << "patch_size: " << puffdiff_delta.size();
     }
     auto patch_stream = FileStream::Open(FLAGS_patch_file, false, true);
-    TEST_AND_RETURN_VALUE(patch_stream, -1);
-    TEST_AND_RETURN_VALUE(
-        patch_stream->Write(puffdiff_delta.data(), puffdiff_delta.size()), -1);
+    TEST_AND_RETURN_FALSE(patch_stream);
+    TEST_AND_RETURN_FALSE(
+        patch_stream->Write(puffdiff_delta.data(), puffdiff_delta.size()));
   } else if (FLAGS_operation == "puffpatch") {
     auto patch_stream = FileStream::Open(FLAGS_patch_file, true, false);
-    TEST_AND_RETURN_VALUE(patch_stream, -1);
+    TEST_AND_RETURN_FALSE(patch_stream);
     uint64_t patch_size;
-    TEST_AND_RETURN_VALUE(patch_stream->GetSize(&patch_size), -1);
+    TEST_AND_RETURN_FALSE(patch_stream->GetSize(&patch_size));
 
     Buffer puffdiff_delta(patch_size);
-    TEST_AND_RETURN_VALUE(
-        patch_stream->Read(puffdiff_delta.data(), puffdiff_delta.size()), -1);
+    TEST_AND_RETURN_FALSE(
+        patch_stream->Read(puffdiff_delta.data(), puffdiff_delta.size()));
     auto dst_stream = FileStream::Open(FLAGS_dst_file, false, true);
-    TEST_AND_RETURN_VALUE(dst_stream, -1);
+    TEST_AND_RETURN_FALSE(dst_stream);
     if (!dst_extents.empty()) {
       dst_stream =
           ExtentStream::CreateForWrite(std::move(dst_stream), dst_extents);
-      TEST_AND_RETURN_VALUE(dst_stream, -1);
+      TEST_AND_RETURN_FALSE(dst_stream);
     }
     // Apply the patch. Use 50MB cache, it should be enough for most of the
     // operations.
-    TEST_AND_RETURN_VALUE(
-        puffin::PuffPatch(std::move(src_stream), std::move(dst_stream),
-                          puffdiff_delta.data(), puffdiff_delta.size(),
-                          FLAGS_cache_size),  // max_cache_size
-        -1);
+    TEST_AND_RETURN_FALSE(puffin::PuffPatch(
+        std::move(src_stream), std::move(dst_stream), puffdiff_delta.data(),
+        puffdiff_delta.size(), FLAGS_cache_size));
   }
 
   if (FLAGS_verbose) {
@@ -407,6 +393,13 @@ int main(int argc, char** argv) {
     LOG(INFO) << "dst_puffs: " << puffin::ExtentsToString(dst_puffs);
     LOG(INFO) << "src_extents: " << puffin::ExtentsToString(src_extents);
     LOG(INFO) << "dst_extents: " << puffin::ExtentsToString(dst_extents);
+  }
+  return true;
+}
+
+int main(int argc, char** argv) {
+  if (!Main(argc, argv)) {
+    return 1;
   }
   return 0;
 }

@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -55,13 +55,11 @@ static inline ResampleFilter **AcquireResampleFilterThreadSet(
   filter=(ResampleFilter **) AcquireQuantumMemory(number_threads,
     sizeof(*filter));
   if (filter == (ResampleFilter **) NULL)
-    return((ResampleFilter **) NULL);
-  (void) ResetMagickMemory(filter,0,number_threads*sizeof(*filter));
+    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  (void) memset(filter,0,number_threads*sizeof(*filter));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
     filter[i]=AcquireResampleFilter(image,exception);
-    if (filter[i] == (ResampleFilter *) NULL)
-      return(DestroyResampleFilterThreadSet(filter));
     if (method != UndefinedVirtualPixelMethod)
       (void) SetResampleFilterVirtualPixelMethod(filter[i],method);
     if (interpolate != MagickFalse)

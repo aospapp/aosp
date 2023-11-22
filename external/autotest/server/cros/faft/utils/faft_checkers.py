@@ -111,28 +111,16 @@ class FAFTCheckers(object):
         @param mode: A string of mode, one of 'normal', 'dev', or 'rec'.
         @return: True if the system in the given mode; otherwise, False.
         """
-        is_devsw = (self.faft_config.mode_switcher_type ==
-                    'physical_button_switcher')
         if mode == 'normal':
-            if is_devsw:
-                return self.crossystem_checker(
-                        {'devsw_cur': '0'},
-                        suppress_logging=True)
-            else:
-                return self.crossystem_checker(
-                        {'devsw_boot': '0',
-                         'mainfw_type': 'normal'},
-                        suppress_logging=True)
+            return self.crossystem_checker(
+                    {'devsw_boot': '0',
+                     'mainfw_type': 'normal'},
+                    suppress_logging=True)
         elif mode == 'dev':
-            if is_devsw:
-                return self.crossystem_checker(
-                        {'devsw_cur': '1'},
-                        suppress_logging=True)
-            else:
-                return self.crossystem_checker(
-                        {'devsw_boot': '1',
-                         'mainfw_type': 'developer'},
-                        suppress_logging=True)
+            return self.crossystem_checker(
+                    {'devsw_boot': '1',
+                     'mainfw_type': 'developer'},
+                    suppress_logging=True)
         elif mode == 'rec':
             return self.crossystem_checker(
                     {'mainfw_type': 'recovery'},

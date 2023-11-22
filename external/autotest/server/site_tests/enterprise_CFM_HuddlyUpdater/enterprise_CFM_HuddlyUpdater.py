@@ -8,11 +8,9 @@ import re
 import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import power_cycle_usb_util
 from autotest_lib.server import test
 import parse
-
-GUADO_GPIO = 218  # For Front-Left USB port
-POWER_RECYCLE_WAIT_TIME = 1  # sec
 
 
 class enterprise_CFM_HuddlyUpdater(test.test):
@@ -69,8 +67,6 @@ class enterprise_CFM_HuddlyUpdater(test.test):
     def _shcmd(self, cmd):
         """A simple wrapper for remote shell command execution."""
         logging.info('CMD: [%s]', cmd)
-        result = self._client.run(cmd)
-
         # result is an object with following attributes:
         # ['__class__', '__delattr__', '__dict__', '__doc__', '__eq__',
         # '__format__', '__getattribute__', '__hash__', '__init__',
@@ -80,13 +76,12 @@ class enterprise_CFM_HuddlyUpdater(test.test):
         # 'exit_status', 'stderr', 'stdout']
         try:
             result = self._client.run(cmd)
+            if result.stderr:
+                logging.info('CMD ERR:\n' + result.stderr)
+            logging.info('CMD OUT:\n' + result.stdout)
+            return result
         except:
             pass
-
-        if result.stderr:
-            logging.info('CMD ERR:\n' + result.stderr)
-        logging.info('CMD OUT:\n' + result.stdout)
-        return result
 
     def copy_firmware(self):
         """Copy test firmware package from server to the DUT."""
@@ -229,27 +224,16 @@ class enterprise_CFM_HuddlyUpdater(test.test):
     def usb_power_recycle(self):
         """Recycle the power to a USB port.
 
-        # TODO(frankhu): This code supports Guado, at a specific test
-        # configuration. Develop an independent tool to perform this task
-        # with minimal dependency.
+        # Use Power cycle usb util to recycle power.
         """
 
         try:
-            # Ignorant handling of GPIO export.
-            cmd = 'echo {} > /sys/class/gpio/export'.format(GUADO_GPIO)
-            self._shcmd(cmd)
-        except error.AutoservRunError:
-            pass
+            power_cycle_usb_util.power_cycle_usb_vidpid(self.host,
+                                    self.board, self.vid, self.pid)
+        except KeyError:
+            raise error.TestFail('Couldn\'t find target device: '
+                                 'vid:pid {}:{}'.format(self.vid, self.pid))
 
-        cmd = 'echo out > /sys/class/gpio/gpio{}/direction'.format(GUADO_GPIO)
-        self._shcmd(cmd)
-        cmd = 'echo 0 > /sys/class/gpio/gpio{}/value'.format(GUADO_GPIO)
-        self._shcmd(cmd)
-
-        # Wait for 1 second to avoid too fast removal and reconnection.
-        time.sleep(POWER_RECYCLE_WAIT_TIME)
-        cmd = 'echo 1 > /sys/class/gpio/gpio{}/value'.format(GUADO_GPIO)
-        self._shcmd(cmd)
 
     def is_filesystem_readwrite(self):
         """Check if the root file system is read-writable.

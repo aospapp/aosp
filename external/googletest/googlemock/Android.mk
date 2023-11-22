@@ -55,7 +55,6 @@ define gmock-test-suite
     $(eval $(call gmock-unit-test,gmock-cardinalities_test,,libgmock_main,$(1))) \
     $(eval $(call gmock-unit-test,gmock-generated-actions_test,,libgmock_main,$(1))) \
     $(eval $(call gmock-unit-test,gmock-generated-function-mockers_test,,libgmock_main,$(1))) \
-    $(eval $(call gmock-unit-test,gmock-generated-internal-utils_test,,libgmock_main,$(1))) \
     $(eval $(call gmock-unit-test,gmock-generated-matchers_test,,libgmock_main,$(1))) \
     $(eval $(call gmock-unit-test,gmock-internal-utils_test,,libgmock_main,$(1))) \
     $(eval $(call gmock-unit-test,gmock-matchers_test,,libgmock_main,$(1))) \

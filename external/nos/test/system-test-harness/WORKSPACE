@@ -1,25 +1,26 @@
 workspace(name = "nugget_test_systemtestharness")
 
-new_http_archive(
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
     name = "gtest",
-    url = "https://github.com/google/googletest/archive/release-1.8.0.zip",
-    build_file = "../../core/nugget/BUILD.gtest",
-    sha256 = "f3ed3b58511efd272eb074a3a6d6fb79d7c2e6a0e374323d1e6bcbcc1ef141bf",
-    strip_prefix = "googletest-release-1.8.0",
+    url = "https://github.com/google/googletest/archive/release-1.8.1.zip",
+    sha256 = "927827c183d01734cc5cfef85e0ff3f5a92ffe6188e0d18e909c5efebf28a0c7",
+    strip_prefix = "googletest-release-1.8.1",
 )
 
 http_archive(
     name = "com_google_protobuf",
-    url = "https://github.com/google/protobuf/archive/v3.5.0.zip",
-    strip_prefix = "protobuf-3.5.0",
-    sha256 = "cef7f1b5a7c5fba672bec2a319246e8feba471f04dcebfe362d55930ee7c1c30",
+    url = "https://github.com/google/protobuf/archive/v3.6.1.2.zip",
+    strip_prefix = "protobuf-3.6.1.2",
+    sha256 = "d6618d117698132dadf0f830b762315807dc424ba36ab9183f1f436008a2fdb6",
 )
 
 http_archive(
     name = "com_google_protobuf_cc",
-    url = "https://github.com/google/protobuf/archive/v3.5.0.zip",
-    strip_prefix = "protobuf-3.5.0",
-    sha256 = "cef7f1b5a7c5fba672bec2a319246e8feba471f04dcebfe362d55930ee7c1c30",
+    url = "https://github.com/google/protobuf/archive/v3.6.1.2.zip",
+    strip_prefix = "protobuf-3.6.1.2",
+    sha256 = "d6618d117698132dadf0f830b762315807dc424ba36ab9183f1f436008a2fdb6",
 )
 
 http_archive(

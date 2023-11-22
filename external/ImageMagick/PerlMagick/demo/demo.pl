@@ -63,8 +63,8 @@ push(@$images,$example);
 print "Annotate...\n";
 $example=$model->Clone();
 $example->Label('Annotate');
-$example->Annotate(text=>'Magick',geometry=>'+0+20',font=>'Generic.ttf',
-  fill=>'gold',gravity=>'North',pointsize=>14);
+$example->Annotate(text=>'Magick',geometry=>'+0+20',fill=>'gold',
+  gravity=>'North',pointsize=>14);
 push(@$images,$example);
 
 print "Auto-gamma...\n";
@@ -77,6 +77,12 @@ print "Auto-level...\n";
 $example=$model->Clone();
 $example->Label('Auto Level');
 $example->AutoLevel();
+push(@$images,$example);
+
+print "Auto-threshold...\n";
+$example=$model->Clone();
+$example->Label('Auto Threshold');
+$example->AutoThreshold();
 push(@$images,$example);
 
 print "Blur...\n";
@@ -107,6 +113,12 @@ print "ColorMatrix...\n";
 $example=$model->Clone();
 $example->Label('ColorMatrix');
 $example->ColorMatrix([1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0.5, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1]);
+push(@$images,$example);
+
+print "Colorspace...\n";
+$example=$model->Clone();
+$example->Label('Colorspace');
+$example->Colorspace('Lab');
 push(@$images,$example);
 
 print "Composite...\n";
@@ -483,7 +495,7 @@ push(@$images,$example);
 
 print "WaveletDenoise...\n";
 $example=$model->Clone();
-$example->Label('WaveletDenoise');
+$example->Label('Wavelet Denoise');
 $example->WaveletDenoise('5%');
 push(@$images,$example);
 
@@ -491,9 +503,9 @@ push(@$images,$example);
 # Create image montage.
 #
 print "Montage...\n";
-$montage=$images->Montage(geometry=>'128x160+8+4>',gravity=>'Center',
-  tile=>'5x+10+200',compose=>'over',background=>'#ffffff',font=>'Generic.ttf',
-  pointsize=>18,fill=>'#600',stroke=>'none',shadow=>'true');
+$montage=$images->Montage(geometry=>'140x160+8+4>',gravity=>'Center',
+  tile=>'5x+10+200',compose=>'over',background=>'#ffffff',pointsize=>18,
+  fill=>'#600',stroke=>'none',shadow=>'true');
 
 $logo=Image::Magick->new();
 $logo->Read('logo:');

@@ -23,10 +23,6 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef __ANDROID__
-#include <cutils/properties.h>
-#endif
-
 #define ASYNCHRONOUS_BLIT false   // FIXME: Currently leads to rare race conditions
 
 namespace sw
@@ -535,7 +531,7 @@ namespace sw
 			}
 		}
 
-		return function(L"FrameBuffer");
+		return function("FrameBuffer");
 	}
 
 	void FrameBuffer::blend(const BlitState &state, const Pointer<Byte> &d, const Pointer<Byte> &s, const Pointer<Byte> &c)

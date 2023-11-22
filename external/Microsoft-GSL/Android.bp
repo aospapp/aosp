@@ -15,11 +15,12 @@
 //
 
 // Header only.
-cc_library_static {
+cc_library_headers {
     name: "libgsl",
     host_supported: true,
     export_include_dirs: ["include"],
     cflags: ["-Wall", "-Werror"],
+    vendor_available: true,
 }
 
 // Tests pending approval of external/Microsoft-unittest-cpp: http://b/32512867

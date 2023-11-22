@@ -55,7 +55,8 @@ int TST_TOTAL = ARRAY_SIZE(testfunc);
 
 static volatile int sig_caught;
 static sigjmp_buf env;
-static unsigned int copy_sz;
+static unsigned int page_sz;
+typedef void (*func_ptr_t)(void);
 
 int main(int ac, char **av)
 {
@@ -87,7 +88,7 @@ static void setup(void)
 {
 	tst_tmpdir();
 	tst_sig(NOFORK, sighandler, cleanup);
-	copy_sz = getpagesize() * 2;
+	page_sz = getpagesize();
 
 	TEST_PAUSE;
 }
@@ -95,11 +96,8 @@ static void setup(void)
 static void testfunc_protnone(void)
 {
 	char *addr;
-	int page_sz;
 
 	sig_caught = 0;
-
-	page_sz = getpagesize();
 
 	addr = SAFE_MMAP(cleanup, 0, page_sz, PROT_READ | PROT_WRITE,
 					 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -132,7 +130,7 @@ static void testfunc_protnone(void)
 
 #ifdef __ia64__
 
-static char exec_func[] = {
+static char exec_func[] __attribute__ ((aligned (64))) = {
 	0x11, 0x00, 0x00, 0x00, 0x01, 0x00, /* nop.m 0x0             */
 	0x00, 0x00, 0x00, 0x02, 0x00, 0x80, /* nop.i 0x0             */
 	0x08, 0x00, 0x84, 0x00,             /* br.ret.sptk.many b0;; */
@@ -190,35 +188,64 @@ static void clear_cache(void *start, int len)
 }
 
 /*
+ * To check for the ABI version, because ppc64le can technically use
+ * function descriptors.
+ */
+#if defined(__powerpc64__) && (!defined(_CALL_ELF) || _CALL_ELF < 2)
+#define USE_FUNCTION_DESCRIPTORS
+#endif
+
+#ifdef USE_FUNCTION_DESCRIPTORS
+typedef struct {
+	uintptr_t entry;
+	uintptr_t toc;
+	uintptr_t env;
+} func_descr_t;
+#endif
+
+/*
  * Copy page where &exec_func resides. Also try to copy subsequent page
  * in case exec_func is close to page boundary.
  */
-static void *get_func(void *mem)
+static void *get_func(void *mem, uintptr_t *func_page_offset)
 {
 	uintptr_t page_sz = getpagesize();
 	uintptr_t page_mask = ~(page_sz - 1);
-	uintptr_t func_page_offset = (uintptr_t)&exec_func & (page_sz - 1);
-	void *func_copy_start = mem + func_page_offset;
-	void *page_to_copy = (void *)((uintptr_t)&exec_func & page_mask);
+	void *func_copy_start, *page_to_copy;
 	void *mem_start = mem;
 
-	/* copy 1st page, if it's not present something is wrong */
+#ifdef USE_FUNCTION_DESCRIPTORS
+	func_descr_t *opd =  (func_descr_t *)&exec_func;
+	*func_page_offset = (uintptr_t)opd->entry & (page_sz - 1);
+	func_copy_start = mem + *func_page_offset;
+	page_to_copy = (void *)((uintptr_t)opd->entry & page_mask);
+#else
+	*func_page_offset = (uintptr_t)&exec_func & (page_sz - 1);
+	func_copy_start = mem + *func_page_offset;
+	page_to_copy = (void *)((uintptr_t)&exec_func & page_mask);
+#endif
+	tst_resm(TINFO, "exec_func: %p, page_to_copy: %p",
+		&exec_func, page_to_copy);
+
+	/* Copy 1st page. If it's not accessible, we might be running on a
+	 * platform that supports execute-only page access permissions, in which
+	 * case we have to explicitly change access protections to allow the
+	 * memory to be read. */
 	if (!page_present(page_to_copy)) {
-		tst_resm(TINFO, "exec_func: %p, page_to_copy: %p\n",
-			&exec_func, page_to_copy);
-		tst_brkm(TBROK, cleanup, "page_to_copy not present\n");
+		TEST(mprotect(page_to_copy, page_sz, PROT_READ | PROT_EXEC));
+		if (TEST_RETURN == -1) {
+			tst_resm(TFAIL | TTERRNO,
+				 "mprotect(PROT_READ|PROT_EXEC) failed");
+			return NULL;
+		}
+		/* If the memory is still not accessible, then something must be
+		 * wrong. */
+		if (!page_present(page_to_copy))
+			tst_brkm(TBROK, cleanup, "page_to_copy not present\n");
 	}
 	memcpy(mem, page_to_copy, page_sz);
 
-	/* copy 2nd page if possible */
-	mem += page_sz;
-	page_to_copy += page_sz;
-	if (page_present(page_to_copy))
-		memcpy(mem, page_to_copy, page_sz);
-	else
-		memset(mem, 0, page_sz);
-
-	clear_cache(mem_start, copy_sz);
+	clear_cache(mem_start, page_sz);
 
 	/* return pointer to area where copy of exec_func resides */
 	return func_copy_start;
@@ -228,18 +255,34 @@ static void *get_func(void *mem)
 
 static void testfunc_protexec(void)
 {
-	void (*func)(void);
+	func_ptr_t func;
+	uintptr_t func_page_offset;
 	void *p;
 
 	sig_caught = 0;
 
-	p = SAFE_MMAP(cleanup, 0, copy_sz, PROT_READ | PROT_WRITE,
+	p = SAFE_MMAP(cleanup, 0, page_sz, PROT_READ | PROT_WRITE,
 		 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
-	func = get_func(p);
+#ifdef USE_FUNCTION_DESCRIPTORS
+	func_descr_t opd;
+	opd.entry = (uintptr_t)get_func(p, &func_page_offset);
+	func = (func_ptr_t)&opd;
+#else
+	func = get_func(p, &func_page_offset);
+#endif
+
+	if (!func)
+		goto out;
+
+	if (func_page_offset + 64 > page_sz) {
+		SAFE_MUNMAP(cleanup, p, page_sz);
+		tst_brkm(TCONF, cleanup, "func too close to page boundary, "
+			"maybe your compiler ignores -falign-functions?");
+	}
 
 	/* Change the protection to PROT_EXEC. */
-	TEST(mprotect(p, copy_sz, PROT_EXEC));
+	TEST(mprotect(p, page_sz, PROT_EXEC));
 
 	if (TEST_RETURN == -1) {
 		tst_resm(TFAIL | TTERRNO, "mprotect failed");
@@ -261,7 +304,8 @@ static void testfunc_protexec(void)
 		}
 	}
 
-	SAFE_MUNMAP(cleanup, p, copy_sz);
+out:
+	SAFE_MUNMAP(cleanup, p, page_sz);
 }
 
 static void cleanup(void)

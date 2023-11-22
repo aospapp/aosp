@@ -29,7 +29,6 @@ diagnosis tools.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 _BUG_TEMPLATE = {
@@ -40,7 +39,6 @@ _BUG_TEMPLATE = {
 
 args_dict['add_experimental'] = True
 args_dict['bug_template'] = _BUG_TEMPLATE
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['name'] = 'stress2'
 args_dict['job'] = job
 

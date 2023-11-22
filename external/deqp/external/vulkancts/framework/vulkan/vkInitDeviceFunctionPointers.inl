@@ -1,6 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  */
+m_vk.getDeviceProcAddr							= (GetDeviceProcAddrFunc)							GET_PROC_ADDR("vkGetDeviceProcAddr");
 m_vk.destroyDevice								= (DestroyDeviceFunc)								GET_PROC_ADDR("vkDestroyDevice");
 m_vk.getDeviceQueue								= (GetDeviceQueueFunc)								GET_PROC_ADDR("vkGetDeviceQueue");
 m_vk.queueSubmit								= (QueueSubmitFunc)									GET_PROC_ADDR("vkQueueSubmit");
@@ -186,6 +187,10 @@ m_vk.importSemaphoreFdKHR						= (ImportSemaphoreFdKHRFunc)						GET_PROC_ADDR("
 m_vk.getSemaphoreFdKHR							= (GetSemaphoreFdKHRFunc)							GET_PROC_ADDR("vkGetSemaphoreFdKHR");
 m_vk.cmdPushDescriptorSetKHR					= (CmdPushDescriptorSetKHRFunc)						GET_PROC_ADDR("vkCmdPushDescriptorSetKHR");
 m_vk.cmdPushDescriptorSetWithTemplateKHR		= (CmdPushDescriptorSetWithTemplateKHRFunc)			GET_PROC_ADDR("vkCmdPushDescriptorSetWithTemplateKHR");
+m_vk.createRenderPass2KHR						= (CreateRenderPass2KHRFunc)						GET_PROC_ADDR("vkCreateRenderPass2KHR");
+m_vk.cmdBeginRenderPass2KHR						= (CmdBeginRenderPass2KHRFunc)						GET_PROC_ADDR("vkCmdBeginRenderPass2KHR");
+m_vk.cmdNextSubpass2KHR							= (CmdNextSubpass2KHRFunc)							GET_PROC_ADDR("vkCmdNextSubpass2KHR");
+m_vk.cmdEndRenderPass2KHR						= (CmdEndRenderPass2KHRFunc)						GET_PROC_ADDR("vkCmdEndRenderPass2KHR");
 m_vk.getSwapchainStatusKHR						= (GetSwapchainStatusKHRFunc)						GET_PROC_ADDR("vkGetSwapchainStatusKHR");
 m_vk.importFenceWin32HandleKHR					= (ImportFenceWin32HandleKHRFunc)					GET_PROC_ADDR("vkImportFenceWin32HandleKHR");
 m_vk.getFenceWin32HandleKHR						= (GetFenceWin32HandleKHRFunc)						GET_PROC_ADDR("vkGetFenceWin32HandleKHR");
@@ -198,7 +203,11 @@ m_vk.cmdDebugMarkerEndEXT						= (CmdDebugMarkerEndEXTFunc)						GET_PROC_ADDR("
 m_vk.cmdDebugMarkerInsertEXT					= (CmdDebugMarkerInsertEXTFunc)						GET_PROC_ADDR("vkCmdDebugMarkerInsertEXT");
 m_vk.cmdDrawIndirectCountAMD					= (CmdDrawIndirectCountAMDFunc)						GET_PROC_ADDR("vkCmdDrawIndirectCountAMD");
 m_vk.cmdDrawIndexedIndirectCountAMD				= (CmdDrawIndexedIndirectCountAMDFunc)				GET_PROC_ADDR("vkCmdDrawIndexedIndirectCountAMD");
+m_vk.cmdDrawIndirectCountKHR					= (CmdDrawIndirectCountKHRFunc)						GET_PROC_ADDR("vkCmdDrawIndirectCountKHR");
+m_vk.cmdDrawIndexedIndirectCountKHR				= (CmdDrawIndexedIndirectCountKHRFunc)				GET_PROC_ADDR("vkCmdDrawIndexedIndirectCountKHR");
 m_vk.getMemoryWin32HandleNV						= (GetMemoryWin32HandleNVFunc)						GET_PROC_ADDR("vkGetMemoryWin32HandleNV");
+m_vk.cmdBeginConditionalRenderingEXT			= (CmdBeginConditionalRenderingEXTFunc)				GET_PROC_ADDR("vkCmdBeginConditionalRenderingEXT");
+m_vk.cmdEndConditionalRenderingEXT				= (CmdEndConditionalRenderingEXTFunc)				GET_PROC_ADDR("vkCmdEndConditionalRenderingEXT");
 m_vk.cmdProcessCommandsNVX						= (CmdProcessCommandsNVXFunc)						GET_PROC_ADDR("vkCmdProcessCommandsNVX");
 m_vk.cmdReserveSpaceForCommandsNVX				= (CmdReserveSpaceForCommandsNVXFunc)				GET_PROC_ADDR("vkCmdReserveSpaceForCommandsNVX");
 m_vk.createIndirectCommandsLayoutNVX			= (CreateIndirectCommandsLayoutNVXFunc)				GET_PROC_ADDR("vkCreateIndirectCommandsLayoutNVX");
@@ -221,5 +230,6 @@ m_vk.createValidationCacheEXT					= (CreateValidationCacheEXTFunc)					GET_PROC_
 m_vk.destroyValidationCacheEXT					= (DestroyValidationCacheEXTFunc)					GET_PROC_ADDR("vkDestroyValidationCacheEXT");
 m_vk.mergeValidationCachesEXT					= (MergeValidationCachesEXTFunc)					GET_PROC_ADDR("vkMergeValidationCachesEXT");
 m_vk.getValidationCacheDataEXT					= (GetValidationCacheDataEXTFunc)					GET_PROC_ADDR("vkGetValidationCacheDataEXT");
+m_vk.getMemoryHostPointerPropertiesEXT			= (GetMemoryHostPointerPropertiesEXTFunc)			GET_PROC_ADDR("vkGetMemoryHostPointerPropertiesEXT");
 m_vk.getAndroidHardwareBufferPropertiesANDROID	= (GetAndroidHardwareBufferPropertiesANDROIDFunc)	GET_PROC_ADDR("vkGetAndroidHardwareBufferPropertiesANDROID");
 m_vk.getMemoryAndroidHardwareBufferANDROID		= (GetMemoryAndroidHardwareBufferANDROIDFunc)		GET_PROC_ADDR("vkGetMemoryAndroidHardwareBufferANDROID");

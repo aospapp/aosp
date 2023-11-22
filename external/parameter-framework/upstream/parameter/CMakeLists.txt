@@ -35,6 +35,7 @@ add_library(parameter SHARED
     ${parameter_OS_SPECIFIC_SRCS}
     AreaConfiguration.cpp
     ArrayParameter.cpp
+    BaseIntegerParameterType.cpp
     BaseParameter.cpp
     BitParameterBlock.cpp
     BitParameterBlockType.cpp
@@ -66,7 +67,6 @@ add_library(parameter SHARED
     HardwareBackSynchronizer.cpp
     InstanceConfigurableElement.cpp
     InstanceDefinition.cpp
-    IntegerParameterType.cpp
     LinearParameterAdaptation.cpp
     LogarithmicParameterAdaptation.cpp
     LoggingElementBuilderTemplate.cpp
@@ -127,19 +127,37 @@ endif()
 configure_file(version.h.in "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
 target_link_libraries(parameter
-    # Unfortunatly xmlSink and xmlSource need to be exposed to the plugins
-    PUBLIC xmlserializer
-    PRIVATE pfw_utility remote-processor
+    PRIVATE xmlserializer pfw_utility remote-processor
     PRIVATE ${CMAKE_DL_LIBS})
 
 target_include_directories(parameter
-    PUBLIC include log/include
-    # Export symbol macro header
-    PUBLIC "${CMAKE_CURRENT_BINARY_DIR}"
-    # FIXE: define . as an PUBLIC include directory only for plugins
-    PUBLIC .)
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/log/include>
+    INTERFACE $<INSTALL_INTERFACE:include/parameter/client>
+    INTERFACE $<INSTALL_INTERFACE:include/parameter/plugin>)
 
-install(TARGETS parameter LIBRARY DESTINATION lib RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
+install(TARGETS parameter EXPORT ParameterTargets
+    LIBRARY DESTINATION lib COMPONENT runtime
+    RUNTIME DESTINATION bin COMPONENT runtime
+    ARCHIVE DESTINATION lib COMPONENT dev)
+
+# Export an interface library for plugins to use (after the ParameterFramework
+# project is built and installed). It makes them link against libparameter and
+# use xmlserializer's and pfw_utilify's include directories.
+add_library(plugin INTERFACE)
+target_link_libraries(plugin INTERFACE parameter)
+target_include_directories(plugin
+    INTERFACE $<INSTALL_INTERFACE:include/parameter/xmlserializer>
+    INTERFACE $<INSTALL_INTERFACE:include/parameter/utility>)
+install(TARGETS plugin EXPORT ParameterTargets COMPONENT dev)
+# Unfortunately, while the "plugin" interface library is suitable for external
+# plugins (built using the installed Parameter Framework) we want to build some
+# plugins before the whole project is installed. Therefore, they need to get
+# xmlserializer's and pfw_utility's headers from the build tree. This
+# "plugin-internal-hack" is for them.
+add_library(plugin-internal-hack INTERFACE)
+target_link_libraries(plugin-internal-hack INTERFACE parameter xmlserializer)
+
 # Client headers
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/parameter_export.h"
@@ -151,7 +169,8 @@ install(FILES
     include/ParameterMgrPlatformConnector.h
     include/SelectionCriterionInterface.h
     include/SelectionCriterionTypeInterface.h
-    DESTINATION "include/parameter/client")
+    DESTINATION "include/parameter/client"
+    COMPONENT dev)
 # Core (plugin) headers
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/parameter_export.h"
@@ -161,7 +180,6 @@ install(FILES
     Element.h
     ElementBuilder.h
     ElementLibrary.h
-    FileIncluderElementBuilder.h
     FormattedSubsystemObject.h
     InstanceConfigurableElement.h
     LoggingElementBuilderTemplate.h
@@ -179,6 +197,8 @@ install(FILES
     Syncer.h
     TypeElement.h
     VirtualSubsystem.h
-    DESTINATION "include/parameter/plugin")
+    DESTINATION "include/parameter/plugin"
+    COMPONENT dev)
 install(DIRECTORY log/include/log/
-        DESTINATION "include/parameter/plugin/log")
+        DESTINATION "include/parameter/plugin/log"
+        COMPONENT dev)

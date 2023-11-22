@@ -66,7 +66,7 @@ class RPMController(object):
     HYDRA_MAX_CONNECT_RETRIES = 3
     LOGOUT_CMD = 'logout'
     CLI_CMD = 'CLI'
-    CLI_HELD = 'The administrator \[root\] has an active .* session.'
+    CLI_HELD = r'The administrator \[root\] has an active .* session.'
     CLI_KILL_PREVIOUS = 'cancel'
     CLI_PROMPT = 'cli>'
     HYDRA_PROMPT = '#'
@@ -225,8 +225,7 @@ class RPMController(object):
             logging.getLogger().handlers = []
             rpm_logging_config.set_up_logging_to_file(
                     log_dir='./logs',
-                    log_filename_format=log_filename_format,
-                    use_log_server=False)
+                    log_filename_format=log_filename_format)
             logging.info('Failed to set up logging through log server: %s', e)
         kwargs = {'powerunit_info':request['powerunit_info'],
                   'new_state':request['new_state']}
@@ -569,8 +568,7 @@ class SentryRPMController(RPMController):
     @var _password: password used to access device.
     """
 
-
-    DEVICE_PROMPT = 'Switched CDU:'
+    DEVICE_PROMPT = ['Switched CDU:', 'Switched PDU:']
     SET_STATE_CMD = '%s %s'
     SUCCESS_MSG = 'Command successful'
     NUM_OF_OUTLETS = 17
@@ -704,7 +702,7 @@ class WebPoweredRPMController(RPMController):
         @return state: the outlet's current state.
         """
         status_list = self._rpm.statuslist()
-        for outlet_name, hostname, state in status_list:
+        for outlet_name, _, state in status_list:
             if outlet_name == outlet:
                 return state
         return None
@@ -724,7 +722,6 @@ class WebPoweredRPMController(RPMController):
                           'POWERUNIT_OUTLET exists in the host\'s '
                           'attributes in afe' , device_hostname, new_state)
             return False
-        state = self._get_outlet_state(outlet)
         expected_state = new_state
         if new_state == self.NEW_STATE_CYCLE:
             logging.debug('Beginning Power Cycle for device: %s',
@@ -772,13 +769,13 @@ class CiscoPOEController(RPMController):
     EXIT_CMD = 'exit'
     END_CMD = 'end'
     CONFIG = 'configure terminal'
-    CONFIG_PROMPT = '%s\(config\)#'
+    CONFIG_PROMPT = r'%s\(config\)#'
     CONFIG_IF = 'interface %s'
-    CONFIG_IF_PROMPT = '%s\(config-if\)#'
+    CONFIG_IF_PROMPT = r'%s\(config-if\)#'
     SET_STATE_ON = 'power inline auto'
     SET_STATE_OFF = 'power inline never'
     CHECK_INTERFACE_STATE = 'show interface status %s'
-    INTERFACE_STATE_MSG = 'Port\s+.*%s(\s+(\S+)){6,6}'
+    INTERFACE_STATE_MSG = r'Port\s+.*%s(\s+(\S+)){6,6}'
     CHECK_STATE_TIMEOUT = 60
     CMD_TIMEOUT = 30
     LOGIN_TIMEOUT = 60

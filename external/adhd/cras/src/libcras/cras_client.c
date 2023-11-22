@@ -57,6 +57,8 @@
 static const size_t MAX_CMD_MSG_LEN = 256;
 static const size_t SERVER_SHUTDOWN_TIMEOUT_US = 500000;
 static const size_t SERVER_CONNECT_TIMEOUT_MS = 1000;
+static const size_t HOTWORD_FRAME_RATE = 16000;
+static const size_t HOTWORD_BLOCK_SIZE = 320;
 
 /* Commands sent from the user to the running client. */
 enum {
@@ -123,6 +125,7 @@ struct cras_stream_params {
 	size_t cb_threshold;
 	enum CRAS_STREAM_TYPE stream_type;
 	uint32_t flags;
+	uint64_t effects;
 	void *user_data;
 	cras_playback_cb_t aud_cb;
 	cras_unified_cb_t unified_cb;
@@ -254,6 +257,20 @@ struct client_int {
 
 #define to_client_int(cptr) \
 ((struct client_int *)((char *)cptr - offsetof(struct client_int, client)))
+
+/*
+ * Holds the hotword stream format, params, and ID used when waiting for a
+ * hotword. The structure is created by cras_client_enable_hotword_callback and
+ * destroyed by cras_client_disable_hotword_callback.
+ */
+struct cras_hotword_handle {
+	struct cras_audio_format *format;
+	struct cras_stream_params *params;
+	cras_stream_id_t stream_id;
+	cras_hotword_trigger_cb_t trigger_cb;
+	cras_hotword_error_cb_t err_cb;
+	void *user_data;
+};
 
 /*
  * Local Helpers
@@ -1042,6 +1059,27 @@ static void complete_capture_read_current(struct client_stream *stream,
 	cras_shm_buffer_read_current(&stream->capture_shm, num_frames);
 }
 
+static int send_capture_reply(struct client_stream *stream,
+			      unsigned int frames,
+			      int err)
+{
+	struct audio_message aud_msg;
+	int rc;
+
+	if (!cras_stream_uses_input_hw(stream->direction))
+		return 0;
+
+	aud_msg.id = AUDIO_MESSAGE_DATA_CAPTURED;
+	aud_msg.frames = frames;
+	aud_msg.error = err;
+
+	rc = write(stream->aud_fd, &aud_msg, sizeof(aud_msg));
+	if (rc != sizeof(aud_msg))
+		return -EPIPE;
+
+	return 0;
+}
+
 /* For capture streams this handles the message signalling that data is ready to
  * be passed to the user of this stream.  Calls the audio callback with the new
  * samples, and mark them as read.
@@ -1058,6 +1096,7 @@ static int handle_capture_data_ready(struct client_stream *stream,
 	struct cras_stream_params *config;
 	uint8_t *captured_frames;
 	struct timespec ts;
+	int rc = 0;
 
 	config = stream->config;
 	/* If this message is for an output stream, log error and drop it. */
@@ -1088,15 +1127,17 @@ static int handle_capture_data_ready(struct client_stream *stream,
 					num_frames,
 					&ts,
 					config->user_data);
-	if (frames == EOF) {
+	if (frames < 0) {
 		send_stream_message(stream, CLIENT_STREAM_EOF);
-		return EOF;
+		rc = frames;
+		goto reply_captured;
 	}
 	if (frames == 0)
 		return 0;
 
 	complete_capture_read_current(stream, frames);
-	return 0;
+reply_captured:
+	return send_capture_reply(stream, frames, rc);
 }
 
 /* Notifies the server that "frames" samples have been written. */
@@ -1313,7 +1354,7 @@ static int start_aud_thread(struct client_stream *stream)
 		return -rc;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &future);
+	clock_gettime(CLOCK_REALTIME, &future);
 	future.tv_sec += 2; /* Wait up to two seconds. */
 	rc = pthread_cond_timedwait(&stream->client->stream_start_cond,
 				    &stream->client->stream_start_lock, &future);
@@ -1472,6 +1513,7 @@ static int send_connect_message(struct cras_client *client,
 				  stream->config->buffer_frames,
 				  stream->config->cb_threshold,
 				  stream->flags,
+				  stream->config->effects,
 				  stream->config->format,
 				  dev_idx);
 	rc = cras_send_with_fds(client->server_fd, &serv_msg, sizeof(serv_msg),
@@ -1689,8 +1731,23 @@ static int handle_message_from_server(struct cras_client *client)
 			(struct cras_client_stream_connected *)msg;
 		struct client_stream *stream =
 			stream_from_id(client, cmsg->stream_id);
-		if (stream == NULL)
+		if (stream == NULL) {
+			if (num_fds != 2) {
+				syslog(LOG_ERR, "cras_client: Error receiving "
+				       "stream 0x%x connected message",
+				       cmsg->stream_id);
+				return -EINVAL;
+			}
+
+			/*
+			 * Usually, the fds should be closed in stream_connected
+			 * callback. However, sometimes a stream is removed
+			 * before it is connected.
+			 */
+			close(server_fds[0]);
+			close(server_fds[1]);
 			break;
+		}
 		rc = stream_connected(stream, cmsg, server_fds, num_fds);
 		if (rc < 0)
 			stream->config->err_cb(stream->client,
@@ -1702,6 +1759,7 @@ static int handle_message_from_server(struct cras_client *client)
 	case CRAS_CLIENT_AUDIO_DEBUG_INFO_READY:
 		if (client->debug_info_callback)
 			client->debug_info_callback(client);
+		client->debug_info_callback = NULL;
 		break;
 	case CRAS_CLIENT_GET_HOTWORD_MODELS_READY: {
 		struct cras_client_get_hotword_models_ready *cmsg =
@@ -2172,6 +2230,7 @@ void cras_client_destroy(struct cras_client *client)
 	client->server_err_cb = NULL;
 	cras_client_stop(client);
 	server_disconnect(client);
+	close(client->server_event_fd);
 	close(client->command_fds[0]);
 	close(client->command_fds[1]);
 	close(client->stream_fds[0]);
@@ -2224,7 +2283,7 @@ struct cras_stream_params *cras_client_stream_params_create(
 	params->direction = direction;
 	params->buffer_frames = buffer_frames;
 	params->cb_threshold = cb_threshold;
-
+	params->effects = 0;
 	params->stream_type = stream_type;
 	params->flags = flags;
 	params->user_data = user_data;
@@ -2233,6 +2292,46 @@ struct cras_stream_params *cras_client_stream_params_create(
 	params->err_cb = err_cb;
 	memcpy(&(params->format), format, sizeof(*format));
 	return params;
+}
+
+void cras_client_stream_params_enable_aec(struct cras_stream_params *params)
+{
+	params->effects |= APM_ECHO_CANCELLATION;
+}
+
+void cras_client_stream_params_disable_aec(struct cras_stream_params *params)
+{
+	params->effects &= ~APM_ECHO_CANCELLATION;
+}
+
+void cras_client_stream_params_enable_ns(struct cras_stream_params *params)
+{
+	params->effects |= APM_NOISE_SUPRESSION;
+}
+
+void cras_client_stream_params_disable_ns(struct cras_stream_params *params)
+{
+	params->effects &= ~APM_NOISE_SUPRESSION;
+}
+
+void cras_client_stream_params_enable_agc(struct cras_stream_params *params)
+{
+	params->effects |= APM_GAIN_CONTROL;
+}
+
+void cras_client_stream_params_disable_agc(struct cras_stream_params *params)
+{
+	params->effects &= ~APM_GAIN_CONTROL;
+}
+
+void cras_client_stream_params_enable_vad(struct cras_stream_params *params)
+{
+	params->effects |= APM_VOICE_DETECTION;
+}
+
+void cras_client_stream_params_disable_vad(struct cras_stream_params *params)
+{
+	params->effects &= ~APM_VOICE_DETECTION;
 }
 
 struct cras_stream_params *cras_client_unified_params_create(
@@ -2256,6 +2355,7 @@ struct cras_stream_params *cras_client_unified_params_create(
 	params->cb_threshold = block_size;
 	params->stream_type = stream_type;
 	params->flags = flags;
+	params->effects = 0;
 	params->user_data = user_data;
 	params->aud_cb = 0;
 	params->unified_cb = unified_cb;
@@ -2591,6 +2691,22 @@ const struct audio_debug_info *cras_client_get_audio_debug_info(
 	debug_info = &client->server_state->audio_debug_info;
 	server_state_unlock(client, lock_rc);
 	return debug_info;
+}
+
+const struct cras_audio_thread_snapshot_buffer*
+	cras_client_get_audio_thread_snapshot_buffer(
+		const struct cras_client *client)
+{
+	const struct cras_audio_thread_snapshot_buffer *snapshot_buffer;
+	int lock_rc;
+
+	lock_rc = server_state_rdlock(client);
+	if (lock_rc)
+		return 0;
+
+	snapshot_buffer = &client->server_state->snapshot_buffer;
+	server_state_unlock(client, lock_rc);
+	return snapshot_buffer;
 }
 
 unsigned cras_client_get_num_active_streams(const struct cras_client *client,
@@ -3029,9 +3145,28 @@ int cras_client_update_audio_debug_info(
 	if (client == NULL)
 		return -EINVAL;
 
+	if (client->debug_info_callback != NULL)
+		return -EINVAL;
 	client->debug_info_callback = debug_info_cb;
 
 	cras_fill_dump_audio_thread(&msg);
+	return write_message_to_server(client, &msg.header);
+}
+
+int cras_client_update_audio_thread_snapshots(
+	struct cras_client *client,
+	void (*debug_info_cb)(struct cras_client *))
+{
+	struct cras_dump_snapshots msg;
+
+	if (client == NULL)
+		return -EINVAL;
+
+	if (client->debug_info_callback != NULL)
+		return -EINVAL;
+	client->debug_info_callback = debug_info_cb;
+
+	cras_fill_dump_snapshots(&msg);
 	return write_message_to_server(client, &msg.header);
 }
 
@@ -3118,10 +3253,10 @@ int cras_client_config_global_remix(struct cras_client *client,
 	return rc;
 }
 
-/* Return the index of the device used for listening to hotwords. */
-int cras_client_get_first_dev_type_idx(const struct cras_client *client,
-				       enum CRAS_NODE_TYPE type,
-				       enum CRAS_STREAM_DIRECTION direction)
+int cras_client_get_first_node_type_idx(const struct cras_client *client,
+					enum CRAS_NODE_TYPE type,
+					enum CRAS_STREAM_DIRECTION direction,
+					cras_node_id_t *node_id)
 {
 	const struct cras_server_state *state;
 	unsigned int version;
@@ -3146,9 +3281,10 @@ read_nodes_again:
 	}
 	for (i = 0; i < num_nodes; i++) {
 		if ((enum CRAS_NODE_TYPE)node_list[i].type_enum == type) {
-			int ret_idx = node_list[i].iodev_idx;
+			*node_id = cras_make_node_id(node_list[i].iodev_idx,
+						     node_list[i].ionode_idx);
 			server_state_unlock(client, lock_rc);
-			return ret_idx;
+			return 0;
 		}
 	}
 	if (end_server_state_read(state, version))
@@ -3156,6 +3292,21 @@ read_nodes_again:
 	server_state_unlock(client, lock_rc);
 
 	return -ENODEV;
+}
+
+int cras_client_get_first_dev_type_idx(const struct cras_client *client,
+				       enum CRAS_NODE_TYPE type,
+				       enum CRAS_STREAM_DIRECTION direction)
+{
+	cras_node_id_t node_id;
+	int rc;
+
+	rc = cras_client_get_first_node_type_idx(client, type, direction,
+						 &node_id);
+	if (rc)
+		return rc;
+
+	return dev_index_of(node_id);
 }
 
 int cras_client_set_suspend(struct cras_client *client, int suspend)
@@ -3188,6 +3339,44 @@ int cras_client_set_hotword_model(struct cras_client *client,
 
 	cras_fill_set_hotword_model_message(&msg, node_id, model_name);
 	return write_message_to_server(client, &msg.header);
+}
+
+int cras_client_set_aec_dump(struct cras_client *client,
+			      cras_stream_id_t stream_id,
+			      int start,
+			      int fd)
+{
+	struct cras_set_aec_dump msg;
+
+	cras_fill_set_aec_dump_message(&msg, stream_id, start);
+
+	if (fd != -1)
+		return cras_send_with_fds(client->server_fd, &msg,
+					  sizeof(msg), &fd, 1);
+	else
+		return write_message_to_server(client, &msg.header);
+}
+
+int cras_client_reload_aec_config(struct cras_client *client)
+{
+	struct cras_reload_aec_config msg;
+
+	cras_fill_reload_aec_config(&msg);
+	return write_message_to_server(client, &msg.header);
+}
+
+int cras_client_get_aec_supported(struct cras_client *client)
+{
+	int aec_supported;
+	int lock_rc;
+
+	lock_rc = server_state_rdlock(client);
+	if (lock_rc)
+		return 0;
+
+	aec_supported = client->server_state->aec_supported;
+	server_state_unlock(client, lock_rc);
+	return aec_supported;
 }
 
 void cras_client_set_state_change_callback_context(
@@ -3398,5 +3587,108 @@ static int reregister_notifications(struct cras_client *client)
 		if (rc != 0)
 			return rc;
 	}
+	return 0;
+}
+
+static int hotword_read_cb(struct cras_client *client,
+			   cras_stream_id_t stream_id,
+			   uint8_t *captured_samples,
+			   uint8_t *playback_samples,
+			   unsigned int frames,
+			   const struct timespec *captured_time,
+			   const struct timespec *playback_time,
+			   void *user_arg)
+{
+	struct cras_hotword_handle *handle;
+
+	handle = (struct cras_hotword_handle *)user_arg;
+	if (handle->trigger_cb)
+		handle->trigger_cb(client, handle, handle->user_data);
+
+	return 0;
+}
+
+static int hotword_err_cb(struct cras_client *client,
+			  cras_stream_id_t stream_id,
+			  int error,
+			  void *user_arg)
+{
+	struct cras_hotword_handle *handle;
+
+	handle = (struct cras_hotword_handle *)user_arg;
+	if (handle->err_cb)
+		handle->err_cb(client, handle, error, handle->user_data);
+
+	return 0;
+}
+
+int cras_client_enable_hotword_callback(struct cras_client *client,
+					void *user_data,
+					cras_hotword_trigger_cb_t trigger_cb,
+					cras_hotword_error_cb_t err_cb,
+					struct cras_hotword_handle **handle_out)
+{
+	struct cras_hotword_handle *handle;
+	int ret = 0;
+
+	if (!client)
+		return -EINVAL;
+
+	handle = (struct cras_hotword_handle *)calloc(1, sizeof(*handle));
+	if (!handle)
+		return -ENOMEM;
+
+	handle->format = cras_audio_format_create(SND_PCM_FORMAT_S16_LE,
+						  HOTWORD_FRAME_RATE, 1);
+	if (!handle->format) {
+		ret = -ENOMEM;
+		goto cleanup;
+	}
+
+	handle->params = cras_client_unified_params_create(
+		CRAS_STREAM_INPUT,
+		HOTWORD_BLOCK_SIZE,
+		CRAS_STREAM_TYPE_DEFAULT,
+		HOTWORD_STREAM | TRIGGER_ONLY,
+		(void *)handle,
+		hotword_read_cb,
+		hotword_err_cb,
+		handle->format);
+	if (!handle->params) {
+		ret = -ENOMEM;
+		goto cleanup_format;
+	}
+
+	handle->trigger_cb = trigger_cb;
+	handle->err_cb = err_cb;
+	handle->user_data = user_data;
+
+	ret = cras_client_add_stream(client, &handle->stream_id,
+				     handle->params);
+	if (ret)
+		goto cleanup_params;
+
+	*handle_out = handle;
+	return 0;
+
+cleanup_params:
+	cras_client_stream_params_destroy(handle->params);
+cleanup_format:
+	cras_audio_format_destroy(handle->format);
+cleanup:
+	free(handle);
+	return ret;
+}
+
+int cras_client_disable_hotword_callback(struct cras_client *client,
+					 struct cras_hotword_handle *handle)
+{
+	if (!client || !handle)
+		return -EINVAL;
+
+	cras_client_rm_stream(client, handle->stream_id);
+	cras_audio_format_destroy(handle->format);
+	cras_client_stream_params_destroy(handle->params);
+	free(handle);
 	return 0;
 }

@@ -13,7 +13,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_jpeg_acc_dec"
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -24,4 +23,4 @@ This test measures the CPU usage of jpeg decoding for hardware
 decode and software decode.
 """
 
-job.run_test('video_JDAPerf')
+job.run_test('video_JDAPerf', capability='hw_dec_jpeg')

@@ -9,8 +9,7 @@ NAME = "enterprise_CFM_AutotestSmokeTest"
 PURPOSE = ("Server-side smoke test used for tracking the stability of the "
            "Autotest framework on CFM platforms.")
 CRITERIA = "Fails if the Autotest framework doesn't work as expected."
-ATTRIBUTES = ("suite:hotrod, suite:bluestreak, suite:bluestreak-release, "
-              "suite:bluestreak-perbuild, suite:bluestreak-pre-cq")
+ATTRIBUTES = "suite:hotrod,suite:bluestreak-pre-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "server"
@@ -24,11 +23,8 @@ The test opens a web browser, loads 'chrome://version' and verifies that nothing
 crashes.
 """
 
-args_dict = utils.args_to_dict(args)
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
-
 def run_test(machine):
-    host = hosts.create_host(machine, servo_args=servo_args)
+    host = hosts.create_host(machine)
     job.run_test('enterprise_CFM_AutotestSmokeTest', host=host)
 
 

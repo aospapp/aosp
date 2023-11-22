@@ -27,7 +27,7 @@ namespace base {
 class TaskRunner;
 }  // namespace base.
 
-class Service;
+class TracingService;
 
 // Creates an instance of the service (business logic + UNIX socket transport).
 // Exposed to:
@@ -49,6 +49,8 @@ class ServiceIPCHost {
   // and binds the socket beore exec()-ing us.
   virtual bool Start(base::ScopedFile producer_socket_fd,
                      base::ScopedFile consumer_socket_fd) = 0;
+
+  virtual TracingService* service() const = 0;
 
  protected:
   ServiceIPCHost();

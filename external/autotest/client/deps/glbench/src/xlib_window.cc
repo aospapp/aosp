@@ -5,20 +5,16 @@
 #include <gflags/gflags.h>
 #include <stdio.h>
 
-#include "base/logging.h"
-
 #include "glinterface.h"
 #include "main.h"
 #include "xlib_window.h"
 
-
-Display *g_xlib_display = NULL;
+Display* g_xlib_display = NULL;
 Window g_xlib_window = 0;
 
 GLint g_width = WINDOW_WIDTH;
 GLint g_height = WINDOW_HEIGHT;
 DEFINE_bool(override_redirect, true, "Use an override redirect window");
-
 
 bool XlibInit() {
   // Prevent multiple initializations.
@@ -27,8 +23,9 @@ bool XlibInit() {
 
   g_xlib_display = XOpenDisplay(0);
   if (!g_xlib_display) {
-    printf("# Error: in xlib_window.cc::XlibInit() could not open "
-           "default display.\n");
+    printf(
+        "# Error: in xlib_window.cc::XlibInit() could not open "
+        "default display.\n");
     return false;
   }
 
@@ -43,7 +40,7 @@ bool XlibInit() {
   XVisualInfo* xlib_visinfo = g_main_gl_interface->GetXVisual();
 
   unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask |
-    CWOverrideRedirect;
+                       CWOverrideRedirect;
   XSetWindowAttributes attr;
   attr.background_pixel = 0;
   attr.border_pixel = 0;
@@ -51,9 +48,8 @@ bool XlibInit() {
                                   xlib_visinfo->visual, AllocNone);
   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
   attr.override_redirect = FLAGS_override_redirect ? True : False;
-  g_xlib_window = XCreateWindow(g_xlib_display, root_window,
-                                0, 0, g_width, g_height, 0,
-                                xlib_visinfo->depth, InputOutput,
+  g_xlib_window = XCreateWindow(g_xlib_display, root_window, 0, 0, g_width,
+                                g_height, 0, xlib_visinfo->depth, InputOutput,
                                 xlib_visinfo->visual, mask, &attr);
 
   XMapWindow(g_xlib_display, g_xlib_window);

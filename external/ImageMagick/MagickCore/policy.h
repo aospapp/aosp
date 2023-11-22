@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  MagickCore image color methods.
+  MagickCore security policy methods.
 */
 #ifndef MAGICKCORE_POLICY_H
 #define MAGICKCORE_POLICY_H
@@ -34,7 +34,8 @@ typedef enum
   PathPolicyDomain,
   ResourcePolicyDomain,
   SystemPolicyDomain,
-  CachePolicyDomain
+  CachePolicyDomain,
+  ModulePolicyDomain
 } PolicyDomain;
 
 typedef enum
@@ -43,14 +44,15 @@ typedef enum
   NoPolicyRights = 0x00,
   ReadPolicyRights = 0x01,
   WritePolicyRights = 0x02,
-  ExecutePolicyRights = 0x04
+  ExecutePolicyRights = 0x04,
+  AllPolicyRights = 0xff
 } PolicyRights;
 
 typedef struct _PolicyInfo
   PolicyInfo;
 
 extern MagickExport char
-  *GetPolicyValue(const char *name),
+  *GetPolicyValue(const char *),
   **GetPolicyList(const char *,size_t *,ExceptionInfo *);
 
 extern MagickExport const PolicyInfo
@@ -58,7 +60,10 @@ extern MagickExport const PolicyInfo
 
 extern MagickExport MagickBooleanType
   IsRightsAuthorized(const PolicyDomain,const PolicyRights,const char *),
-  ListPolicyInfo(FILE *,ExceptionInfo *);
+  ListPolicyInfo(FILE *,ExceptionInfo *),
+  SetMagickSecurityPolicy(const char *,ExceptionInfo *),
+  SetMagickSecurityPolicyValue(const PolicyDomain,const char *,const char *,
+    ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

@@ -13,7 +13,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_h264"
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -24,4 +23,5 @@ This test verifies H264 non-resolution-changing video can seek on machines with 
 """
 
 video = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/video_VideoSeek/video.mp4'
-job.run_test('video_VideoSeek', codec='h264', is_switchres=False, video=video)
+job.run_test('video_VideoSeek', codec='h264', is_switchres=False, video=video,
+             capability='hw_dec_h264_1080_30')

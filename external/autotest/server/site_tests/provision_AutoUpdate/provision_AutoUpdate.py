@@ -5,6 +5,7 @@
 import logging
 import re
 import sys
+import time
 import urllib2
 
 from autotest_lib.client.common_lib import error
@@ -12,7 +13,15 @@ from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server import afe_utils
 from autotest_lib.server import test
+from autotest_lib.server import utils
+from autotest_lib.server.cros import autoupdater
 from autotest_lib.server.cros import provision
+
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 _CONFIG = global_config.global_config
@@ -21,16 +30,72 @@ _IMAGE_URL_PATTERN = _CONFIG.get_config_value(
         'CROS', 'image_url_pattern', type=str)
 
 
+def _metric_name(base_name):
+    return 'chromeos/autotest/provision/' + base_name
+
+
+def _get_build_metrics_fields(build_name):
+    try:
+        return utils.ParseBuildName(build_name)[0 : 2]
+    except utils.ParseBuildNameException:
+        logging.warning('Unable to parse build name %s for metrics. '
+                        'Continuing anyway.', build_name)
+        return ('', '')
+
+
+def _emit_updater_metrics(name_prefix, build_name, failure_reason,
+                          duration, fields):
+    # reset_after=True is required for String gauges events to ensure that
+    # the metrics are not repeatedly emitted until the server restarts.
+    metrics.String(_metric_name(name_prefix + '_build_by_devserver_dut'),
+                   reset_after=True).set(build_name, fields=fields)
+    if failure_reason:
+        metrics.String(
+                _metric_name(name_prefix + '_failure_reason_by_devserver_dut'),
+                reset_after=True).set(failure_reason, fields=fields)
+    metrics.SecondsDistribution(
+            _metric_name(name_prefix + '_duration_by_devserver_dut')).add(
+                    duration, fields=fields)
+
+
+def _emit_provision_metrics(update_url, dut_host_name,
+                          exception, duration):
+    # The following is high cardinality, but sparse.
+    # Each DUT is of a single board type, and likely build type.
+    #
+    # TODO(jrbarnette) The devserver-triggered provisioning code
+    # includes retries in certain cases.  For that reason, the metrics
+    # distinguish 'provision' metrics which summarizes across all
+    # retries, and 'auto_update' which summarizes an individual update
+    # attempt.  ChromiumOSUpdater doesn't do retries, so we just report
+    # the same information twice.  We should replace the metrics with
+    # something better tailored to the current implementation.
+    build_name = autoupdater.url_to_image_name(update_url)
+    board, build_type = _get_build_metrics_fields(build_name)
+    fields = {
+        'board': board,
+        'build_type': build_type,
+        'dut_host_name': dut_host_name,
+        'dev_server': dev_server.get_resolved_hostname(update_url),
+        'success': not exception,
+    }
+    failure_reason = autoupdater.get_update_failure_reason(exception)
+    _emit_updater_metrics('provision', build_name, failure_reason,
+                          duration, fields)
+    fields['attempt'] = 1
+    _emit_updater_metrics('auto_update', build_name, failure_reason,
+                          duration, fields)
+
+
 class provision_AutoUpdate(test.test):
     """A test that can provision a machine to the correct ChromeOS version."""
     version = 1
 
-    def initialize(self, host, value, force=False, is_test_na=False):
+    def initialize(self, host, value, is_test_na=False):
         """Initialize.
 
         @param host: The host object to update to |value|.
         @param value: The build type and version to install on the host.
-        @param force: not used by initialize.
         @param is_test_na: boolean, if True, will simply skip the test
                            and emit TestNAError. The control file
                            determines whether the test should be skipped
@@ -47,16 +112,17 @@ class provision_AutoUpdate(test.test):
             raise error.TestFail('No build version specified.')
 
 
-    def run_once(self, host, value, force=False):
+    def run_once(self, host, value, force_update_engine=False):
         """The method called by the control file to start the test.
 
         @param host: The host object to update to |value|.
         @param value: The host object to provision with a build corresponding
                       to |value|.
-        @param force: True iff we should re-provision the machine regardless of
-                      the current image version.  If False and the image
-                      version matches our expected image version, no
-                      provisioning will be done.
+        @param force_update_engine: When true, the update flow must
+                      perform the update unconditionally, using
+                      update_engine.  Optimizations that could suppress
+                      invoking update_engine, including quick-provision,
+                      mustn't be used.
         """
         with_cheets = False
         logging.debug('Start provisioning %s to %s.', host, value)
@@ -69,10 +135,7 @@ class provision_AutoUpdate(test.test):
         # If the host is already on the correct build, we have nothing to do.
         # Note that this means we're not doing any sort of stateful-only
         # update, and that we're relying more on cleanup to do cleanup.
-        # We could just not pass |force_update=True| to |machine_install|,
-        # but I'd like the semantics that a provision test 'returns' TestNA
-        # if the machine is already properly provisioned.
-        if not force:
+        if not force_update_engine:
             info = host.host_info_store.get()
             if info.build == value:
                 # We can't raise a TestNA, as would make sense, as that makes
@@ -95,15 +158,18 @@ class provision_AutoUpdate(test.test):
         # fetch autotest in the background here, and then wait on it after
         # reimaging finishes or at some other point in the provisioning.
         ds = None
+        use_quick_provision = False
         try:
             ds = dev_server.ImageServer.resolve(image, host.hostname)
             ds.stage_artifacts(image, ['full_payload', 'stateful',
                                        'autotest_packages'])
-            try:
-                ds.stage_artifacts(image, ['quick_provision'])
-            except dev_server.DevServerException as e:
-                logging.warning('Unable to stage quick provision payload: %s',
-                                e)
+            if not force_update_engine:
+                try:
+                    ds.stage_artifacts(image, ['quick_provision'])
+                    use_quick_provision = True
+                except dev_server.DevServerException as e:
+                    logging.warning('Unable to stage quick provision '
+                                    'payload: %s', e)
         except dev_server.DevServerException as e:
             raise error.TestFail, str(e), sys.exc_info()[2]
         finally:
@@ -118,14 +184,15 @@ class provision_AutoUpdate(test.test):
         url = _IMAGE_URL_PATTERN % (ds.url(), image)
 
         logging.debug('Installing image')
+        start_time = time.time()
+        failure = None
         try:
             afe_utils.machine_install_and_update_labels(
-                    host,
-                    force_update=True,
-                    update_url=url,
-                    force_full_update=force,
-                    with_cheets=with_cheets)
-        except error.InstallError as e:
-            logging.error(e)
-            raise error.TestFail, str(e), sys.exc_info()[2]
+                    host, url, use_quick_provision, with_cheets)
+        except BaseException as e:
+            failure = e
+            raise
+        finally:
+            _emit_provision_metrics(
+                url, host.hostname, failure, time.time() - start_time)
         logging.debug('Finished provisioning %s to %s', host, value)

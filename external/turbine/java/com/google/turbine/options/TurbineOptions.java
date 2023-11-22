@@ -18,65 +18,68 @@ package com.google.turbine.options;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Header compilation options. */
 public class TurbineOptions {
 
-  private final String output;
+  private final Optional<String> output;
   private final ImmutableList<String> classPath;
   private final ImmutableSet<String> bootClassPath;
+  private final Optional<String> release;
+  private final Optional<String> system;
   private final ImmutableList<String> sources;
   private final ImmutableList<String> processorPath;
   private final ImmutableSet<String> processors;
   private final ImmutableList<String> sourceJars;
   private final Optional<String> outputDeps;
-  private final ImmutableMap<String, String> directJarsToTargets;
-  private final ImmutableMap<String, String> indirectJarsToTargets;
+  private final ImmutableSet<String> directJars;
   private final Optional<String> targetLabel;
+  private final Optional<String> injectingRuleKind;
   private final ImmutableList<String> depsArtifacts;
-  private final Optional<String> ruleKind;
   private final boolean javacFallback;
+  private final boolean help;
   private final ImmutableList<String> javacOpts;
   private final boolean shouldReduceClassPath;
 
   private TurbineOptions(
-      String output,
+      @Nullable String output,
       ImmutableList<String> classPath,
       ImmutableSet<String> bootClassPath,
+      @Nullable String release,
+      @Nullable String system,
       ImmutableList<String> sources,
       ImmutableList<String> processorPath,
       ImmutableSet<String> processors,
       ImmutableList<String> sourceJars,
       @Nullable String outputDeps,
-      ImmutableMap<String, String> directJarsToTargets,
-      ImmutableMap<String, String> indirectJarsToTargets,
+      ImmutableSet<String> directJars,
       @Nullable String targetLabel,
+      @Nullable String injectingRuleKind,
       ImmutableList<String> depsArtifacts,
-      @Nullable String ruleKind,
       boolean javacFallback,
+      boolean help,
       ImmutableList<String> javacOpts,
       boolean shouldReduceClassPath) {
-    this.output = checkNotNull(output, "output must not be null");
+    this.output = Optional.ofNullable(output);
     this.classPath = checkNotNull(classPath, "classPath must not be null");
     this.bootClassPath = checkNotNull(bootClassPath, "bootClassPath must not be null");
+    this.release = Optional.ofNullable(release);
+    this.system = Optional.ofNullable(system);
     this.sources = checkNotNull(sources, "sources must not be null");
     this.processorPath = checkNotNull(processorPath, "processorPath must not be null");
     this.processors = checkNotNull(processors, "processors must not be null");
     this.sourceJars = checkNotNull(sourceJars, "sourceJars must not be null");
-    this.outputDeps = Optional.fromNullable(outputDeps);
-    this.directJarsToTargets =
-        checkNotNull(directJarsToTargets, "directJarsToTargets must not be null");
-    this.indirectJarsToTargets =
-        checkNotNull(indirectJarsToTargets, "indirectJarsToTargets must not be null");
-    this.targetLabel = Optional.fromNullable(targetLabel);
+    this.outputDeps = Optional.ofNullable(outputDeps);
+    this.directJars = checkNotNull(directJars, "directJars must not be null");
+    this.targetLabel = Optional.ofNullable(targetLabel);
+    this.injectingRuleKind = Optional.ofNullable(injectingRuleKind);
     this.depsArtifacts = checkNotNull(depsArtifacts, "depsArtifacts must not be null");
-    this.ruleKind = Optional.fromNullable(ruleKind);
     this.javacFallback = javacFallback;
+    this.help = help;
     this.javacOpts = checkNotNull(javacOpts, "javacOpts must not be null");
     this.shouldReduceClassPath = shouldReduceClassPath;
   }
@@ -96,9 +99,31 @@ public class TurbineOptions {
     return bootClassPath;
   }
 
+  /** The target platform version. */
+  public Optional<String> release() {
+    return release;
+  }
+
+  /** The target platform's system modules. */
+  public Optional<String> system() {
+    return system;
+  }
+
   /** The output jar. */
-  public String outputFile() {
+  @Nullable
+  public Optional<String> output() {
     return output;
+  }
+
+  /**
+   * The output jar.
+   *
+   * @deprecated use {@link #output} instead.
+   */
+  @Deprecated
+  @Nullable
+  public String outputFile() {
+    return output.orElse(null);
   }
 
   /** Paths to annotation processor artifacts. */
@@ -121,14 +146,9 @@ public class TurbineOptions {
     return outputDeps;
   }
 
-  /** The mapping from the path to a direct dependency to its build label. */
-  public ImmutableMap<String, String> directJarsToTargets() {
-    return directJarsToTargets;
-  }
-
-  /** The mapping from the path to an indirect dependency to its build label. */
-  public ImmutableMap<String, String> indirectJarsToTargets() {
-    return indirectJarsToTargets;
+  /** The direct dependencies. */
+  public ImmutableSet<String> directJars() {
+    return directJars;
   }
 
   /** The label of the target being compiled. */
@@ -136,19 +156,28 @@ public class TurbineOptions {
     return targetLabel;
   }
 
+  /**
+   * If present, the name of the rule that injected an aspect that compiles this target.
+   *
+   * <p>Note that this rule will have a completely different label to {@link #targetLabel} above.
+   */
+  public Optional<String> injectingRuleKind() {
+    return injectingRuleKind;
+  }
+
   /** The .jdeps artifacts for direct dependencies. */
   public ImmutableList<String> depsArtifacts() {
     return depsArtifacts;
   }
 
-  /** The kind of the build rule being compiled (e.g. {@code java_library}). */
-  public Optional<String> ruleKind() {
-    return ruleKind;
-  }
-
   /** Fall back to javac-turbine for error reporting. */
   public boolean javacFallback() {
     return javacFallback;
+  }
+
+  /** Print usage information. */
+  public boolean help() {
+    return help;
   }
 
   /** Additional Java compiler flags. */
@@ -175,14 +204,15 @@ public class TurbineOptions {
     private final ImmutableSet.Builder<String> processors = ImmutableSet.builder();
     private final ImmutableList.Builder<String> sourceJars = ImmutableList.builder();
     private final ImmutableSet.Builder<String> bootClassPath = ImmutableSet.builder();
+    @Nullable private String release;
+    @Nullable private String system;
     private String outputDeps;
-    private final ImmutableMap.Builder<String, String> directJarsToTargets = ImmutableMap.builder();
-    private final ImmutableMap.Builder<String, String> indirectJarsToTargets =
-        ImmutableMap.builder();
+    private final ImmutableSet.Builder<String> directJars = ImmutableSet.builder();
     @Nullable private String targetLabel;
+    @Nullable private String injectingRuleKind;
     private final ImmutableList.Builder<String> depsArtifacts = ImmutableList.builder();
-    @Nullable private String ruleKind;
     private boolean javacFallback = true;
+    private boolean help = false;
     private final ImmutableList.Builder<String> javacOpts = ImmutableList.builder();
     private boolean shouldReduceClassPath = true;
 
@@ -191,17 +221,19 @@ public class TurbineOptions {
           output,
           classPath.build(),
           bootClassPath.build(),
+          release,
+          system,
           sources.build(),
           processorPath.build(),
           processors.build(),
           sourceJars.build(),
           outputDeps,
-          directJarsToTargets.build(),
-          indirectJarsToTargets.build(),
+          directJars.build(),
           targetLabel,
+          injectingRuleKind,
           depsArtifacts.build(),
-          ruleKind,
           javacFallback,
+          help,
           javacOpts.build(),
           shouldReduceClassPath);
     }
@@ -218,6 +250,16 @@ public class TurbineOptions {
 
     public Builder addBootClassPathEntries(Iterable<String> bootClassPath) {
       this.bootClassPath.addAll(bootClassPath);
+      return this;
+    }
+
+    public Builder setRelease(String release) {
+      this.release = release;
+      return this;
+    }
+
+    public Builder setSystem(String system) {
+      this.system = system;
       return this;
     }
 
@@ -251,18 +293,13 @@ public class TurbineOptions {
       return this;
     }
 
-    public Builder addDirectJarToTarget(String jar, String target) {
-      directJarsToTargets.put(jar, target);
-      return this;
-    }
-
-    public Builder addIndirectJarToTarget(String jar, String target) {
-      indirectJarsToTargets.put(jar, target);
-      return this;
-    }
-
     public Builder setTargetLabel(String targetLabel) {
       this.targetLabel = targetLabel;
+      return this;
+    }
+
+    public Builder setInjectingRuleKind(String injectingRuleKind) {
+      this.injectingRuleKind = injectingRuleKind;
       return this;
     }
 
@@ -271,13 +308,13 @@ public class TurbineOptions {
       return this;
     }
 
-    public Builder setRuleKind(String ruleKind) {
-      this.ruleKind = ruleKind;
+    public Builder setJavacFallback(boolean javacFallback) {
+      this.javacFallback = javacFallback;
       return this;
     }
 
-    public Builder setJavacFallback(boolean javacFallback) {
-      this.javacFallback = javacFallback;
+    public Builder setHelp(boolean help) {
+      this.help = help;
       return this;
     }
 
@@ -288,6 +325,11 @@ public class TurbineOptions {
 
     public Builder setShouldReduceClassPath(boolean shouldReduceClassPath) {
       this.shouldReduceClassPath = shouldReduceClassPath;
+      return this;
+    }
+
+    public Builder addDirectJars(ImmutableList<String> jars) {
+      this.directJars.addAll(jars);
       return this;
     }
   }

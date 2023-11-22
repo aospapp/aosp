@@ -25,6 +25,8 @@ import android.bluetooth.BluetoothHidDeviceAppSdpSettings;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.ParcelUuid;
 
 import com.googlecode.android_scripting.Log;
@@ -147,6 +149,12 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
             (byte) 0xC0 // End Collection
     };
 
+    // HID mouse movement
+    private static final byte[] RIGHT = {0, 1, 0, 0};
+    private static final byte[] DOWN = {0, 0, -1, 0};
+    private static final byte[] LEFT = {0, -1, 0, 0};
+    private static final byte[] UP = {0, 0, 1, 0};
+
     // Default values.
     private static final int QOS_TOKEN_RATE = 800; // 9 bytes * 1000000 us / 11250 us
     private static final int QOS_TOKEN_BUCKET_SIZE = 9;
@@ -159,6 +167,10 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
 
     private static boolean sIsHidDeviceReady = false;
     private static BluetoothHidDevice sHidDeviceProfile = null;
+    private boolean mKeepMoving = false;
+
+    private final HandlerThread mHandlerThread;
+    private final Handler mHandler;
 
     private BluetoothHidDevice.Callback mCallback = new BluetoothHidDevice.Callback() {
         @Override
@@ -244,6 +256,10 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
         mBluetoothAdapter.getProfileProxy(mService, new HidDeviceServiceListener(),
                 BluetoothProfile.HID_DEVICE);
         mEventFacade = manager.getReceiver(EventFacade.class);
+        mHandlerThread = new HandlerThread("BluetoothHidDeviceFacadeHandler",
+                android.os.Process.THREAD_PRIORITY_BACKGROUND);
+        mHandlerThread.start();
+        mHandler = new Handler(mHandlerThread.getLooper());
         Log.w("Init HID Device Facade");
     }
 
@@ -470,8 +486,70 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
         return sHidDeviceProfile.reportError(device, (byte) (int) error);
     }
 
+   /**
+     * Start to send HID mouse input to HID host continuously for given duration.
+     * @param deviceID name or MAC address for the HID input host
+     * @param duration time in millisecond to send HID report continuously
+     * @return true if successfully sent the error handshake message; otherwise false
+     */
+    @Rpc(description = "Start to send HID report continuously")
+    public Boolean bluetoothHidDeviceMoveRepeatedly(
+            @RpcParameter(name = "deviceID",
+                    description = "Name or MAC address of a bluetooth device.")
+                    String deviceID,
+            @RpcParameter(name = "duration",
+                    description = "duration")
+                    Integer duration,
+            @RpcParameter(name = "interval",
+                    description = "interval")
+                    Integer interval) throws Exception {
+        if (sHidDeviceProfile == null || mKeepMoving) {
+            return false;
+        }
+        BluetoothDevice device = BluetoothFacade.getDevice(sHidDeviceProfile.getConnectedDevices(),
+                deviceID);
+        mHandler.post(new Runnable() {
+            final long mStopTime = System.currentTimeMillis() + duration;
+            private void sendAndWait(byte[] report) {
+                if (!mKeepMoving) {
+                    return;
+                }
+                sHidDeviceProfile.sendReport(device, ID_MOUSE, report);
+                long endTime = System.currentTimeMillis() + interval;
+                while (mKeepMoving && endTime > System.currentTimeMillis()) {
+                    //Busy waiting
+                    if (mStopTime < System.currentTimeMillis()) {
+                        mKeepMoving = false;
+                        return;
+                    }
+                }
+            }
+            public void run() {
+                mKeepMoving = true;
+                while (mKeepMoving && mStopTime > System.currentTimeMillis()) {
+                    sendAndWait(RIGHT);
+                    sendAndWait(DOWN);
+                    sendAndWait(LEFT);
+                    sendAndWait(UP);
+                }
+                mKeepMoving = false;
+            }
+        });
+        return true;
+    }
+
+    /**
+     * Stop sending HID report to HID host
+     */
+    @Rpc(description = "Stop sending HID report")
+    public void bluetoothHidDeviceStopMoving() {
+        mKeepMoving = false;
+    }
+
     @Override
     public void shutdown() {
+        Log.w("Quit handler thread");
+        mHandlerThread.quit();
     }
 
 }

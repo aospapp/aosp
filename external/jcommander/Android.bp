@@ -31,4 +31,10 @@ java_library_static {
             exclude_srcs: ["src/main/**/PathConverter.java"],
         },
     },
+
+    errorprone: {
+        javacflags: [
+            "-Xep:CollectionIncompatibleType:WARN",  // b/74215153
+        ],
+    }
 }

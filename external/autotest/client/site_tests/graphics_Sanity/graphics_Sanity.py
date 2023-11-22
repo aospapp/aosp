@@ -16,10 +16,8 @@ from autotest_lib.client.cros.graphics import graphics_utils
 # cd /usr/local/autotest/deps/glbench
 # stop ui
 # ./windowmanagertest --screenshot1_sec 2 --screenshot2_sec 1 --cooldown_sec 1 \
-#    --screenshot1_cmd \
-#        "/usr/local/autotest/bin/screenshot.py screenshot1_generated.png" \
-#    --screenshot2_cmd \
-#        "/usr/local/autotest/bin/screenshot.py screenshot2_generated.png"
+#    --screenshot1_cmd "screenshot screenshot1_generated.png" \
+#    --screenshot2_cmd "screenshot screenshot2_generated.png"
 # start ui
 
 
@@ -58,7 +56,7 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
             """
             try:
                 graphics_utils.take_screenshot(self.resultsdir,
-                                               'temp screenshot', '.png')
+                                               'temp screenshot')
                 return True
             except:
                 return False
@@ -73,7 +71,7 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
         megapixels = (w * h) / 1000000
         filesize_threshold = 25 * megapixels
         screenshot1 = graphics_utils.take_screenshot(self.resultsdir,
-                                                     'oobe or signin', '.png')
+                                                     'oobe or signin')
 
         with chrome.Chrome() as cr:
             tab = cr.browser.tabs[0]
@@ -81,7 +79,7 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
             tab.WaitForDocumentReadyStateToBeComplete()
 
             screenshot2 = graphics_utils.take_screenshot(
-                self.resultsdir, 'settings page', '.png')
+                self.resultsdir, 'settings page')
 
         for screenshot in [screenshot1, screenshot2]:
             file_size_kb = os.path.getsize(screenshot) / 1000
@@ -122,7 +120,7 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
         options += ' --screenshot2_sec 1'
         options += ' --cooldown_sec 1'
         # perceptualdiff can handle only 8 bit images.
-        screenshot_cmd = ' "/usr/local/autotest/bin/screenshot.py %s"'
+        screenshot_cmd = ' "screenshot %s"'
         options += ' --screenshot1_cmd' + screenshot_cmd % screenshot1_generated
         options += ' --screenshot2_cmd' + screenshot_cmd % screenshot2_generated
 

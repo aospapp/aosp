@@ -5,17 +5,21 @@
 """This module provides some utilities used by LXC and its tools.
 """
 
-import collections
+import logging
 import os
+import re
 import shutil
 import tempfile
+import unittest
 from contextlib import contextmanager
 
 import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import interface
+from autotest_lib.client.common_lib import global_config
 from autotest_lib.site_utils.lxc import constants
+from autotest_lib.site_utils.lxc import unittest_setup
 
 
 def path_exists(path):
@@ -61,6 +65,21 @@ def get_host_ip():
     netif = interface.Interface(lxc_network)
     return netif.ipv4_address
 
+def is_vm():
+    """Check if the process is running in a virtual machine.
+
+    @return: True if the process is running in a virtual machine, otherwise
+             return False.
+    """
+    try:
+        virt = utils.run('sudo -n virt-what').stdout.strip()
+        logging.debug('virt-what output: %s', virt)
+        return bool(virt)
+    except error.CmdError:
+        logging.warn('Package virt-what is not installed, default to assume '
+                     'it is not a virtual machine.')
+        return False
+
 
 def clone(lxc_path, src_name, new_path, dst_name, snapshot):
     """Clones a container.
@@ -74,14 +93,14 @@ def clone(lxc_path, src_name, new_path, dst_name, snapshot):
     snapshot_arg = '-s' if snapshot and constants.SUPPORT_SNAPSHOT_CLONE else ''
     # overlayfs is the default clone backend storage. However it is not
     # supported in Ganeti yet. Use aufs as the alternative.
-    aufs_arg = '-B aufs' if utils.is_vm() and snapshot else ''
-    cmd = (('sudo lxc-clone --lxcpath {lxcpath} --newpath {newpath} '
-            '--orig {orig} --new {new} {snapshot} {backing}')
+    aufs_arg = '-B aufs' if is_vm() and snapshot else ''
+    cmd = (('sudo lxc-copy --lxcpath {lxcpath} --newpath {newpath} '
+                    '--name {name} --newname {newname} {snapshot} {backing}')
            .format(
                lxcpath = lxc_path,
                newpath = new_path,
-               orig = src_name,
-               new = dst_name,
+               name = src_name,
+               newname = dst_name,
                snapshot = snapshot_arg,
                backing = aufs_arg
            ))
@@ -184,45 +203,6 @@ class BindMount(object):
                   % self.spec)
 
 
-MountInfo = collections.namedtuple('MountInfo', ['root', 'mount_point', 'tags'])
-
-
-def get_mount_info(mount_point=None):
-    """Retrieves information about currently mounted file systems.
-
-    @param mount_point: (optional) The mount point (a path).  If this is
-                        provided, only information about the given mount point
-                        is returned.  If this is omitted, info about all mount
-                        points is returned.
-
-    @return A generator yielding one MountInfo object for each relevant mount
-            found in /proc/self/mountinfo.
-    """
-    with open('/proc/self/mountinfo') as f:
-        for line in f.readlines():
-            # These lines are formatted according to the proc(5) manpage.
-            # Sample line:
-            # 36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root \
-            #     rw,errors=continue
-            # Fields (descriptions omitted for fields we don't care about)
-            # 3: the root of the mount.
-            # 4: the mount point.
-            # 5: mount options.
-            # 6: tags.  There can be more than one of these.  This is where
-            #    shared mounts are indicated.
-            # 7: a dash separator marking the end of the tags.
-            mountinfo = line.split()
-            if mount_point is None or mountinfo[4] == mount_point:
-                tags = []
-                for field in mountinfo[6:]:
-                    if field == '-':
-                        break
-                    tags.append(field.split(':')[0])
-                yield MountInfo(root = mountinfo[3],
-                                mount_point = mountinfo[4],
-                                tags = tags)
-
-
 def is_subdir(parent, subdir):
     """Determines whether the given subdir exists under the given parent dir.
 
@@ -235,3 +215,58 @@ def is_subdir(parent, subdir):
     # performs a prefix string comparison.
     parent = os.path.join(parent, '')
     return os.path.commonprefix([parent, subdir]) == parent
+
+
+def sudo_commands(commands):
+    """Takes a list of bash commands and executes them all with one invocation
+    of sudo. Saves ~400 ms per command.
+
+    @param commands: The bash commands, as strings.
+
+    @return The return code of the sudo call.
+    """
+
+    combine = global_config.global_config.get_config_value(
+        'LXC_POOL','combine_sudos', type=bool, default=False)
+
+    if combine:
+        with tempfile.NamedTemporaryFile() as temp:
+            temp.write("set -e\n")
+            temp.writelines([command+"\n" for command in commands])
+            logging.info("Commands to run: %s", str(commands))
+            return utils.run("sudo bash %s" % temp.name)
+    else:
+        for command in commands:
+            result = utils.run("sudo %s" % command)
+
+
+def get_lxc_version():
+    """Gets the current version of lxc if available."""
+    cmd = 'sudo lxc-info --version'
+    result = utils.run(cmd)
+    if result and result.exit_status == 0:
+        version = re.split("[.-]", result.stdout.strip())
+        if len(version) < 3:
+            logging.error("LXC version is not expected format %s.",
+                          result.stdout.strip())
+            return None
+        return_value = []
+        for a in version[:3]:
+            try:
+                return_value.append(int(a))
+            except ValueError:
+                logging.error(("LXC version contains non numerical version "
+                               "number %s (%s)."), a, result.stdout.strip())
+                return None
+        return return_value
+    else:
+        logging.error("Unable to determine LXC version.")
+        return None
+
+
+class LXCTests(unittest.TestCase):
+    """Thin wrapper to call correct setup for LXC tests."""
+
+    @classmethod
+    def setUpClass(cls):
+        unittest_setup.setup()

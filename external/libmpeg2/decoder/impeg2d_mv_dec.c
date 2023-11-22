@@ -124,7 +124,7 @@ INLINE void impeg2d_dec_1mv(stream_t *ps_stream, WORD16 ai2_pred_mv[], WORD16 ai
             {
                 UWORD32 val;
                 IBITS_GET(u4_buf, u4_buf_nxt, u4_offset, val, pu4_buf_aligned, i2_r_size)
-                i2_delta += val;
+                i2_delta += (WORD16)val;
             }
 
             if(u2_sign_bit)

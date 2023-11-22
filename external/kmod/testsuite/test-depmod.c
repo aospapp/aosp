@@ -25,6 +25,7 @@
 
 #include "testsuite.h"
 
+#ifdef ENABLE_ZLIB
 #define MODULES_ORDER_UNAME "4.4.4"
 #define MODULES_ORDER_ROOTFS TESTSUITE_ROOTFS "test-depmod/modules-order-compressed"
 #define MODULES_ORDER_LIB_MODULES MODULES_ORDER_ROOTFS "/lib/modules/" MODULES_ORDER_UNAME
@@ -40,7 +41,6 @@ static noreturn int depmod_modules_order_for_compressed(const struct test *t)
 	exit(EXIT_FAILURE);
 }
 
-#ifdef ENABLE_ZLIB
 DEFINE_TEST(depmod_modules_order_for_compressed,
 	.description = "check if depmod let aliases in right order when using compressed modules",
 	.config = {
@@ -129,6 +129,84 @@ DEFINE_TEST(depmod_detect_loop,
 	.expected_fail = true,
 	.output = {
 		.err = DETECT_LOOP_ROOTFS "/correct.txt",
+	});
+
+#define SEARCH_ORDER_EXTERNAL_FIRST_ROOTFS TESTSUITE_ROOTFS "test-depmod/search-order-external-first"
+static noreturn int depmod_search_order_external_first(const struct test *t)
+{
+	const char *progname = ABS_TOP_BUILDDIR "/tools/depmod";
+	const char *const args[] = {
+		progname,
+		NULL,
+	};
+
+	test_spawn_prog(progname, args);
+	exit(EXIT_FAILURE);
+}
+DEFINE_TEST(depmod_search_order_external_first,
+	.description = "check if depmod honor external keyword with higher priority",
+	.config = {
+		[TC_UNAME_R] = "4.4.4",
+		[TC_ROOTFS] = SEARCH_ORDER_EXTERNAL_FIRST_ROOTFS,
+	},
+	.output = {
+		.files = (const struct keyval[]) {
+			{ SEARCH_ORDER_EXTERNAL_FIRST_ROOTFS "/lib/modules/4.4.4/correct-modules.dep",
+			  SEARCH_ORDER_EXTERNAL_FIRST_ROOTFS "/lib/modules/4.4.4/modules.dep" },
+			{ }
+		},
+	});
+
+#define SEARCH_ORDER_EXTERNAL_LAST_ROOTFS TESTSUITE_ROOTFS "test-depmod/search-order-external-last"
+static noreturn int depmod_search_order_external_last(const struct test *t)
+{
+	const char *progname = ABS_TOP_BUILDDIR "/tools/depmod";
+	const char *const args[] = {
+		progname,
+		NULL,
+	};
+
+	test_spawn_prog(progname, args);
+	exit(EXIT_FAILURE);
+}
+DEFINE_TEST(depmod_search_order_external_last,
+	.description = "check if depmod honor external keyword with lower priority",
+	.config = {
+		[TC_UNAME_R] = "4.4.4",
+		[TC_ROOTFS] = SEARCH_ORDER_EXTERNAL_LAST_ROOTFS,
+	},
+	.output = {
+		.files = (const struct keyval[]) {
+			{ SEARCH_ORDER_EXTERNAL_LAST_ROOTFS "/lib/modules/4.4.4/correct-modules.dep",
+			  SEARCH_ORDER_EXTERNAL_LAST_ROOTFS "/lib/modules/4.4.4/modules.dep" },
+			{ }
+		},
+	});
+
+#define SEARCH_ORDER_OVERRIDE_ROOTFS TESTSUITE_ROOTFS "test-depmod/search-order-override"
+static noreturn int depmod_search_order_override(const struct test *t)
+{
+	const char *progname = ABS_TOP_BUILDDIR "/tools/depmod";
+	const char *const args[] = {
+		progname,
+		NULL,
+	};
+
+	test_spawn_prog(progname, args);
+	exit(EXIT_FAILURE);
+}
+DEFINE_TEST(depmod_search_order_override,
+	.description = "check if depmod honor override keyword",
+	.config = {
+		[TC_UNAME_R] = "4.4.4",
+		[TC_ROOTFS] = SEARCH_ORDER_OVERRIDE_ROOTFS,
+	},
+	.output = {
+		.files = (const struct keyval[]) {
+			{ SEARCH_ORDER_OVERRIDE_ROOTFS "/lib/modules/4.4.4/correct-modules.dep",
+			  SEARCH_ORDER_OVERRIDE_ROOTFS "/lib/modules/4.4.4/modules.dep" },
+			{ }
+		},
 	});
 
 TESTSUITE_MAIN();

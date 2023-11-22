@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -131,41 +131,41 @@ static MagickBooleanType IsXBM(const unsigned char *magick,const size_t length)
 %
 */
 
-static unsigned int XBMInteger(Image *image,short int *hex_digits)
-{ 
+static int XBMInteger(Image *image,short int *hex_digits)
+{
   int
     c;
-  
+
   unsigned int
     value;
-  
+
   /*
     Skip any leading whitespace.
   */
   do
-  { 
+  {
     c=ReadBlobByte(image);
     if (c == EOF)
-      return(0);
+      return(-1);
   } while ((c == ' ') || (c == '\t') || (c == '\n') || (c == '\r'));
   /*
     Evaluate number.
   */
   value=0;
   do
-  { 
-    if (value > (unsigned int) (INT_MAX/10))
-      break;
-    value*=16;
-    c&=0xff;
-    if (value > (unsigned int) (INT_MAX-hex_digits[c]))
-      break;
-    value+=hex_digits[c];
+  {
+    if (value <= (unsigned int) (INT_MAX/16))
+      {
+        value*=16;
+        c&=0xff;
+        if (value <= (unsigned int) (INT_MAX-hex_digits[c]))
+          value+=hex_digits[c];
+      }
     c=ReadBlobByte(image);
     if (c == EOF)
-      return(0);
+      return(-1);
   } while (hex_digits[c] >= 0);
-  return(value);
+  return((int) value);
 }
 
 static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
@@ -176,6 +176,13 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   Image
     *image;
+
+  int
+    c;
+
+  long
+    height,
+    width;
 
   MagickBooleanType
     status;
@@ -203,12 +210,9 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     bit,
     byte,
     bytes_per_line,
-    height,
     length,
     padding,
-    value,
-    version,
-    width;
+    version;
 
   /*
     Open image file.
@@ -232,18 +236,21 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   width=0;
   height=0;
+  *name='\0';
   while (ReadBlobString(image,buffer) != (char *) NULL)
-    if (sscanf(buffer,"#define %32s %u",name,&width) == 2)
+    if (sscanf(buffer,"#define %1024s %ld",name,&width) == 2)
       if ((strlen(name) >= 6) &&
           (LocaleCompare(name+strlen(name)-6,"_width") == 0))
         break;
   while (ReadBlobString(image,buffer) != (char *) NULL)
-    if (sscanf(buffer,"#define %32s %u",name,&height) == 2)
+    if (sscanf(buffer,"#define %1024s %ld",name,&height) == 2)
       if ((strlen(name) >= 7) &&
           (LocaleCompare(name+strlen(name)-7,"_height") == 0))
         break;
-  image->columns=width;
-  image->rows=height;
+  if ((width <= 0) || (height <= 0) || (EOFBlob(image) != MagickFalse))
+    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+  image->columns=(size_t) width;
+  image->rows=(size_t) height;
   image->depth=8;
   image->storage_class=PseudoClass;
   image->colors=2;
@@ -253,13 +260,13 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   version=11;
   while (ReadBlobString(image,buffer) != (char *) NULL)
   {
-    if (sscanf(buffer,"static short %32s = {",name) == 1)
+    if (sscanf(buffer,"static short %1024s = {",name) == 1)
       version=10;
     else
-      if (sscanf(buffer,"static unsigned char %32s = {",name) == 1)
+      if (sscanf(buffer,"static unsigned char %1024s = {",name) == 1)
         version=11;
       else
-        if (sscanf(buffer,"static char %32s = {",name) == 1)
+        if (sscanf(buffer,"static char %1024s = {",name) == 1)
           version=11;
         else
           continue;
@@ -271,9 +278,6 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (LocaleCompare("bits[]",(char *) p) == 0)
       break;
   }
-  if ((image->columns == 0) || (image->rows == 0) ||
-      (EOFBlob(image) != MagickFalse))
-    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   /*
     Initialize image structure.
   */
@@ -282,12 +286,12 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Initialize colormap.
   */
-  image->colormap[0].red=QuantumRange;
-  image->colormap[0].green=QuantumRange;
-  image->colormap[0].blue=QuantumRange;
-  image->colormap[1].red=(Quantum) 0;
-  image->colormap[1].green=(Quantum) 0;
-  image->colormap[1].blue=(Quantum) 0;
+  image->colormap[0].red=(MagickRealType) QuantumRange;
+  image->colormap[0].green=(MagickRealType) QuantumRange;
+  image->colormap[0].blue=(MagickRealType) QuantumRange;
+  image->colormap[1].red=0.0;
+  image->colormap[1].green=0.0;
+  image->colormap[1].blue=0.0;
   if (image_info->ping != MagickFalse)
     {
       (void) CloseBlob(image);
@@ -299,6 +303,8 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Initialize hex values.
   */
+  for (i=0; i < (ssize_t) (sizeof(hex_digits)/sizeof(*hex_digits)); i++)
+    hex_digits[i]=(-1);
   hex_digits[(int) '0']=0;
   hex_digits[(int) '1']=1;
   hex_digits[(int) '2']=2;
@@ -344,16 +350,31 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (version == 10)
     for (i=0; i < (ssize_t) (bytes_per_line*image->rows); (i+=2))
     {
-      value=XBMInteger(image,hex_digits);
-      *p++=(unsigned char) value;
+      c=XBMInteger(image,hex_digits);
+      if (c < 0)
+        {
+          data=(unsigned char *) RelinquishMagickMemory(data);
+          ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+        }
+      *p++=(unsigned char) c;
       if ((padding == 0) || (((i+2) % bytes_per_line) != 0))
-        *p++=(unsigned char) (value >> 8);
+        *p++=(unsigned char) (c >> 8);
     }
   else
     for (i=0; i < (ssize_t) (bytes_per_line*image->rows); i++)
     {
-      value=XBMInteger(image,hex_digits);
-      *p++=(unsigned char) value;
+      c=XBMInteger(image,hex_digits);
+      if (c < 0)
+        {
+          data=(unsigned char *) RelinquishMagickMemory(data);
+          ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+        }
+      *p++=(unsigned char) c;
+    }
+  if (EOFBlob(image) != MagickFalse)
+    {
+      data=(unsigned char *) RelinquishMagickMemory(data);
+      ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
     }
   /*
     Convert X bitmap image to pixel packets.
@@ -369,7 +390,7 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       if (bit == 0)
-        byte=(size_t) (*p++);
+        byte=(unsigned int) (*p++);
       SetPixelIndex(image,(Quantum) ((byte & 0x01) != 0 ? 0x01 : 0x00),q);
       bit++;
       byte>>=1;

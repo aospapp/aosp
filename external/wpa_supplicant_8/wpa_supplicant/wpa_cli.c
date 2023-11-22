@@ -1,6 +1,6 @@
 /*
  * WPA Supplicant - command line interface for wpa_supplicant daemon
- * Copyright (c) 2004-2017, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2004-2019, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -29,7 +29,7 @@
 
 static const char *const wpa_cli_version =
 "wpa_cli v" VERSION_STR "\n"
-"Copyright (c) 2004-2017, Jouni Malinen <j@w1.fi> and contributors";
+"Copyright (c) 2004-2019, Jouni Malinen <j@w1.fi> and contributors";
 
 #define VENDOR_ELEM_FRAME_ID \
 	"  0: Probe Req (P2P), 1: Probe Resp (P2P) , 2: Probe Resp (GO), " \
@@ -49,6 +49,7 @@ static int wpa_cli_last_id = 0;
 static const char *ctrl_iface_dir = CONFIG_CTRL_IFACE_DIR;
 static const char *client_socket_dir = NULL;
 static char *ctrl_ifname = NULL;
+static const char *global = NULL;
 static const char *pid_file = NULL;
 static const char *action_file = NULL;
 static int ping_interval = 5;
@@ -60,6 +61,7 @@ static DEFINE_DL_LIST(p2p_peers); /* struct cli_txt_entry */
 static DEFINE_DL_LIST(p2p_groups); /* struct cli_txt_entry */
 static DEFINE_DL_LIST(ifnames); /* struct cli_txt_entry */
 static DEFINE_DL_LIST(networks); /* struct cli_txt_entry */
+static DEFINE_DL_LIST(creds); /* struct cli_txt_entry */
 #ifdef CONFIG_AP
 static DEFINE_DL_LIST(stations); /* struct cli_txt_entry */
 #endif /* CONFIG_AP */
@@ -70,8 +72,10 @@ static void wpa_cli_mon_receive(int sock, void *eloop_ctx, void *sock_ctx);
 static void wpa_cli_close_connection(void);
 static char * wpa_cli_get_default_ifname(void);
 static char ** wpa_list_cmd_list(void);
+static void update_creds(struct wpa_ctrl *ctrl);
 static void update_networks(struct wpa_ctrl *ctrl);
 static void update_stations(struct wpa_ctrl *ctrl);
+static void update_ifnames(struct wpa_ctrl *ctrl);
 
 
 static void usage(void)
@@ -474,7 +478,7 @@ static char ** wpa_cli_complete_set(const char *str, int pos)
 #endif /* CONFIG_P2P */
 		"country", "bss_max_count", "bss_expiration_age",
 		"bss_expiration_scan_count", "filter_ssids", "filter_rssi",
-		"max_num_sta", "disassoc_low_ack",
+		"max_num_sta", "disassoc_low_ack", "ap_isolate",
 #ifdef CONFIG_HS20
 		"hs20",
 #endif /* CONFIG_HS20 */
@@ -571,7 +575,7 @@ static char ** wpa_cli_complete_get(const char *str, int pos)
 #endif /* CONFIG_P2P */
 		"bss_max_count", "bss_expiration_age",
 		"bss_expiration_scan_count", "filter_ssids", "filter_rssi",
-		"max_num_sta", "disassoc_low_ack",
+		"max_num_sta", "disassoc_low_ack", "ap_isolate",
 #ifdef CONFIG_HS20
 		"hs20",
 #endif /* CONFIG_HS20 */
@@ -1201,6 +1205,39 @@ static int wpa_cli_cmd_sim(struct wpa_ctrl *ctrl, int argc, char *argv[])
 }
 
 
+static int wpa_cli_cmd_psk_passphrase(struct wpa_ctrl *ctrl, int argc,
+				      char *argv[])
+{
+	char cmd[256], *pos, *end;
+	int i, ret;
+
+	if (argc < 2) {
+		printf("Invalid PSK_PASSPHRASE command: needs two arguments (network id and PSK/passphrase)\n");
+		return -1;
+	}
+
+	end = cmd + sizeof(cmd);
+	pos = cmd;
+	ret = os_snprintf(pos, end - pos, WPA_CTRL_RSP "PSK_PASSPHRASE-%s:%s",
+			  argv[0], argv[1]);
+	if (os_snprintf_error(end - pos, ret)) {
+		printf("Too long PSK_PASSPHRASE command.\n");
+		return -1;
+	}
+	pos += ret;
+	for (i = 2; i < argc; i++) {
+		ret = os_snprintf(pos, end - pos, " %s", argv[i]);
+		if (os_snprintf_error(end - pos, ret)) {
+			printf("Too long PSK_PASSPHRASE command.\n");
+			return -1;
+		}
+		pos += ret;
+	}
+
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+
 static int wpa_cli_cmd_passphrase(struct wpa_ctrl *ctrl, int argc,
 				  char *argv[])
 {
@@ -1374,9 +1411,11 @@ static const char *network_fields[] = {
 	"eap", "identity", "anonymous_identity", "password", "ca_cert",
 	"ca_path", "client_cert", "private_key", "private_key_passwd",
 	"dh_file", "subject_match", "altsubject_match",
+	"check_cert_subject",
 	"domain_suffix_match", "domain_match", "ca_cert2", "ca_path2",
 	"client_cert2", "private_key2", "private_key2_passwd",
 	"dh_file2", "subject_match2", "altsubject_match2",
+	"check_cert_subject2",
 	"domain_suffix_match2", "domain_match2", "phase1", "phase2",
 	"pcsc", "pin", "engine_id", "key_id", "cert_id", "ca_cert_id",
 	"pin2", "engine2_id", "key2_id", "cert2_id", "ca_cert2_id",
@@ -1410,7 +1449,7 @@ static const char *network_fields[] = {
 #ifdef CONFIG_HT_OVERRIDES
 	"disable_ht", "disable_ht40", "disable_sgi", "disable_ldpc",
 	"ht40_intolerant", "disable_max_amsdu", "ampdu_factor",
-	"ampdu_density", "ht_mcs",
+	"ampdu_density", "ht_mcs", "rx_stbc", "tx_stbc",
 #endif /* CONFIG_HT_OVERRIDES */
 #ifdef CONFIG_VHT_OVERRIDES
 	"disable_vht", "vht_capa", "vht_capa_mask", "vht_rx_mcs_nss_1",
@@ -1424,6 +1463,8 @@ static const char *network_fields[] = {
 #ifdef CONFIG_MACSEC
 	"macsec_policy",
 	"macsec_integ_only",
+	"macsec_replay_protect",
+	"macsec_replay_window",
 	"macsec_port",
 	"mka_priority",
 #endif /* CONFIG_MACSEC */
@@ -1519,14 +1560,56 @@ static int wpa_cli_cmd_list_creds(struct wpa_ctrl *ctrl, int argc,
 
 static int wpa_cli_cmd_add_cred(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
-	return wpa_ctrl_command(ctrl, "ADD_CRED");
+	int res = wpa_ctrl_command(ctrl, "ADD_CRED");
+	if (interactive)
+		update_creds(ctrl);
+	return res;
 }
 
 
 static int wpa_cli_cmd_remove_cred(struct wpa_ctrl *ctrl, int argc,
 				   char *argv[])
 {
-	return wpa_cli_cmd(ctrl, "REMOVE_CRED", 1, argc, argv);
+	int res = wpa_cli_cmd(ctrl, "REMOVE_CRED", 1, argc, argv);
+	if (interactive)
+		update_creds(ctrl);
+	return res;
+}
+
+
+static const char * const cred_fields[] = {
+	"temporary", "priority", "sp_priority", "pcsc", "eap",
+	"update_identifier", "min_dl_bandwidth_home", "min_ul_bandwidth_home",
+	"min_dl_bandwidth_roaming", "min_ul_bandwidth_roaming", "max_bss_load",
+	"req_conn_capab", "ocsp", "sim_num", "realm", "username", "password",
+	"ca_cert", "client_cert", "private_key", "private_key_passwd", "imsi",
+	"milenage", "domain_suffix_match", "domain", "phase1", "phase2",
+	"roaming_consortium", "required_roaming_consortium", "excluded_ssid",
+	"roaming_partner", "provisioning_sp"
+};
+
+
+static char ** wpa_cli_complete_cred(const char *str, int pos)
+{
+	int arg = get_cmd_arg_num(str, pos);
+	int i, num_fields = ARRAY_SIZE(cred_fields);
+	char **res = NULL;
+
+	switch (arg) {
+	case 1:
+		res = cli_txt_list_array(&creds);
+		break;
+	case 2:
+		res = os_calloc(num_fields + 1, sizeof(char *));
+		if (res == NULL)
+			return NULL;
+		for (i = 0; i < num_fields; i++) {
+			res[i] = os_strdup(cred_fields[i]);
+			if (res[i] == NULL)
+				break;
+		}
+	}
+	return res;
 }
 
 
@@ -2443,6 +2526,8 @@ static int wpa_cli_cmd_p2p_remove_client(struct wpa_ctrl *ctrl, int argc,
 	return wpa_cli_cmd(ctrl, "P2P_REMOVE_CLIENT", 1, argc, argv);
 }
 
+#endif /* CONFIG_P2P */
+
 
 static int wpa_cli_cmd_vendor_elem_add(struct wpa_ctrl *ctrl, int argc,
 				       char *argv[])
@@ -2464,7 +2549,6 @@ static int wpa_cli_cmd_vendor_elem_remove(struct wpa_ctrl *ctrl, int argc,
 	return wpa_cli_cmd(ctrl, "VENDOR_ELEM_REMOVE", 2, argc, argv);
 }
 
-#endif /* CONFIG_P2P */
 
 #ifdef CONFIG_WIFI_DISPLAY
 
@@ -2903,6 +2987,20 @@ static int wpa_cli_cmd_dpp_configurator_remove(struct wpa_ctrl *ctrl, int argc,
 }
 
 
+static int wpa_cli_cmd_dpp_configurator_get_key(struct wpa_ctrl *ctrl, int argc,
+						char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "DPP_CONFIGURATOR_GET_KEY", 1, argc, argv);
+}
+
+
+static int wpa_cli_cmd_dpp_configurator_sign(struct wpa_ctrl *ctrl, int argc,
+					     char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "DPP_CONFIGURATOR_SIGN", 1, argc, argv);
+}
+
+
 static int wpa_cli_cmd_dpp_pkex_add(struct wpa_ctrl *ctrl, int argc,
 				    char *argv[])
 {
@@ -3032,6 +3130,9 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	  cli_cmd_flag_sensitive,
 	  "<network id> <password> = configure one-time-password for an SSID"
 	},
+	{ "psk_passphrase", wpa_cli_cmd_psk_passphrase,
+	  wpa_cli_complete_network_id, cli_cmd_flag_sensitive,
+	  "<network id> <PSK/passphrase> = configure PSK/passphrase for an SSID" },
 	{ "passphrase", wpa_cli_cmd_passphrase, wpa_cli_complete_network_id,
 	  cli_cmd_flag_sensitive,
 	  "<network id> <passphrase> = configure private key passphrase\n"
@@ -3093,10 +3194,10 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "remove_cred", wpa_cli_cmd_remove_cred, NULL,
 	  cli_cmd_flag_none,
 	  "<cred id> = remove a credential" },
-	{ "set_cred", wpa_cli_cmd_set_cred, NULL,
+	{ "set_cred", wpa_cli_cmd_set_cred, wpa_cli_complete_cred,
 	  cli_cmd_flag_sensitive,
 	  "<cred id> <variable> <value> = set credential variables" },
-	{ "get_cred", wpa_cli_cmd_get_cred, NULL,
+	{ "get_cred", wpa_cli_cmd_get_cred, wpa_cli_complete_cred,
 	  cli_cmd_flag_none,
 	  "<cred id> <variable> = get credential variables" },
 	{ "save_config", wpa_cli_cmd_save_config, NULL,
@@ -3377,6 +3478,7 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "p2p_remove_client", wpa_cli_cmd_p2p_remove_client,
 	  wpa_cli_complete_p2p_peer, cli_cmd_flag_none,
 	  "<address|iface=address> = remove a peer from all groups" },
+#endif /* CONFIG_P2P */
 	{ "vendor_elem_add", wpa_cli_cmd_vendor_elem_add, NULL,
 	  cli_cmd_flag_none,
 	  "<frame id> <hexdump of elem(s)> = add vendor specific IEs to frame(s)\n"
@@ -3389,7 +3491,6 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	  cli_cmd_flag_none,
 	  "<frame id> <hexdump of elem(s)> = remove vendor specific IE(s) in frame(s)\n"
 	  VENDOR_ELEM_FRAME_ID },
-#endif /* CONFIG_P2P */
 #ifdef CONFIG_WIFI_DISPLAY
 	{ "wfd_subelem_set", wpa_cli_cmd_wfd_subelem_set, NULL,
 	  cli_cmd_flag_none,
@@ -3559,6 +3660,12 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "dpp_configurator_remove", wpa_cli_cmd_dpp_configurator_remove, NULL,
 	  cli_cmd_flag_none,
 	  "*|<id> = remove DPP configurator" },
+	{ "dpp_configurator_get_key", wpa_cli_cmd_dpp_configurator_get_key,
+	  NULL, cli_cmd_flag_none,
+	  "<id> = Get DPP configurator's private key" },
+	{ "dpp_configurator_sign", wpa_cli_cmd_dpp_configurator_sign, NULL,
+	  cli_cmd_flag_none,
+	  "conf=<role> configurator=<id> = generate self DPP configuration" },
 	{ "dpp_pkex_add", wpa_cli_cmd_dpp_pkex_add, NULL,
 	  cli_cmd_flag_sensitive,
 	  "add PKEX code" },
@@ -3900,6 +4007,8 @@ static void wpa_cli_action_process(const char *msg)
 		wpa_cli_exec(action_file, ifname, pos);
 	} else if (str_starts(pos, HS20_DEAUTH_IMMINENT_NOTICE)) {
 		wpa_cli_exec(action_file, ifname, pos);
+	} else if (str_starts(pos, HS20_T_C_ACCEPTANCE)) {
+		wpa_cli_exec(action_file, ifname, pos);
 	} else if (str_starts(pos, WPA_EVENT_TERMINATING)) {
 		printf("wpa_supplicant is terminating - stop monitoring\n");
 		wpa_cli_quit = 1;
@@ -3915,10 +4024,46 @@ static void wpa_cli_action_cb(char *msg, size_t len)
 #endif /* CONFIG_ANSI_C_EXTRA */
 
 
+static int wpa_cli_open_global_ctrl(void)
+{
+#ifdef CONFIG_CTRL_IFACE_NAMED_PIPE
+	ctrl_conn = wpa_ctrl_open(NULL);
+#else /* CONFIG_CTRL_IFACE_NAMED_PIPE */
+	ctrl_conn = wpa_ctrl_open(global);
+#endif /* CONFIG_CTRL_IFACE_NAMED_PIPE */
+	if (!ctrl_conn) {
+		fprintf(stderr,
+			"Failed to connect to wpa_supplicant global interface: %s  error: %s\n",
+			global, strerror(errno));
+		return -1;
+	}
+
+	if (interactive) {
+		update_ifnames(ctrl_conn);
+		mon_conn = wpa_ctrl_open(global);
+		if (mon_conn) {
+			if (wpa_ctrl_attach(mon_conn) == 0) {
+				wpa_cli_attached = 1;
+				eloop_register_read_sock(
+					wpa_ctrl_get_fd(mon_conn),
+					wpa_cli_mon_receive,
+					NULL, NULL);
+			} else {
+				printf("Failed to open monitor connection through global control interface\n");
+			}
+		}
+		update_stations(ctrl_conn);
+	}
+
+	return 0;
+}
+
+
 static void wpa_cli_reconnect(void)
 {
 	wpa_cli_close_connection();
-	if (wpa_cli_open_connection(ctrl_ifname, 1) < 0)
+	if ((global && wpa_cli_open_global_ctrl() < 0) ||
+	    (!global && wpa_cli_open_connection(ctrl_ifname, 1) < 0))
 		return;
 
 	if (interactive) {
@@ -4206,6 +4351,38 @@ static void update_ifnames(struct wpa_ctrl *ctrl)
 }
 
 
+static void update_creds(struct wpa_ctrl *ctrl)
+{
+	char buf[4096];
+	size_t len = sizeof(buf);
+	int ret;
+	const char *cmd = "LIST_CREDS";
+	char *pos, *end;
+	int header = 1;
+
+	cli_txt_list_flush(&creds);
+
+	if (ctrl == NULL)
+		return;
+	ret = wpa_ctrl_request(ctrl, cmd, os_strlen(cmd), buf, &len, NULL);
+	if (ret < 0)
+		return;
+	buf[len] = '\0';
+
+	pos = buf;
+	while (pos) {
+		end = os_strchr(pos, '\n');
+		if (end == NULL)
+			break;
+		*end = '\0';
+		if (!header)
+			cli_txt_list_add_word(&creds, pos, '\t');
+		header = 0;
+		pos = end + 1;
+	}
+}
+
+
 static void update_networks(struct wpa_ctrl *ctrl)
 {
 	char buf[4096];
@@ -4279,6 +4456,7 @@ static void try_connection(void *eloop_ctx, void *timeout_ctx)
 	}
 
 	update_bssid_list(ctrl_conn);
+	update_creds(ctrl_conn);
 	update_networks(ctrl_conn);
 	update_stations(ctrl_conn);
 
@@ -4302,6 +4480,7 @@ static void wpa_cli_interactive(void)
 	cli_txt_list_flush(&p2p_groups);
 	cli_txt_list_flush(&bsses);
 	cli_txt_list_flush(&ifnames);
+	cli_txt_list_flush(&creds);
 	cli_txt_list_flush(&networks);
 	if (edit_started)
 		edit_deinit(hfile, wpa_cli_edit_filter_history_cb);
@@ -4443,7 +4622,6 @@ int main(int argc, char *argv[])
 	int c;
 	int daemonize = 0;
 	int ret = 0;
-	const char *global = NULL;
 
 	if (os_program_init())
 		return -1;
@@ -4498,38 +4676,8 @@ int main(int argc, char *argv[])
 	if (eloop_init())
 		return -1;
 
-	if (global) {
-#ifdef CONFIG_CTRL_IFACE_NAMED_PIPE
-		ctrl_conn = wpa_ctrl_open(NULL);
-#else /* CONFIG_CTRL_IFACE_NAMED_PIPE */
-		ctrl_conn = wpa_ctrl_open(global);
-#endif /* CONFIG_CTRL_IFACE_NAMED_PIPE */
-		if (ctrl_conn == NULL) {
-			fprintf(stderr, "Failed to connect to wpa_supplicant "
-				"global interface: %s  error: %s\n",
-				global, strerror(errno));
-			return -1;
-		}
-
-		if (interactive) {
-			update_ifnames(ctrl_conn);
-			mon_conn = wpa_ctrl_open(global);
-			if (mon_conn) {
-				if (wpa_ctrl_attach(mon_conn) == 0) {
-					wpa_cli_attached = 1;
-					eloop_register_read_sock(
-						wpa_ctrl_get_fd(mon_conn),
-						wpa_cli_mon_receive,
-						NULL, NULL);
-				} else {
-					printf("Failed to open monitor "
-					       "connection through global "
-					       "control interface\n");
-				}
-			}
-			update_stations(ctrl_conn);
-		}
-	}
+	if (global && wpa_cli_open_global_ctrl() < 0)
+		return -1;
 
 	eloop_register_signal_terminate(wpa_cli_terminate, NULL);
 

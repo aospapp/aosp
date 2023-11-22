@@ -13,8 +13,7 @@
 #include "puffin/src/bit_reader.h"
 #include "puffin/src/bit_writer.h"
 #include "puffin/src/include/puffin/common.h"
-#include "puffin/src/include/puffin/errors.h"
-#include "puffin/src/set_errors.h"
+#include "puffin/src/logging.h"
 
 namespace puffin {
 
@@ -183,8 +182,7 @@ class HuffmanTable {
   //                   the |buffer|.
   bool BuildDynamicHuffmanTable(BitReaderInterface* br,
                                 uint8_t* buffer,
-                                size_t* length,
-                                Error* error);
+                                size_t* length);
 
   // This functions first reads the Huffman code length arrays from the input
   // puffed |buffer|, then builds both literal/length and distance Huffman code
@@ -195,11 +193,9 @@ class HuffmanTable {
   // |length| IN      The length available in the |buffer|.
   // |bw|     IN/OUT  The |BitWriterInterface| for writing into the deflate
   //                  stream.
-  // |error|  OUT     The error code.
   bool BuildDynamicHuffmanTable(const uint8_t* buffer,
                                 size_t length,
-                                BitWriterInterface* bw,
-                                Error* error);
+                                BitWriterInterface* bw);
 
  protected:
   // Initializes the Huffman codes from an array of lengths.
@@ -236,14 +232,12 @@ class HuffmanTable {
   // |max_bits|  IN      The maximum number of bits in the Huffman codes.
   // |num_codes| IN      The size of the Huffman code length array in the input.
   // |lens|      OUT     The resulting Huffman code length array.
-  // |error|     OUT     The error code.
   bool BuildHuffmanCodeLengths(BitReaderInterface* br,
                                uint8_t* buffer,
                                size_t* length,
                                size_t max_bits,
                                size_t num_codes,
-                               Buffer* lens,
-                               Error* error);
+                               Buffer* lens);
 
   // Similar to |BuildHuffmanCodeLengths| but for reading from puffed buffer and
   // writing into deflate stream.
@@ -255,13 +249,11 @@ class HuffmanTable {
   // |num_codes| IN      Number of Huffman code lengths to read from the
   //                     |buffer|.
   // |lens|      OUT     The Huffman code lengths array.
-  // |error|     OUT     The error code.
   bool BuildHuffmanCodeLengths(const uint8_t* buffer,
                                size_t* length,
                                BitWriterInterface* bw,
                                size_t num_codes,
-                               Buffer* lens,
-                               Error* error);
+                               Buffer* lens);
 
  private:
   // A utility struct used to create Huffman codes.

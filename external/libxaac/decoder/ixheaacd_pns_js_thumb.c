@@ -356,8 +356,10 @@ VOID ixheaacd_aac_tns_process(
 
       if (filter->direction == -1) {
         position = stop - 1;
+        if (((win << 7) + position) < filter->order) continue;
       } else {
         position = start;
+        if ((((win << 7) + position) + filter->order) > MAX_BINS_LONG) continue;
       }
 
       if ((num_ch <= 2) &&

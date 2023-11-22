@@ -7,6 +7,7 @@
 from autotest_lib.server.cros.faft.config import nyan
 
 class Values(nyan.Values):
+    """FAFT config values for Kitty."""
     ec_capability = ['arm']
     firmware_screen = 7
     has_lid = False

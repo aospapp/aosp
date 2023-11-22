@@ -21,7 +21,10 @@ import java.nio.channels.FileChannel;
 import MyGame.Example.*;
 import NamespaceA.*;
 import NamespaceA.NamespaceB.*;
+import com.google.flatbuffers.ByteBufferUtil;
+import static com.google.flatbuffers.Constants.*;
 import com.google.flatbuffers.FlatBufferBuilder;
+import MyGame.MonsterExtra;
 
 class JavaTest {
     public static void main(String[] args) {
@@ -53,7 +56,8 @@ class JavaTest {
         // better for performance.
         FlatBufferBuilder fbb = new FlatBufferBuilder(1);
 
-        TestBuilderBasics(fbb);
+        TestBuilderBasics(fbb, true);
+        TestBuilderBasics(fbb, false);
 
         TestExtendedBuffer(fbb.dataBuffer().asReadOnlyBuffer());
 
@@ -68,6 +72,8 @@ class JavaTest {
         TestByteBufferFactory();
 
         TestSizedInputStream();
+
+        TestVectorOfUnions();
 
         System.out.println("FlatBuffers test: completed successfully");
     }
@@ -127,7 +133,7 @@ class JavaTest {
         TestEq(monster.testarrayofstring(0),"test1");
         TestEq(monster.testarrayofstring(1),"test2");
 
-        TestEq(monster.testbool(), false);
+        TestEq(monster.testbool(), true);
     }
 
     // this method checks additional fields not present in the binary buffer read from file
@@ -228,7 +234,7 @@ class JavaTest {
     }
 
     static void TestByteBufferFactory() {
-        final class MappedByteBufferFactory implements FlatBufferBuilder.ByteBufferFactory {
+        final class MappedByteBufferFactory extends FlatBufferBuilder.ByteBufferFactory {
             @Override
             public ByteBuffer newByteBuffer(int capacity) {
                 ByteBuffer bb;
@@ -244,14 +250,14 @@ class JavaTest {
 
         FlatBufferBuilder fbb = new FlatBufferBuilder(1, new MappedByteBufferFactory());
 
-        TestBuilderBasics(fbb);
+        TestBuilderBasics(fbb, false);
     }
 
     static void TestSizedInputStream() {
         // Test on default FlatBufferBuilder that uses HeapByteBuffer
         FlatBufferBuilder fbb = new FlatBufferBuilder(1);
 
-        TestBuilderBasics(fbb);
+        TestBuilderBasics(fbb, false);
 
         InputStream in = fbb.sizedInputStream();
         byte[] array = fbb.sizedByteArray();
@@ -271,7 +277,7 @@ class JavaTest {
         TestEq(count, array.length);
     }
 
-    static void TestBuilderBasics(FlatBufferBuilder fbb) {
+    static void TestBuilderBasics(FlatBufferBuilder fbb, boolean sizePrefix) {
         int[] names = {fbb.createString("Frodo"), fbb.createString("Barney"), fbb.createString("Wilma")};
         int[] off = new int[3];
         Monster.startMonster(fbb);
@@ -316,12 +322,16 @@ class JavaTest {
         Monster.addTest(fbb, mon2);
         Monster.addTest4(fbb, test4);
         Monster.addTestarrayofstring(fbb, testArrayOfString);
-        Monster.addTestbool(fbb, false);
+        Monster.addTestbool(fbb, true);
         Monster.addTesthashu32Fnv1(fbb, Integer.MAX_VALUE + 1L);
         Monster.addTestarrayoftables(fbb, sortMons);
         int mon = Monster.endMonster(fbb);
 
-        Monster.finishMonsterBuffer(fbb, mon);
+        if (sizePrefix) {
+            Monster.finishSizePrefixedMonsterBuffer(fbb, mon);
+        } else {
+            Monster.finishMonsterBuffer(fbb, mon);
+        }
 
         // Write the result to a file for debugging purposes:
         // Note that the binaries are not necessarily identical, since the JSON
@@ -329,7 +339,8 @@ class JavaTest {
         // Java code. They are functionally equivalent though.
 
         try {
-            FileChannel fc = new FileOutputStream("monsterdata_java_wire.mon").getChannel();
+            String filename = "monsterdata_java_wire" + (sizePrefix ? "_sp" : "") + ".mon";
+            FileChannel fc = new FileOutputStream(filename).getChannel();
             fc.write(fbb.dataBuffer().duplicate());
             fc.close();
         } catch(java.io.IOException e) {
@@ -338,18 +349,24 @@ class JavaTest {
         }
 
         // Test it:
-        TestExtendedBuffer(fbb.dataBuffer());
+        ByteBuffer dataBuffer = fbb.dataBuffer();
+        if (sizePrefix) {
+            TestEq(ByteBufferUtil.getSizePrefix(dataBuffer) + SIZE_PREFIX_LENGTH,
+                   dataBuffer.remaining());
+            dataBuffer = ByteBufferUtil.removeSizePrefix(dataBuffer);
+        }
+        TestExtendedBuffer(dataBuffer);
 
         // Make sure it also works with read only ByteBuffers. This is slower,
         // since creating strings incurs an additional copy
         // (see Table.__string).
-        TestExtendedBuffer(fbb.dataBuffer().asReadOnlyBuffer());
+        TestExtendedBuffer(dataBuffer.asReadOnlyBuffer());
 
         TestEnums();
 
         //Attempt to mutate Monster fields and check whether the buffer has been mutated properly
         // revert to original values after testing
-        Monster monster = Monster.getRootAsMonster(fbb.dataBuffer());
+        Monster monster = Monster.getRootAsMonster(dataBuffer);
 
         // mana is optional and does not exist in the buffer so the mutation should fail
         // the mana field should retain its default value
@@ -398,6 +415,40 @@ class JavaTest {
         TestEq(pos.x(), 55.0f);
         pos.mutateX(1.0f);
         TestEq(pos.x(), 1.0f);
+    }
+
+    static void TestVectorOfUnions() {
+        final FlatBufferBuilder fbb = new FlatBufferBuilder();
+
+        final int swordAttackDamage = 1;
+
+        final int[] characterVector = new int[] {
+            Attacker.createAttacker(fbb, swordAttackDamage),
+        };
+
+        final byte[] characterTypeVector = new byte[]{
+            Character.MuLan,
+        };
+
+        Movie.finishMovieBuffer(
+            fbb,
+            Movie.createMovie(
+                fbb,
+                (byte)0,
+                (byte)0,
+                Movie.createCharactersTypeVector(fbb, characterTypeVector),
+                Movie.createCharactersVector(fbb, characterVector)
+            )
+        );
+
+        final Movie movie = Movie.getRootAsMovie(fbb.dataBuffer());
+
+        TestEq(movie.charactersTypeLength(), characterTypeVector.length);
+        TestEq(movie.charactersLength(), characterVector.length);
+
+        TestEq(movie.charactersType(0), characterTypeVector[0]);
+
+        TestEq(((Attacker)movie.characters(new Attacker(), 0)).swordAttackDamage(), swordAttackDamage);
     }
 
     static <T> void TestEq(T a, T b) {

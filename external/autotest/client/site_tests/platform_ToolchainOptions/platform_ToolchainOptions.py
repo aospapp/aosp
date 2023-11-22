@@ -126,10 +126,10 @@ class platform_ToolchainOptions(test.test):
                     " -wholename /sys -prune -o "
                     " -wholename /mnt/stateful_partition -prune -o "
                     " -wholename /usr/local -prune -o "
-                    # There are files in /home/chronos that cause false
-                    # positives, and since that's noexec anyways, it should
-                    # be skipped.
-                    " -wholename '/home/chronos' -prune -o "
+                    # There are files in /home (e.g. encrypted files that look
+                    # like they have ELF headers) that cause false positives,
+                    # and since that's noexec anyways, it should be skipped.
+                    " -wholename '/home' -prune -o "
                     " -wholename "
                     "/opt/google/containers/android/rootfs/root/vendor"
                     " -prune -o "
@@ -267,9 +267,9 @@ class platform_ToolchainOptions(test.test):
                                                   stack_cmd,
                                                   stack_whitelist))
 
-        # Verify all binaries have W^X LOAD program headers.
+        # Verify no binaries have W+X LOAD program headers.
         loadwx_cmd = ("%s -lW {} 2>&1 | "
-                      "grep \"LOAD\" | egrep -v \"(RW |R E)\" | "
+                      "grep \"LOAD\" | egrep -v \"(RW |R E|R  )\" | "
                       "wc -l | grep -q \"^0$\"" % readelf_cmd)
         loadwx_whitelist = os.path.join(self.bindir, "loadwx_whitelist")
         option_sets.append(self.create_and_filter("LOAD Writable and Exec",

@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef sw_Nucleus_hpp
-#define sw_Nucleus_hpp
+#ifndef rr_Nucleus_hpp
+#define rr_Nucleus_hpp
 
 #include <cassert>
 #include <cstdarg>
 #include <cstdint>
 #include <vector>
 
-namespace sw
+namespace rr
 {
 	class Type;
 	class Value;
@@ -53,7 +53,7 @@ namespace sw
 
 		virtual ~Nucleus();
 
-		Routine *acquireRoutine(const wchar_t *name, bool runOptimizations = true);
+		Routine *acquireRoutine(const char *name, bool runOptimizations = true);
 
 		static Value *allocateStackVariable(Type *type, int arraySize = 0);
 		static BasicBlock *createBasicBlock();
@@ -171,4 +171,4 @@ namespace sw
 	};
 }
 
-#endif   // sw_Nucleus_hpp
+#endif   // rr_Nucleus_hpp

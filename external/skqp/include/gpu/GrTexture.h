@@ -19,16 +19,10 @@
 
 class GrTexturePriv;
 
-class GrTexture : virtual public GrSurface {
+class SK_API GrTexture : virtual public GrSurface {
 public:
     GrTexture* asTexture() override { return this; }
     const GrTexture* asTexture() const override { return this; }
-
-    /**
-     *  Return the native ID or handle to the texture, depending on the
-     *  platform. e.g. on OpenGL, return the texture ID.
-     */
-    virtual GrBackendObject getTextureHandle() const = 0;
 
     virtual GrBackendTexture getBackendTexture() const = 0;
 
@@ -45,7 +39,7 @@ public:
      * Note that if the GrTexture is not uniquely owned (no other refs), or has pending IO, this
      * function will fail.
      */
-    static bool StealBackendTexture(sk_sp<GrTexture>&&,
+    static bool StealBackendTexture(sk_sp<GrTexture>,
                                     GrBackendTexture*,
                                     SkImage::BackendTextureReleaseProc*);
 
@@ -66,13 +60,24 @@ public:
         this->setRelease(std::move(helper));
     }
 
+    /**
+     * Installs a proc on this texture. It will be called when the texture becomes "idle". Idle is
+     * defined to mean that the texture has no refs or pending IOs and that GPU I/O operations on
+     * the texture are completed if the backend API disallows deletion of a texture before such
+     * operations occur (e.g. Vulkan). After the idle proc is called it is removed. The idle proc
+     * will always be called before the texture is destroyed, even in unusual shutdown scenarios
+     * (e.g. GrContext::abandonContext()).
+     */
+    using IdleProc = void(void*);
+    virtual void setIdleProc(IdleProc, void* context) = 0;
+    virtual void* idleContext() const = 0;
+
     /** Access methods that are only to be used within Skia code. */
     inline GrTexturePriv texturePriv();
     inline const GrTexturePriv texturePriv() const;
 
 protected:
-    GrTexture(GrGpu*, const GrSurfaceDesc&, GrSLType samplerType,
-              GrSamplerState::Filter highestFilterMode, GrMipMapsStatus);
+    GrTexture(GrGpu*, const GrSurfaceDesc&, GrTextureType, GrMipMapsStatus);
 
     virtual bool onStealBackendTexture(GrBackendTexture*, SkImage::BackendTextureReleaseProc*) = 0;
 
@@ -82,11 +87,9 @@ private:
     void markMipMapsDirty();
     void markMipMapsClean();
 
-    GrSLType                      fSamplerType;
-    GrSamplerState::Filter        fHighestFilterMode;
+    GrTextureType                 fTextureType;
     GrMipMapsStatus               fMipMapsStatus;
     int                           fMaxMipMapLevel;
-    SkDestinationSurfaceColorMode fMipColorMode;
     friend class GrTexturePriv;
 
     typedef GrSurface INHERITED;

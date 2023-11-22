@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -41,8 +41,6 @@ timediff_t Curl_timeleft(struct Curl_easy *data,
                          bool duringconnect);
 
 #define DEFAULT_CONNECT_TIMEOUT 300000 /* milliseconds == five minutes */
-#define HAPPY_EYEBALLS_TIMEOUT     200 /* milliseconds to wait between
-                                          IPv4/IPv6 connection attempts */
 
 /*
  * Used to extract socket and connectdata struct for the most recent
@@ -107,8 +105,6 @@ CURLcode Curl_socket(struct connectdata *conn,
                      const Curl_addrinfo *ai,
                      struct Curl_sockaddr_ex *addr,
                      curl_socket_t *sockfd);
-
-void Curl_tcpnodelay(struct connectdata *conn, curl_socket_t sockfd);
 
 /*
  * Curl_conncontrol() marks the end of a connection/stream. The 'closeit'

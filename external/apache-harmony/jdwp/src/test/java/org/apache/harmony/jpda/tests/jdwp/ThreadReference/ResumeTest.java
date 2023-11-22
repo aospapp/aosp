@@ -40,12 +40,10 @@ public class ResumeTest extends JDWPSyncTestCase {
 
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
-    static final String debuggeeSignature =
-            "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/ResumeDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ResumeDebuggee";
+        return ResumeDebuggee.class.getName();
     }
 
     /**
@@ -68,7 +66,7 @@ public class ResumeTest extends JDWPSyncTestCase {
         } catch (NumberFormatException exception) {
             logWriter.println
                 ("## FAILURE: Exception while getting number of started threads from debuggee = " + exception);
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             printErrorAndFail("\n## Can NOT get number of started threads from debuggee! ");
         }
         testedThreadsNumber++; // to add debuggee main thread
@@ -92,7 +90,7 @@ public class ResumeTest extends JDWPSyncTestCase {
         } catch (ReplyErrorCodeException exception) {
             logWriter.println
                 ("## FAILURE: Exception in vmMirror.getAllThreadID() = " + exception);
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             printErrorAndFail("\n## Can NOT get all ThreadID in debuggee! ");
         }
         int threads = allThreadIDReply.getNextValueAsInt();
@@ -125,7 +123,7 @@ public class ResumeTest extends JDWPSyncTestCase {
             }
         }
         if ( testedThreadNotFound ) {
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             printErrorAndFail("\n## Some of tested threads are not found!");
         }
 
@@ -158,7 +156,7 @@ public class ResumeTest extends JDWPSyncTestCase {
         }
 
         if ( resumeCommandFailed ) {
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             printErrorAndFail("\n## Error found out while ThreadReference.Resume command performing!");
         }
 
@@ -172,7 +170,7 @@ public class ResumeTest extends JDWPSyncTestCase {
         reply = debuggeeWrapper.vmMirror.performCommand(packet);
         int errorCode = reply.getErrorCode();
         if ( errorCode !=  JDWPConstants.Error.NONE ) {
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             logWriter.println("## FAILURE: VirtualMachine.Suspend command returns error = " + errorCode
                     + "(" + JDWPConstants.Error.getName(errorCode) + ")");
             printErrorAndFail("## VirtualMachine.Suspend command FAILED!");
@@ -257,7 +255,7 @@ public class ResumeTest extends JDWPSyncTestCase {
         reply = debuggeeWrapper.vmMirror.performCommand(packet);
         errorCode = reply.getErrorCode();
         if ( errorCode !=  JDWPConstants.Error.NONE ) {
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             logWriter.println("## FAILURE: VirtualMachine.Resume command returns error = " + errorCode
                 + "(" + JDWPConstants.Error.getName(errorCode) + ")");
             printErrorAndFail("## VirtualMachine.Resume command FAILED!");
@@ -275,7 +273,7 @@ public class ResumeTest extends JDWPSyncTestCase {
             errorMessage = errorMessage + "## Error found out while ThreadReference.Resume command performing!\n";
         }
         if ( ! errorMessage.equals("") ) {
-            setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+            setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
             printErrorAndFail("\ntestResume001 FAILED:\n" + errorMessage);
         }
 
@@ -432,7 +430,7 @@ public class ResumeTest extends JDWPSyncTestCase {
             errorMessage = errorMessage + "## Unexpected suspendStatus found out!\n";
         }
 
-        setStaticIntField(debuggeeSignature, ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
+        setStaticIntField(getDebuggeeClassSignature(), ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
         if ( ! errorMessage.equals("") ) {
             printErrorAndFail("\ntestResume001 FAILED:\n" + errorMessage);
         }

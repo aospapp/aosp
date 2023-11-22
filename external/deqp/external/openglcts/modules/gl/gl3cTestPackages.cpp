@@ -35,6 +35,8 @@
 #include "gl4cPipelineStatisticsQueryTests.hpp"
 #include "glcFragDepthTests.hpp"
 #include "glcInfoTests.hpp"
+#include "glcPackedDepthStencilTests.hpp"
+#include "glcPackedPixelsTests.hpp"
 #include "glcShaderIndexingTests.hpp"
 #include "glcShaderIntegerMixTests.hpp"
 #include "glcShaderLibrary.hpp"
@@ -42,6 +44,7 @@
 #include "glcShaderNegativeTests.hpp"
 #include "glcShaderStructTests.hpp"
 #include "glcShaderSwitchTests.hpp"
+#include "glcTextureRepeatModeTests.hpp"
 #include "glcUniformBlockTests.hpp"
 #include "gluStateReset.hpp"
 #include "tcuTestLog.hpp"
@@ -120,6 +123,19 @@ tcu::TestNode::IterateResult TestCaseWrapper::iterate(tcu::TestCase* testCase)
 
 // GL30TestPackage
 
+class GL30ShaderTests : public glcts::TestCaseGroup
+{
+public:
+	GL30ShaderTests(deqp::Context& context) : TestCaseGroup(context, "shaders30", "Shading Language Tests")
+	{
+	}
+
+	void init(void)
+	{
+		addChild(new deqp::ShaderLibraryGroup(m_context, "declarations", "Declaration Tests", "gl30/declarations.test"));
+	}
+};
+
 GL30TestPackage::GL30TestPackage(tcu::TestContext& testCtx, const char* packageName, const char* description,
 								 glu::ContextType renderContextType)
 	: TestPackage(testCtx, packageName, packageName, renderContextType, "gl_cts/data/")
@@ -140,9 +156,10 @@ void GL30TestPackage::init(void)
 	{
 		addChild(new deqp::InfoTests(getContext()));
 		addChild(new gl3cts::ClipDistance::Tests(getContext()));
-		addChild(new gl3cts::GPUShader5Tests(getContext()));
 		addChild(new gl3cts::GLSLnoperspectiveTests(getContext()));
 		addChild(new gl3cts::TransformFeedback::Tests(getContext()));
+		addChild(new glcts::TextureRepeatModeTests(getContext()));
+		addChild(new GL30ShaderTests(getContext()));
 	}
 	catch (...)
 	{
@@ -208,8 +225,11 @@ void GL32TestPackage::init(void)
 
 	try
 	{
+		addChild(new gl3cts::GPUShader5Tests(getContext()));
 		addChild(new gl3cts::TransformFeedbackOverflowQueryTests(
 			getContext(), gl3cts::TransformFeedbackOverflowQueryTests::API_GL_ARB_transform_feedback_overflow_query));
+		addChild(new glcts::PackedPixelsTests(getContext()));
+		addChild(new glcts::PackedDepthStencilTests(getContext()));
 	}
 	catch (...)
 	{
@@ -231,6 +251,8 @@ public:
 	void init(void)
 	{
 		addChild(new deqp::ShaderLibraryGroup(m_context, "arrays", "Array Tests", "gl33/arrays.test"));
+		addChild(
+			new deqp::ShaderLibraryGroup(m_context, "declarations", "Declaration Tests", "gl33/declarations.test"));
 		addChild(new deqp::FragDepthTests(m_context, glu::GLSL_VERSION_330));
 		addChild(new deqp::ShaderIndexingTests(m_context, glu::GLSL_VERSION_330));
 		addChild(new deqp::ShaderLoopTests(m_context, glu::GLSL_VERSION_330));

@@ -5,28 +5,28 @@
  * See http://opengroup.org/onlinepubs/9699919799/utilities/xargs.html
  *
  * TODO: Rich's whitespace objection, env size isn't fixed anymore.
+ * TODO: -x	Exit if can't fit everything in one command
+ * TODO: -L	Max number of lines of input per command
 
-USE_XARGS(NEWTOY(xargs, "^I:E:L#ptxrn#<1s#0[!0E]", TOYFLAG_USR|TOYFLAG_BIN))
+USE_XARGS(NEWTOY(xargs, "^I:E:ptrn#<1s#0[!0E]", TOYFLAG_USR|TOYFLAG_BIN))
 
 config XARGS
   bool "xargs"
   default y
   help
-    usage: xargs [-ptxr0] [-s NUM] [-n NUM] [-L NUM] [-E STR] COMMAND...
+    usage: xargs [-0prt] [-s NUM] [-n NUM] [-E STR] COMMAND...
 
     Run command line one or more times, appending arguments from stdin.
 
     If command exits with 255, don't launch another even if arguments remain.
 
-    -s	Size in bytes per command line
-    -n	Max number of arguments per command
     -0	Each argument is NULL terminated, no whitespace or quote processing
-    #-p	Prompt for y/n from tty before running each command
-    #-t	Trace, print command line to stderr
-    #-x	Exit if can't fit everything in one command
-    #-r	Don't run command with empty input
-    #-L	Max number of lines of input per command
-    -E	stop at line matching string
+    -E	Stop at line matching string
+    -n	Max number of arguments per command
+    -p	Prompt for y/n from tty before running each command
+    -r	Don't run command with empty input
+    -s	Size in bytes per command line
+    -t	Trace, print command line to stderr
 
 config XARGS_PEDANTIC
   bool "TODO xargs pedantic posix compatability"
@@ -41,11 +41,8 @@ config XARGS_PEDANTIC
 #include "toys.h"
 
 GLOBALS(
-  long max_bytes;
-  long max_entries;
-  long L;
-  char *eofstr;
-  char *I;
+  long s, n;
+  char *E, *I;
 
   long entries, bytes;
   char delim;
@@ -57,7 +54,7 @@ GLOBALS(
 // Returning NULL means need more data.
 // Returning char * means hit data limits, start of data left over
 // Returning 1 means hit data limits, but consumed all data
-// Returning 2 means hit -E eofstr
+// Returning 2 means hit -E STR
 
 static char *handle_entries(char *data, char **entry)
 {
@@ -73,7 +70,7 @@ static char *handle_entries(char *data, char **entry)
         s++;
       }
 
-      if (TT.max_entries && TT.entries >= TT.max_entries)
+      if (TT.n && TT.entries >= TT.n)
         return *s ? s : (char *)1;
 
       if (!*s) break;
@@ -82,13 +79,13 @@ static char *handle_entries(char *data, char **entry)
       TT.bytes += sizeof(char *);
 
       for (;;) {
-        if (++TT.bytes >= TT.max_bytes && TT.max_bytes) return save;
+        if (++TT.bytes >= TT.s && TT.s) return save;
         if (!*s || isspace(*s)) break;
         s++;
       }
-      if (TT.eofstr) {
+      if (TT.E) {
         int len = s-save;
-        if (len == strlen(TT.eofstr) && !strncmp(save, TT.eofstr, len))
+        if (len == strlen(TT.E) && !strncmp(save, TT.E, len))
           return (char *)2;
       }
       if (entry) entry[TT.entries] = save;
@@ -98,8 +95,8 @@ static char *handle_entries(char *data, char **entry)
   // -0 support
   } else {
     TT.bytes += sizeof(char *)+strlen(data)+1;
-    if (TT.max_bytes && TT.bytes >= TT.max_bytes) return data;
-    if (TT.max_entries && TT.entries >= TT.max_entries) return data;
+    if (TT.s && TT.bytes >= TT.s) return data;
+    if (TT.n && TT.entries >= TT.n) return data;
     if (entry) entry[TT.entries] = data;
     TT.entries++;
   }
@@ -121,10 +118,9 @@ void xargs_main(void)
   // and command line arguments and still be able to invoke another utility",
   // though obviously that's not really something you can guarantee.
   posix_max_bytes = sysconf(_SC_ARG_MAX) - environ_bytes() - 2048;
-  if (TT.max_bytes == 0 || TT.max_bytes > posix_max_bytes)
-    TT.max_bytes = posix_max_bytes;
+  if (!TT.s || TT.s > posix_max_bytes) TT.s = posix_max_bytes;
 
-  if (!(toys.optflags & FLAG_0)) TT.delim = '\n';
+  if (!FLAG(0)) TT.delim = '\n';
 
   // If no optargs, call echo.
   if (!toys.optc) {
@@ -138,6 +134,8 @@ void xargs_main(void)
 
   // Loop through exec chunks.
   while (data || !done) {
+    int doit = 1;
+
     TT.entries = 0;
     TT.bytes = bytes;
 
@@ -167,6 +165,8 @@ void xargs_main(void)
       break;
     }
 
+    if (TT.entries == 0 && FLAG(r)) continue;
+
     // Accumulate cally thing
 
     if (data && !TT.entries) error_exit("argument too long");
@@ -180,13 +180,25 @@ void xargs_main(void)
     for (dtemp = dlist; dtemp; dtemp = dtemp->next)
       handle_entries(dtemp->data, out+entries);
 
-    if (!(pid = XVFORK())) {
-      xclose(0);
-      open("/dev/null", O_RDONLY);
-      xexec(out);
+    if (FLAG(p) || FLAG(t)) {
+      int i;
+
+      for (i = 0; out[i]; ++i) fprintf(stderr, "%s ", out[i]);
+      if (FLAG(p)) {
+        fprintf(stderr, "?");
+        doit = yesno(0);
+      } else fprintf(stderr, "\n");
     }
-    waitpid(pid, &status, 0);
-    status = WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status)+127;
+
+    if (doit) {
+      if (!(pid = XVFORK())) {
+        xclose(0);
+        open("/dev/null", O_RDONLY);
+        xexec(out);
+      }
+      waitpid(pid, &status, 0);
+      status = WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status)+127;
+    }
 
     // Abritrary number of execs, can't just leak memory each time...
     while (dlist) {

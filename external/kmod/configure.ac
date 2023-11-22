@@ -1,6 +1,6 @@
 AC_PREREQ(2.64)
 AC_INIT([kmod],
-	[24],
+	[26],
 	[linux-modules@vger.kernel.org],
 	[kmod],
 	[http://git.kernel.org/?p=utils/kernel/kmod/kmod.git])
@@ -31,6 +31,7 @@ AC_PROG_MKDIR_P
 AC_PROG_LN_S
 PKG_PROG_PKG_CONFIG
 AC_PATH_PROG([XSLTPROC], [xsltproc])
+AC_PATH_PROG([MKOSI], [mkosi])
 
 AC_PROG_CC_C99
 
@@ -104,6 +105,17 @@ AS_IF([test "x$with_zlib" != "xno"], [
 	AC_MSG_NOTICE([zlib support not requested])
 ])
 CC_FEATURE_APPEND([with_features], [with_zlib], [ZLIB])
+
+AC_ARG_WITH([openssl],
+	AS_HELP_STRING([--with-openssl], [handle PKCS7 signatures @<:@default=disabled@:>@]),
+	[], [with_openssl=no])
+AS_IF([test "x$with_openssl" != "xno"], [
+	PKG_CHECK_MODULES([openssl], [openssl >= 1.1.0])
+	AC_DEFINE([ENABLE_OPENSSL], [1], [Enable openssl for modinfo.])
+], [
+	AC_MSG_NOTICE([openssl support not requested])
+])
+CC_FEATURE_APPEND([with_features], [with_openssl], [OPENSSL])
 
 AC_ARG_WITH([bashcompletiondir],
 	AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),

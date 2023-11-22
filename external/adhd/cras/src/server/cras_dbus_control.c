@@ -63,8 +63,14 @@
     "      <arg name=\"input_mute\" type=\"b\" direction=\"out\"/>\n"   \
     "      <arg name=\"output_user_mute\" type=\"b\" direction=\"out\"/>\n"\
     "    </method>\n"                                                   \
+    "    <method name=\"GetDefaultOutputBufferSize\">\n"                    \
+    "      <arg name=\"buffer_size\" type=\"i\" direction=\"out\"/>\n"  \
+    "    </method>\n"                                                   \
     "    <method name=\"GetNodes\">\n"                                  \
     "      <arg name=\"nodes\" type=\"a{sv}\" direction=\"out\"/>\n"    \
+    "    </method>\n"                                                   \
+    "    <method name=\"GetSystemAecSupported\">\n"                     \
+    "      <arg name=\"supported\" type=\"b\" direction=\"out\"/>\n"    \
     "    </method>\n"                                                   \
     "    <method name=\"SetActiveOutputNode\">\n"                       \
     "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
@@ -100,6 +106,9 @@
     "    <method name=\"SetHotwordModel\">\n"                           \
     "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
     "      <arg name=\"model_name\" type=\"s\" direction=\"in\"/>\n"    \
+    "    </method>\n"                                                   \
+    "    <method name=\"IsAudioOutputActive\">\n"                       \
+    "      <arg name=\"active\" type=\"b\" direction=\"out\"/>\n"       \
     "    </method>\n"                                                   \
     "  </interface>\n"                                                  \
     "  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"        \
@@ -408,6 +417,29 @@ static DBusHandlerResult handle_get_volume_state(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult handle_get_default_output_buffer_size(
+	DBusConnection *conn,
+	DBusMessage *message,
+	void *arg)
+{
+	DBusMessage *reply;
+	dbus_uint32_t serial = 0;
+	dbus_int32_t buffer_size;
+
+	reply = dbus_message_new_method_return(message);
+
+	buffer_size = cras_system_get_default_output_buffer_size();
+	dbus_message_append_args(reply,
+				 DBUS_TYPE_INT32, &buffer_size,
+				 DBUS_TYPE_INVALID);
+
+	dbus_connection_send(conn, reply, &serial);
+
+	dbus_message_unref(reply);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 /* Appends the information about a node to the dbus message. Returns
  * false if not enough memory. */
 static dbus_bool_t append_node_dict(DBusMessageIter *iter,
@@ -542,6 +574,29 @@ static DBusHandlerResult handle_get_nodes(DBusConnection *conn,
 	if (!append_nodes(CRAS_STREAM_INPUT, &array))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	dbus_connection_send(conn, reply, &serial);
+	dbus_message_unref(reply);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_get_system_aec_supported(
+	DBusConnection *conn,
+	DBusMessage *message,
+	void *arg)
+{
+	DBusMessage *reply;
+	dbus_uint32_t serial = 0;
+	dbus_bool_t system_aec_supported;
+
+	reply = dbus_message_new_method_return(message);
+
+	system_aec_supported = cras_system_get_aec_supported();
+	dbus_message_append_args(reply,
+				 DBUS_TYPE_BOOLEAN, &system_aec_supported,
+				 DBUS_TYPE_INVALID);
+
+	dbus_connection_send(conn, reply, &serial);
+
 	dbus_message_unref(reply);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
@@ -721,6 +776,18 @@ static DBusHandlerResult handle_set_hotword_model(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult handle_is_audio_active(
+		DBusConnection *conn,
+		DBusMessage *message,
+		void* arg)
+{
+	dbus_int32_t active = cras_system_state_get_non_empty_status();
+
+	send_int32_reply(conn, message, active);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 /* Handle incoming messages. */
 static DBusHandlerResult handle_control_message(DBusConnection *conn,
 						DBusMessage *message,
@@ -792,8 +859,16 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 		return handle_get_volume_state(conn, message, arg);
 	} else if (dbus_message_is_method_call(message,
 					       CRAS_CONTROL_INTERFACE,
+					       "GetDefaultOutputBufferSize")) {
+		return handle_get_default_output_buffer_size(conn, message, arg);
+	} else if (dbus_message_is_method_call(message,
+					       CRAS_CONTROL_INTERFACE,
 					       "GetNodes")) {
 		return handle_get_nodes(conn, message, arg);
+	} else if (dbus_message_is_method_call(message,
+					       CRAS_CONTROL_INTERFACE,
+					       "GetSystemAecSupported")) {
+		return handle_get_system_aec_supported(conn, message, arg);
 	} else if (dbus_message_is_method_call(message,
 					       CRAS_CONTROL_INTERFACE,
 					       "SetActiveOutputNode")) {
@@ -847,8 +922,11 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 					       CRAS_CONTROL_INTERFACE,
 					       "SetHotwordModel")) {
 		return handle_set_hotword_model(conn, message, arg);
+	} else if (dbus_message_is_method_call(message,
+					       CRAS_CONTROL_INTERFACE,
+					       "IsAudioOutputActive")) {
+		return handle_is_audio_active(conn, message, arg);
 	}
-
 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
@@ -1057,6 +1135,45 @@ static void signal_num_active_streams_changed(void *context,
 	dbus_message_unref(msg);
 }
 
+static void signal_hotword_triggered(void *context,
+				     int64_t tv_sec,
+				     int64_t tv_nsec)
+{
+	struct cras_dbus_control *control = (struct cras_dbus_control *)context;
+	dbus_uint32_t serial = 0;
+	DBusMessage *msg;
+
+	msg = create_dbus_message("HotwordTriggered");
+	if (!msg)
+		return;
+
+	dbus_message_append_args(msg,
+				 DBUS_TYPE_INT64, &tv_sec,
+				 DBUS_TYPE_INT64, &tv_nsec,
+				 DBUS_TYPE_INVALID);
+	dbus_connection_send(control->conn, msg, &serial);
+	dbus_message_unref(msg);
+}
+
+static void signal_non_empty_audio_state_changed(void *context, int non_empty)
+{
+	struct cras_dbus_control *control = (struct cras_dbus_control *)context;
+
+	dbus_uint32_t serial = 0;
+	DBusMessage *msg;
+
+	msg = create_dbus_message("AudioOutputActiveStateChanged");
+	if (!msg)
+		return;
+
+	dbus_message_append_args(msg,
+				 DBUS_TYPE_BOOLEAN, &non_empty,
+				 DBUS_TYPE_INVALID);
+
+	dbus_connection_send(control->conn, msg, &serial);
+	dbus_message_unref(msg);
+}
+
 /* Exported Interface */
 
 void cras_dbus_control_start(DBusConnection *conn)
@@ -1095,6 +1212,9 @@ void cras_dbus_control_start(DBusConnection *conn)
 	observer_ops.output_node_volume_changed = signal_node_volume_changed;
 	observer_ops.node_left_right_swapped_changed =
 			signal_node_left_right_swapped_changed;
+	observer_ops.hotword_triggered = signal_hotword_triggered;
+	observer_ops.non_empty_audio_state_changed =
+			signal_non_empty_audio_state_changed;
 
 	dbus_control.observer = cras_observer_add(&observer_ops, &dbus_control);
 }

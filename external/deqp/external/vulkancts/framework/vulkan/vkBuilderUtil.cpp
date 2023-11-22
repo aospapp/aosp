@@ -107,8 +107,17 @@ Move<VkDescriptorSetLayout> DescriptorSetLayoutBuilder::build (const DeviceInter
 	for (size_t samplerInfoNdx = 0; samplerInfoNdx < m_immutableSamplerInfos.size(); samplerInfoNdx++)
 	{
 		const ImmutableSamplerInfo&	samplerInfo	= m_immutableSamplerInfos[samplerInfoNdx];
+		deUint32					bindingNdx	= 0;
 
-		bindings[samplerInfo.bindingIndex].pImmutableSamplers	= &m_immutableSamplers[samplerInfo.samplerBaseIndex];
+		while (bindings[bindingNdx].binding != samplerInfo.bindingIndex)
+		{
+			bindingNdx++;
+
+			if (bindingNdx >= (deUint32)bindings.size())
+				DE_FATAL("Immutable sampler not found");
+		}
+
+		bindings[bindingNdx].pImmutableSamplers = &m_immutableSamplers[samplerInfo.samplerBaseIndex];
 	}
 
 	const VkDescriptorSetLayoutCreateInfo		createInfo	=
@@ -117,7 +126,7 @@ Move<VkDescriptorSetLayout> DescriptorSetLayoutBuilder::build (const DeviceInter
 		DE_NULL,
 		(VkDescriptorSetLayoutCreateFlags)extraFlags,			// flags
 		(deUint32)bindings.size(),								// bindingCount
-		(bindings.empty()) ? (DE_NULL) : (bindings.data()),		// pBinding
+		(bindings.empty()) ? (DE_NULL) : (&bindings.front()),	// pBinding
 	};
 
 	return createDescriptorSetLayout(vk, device, &createInfo);
@@ -162,13 +171,13 @@ DescriptorPoolBuilder& DescriptorPoolBuilder::addType (VkDescriptorType type, de
 	}
 }
 
-Move<VkDescriptorPool> DescriptorPoolBuilder::build (const DeviceInterface& vk, VkDevice device, VkDescriptorPoolCreateFlags flags, deUint32 maxSets) const
+Move<VkDescriptorPool> DescriptorPoolBuilder::build (const DeviceInterface& vk, VkDevice device, VkDescriptorPoolCreateFlags flags, deUint32 maxSets, const void *pNext) const
 {
 	const VkDescriptorPoolSize* const	typeCountPtr	= (m_counts.empty()) ? (DE_NULL) : (&m_counts[0]);
 	const VkDescriptorPoolCreateInfo	createInfo		=
 	{
 		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		DE_NULL,
+		pNext,
 		flags,
 		maxSets,
 		(deUint32)m_counts.size(),		// poolSizeCount
@@ -276,10 +285,13 @@ void DescriptorSetUpdateBuilder::update (const DeviceInterface& vk, VkDevice dev
 	vk.updateDescriptorSets(device, (deUint32)writes.size(), writePtr, (deUint32)m_copies.size(), copyPtr);
 }
 
-void DescriptorSetUpdateBuilder::updateWithPush (const DeviceInterface& vk, VkCommandBuffer cmd, VkPipelineBindPoint bindPoint, VkPipelineLayout pipelineLayout, deUint32 setIdx) const
+void DescriptorSetUpdateBuilder::updateWithPush (const DeviceInterface& vk, VkCommandBuffer cmd, VkPipelineBindPoint bindPoint, VkPipelineLayout pipelineLayout, deUint32 setIdx, deUint32 descriptorIdx, deUint32 numDescriptors) const
 {
+	// Write all descriptors or just a subset?
+	deUint32							count		= (numDescriptors) ? numDescriptors : (deUint32)m_writes.size();
+
 	// Update VkWriteDescriptorSet structures with stored info
-	std::vector<VkWriteDescriptorSet> writes	= m_writes;
+	std::vector<VkWriteDescriptorSet>	writes		= m_writes;
 
 	for (size_t writeNdx = 0; writeNdx < m_writes.size(); writeNdx++)
 	{
@@ -295,9 +307,16 @@ void DescriptorSetUpdateBuilder::updateWithPush (const DeviceInterface& vk, VkCo
 			writes[writeNdx].pTexelBufferView	= &writeInfo.texelBufferViews[0];
 	}
 
-	const VkWriteDescriptorSet* const	writePtr	= (m_writes.empty()) ? (DE_NULL) : (&writes[0]);
+	const VkWriteDescriptorSet* const	writePtr	= (m_writes.empty()) ? (DE_NULL) : (&writes[descriptorIdx]);
 
-	vk.cmdPushDescriptorSetKHR(cmd, bindPoint, pipelineLayout, setIdx, (deUint32)m_writes.size(), writePtr);
+	vk.cmdPushDescriptorSetKHR(cmd, bindPoint, pipelineLayout, setIdx, count, writePtr);
+}
+
+void DescriptorSetUpdateBuilder::clear(void)
+{
+	m_writeDescriptorInfos.clear();
+	m_writes.clear();
+	m_copies.clear();
 }
 
 } // vk

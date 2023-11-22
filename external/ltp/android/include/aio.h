@@ -3,7 +3,6 @@
 
 #include <time.h>
 #include <signal.h>
-#include <linux/aio_abi.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
 

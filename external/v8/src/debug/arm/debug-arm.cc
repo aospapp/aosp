@@ -6,109 +6,17 @@
 
 #include "src/debug/debug.h"
 
-#include "src/codegen.h"
+#include "src/assembler-inl.h"
 #include "src/debug/liveedit.h"
+#include "src/frames-inl.h"
+#include "src/macro-assembler.h"
+#include "src/objects-inl.h"
 
 namespace v8 {
 namespace internal {
 
 #define __ ACCESS_MASM(masm)
 
-
-void EmitDebugBreakSlot(MacroAssembler* masm) {
-  Label check_size;
-  __ bind(&check_size);
-  for (int i = 0; i < Assembler::kDebugBreakSlotInstructions; i++) {
-    __ nop(MacroAssembler::DEBUG_BREAK_NOP);
-  }
-  DCHECK_EQ(Assembler::kDebugBreakSlotInstructions,
-            masm->InstructionsGeneratedSince(&check_size));
-}
-
-
-void DebugCodegen::GenerateSlot(MacroAssembler* masm, RelocInfo::Mode mode) {
-  // Generate enough nop's to make space for a call instruction. Avoid emitting
-  // the constant pool in the debug break slot code.
-  Assembler::BlockConstPoolScope block_const_pool(masm);
-  masm->RecordDebugBreakSlot(mode);
-  EmitDebugBreakSlot(masm);
-}
-
-
-void DebugCodegen::ClearDebugBreakSlot(Isolate* isolate, Address pc) {
-  CodePatcher patcher(isolate, pc, Assembler::kDebugBreakSlotInstructions);
-  EmitDebugBreakSlot(patcher.masm());
-}
-
-
-void DebugCodegen::PatchDebugBreakSlot(Isolate* isolate, Address pc,
-                                       Handle<Code> code) {
-  DCHECK(code->is_debug_stub());
-  CodePatcher patcher(isolate, pc, Assembler::kDebugBreakSlotInstructions);
-  // Patch the code changing the debug break slot code from
-  //   mov r2, r2
-  //   mov r2, r2
-  //   mov r2, r2
-  //   mov r2, r2
-  // to a call to the debug break slot code.
-  //   ldr ip, [pc, #0]
-  //   b skip
-  //   <debug break slot code entry point address>
-  //   skip:
-  //   blx ip
-  Label skip_constant;
-  patcher.masm()->ldr(ip, MemOperand(v8::internal::pc, 0));
-  patcher.masm()->b(&skip_constant);
-  patcher.Emit(code->entry());
-  patcher.masm()->bind(&skip_constant);
-  patcher.masm()->blx(ip);
-}
-
-bool DebugCodegen::DebugBreakSlotIsPatched(Address pc) {
-  Instr current_instr = Assembler::instr_at(pc);
-  return !Assembler::IsNop(current_instr, Assembler::DEBUG_BREAK_NOP);
-}
-
-void DebugCodegen::GenerateDebugBreakStub(MacroAssembler* masm,
-                                          DebugBreakCallHelperMode mode) {
-  __ RecordComment("Debug break");
-  {
-    FrameAndConstantPoolScope scope(masm, StackFrame::INTERNAL);
-
-    // Push arguments for DebugBreak call.
-    if (mode == SAVE_RESULT_REGISTER) {
-      // Break on return.
-      __ push(r0);
-    } else {
-      // Non-return breaks.
-      __ Push(masm->isolate()->factory()->the_hole_value());
-    }
-    __ mov(r0, Operand(1));
-    __ mov(r1,
-           Operand(ExternalReference(
-               Runtime::FunctionForId(Runtime::kDebugBreak), masm->isolate())));
-
-    CEntryStub ceb(masm->isolate(), 1);
-    __ CallStub(&ceb);
-
-    if (FLAG_debug_code) {
-      for (int i = 0; i < kNumJSCallerSaved; i++) {
-        Register reg = {JSCallerSavedCode(i)};
-        // Do not clobber r0 if mode is SAVE_RESULT_REGISTER. It will
-        // contain return value of the function.
-        if (!(reg.is(r0) && (mode == SAVE_RESULT_REGISTER))) {
-          __ mov(reg, Operand(kDebugZapValue));
-        }
-      }
-    }
-    // Leave the internal frame.
-  }
-
-  __ MaybeDropFrames();
-
-  // Return to caller.
-  __ Ret();
-}
 
 void DebugCodegen::GenerateHandleDebuggerStatement(MacroAssembler* masm) {
   {
@@ -132,14 +40,13 @@ void DebugCodegen::GenerateFrameDropperTrampoline(MacroAssembler* masm) {
   __ LeaveFrame(StackFrame::INTERNAL);
 
   __ ldr(r0, FieldMemOperand(r1, JSFunction::kSharedFunctionInfoOffset));
-  __ ldr(r0,
-         FieldMemOperand(r0, SharedFunctionInfo::kFormalParameterCountOffset));
+  __ ldrh(r0,
+          FieldMemOperand(r0, SharedFunctionInfo::kFormalParameterCountOffset));
   __ mov(r2, r0);
 
   ParameterCount dummy1(r2);
   ParameterCount dummy2(r0);
-  __ InvokeFunction(r1, dummy1, dummy2, JUMP_FUNCTION,
-                    CheckDebugStepCallWrapper());
+  __ InvokeFunction(r1, dummy1, dummy2, JUMP_FUNCTION);
 }
 
 

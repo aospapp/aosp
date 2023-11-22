@@ -29,10 +29,12 @@
 #include "deUniquePtr.hpp"
 #include "vkImageUtil.hpp"
 #include "vkMemUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "vktTestCase.hpp"
 #include "vktTestCaseUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "tcuImageCompare.hpp"
 #include "tcuTexture.hpp"
 #include "tcuTextureUtil.hpp"
@@ -75,7 +77,6 @@ protected:
 
 	Move<VkCommandPool>				m_cmdPool;
 	Move<VkCommandBuffer>			m_cmdBuffer;
-	Move<VkFence>					m_fence;
 	de::MovePtr<tcu::TextureLevel>	m_destinationTextureLevel;
 	de::MovePtr<tcu::TextureLevel>	m_expectedTextureLevel;
 
@@ -118,9 +119,6 @@ protected:
 	// Create command buffer
 	m_cmdBuffer = allocateCommandBuffer(vk, vkDevice, *m_cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	// Create fence
-	m_fence = createFence(vk, vkDevice);
-
 	testParams.bufferAllocator->createTestBuffer(m_params.dstSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, context, memAlloc, m_destination, MemoryRequirement::HostVisible, m_destinationBufferAlloc);
 }
 
@@ -148,43 +146,20 @@ tcu::TestStatus						FillBufferTestInstance::iterate		(void)
 		VK_QUEUE_FAMILY_IGNORED,										// deUint32					srcQueueFamilyIndex;
 		VK_QUEUE_FAMILY_IGNORED,										// deUint32					dstQueueFamilyIndex;
 		*m_destination,													// VkBuffer					buffer;
-		0u,																// VkDeviceSize				offset;
-		m_params.dstOffset												// VkDeviceSize				size;
+		m_params.dstOffset,												// VkDeviceSize				offset;
+		VK_WHOLE_SIZE												// VkDeviceSize				size;
 	};
 
-	const VkCommandBufferBeginInfo	cmdBufferBeginInfo					=
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,					// VkStructureType			sType;
-		DE_NULL,														// const void*				pNext;
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,					// VkCommandBufferUsageFlags flags;
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-
-	VK_CHECK(vk.beginCommandBuffer(*m_cmdBuffer, &cmdBufferBeginInfo));
+	beginCommandBuffer(vk, *m_cmdBuffer);
 	vk.cmdFillBuffer(*m_cmdBuffer, *m_destination, m_params.dstOffset, m_params.size, m_params.testData[0]);
-	vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &dstBufferBarrier, 0, (const VkImageMemoryBarrier*)DE_NULL);
-	VK_CHECK(vk.endCommandBuffer(*m_cmdBuffer));
+	vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &dstBufferBarrier, 0, (const VkImageMemoryBarrier*)DE_NULL);
+	endCommandBuffer(vk, *m_cmdBuffer);
 
-	const VkSubmitInfo				submitInfo							=
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,									// VkStructureType			sType;
-		DE_NULL,														// const void*				pNext;
-		0u,																// deUint32					waitSemaphoreCount;
-		DE_NULL,														// const VkSemaphore*		pWaitSemaphores;
-		(const VkPipelineStageFlags*)DE_NULL,
-		1u,																// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),												// const VkCommandBuffer*	pCommandBuffers;
-		0u,																// deUint32					signalSemaphoreCount;
-		DE_NULL															// const VkSemaphore*		pSignalSemaphores;
-	};
-
-	VK_CHECK(vk.resetFences(vkDevice, 1, &m_fence.get()));
-	VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *m_fence));
-	VK_CHECK(vk.waitForFences(vkDevice, 1, &m_fence.get(), true, ~(0ull) /* infinity */));
+	submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Read buffer data
 	de::MovePtr<tcu::TextureLevel>	resultLevel	(new tcu::TextureLevel(m_destinationTextureLevel->getAccess().getFormat(), dstLevelWidth, 1));
-	invalidateMappedMemoryRange(vk, vkDevice, m_destinationBufferAlloc->getMemory(), m_destinationBufferAlloc->getOffset(), m_params.dstOffset);
+	invalidateAlloc(vk, vkDevice, *m_destinationBufferAlloc);
 	tcu::copy(*resultLevel, tcu::ConstPixelBufferAccess(resultLevel->getFormat(), resultLevel->getSize(), m_destinationBufferAlloc->getHostPtr()));
 
 	return checkTestResult(resultLevel->getAccess());
@@ -217,7 +192,7 @@ void								FillBufferTestInstance::uploadBuffer
 
 	// Write buffer data
 	deMemcpy(bufferAlloc.getHostPtr(), bufferAccess.getDataPtr(), bufferSize);
-	flushMappedMemoryRange(vk, vkDevice, bufferAlloc.getMemory(), bufferAlloc.getOffset(), bufferSize);
+	flushAlloc(vk, vkDevice, bufferAlloc);
 }
 
 tcu::TestStatus						FillBufferTestInstance::checkTestResult
@@ -313,43 +288,20 @@ tcu::TestStatus						UpdateBufferTestInstance::iterate	(void)
 		VK_QUEUE_FAMILY_IGNORED,										// deUint32					srcQueueFamilyIndex;
 		VK_QUEUE_FAMILY_IGNORED,										// deUint32					dstQueueFamilyIndex;
 		*m_destination,													// VkBuffer					buffer;
-		0u,																// VkDeviceSize				offset;
-		m_params.dstOffset												// VkDeviceSize				size;
+		m_params.dstOffset,												// VkDeviceSize				offset;
+		VK_WHOLE_SIZE												// VkDeviceSize				size;
 	};
 
-	const VkCommandBufferBeginInfo	cmdBufferBeginInfo					=
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,					// VkStructureType			sType;
-		DE_NULL,														// const void*				pNext;
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,					// VkCommandBufferUsageFlags flags;
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-
-	VK_CHECK(vk.beginCommandBuffer(*m_cmdBuffer, &cmdBufferBeginInfo));
+	beginCommandBuffer(vk, *m_cmdBuffer);
 	vk.cmdUpdateBuffer(*m_cmdBuffer, *m_destination, m_params.dstOffset, m_params.size, m_params.testData);
-	vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &dstBufferBarrier, 0, (const VkImageMemoryBarrier*)DE_NULL);
-	VK_CHECK(vk.endCommandBuffer(*m_cmdBuffer));
+	vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &dstBufferBarrier, 0, (const VkImageMemoryBarrier*)DE_NULL);
+	endCommandBuffer(vk, *m_cmdBuffer);
 
-	const VkSubmitInfo				submitInfo							=
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,									// VkStructureType			sType;
-		DE_NULL,														// const void*				pNext;
-		0u,																// deUint32					waitSemaphoreCount;
-		DE_NULL,														// const VkSemaphore*		pWaitSemaphores;
-		(const VkPipelineStageFlags*)DE_NULL,
-		1u,																// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),												// const VkCommandBuffer*	pCommandBuffers;
-		0u,																// deUint32					signalSemaphoreCount;
-		DE_NULL															// const VkSemaphore*		pSignalSemaphores;
-	};
-
-	VK_CHECK(vk.resetFences(vkDevice, 1, &m_fence.get()));
-	VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *m_fence));
-	VK_CHECK(vk.waitForFences(vkDevice, 1, &m_fence.get(), true, ~(0ull) /* infinity */));
+	submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Read buffer data
 	de::MovePtr<tcu::TextureLevel>	resultLevel	(new tcu::TextureLevel(m_destinationTextureLevel->getAccess().getFormat(), dstLevelWidth, 1));
-	invalidateMappedMemoryRange(vk, vkDevice, m_destinationBufferAlloc->getMemory(), m_destinationBufferAlloc->getOffset(), m_params.dstOffset);
+	invalidateAlloc(vk, vkDevice, *m_destinationBufferAlloc);
 	tcu::copy(*resultLevel, tcu::ConstPixelBufferAccess(resultLevel->getFormat(), resultLevel->getSize(), m_destinationBufferAlloc->getHostPtr()));
 
 	return checkTestResult(resultLevel->getAccess());
@@ -421,7 +373,9 @@ tcu::TestCaseGroup*					createFillAndUpdateBufferTests	(tcu::TestContext&			test
 	for (deUint32 buffersAllocationNdx = 0u; buffersAllocationNdx < DE_LENGTH_OF_ARRAY(bufferAllocators); ++buffersAllocationNdx)
 	{
 		DE_ASSERT(params.dstSize <= TestParams::TEST_DATA_SIZE);
-		deMemset(params.testData, 0xFFu, (size_t)params.dstSize);
+		deUint8* data = (deUint8*) params.testData;
+		for (deUint32 b = 0u; b < (params.dstSize * sizeof(params.testData[0])); b++)
+			data[b] = (deUint8) (b % 255);
 		params.bufferAllocator = bufferAllocators[buffersAllocationNdx];
 		const deUint32				testCaseGroupNdx					= buffersAllocationNdx;
 		tcu::TestCaseGroup*			currentTestsGroup					= bufferViewAllocationGroupTests[testCaseGroupNdx];

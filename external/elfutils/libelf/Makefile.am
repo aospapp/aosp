@@ -29,7 +29,7 @@
 ##
 include $(top_srcdir)/config/eu.am
 if BUILD_STATIC
-AM_CFLAGS += -fPIC
+AM_CFLAGS += $(fpic_CFLAGS)
 endif
 GCC_INCLUDE = -I$(shell $(CC) -print-file-name=include)
 VERSION = 1
@@ -38,6 +38,16 @@ lib_LIBRARIES = libelf.a
 noinst_LIBRARIES = libelf_pic.a
 noinst_PROGRAMS = $(noinst_LIBRARIES:_pic.a=.so)
 include_HEADERS = libelf.h gelf.h nlist.h
+
+noinst_HEADERS = abstract.h common.h exttypes.h gelf_xlate.h libelfP.h \
+		 version_xlate.h gnuhash_xlate.h note_xlate.h dl-hash.h \
+		 chdr_xlate.h
+
+if INSTALL_ELFH
+include_HEADERS += elf.h
+else
+noinst_HEADERS += elf.h
+endif
 
 pkginclude_HEADERS = elf-knowledge.h
 
@@ -95,16 +105,20 @@ libelf_a_SOURCES = elf_version.c elf_hash.c elf_error.c elf_fill.c \
 libelf_pic_a_SOURCES =
 am_libelf_pic_a_OBJECTS = $(libelf_a_SOURCES:.c=.os)
 
-libelf_so_LDLIBS = -lz
+libelf_so_DEPS = ../lib/libeu.a
+libelf_so_LDLIBS = $(libelf_so_DEPS) -lz
 if USE_LOCKS
 libelf_so_LDLIBS += -lpthread
 endif
 
+libelf_so_LIBS = libelf_pic.a
 libelf_so_SOURCES =
-libelf.so$(EXEEXT): libelf_pic.a libelf.map
-	$(AM_V_CCLD)$(LINK) -shared -o $@ -Wl,--whole-archive,$<,--no-whole-archive \
-		-Wl,--version-script,$(srcdir)/libelf.map,--no-undefined \
-		-Wl,--soname,$@.$(VERSION),-z,defs,-z,relro $(libelf_so_LDLIBS)
+libelf.so$(EXEEXT): $(srcdir)/libelf.map $(libelf_so_LIBS) $(libelf_so_DEPS)
+	$(AM_V_CCLD)$(LINK) $(dso_LDFLAGS) -o $@ \
+		-Wl,--soname,$@.$(VERSION) \
+		-Wl,--version-script,$<,--no-undefined \
+		-Wl,--whole-archive $(libelf_so_LIBS) -Wl,--no-whole-archive \
+		$(libelf_so_LDLIBS)
 	@$(textrel_check)
 	$(AM_V_at)ln -fs $@ $@.$(VERSION)
 
@@ -119,9 +133,6 @@ uninstall: uninstall-am
 	rm -f $(DESTDIR)$(libdir)/libelf.so.$(VERSION)
 	rm -f $(DESTDIR)$(libdir)/libelf.so
 
-noinst_HEADERS = elf.h abstract.h common.h exttypes.h gelf_xlate.h libelfP.h \
-		 version_xlate.h gnuhash_xlate.h note_xlate.h dl-hash.h \
-		 chdr_xlate.h
 EXTRA_DIST = libelf.map
 
 CLEANFILES += $(am_libelf_pic_a_OBJECTS) libelf.so.$(VERSION)

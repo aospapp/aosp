@@ -70,6 +70,10 @@ py_test(
         "python/ops/core_test.py",
     ],
     srcs_version = "PY2AND3",
+    tags = [
+        "no_windows",  # TODO: needs investigation on Windows
+        "noasan",  # TODO(b/119323169)
+    ],
     deps = [
         ":_typecheck",
         ":core",
@@ -151,7 +155,7 @@ py_library(
         ":core",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:framework_for_generated_wrappers",
-        "//tensorflow/python:functional_ops",
+        "//tensorflow/python:map_fn",
         "//tensorflow/python:math_ops",
         "//tensorflow/python:numerics",
         "//tensorflow/python:random_ops",
@@ -212,15 +216,4 @@ py_test(
         "//tensorflow/python:framework_for_generated_wrappers",
         "//tensorflow/python:math_ops",
     ],
-)
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
 )

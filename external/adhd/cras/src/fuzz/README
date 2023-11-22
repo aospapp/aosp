@@ -1,0 +1,23 @@
+This directory contains source code and build scripts for coverage-guided
+fuzzers.
+
+Detailed instructions are available at:
+
+  https://github.com/google/oss-fuzz/blob/master/docs/
+
+Quick start:
+
+  Build a container from the cras directory
+
+    $ sudo docker build -t ossfuzz/cras -f src/fuzz/Dockerfile .
+
+  Build fuzzers
+
+    $ sudo docker run -ti --rm -v $(pwd):/src/cras -v /tmp/fuzzers:/out \
+                 ossfuzz/cras
+
+  Look in /tmp/fuzzers to see the executables. Run them like so:
+
+    $ sudo docker run -ti -v $(pwd)/src/fuzz/corpus:/corpus \
+            -v /tmp/fuzzers:/out ossfuzz/base-runner /out/rclient_message \
+            /corpus -runs=100

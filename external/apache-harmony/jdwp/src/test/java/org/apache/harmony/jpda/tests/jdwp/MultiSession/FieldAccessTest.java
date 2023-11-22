@@ -54,8 +54,7 @@ public class FieldAccessTest extends JDWPEventTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String classSignature = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/FieldDebuggee;";
-        debuggeeWrapper.vmMirror.setFieldAccess(classSignature,
+        debuggeeWrapper.vmMirror.setFieldAccess(getDebuggeeClassSignature(),
                 JDWPConstants.TypeTag.CLASS, "testIntField");
 
         logWriter.println("");

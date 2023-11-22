@@ -20,10 +20,9 @@ You must have the same settings for the nanopb library and all code that
 includes pb.h.
 
 ============================  ================================================
-__BIG_ENDIAN__                 Set this if your platform stores integers and
-                               floats in big-endian format. Mixed-endian
-                               systems (different layout for ints and floats)
-                               are currently not supported.
+PB_NO_PACKED_STRUCTS           Disable packed structs. Increases RAM usage but
+                               is necessary on some platforms that do not
+                               support unaligned memory access.
 PB_ENABLE_MALLOC               Set this to enable dynamic allocation support
                                in the decoder.
 PB_MAX_REQUIRED_FIELDS         Maximum number of required fields to check for
@@ -54,6 +53,8 @@ PB_SYSTEM_HEADER               Replace the standard header files with a single
                                functions and typedefs listed on the
                                `overview page`_. Value must include quotes,
                                for example *#define PB_SYSTEM_HEADER "foo.h"*.
+PB_WITHOUT_64BIT               Disable 64-bit support, for old compilers or
+                               for a slight speedup on 8-bit platforms.
 ============================  ================================================
 
 The PB_MAX_REQUIRED_FIELDS, PB_FIELD_16BIT and PB_FIELD_32BIT settings allow
@@ -73,18 +74,31 @@ The generator behaviour can be adjusted using these options, defined in the
 max_size                       Allocated size for *bytes* and *string* fields.
 max_count                      Allocated number of entries in arrays
                                (*repeated* fields).
+int_size                       Override the integer type of a field.
+                               (To use e.g. uint8_t to save RAM.)
 type                           Type of the generated field. Default value
                                is *FT_DEFAULT*, which selects automatically.
                                You can use *FT_CALLBACK*, *FT_POINTER*,
-                               *FT_STATIC* or *FT_IGNORE* to force a callback
-                               field, a dynamically allocated field, a static
-                               field or to completely ignore the field.
+                               *FT_STATIC* or *FT_IGNORE* to
+                               force a callback field, a dynamically
+                               allocated field, a static field or to
+                               completely ignore the field.
 long_names                     Prefix the enum name to the enum value in
                                definitions, i.e. *EnumName_EnumValue*. Enabled
                                by default.
 packed_struct                  Make the generated structures packed.
                                NOTE: This cannot be used on CPUs that break
                                on unaligned accesses to variables.
+skip_message                   Skip the whole message from generation.
+no_unions                      Generate 'oneof' fields as optional fields
+                               instead of C unions.
+msgid                          Specifies a unique id for this message type.
+                               Can be used by user code as an identifier.
+anonymous_oneof                Generate 'oneof' fields as anonymous unions.
+fixed_length                   Generate 'bytes' fields with constant length
+                               (max_size must also be defined).
+fixed_count                    Generate arrays with constant length
+                               (max_count must also be defined).
 ============================  ================================================
 
 These options can be defined for the .proto files before they are converted
@@ -143,8 +157,20 @@ options from it. The file format is as follows:
   it makes sense to define wildcard options first in the file and more specific
   ones later.
   
-If preferred, the name of the options file can be set using the command line
-switch *-f* to nanopb_generator.py.
+To debug problems in applying the options, you can use the *-v* option for the
+plugin. Plugin options are specified in front of the output path:
+
+    protoc ... --nanopb_out=-v:. message.proto
+
+Protoc doesn't currently pass include path into plugins. Therefore if your
+*.proto* is in a subdirectory, nanopb may have trouble finding the associated
+*.options* file. A workaround is to specify include path separately to the
+nanopb plugin, like:
+
+    protoc -Isubdir --nanopb_out=-Isubdir:. message.proto
+  
+If preferred, the name of the options file can be set using plugin argument
+*-f*.
 
 Defining the options on command line
 ------------------------------------
@@ -170,7 +196,7 @@ nanopb.proto can be found. This file, in turn, requires the file
 */usr/include*. Therefore, to compile a .proto file which uses options, use a
 protoc command similar to::
 
-    protoc -I/usr/include -Inanopb/generator -I. -omessage.pb message.proto
+    protoc -I/usr/include -Inanopb/generator -I. --nanopb_out=. message.proto
 
 The options can be defined in file, message and field scopes::
 
@@ -182,35 +208,40 @@ The options can be defined in file, message and field scopes::
     }
 
 
-
-
-
-
-
-
-
 pb.h
 ====
 
+pb_byte_t
+---------
+Type used for storing byte-sized data, such as raw binary input and bytes-type fields. ::
+
+    typedef uint_least8_t pb_byte_t;
+
+For most platforms this is equivalent to `uint8_t`. Some platforms however do not support
+8-bit variables, and on those platforms 16 or 32 bits need to be used for each byte.
+
 pb_type_t
 ---------
-Defines the encoder/decoder behaviour that should be used for a field. ::
+Type used to store the type of each field, to control the encoder/decoder behaviour. ::
 
-    typedef uint8_t pb_type_t;
+    typedef uint_least8_t pb_type_t;
 
 The low-order nibble of the enumeration values defines the function that can be used for encoding and decoding the field data:
 
-==================== ===== ================================================
-LTYPE identifier     Value Storage format
-==================== ===== ================================================
-PB_LTYPE_VARINT      0x00  Integer.
-PB_LTYPE_SVARINT     0x01  Integer, zigzag encoded.
-PB_LTYPE_FIXED32     0x02  32-bit integer or floating point.
-PB_LTYPE_FIXED64     0x03  64-bit integer or floating point.
-PB_LTYPE_BYTES       0x04  Structure with *size_t* field and byte array.
-PB_LTYPE_STRING      0x05  Null-terminated string.
-PB_LTYPE_SUBMESSAGE  0x06  Submessage structure.
-==================== ===== ================================================
+=========================== ===== ================================================
+LTYPE identifier            Value Storage format
+=========================== ===== ================================================
+PB_LTYPE_VARINT             0x00  Integer.
+PB_LTYPE_UVARINT            0x01  Unsigned integer.
+PB_LTYPE_SVARINT            0x02  Integer, zigzag encoded.
+PB_LTYPE_FIXED32            0x03  32-bit integer or floating point.
+PB_LTYPE_FIXED64            0x04  64-bit integer or floating point.
+PB_LTYPE_BYTES              0x05  Structure with *size_t* field and byte array.
+PB_LTYPE_STRING             0x06  Null-terminated string.
+PB_LTYPE_SUBMESSAGE         0x07  Submessage structure.
+PB_LTYPE_EXTENSION          0x08  Point to *pb_extension_t*.
+PB_LTYPE_FIXED_LENGTH_BYTES 0x09  Inline *pb_byte_t* array of fixed size.
+=========================== ===== ================================================
 
 The bits 4-5 define whether the field is required, optional or repeated:
 
@@ -242,14 +273,14 @@ pb_field_t
 ----------
 Describes a single structure field with memory position in relation to others. The descriptions are usually autogenerated. ::
 
-    typedef struct _pb_field_t pb_field_t;
-    struct _pb_field_t {
-        uint8_t tag;
+    typedef struct pb_field_s pb_field_t;
+    struct pb_field_s {
+        pb_size_t tag;
         pb_type_t type;
-        uint8_t data_offset;
-        int8_t size_offset;
-        uint8_t data_size;
-        uint8_t array_size;
+        pb_size_t data_offset;
+        pb_ssize_t size_offset;
+        pb_size_t data_size;
+        pb_size_t array_size;
         const void *ptr;
     } pb_packed;
 
@@ -268,8 +299,8 @@ pb_bytes_array_t
 An byte array with a field for storing the length::
 
     typedef struct {
-        size_t size;
-        uint8_t bytes[1];
+        pb_size_t size;
+        pb_byte_t bytes[1];
     } pb_bytes_array_t;
 
 In an actual array, the length of *bytes* may be different.
@@ -333,12 +364,14 @@ Ties together the extension field type and the storage for the field value::
         const pb_extension_type_t *type;
         void *dest;
         pb_extension_t *next;
+        bool found;
     } pb_extension_t;
 
 :type:      Pointer to the structure that defines the callback functions.
 :dest:      Pointer to the variable that stores the field value
             (as used by the default extension callback functions.)
 :next:      Pointer to the next extension handler, or *NULL*.
+:found:     Decoder sets this to true if the extension was found.
 
 PB_GET_ERROR
 ------------
@@ -382,7 +415,7 @@ pb_ostream_from_buffer
 ----------------------
 Constructs an output stream for writing into a memory buffer. This is just a helper function, it doesn't do anything you couldn't do yourself in a callback function. It uses an internal callback that stores the pointer in stream *state* field. ::
 
-    pb_ostream_t pb_ostream_from_buffer(uint8_t *buf, size_t bufsize);
+    pb_ostream_t pb_ostream_from_buffer(pb_byte_t *buf, size_t bufsize);
 
 :buf:           Memory buffer to write into.
 :bufsize:       Maximum number of bytes to write.
@@ -394,7 +427,7 @@ pb_write
 --------
 Writes data to an output stream. Always use this function, instead of trying to call stream callback manually. ::
 
-    bool pb_write(pb_ostream_t *stream, const uint8_t *buf, size_t count);
+    bool pb_write(pb_ostream_t *stream, const pb_byte_t *buf, size_t count);
 
 :stream:        Output stream to write to.
 :buf:           Pointer to buffer with the data to be written.
@@ -435,11 +468,22 @@ This function does this, and it is compatible with *parseDelimitedFrom* in Googl
 
     Writing packed arrays is a little bit more involved: you need to use `pb_encode_tag` and specify `PB_WT_STRING` as the wire type. Then you need to know exactly how much data you are going to write, and use `pb_encode_varint`_ to write out the number of bytes before writing the actual data. Substreams can be used to determine the number of bytes beforehand; see `pb_encode_submessage`_ source code for an example.
 
+pb_get_encoded_size
+-------------------
+Calculates the length of the encoded message. ::
+
+    bool pb_get_encoded_size(size_t *size, const pb_field_t fields[], const void *src_struct);
+
+:size:          Calculated size of the encoded message.
+:fields:        A field description array, usually autogenerated.
+:src_struct:    Pointer to the data that will be serialized.
+:returns:       True on success, false on detectable errors in field description or if a field encoder returns false.
+
 pb_encode_tag
 -------------
 Starts a field in the Protocol Buffers binary format: encodes the field number and the wire type of the data. ::
 
-    bool pb_encode_tag(pb_ostream_t *stream, pb_wire_type_t wiretype, int field_number);
+    bool pb_encode_tag(pb_ostream_t *stream, pb_wire_type_t wiretype, uint32_t field_number);
 
 :stream:        Output stream to write to. 1-5 bytes will be written.
 :wiretype:      PB_WT_VARINT, PB_WT_64BIT, PB_WT_STRING or PB_WT_32BIT
@@ -460,14 +504,14 @@ This function only considers the LTYPE of the field. You can use it from your fi
 
 Wire type mapping is as follows:
 
-========================= ============
-LTYPEs                    Wire type
-========================= ============
-VARINT, SVARINT           PB_WT_VARINT
-FIXED64                   PB_WT_64BIT  
-STRING, BYTES, SUBMESSAGE PB_WT_STRING 
-FIXED32                   PB_WT_32BIT
-========================= ============
+============================================= ============
+LTYPEs                                        Wire type
+============================================= ============
+VARINT, UVARINT, SVARINT                      PB_WT_VARINT
+FIXED64                                       PB_WT_64BIT
+STRING, BYTES, SUBMESSAGE, FIXED_LENGTH_BYTES PB_WT_STRING
+FIXED32                                       PB_WT_32BIT
+============================================= ============
 
 pb_encode_varint
 ----------------
@@ -493,7 +537,7 @@ pb_encode_string
 ----------------
 Writes the length of a string as varint and then contents of the string. Works for fields of type `bytes` and `string`::
 
-    bool pb_encode_string(pb_ostream_t *stream, const uint8_t *buffer, size_t size);
+    bool pb_encode_string(pb_ostream_t *stream, const pb_byte_t *buffer, size_t size);
 
 :stream:        Output stream to write to.
 :buffer:        Pointer to string data.
@@ -553,7 +597,7 @@ pb_istream_from_buffer
 ----------------------
 Helper function for creating an input stream that reads data from a memory buffer. ::
 
-    pb_istream_t pb_istream_from_buffer(uint8_t *buf, size_t bufsize);
+    pb_istream_t pb_istream_from_buffer(const pb_byte_t *buf, size_t bufsize);
 
 :buf:           Pointer to byte array to read from.
 :bufsize:       Size of the byte array.
@@ -563,7 +607,7 @@ pb_read
 -------
 Read data from input stream. Always use this function, don't try to call the stream callback directly. ::
 
-    bool pb_read(pb_istream_t *stream, uint8_t *buf, size_t count);
+    bool pb_read(pb_istream_t *stream, pb_byte_t *buf, size_t count);
 
 :stream:        Input stream to read from.
 :buf:           Buffer to store the data to, or NULL to just read data without storing it anywhere.
@@ -622,39 +666,21 @@ This function is compatible with *writeDelimitedTo* in the Google's Protocol Buf
 
 pb_release
 ----------
-Releases any dynamically allocated fields.
+Releases any dynamically allocated fields::
 
     void pb_release(const pb_field_t fields[], void *dest_struct);
 
 :fields:        A field description array. Usually autogenerated.
-:dest_struct:   Pointer to structure where data will be stored.
+:dest_struct:   Pointer to structure where data is stored. If NULL, function does nothing.
 
 This function is only available if *PB_ENABLE_MALLOC* is defined. It will release any
 pointer type fields in the structure and set the pointers to NULL.
-
-pb_skip_varint
---------------
-Skip a varint_ encoded integer without decoding it. ::
-
-    bool pb_skip_varint(pb_istream_t *stream);
-
-:stream:        Input stream to read from. Will read 1 byte at a time until the MSB is clear.
-:returns:       True on success, false on IO error.
-
-pb_skip_string
---------------
-Skip a varint-length-prefixed string. This means skipping a value with wire type PB_WT_STRING. ::
-
-    bool pb_skip_string(pb_istream_t *stream);
-
-:stream:        Input stream to read from.
-:returns:       True on success, false on IO error or length exceeding uint32_t.
 
 pb_decode_tag
 -------------
 Decode the tag that comes before field in the protobuf encoding::
 
-    bool pb_decode_tag(pb_istream_t *stream, pb_wire_type_t *wire_type, int *tag, bool *eof);
+    bool pb_decode_tag(pb_istream_t *stream, pb_wire_type_t *wire_type, uint32_t *tag, bool *eof);
 
 :stream:        Input stream to read from.
 :wire_type:     Pointer to variable where to store the wire type of the field.
@@ -721,10 +747,9 @@ pb_decode_fixed64
 -----------------
 Decode a *fixed64*, *sfixed64* or *double* value. ::
 
-    bool pb_dec_fixed(pb_istream_t *stream, const pb_field_t *field, void *dest);
+    bool pb_decode_fixed64(pb_istream_t *stream, void *dest);
 
 :stream:        Input stream to read from. 8 bytes will be read.
-:field:         Not used.
 :dest:          Pointer to destination *int64_t*, *uint64_t* or *double*.
 :returns:       True on success, false on IO errors.
 

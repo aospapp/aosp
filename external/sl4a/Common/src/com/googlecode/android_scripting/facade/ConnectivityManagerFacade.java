@@ -34,6 +34,7 @@ import android.net.NetworkInfo;
 import android.net.NetworkPolicy;
 import android.net.NetworkPolicyManager;
 import android.net.NetworkRequest;
+import android.net.ProxyInfo;
 import android.net.StringNetworkSpecifier;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -299,7 +300,7 @@ public class ConnectivityManagerFacade extends RpcReceiver {
                     new ConnectivityEvents.NetworkCallbackEventOnCapabilitiesChanged(
                         mId,
                         getNetworkCallbackEventString(EVENT_CAPABILITIES_CHANGED), mCreateTimestamp,
-                        networkCapabilities.getSignalStrength()));
+                        networkCapabilities));
             }
         }
 
@@ -501,12 +502,19 @@ public class ConnectivityManagerFacade extends RpcReceiver {
         PacketKeepaliveReceiver mPacketKeepaliveReceiver =
                 mPacketKeepaliveReceiverMap.get(key);
         if (mPacketKeepaliveReceiver != null) {
-            mPacketKeepaliveReceiverMap.remove(key);
             mPacketKeepaliveReceiver.mPacketKeepalive.stop();
             return true;
         } else {
             return false;
         }
+    }
+
+    /**
+     * Remove key from the PacketKeepaliveReceiver map
+     */
+    @Rpc(description = "remove PacketKeepaliveReceiver key")
+    public void connectivityRemovePacketKeepaliveReceiverKey(String key) {
+        mPacketKeepaliveReceiverMap.remove(key);
     }
 
     @Rpc(description = "start listening for NattKeepalive Event")
@@ -1095,6 +1103,58 @@ public class ConnectivityManagerFacade extends RpcReceiver {
         } catch (IOException e) {
             Log.e("Failed to download file: " + e.toString());
         }
+    }
+
+    /**
+     * Sets the global proxy using the given information.
+     *
+     * @param hostname hostname of the proxy
+     * @param port     port set on the proxy server
+     * @param exclList List of hostnames excluded
+     */
+    @Rpc(description = "Set global proxy")
+    public void connectivitySetGlobalProxy(String hostname, Integer port, String exclList) {
+        ProxyInfo proxyInfo = new ProxyInfo(hostname, port.intValue(), exclList);
+        mManager.setGlobalProxy(proxyInfo);
+    }
+
+    /**
+     * Sets the global proxy using a PAC URI.
+     *
+     * @param pac PAC URI in string
+     */
+    @Rpc(description = "Set global proxy with proxy autoconfig")
+    public void connectivitySetGlobalPacProxy(String pac) {
+        ProxyInfo proxyInfo = new ProxyInfo(pac);
+        mManager.setGlobalProxy(proxyInfo);
+    }
+
+    /**
+     * Gets the global proxy settings.
+     *
+     * @return ProxyInfo object in dictionary
+     */
+    @Rpc(description = "Get global proxy")
+    public ProxyInfo connectivityGetGlobalProxy() {
+        ProxyInfo proxyInfo = mManager.getGlobalProxy();
+        if (proxyInfo == null) return null;
+        return proxyInfo;
+    }
+
+    /**
+     * Resets the global proxy settings.
+     */
+    @Rpc(description = "Reset global proxy")
+    public void connectivityResetGlobalProxy() {
+        mManager.setGlobalProxy(null);
+    }
+
+    /**
+     * Check if active network is metered.
+     */
+    @Rpc(description = "Is active network metered")
+    public boolean connectivityIsActiveNetworkMetered() {
+        return mManager.isActiveNetworkMetered();
     }
 
     @Override

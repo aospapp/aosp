@@ -13,6 +13,9 @@ cc_defaults {
         "-Wno-unused-parameter",
         "-Wno-sign-compare",
         "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
+        // cpdf_renderstatus.cpp:1768, cpdf_variabletext.cpp:320,
+        // and cpwl_edit_impl.cpp:1825 have -Wimplicit-fallthrough.
         "-Werror",
 
         "-DOPJ_STATIC",

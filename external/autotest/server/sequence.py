@@ -134,7 +134,11 @@ parallel_simple(run, machines)
         """
         afe = frontend_wrappers.RetryingAFE(timeout_min=30, delay_sec=10,
                                             user=job.user, debug=False)
-        current_job_id = job_directories.get_job_id_or_task_id(job.resultdir)
+        # job_directores.get_job_id_or_task_id() will return a non-int opaque id
+        # for Chrome OS Skylab tasks. But sequences will break in that case
+        # anyway, because they try to create AFE jobs internally.
+        current_job_id = int(
+                job_directories.get_job_id_or_task_id(job.resultdir))
         logging.debug('Current job id: %s', current_job_id)
         runtime_mins = self.child_job_timeout()
         hostname = utils.get_hostname_from_machine(machine)

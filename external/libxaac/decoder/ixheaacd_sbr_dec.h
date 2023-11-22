@@ -20,6 +20,8 @@
 #ifndef IXHEAACD_SBR_DEC_H
 #define IXHEAACD_SBR_DEC_H
 
+#include <setjmp.h>
+
 typedef struct {
   WORD32 x_over_qmf[MAX_NUM_PATCHES];
   WORD32 max_stretch;
@@ -48,6 +50,9 @@ typedef struct {
   FLOAT32 *analy_cos_sin_tab;
 
   FLOAT32 norm_qmf_in_buf[46][128];
+  VOID (*ixheaacd_real_synth_fft)(FLOAT32 *inp, FLOAT32 *out, WORD32 n_points);
+
+  VOID (*ixheaacd_cmplx_anal_fft)(FLOAT32 *inp, FLOAT32 *out, WORD32 n_points);
 
 } ia_esbr_hbe_txposer_struct;
 
@@ -118,6 +123,7 @@ struct ia_sbr_dec_inst_struct {
   FLAG prev_sbr_mode;
   FLAG inter_tes_flag;
   FLAG aot_usac_flag;
+  jmp_buf *xaac_jmp_buf;
 };
 
 typedef struct ia_sbr_pers_struct {
@@ -180,11 +186,12 @@ WORD32 ixheaacd_qmf_hbe_apply(ia_esbr_hbe_txposer_struct *h_hbe_txposer,
                               FLOAT32 pv_qmf_buf_imag[][64],
                               WORD32 pitch_in_bins);
 
-VOID ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
-                           FLOAT32 input_real[][64], FLOAT32 input_imag[][64],
-                           FLOAT32 input_real1[][64], FLOAT32 input_imag1[][64],
-                           WORD32 x_over_qmf[MAX_NUM_PATCHES],
-                           FLOAT32 *scratch_buff, FLOAT32 *env_out);
+WORD32 ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
+                             FLOAT32 input_real[][64], FLOAT32 input_imag[][64],
+                             FLOAT32 input_real1[][64],
+                             FLOAT32 input_imag1[][64],
+                             WORD32 x_over_qmf[MAX_NUM_PATCHES],
+                             FLOAT32 *scratch_buff, FLOAT32 *env_out);
 
 WORD32 ixheaacd_generate_hf(FLOAT32 ptr_src_buf_real[][64],
                             FLOAT32 ptr_src_buf_imag[][64],
@@ -201,7 +208,8 @@ VOID ixheaacd_rescale_x_overlap(
     ia_sbr_dec_struct *ptr_sbr_dec, ia_sbr_header_data_struct *ptr_header_data,
     ia_sbr_frame_info_data_struct *ptr_frame_data,
     ia_sbr_prev_frame_data_struct *ptr_frame_data_prev,
-    WORD32 **pp_overlap_buffer_real, FLAG low_pow_flag);
+    WORD32 **pp_overlap_buffer_real, WORD32 **pp_overlap_buffer_imag,
+    FLAG low_pow_flag);
 
 WORD32 ixheaacd_qmf_hbe_data_reinit(
     ia_esbr_hbe_txposer_struct *ptr_hbe_transposer_str,

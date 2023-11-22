@@ -40,7 +40,8 @@ LOCAL_MULTILIB := both
 # Builds on the Data Partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := guava android-common locale_platform android-support-v4
+LOCAL_STATIC_JAVA_LIBRARIES := guava android-common locale_platform
+LOCAL_STATIC_ANDROID_LIBRARIES := androidx.legacy_legacy-support-v4
 LOCAL_STATIC_JAVA_LIBRARIES += sl4a.Utils sl4a.Common
 LOCAL_STATIC_JAVA_LIBRARIES += sl4a.InterpreterForAndroid sl4a.ScriptingLayer
 
@@ -55,6 +56,3 @@ include $(BUILD_PACKAGE)
 include $(CLEAR_VARS)
 LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := locale_platform:libs/locale_platform.jar
 include $(BUILD_MULTI_PREBUILT)
-
-include $(call all-makefiles-under,$(LOCAL_PATH))
-

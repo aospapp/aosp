@@ -58,6 +58,7 @@ tools/icuinfo/icuinfo
 /source/config/icu.pc
 /source/config/icucross.inc
 /source/config/icucross.mk
+/source/config/icuinfo.xml
 /source/config/pkgdataMakefile
 /source/data/build-dir
 /source/data/build-local
@@ -74,6 +75,7 @@ tools/icuinfo/icuinfo
 /source/test/iotest/iotest
 /source/test/testdata/out/
 /source/test/testdata/pkgdataMakefile
+/source/tools/escapesrc/output-*.cpp
 /source/tools/gentest/gentest
 /source/tools/icuinfo/icuinfo
 
@@ -87,4 +89,5 @@ ipch
 Debug
 *.db
 *.opendb
-
+*.so
+*.so.*

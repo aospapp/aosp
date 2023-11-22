@@ -116,7 +116,7 @@ free_up_free (fixture_t *fixture)
 static uintptr_t
 get_pagesize (void)
 {
-  uintptr_t pagesize = -1;
+  uintptr_t pagesize = (uintptr_t) -1;
 
 #if defined(HAVE_SYSCONF) && defined(_SC_PAGE_SIZE)
   pagesize = (uintptr_t) sysconf (_SC_PAGE_SIZE);
@@ -195,7 +195,7 @@ fixture_init (fixture_t *fixture, gconstpointer user_data)
 }
 
 static void
-fixture_finish (fixture_t *fixture, gconstpointer user_data)
+fixture_finish (fixture_t *fixture, gconstpointer user_data HB_UNUSED)
 {
   hb_blob_destroy (fixture->blob);
   g_assert_cmpint (fixture->freed, ==, 1);

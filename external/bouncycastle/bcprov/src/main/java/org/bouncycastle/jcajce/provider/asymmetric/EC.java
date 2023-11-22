@@ -50,27 +50,70 @@ public class EC
             provider.addAttributes("KeyAgreement.ECCDH", generalEcAttributes);
             provider.addAlgorithm("KeyAgreement.ECCDH", PREFIX + "KeyAgreementSpi$DHC");
 
-            provider.addAlgorithm("KeyAgreement." + X9ObjectIdentifiers.dhSinglePass_stdDH_sha1kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA1KDFAndSharedInfo");
-            provider.addAlgorithm("KeyAgreement." + X9ObjectIdentifiers.dhSinglePass_cofactorDH_sha1kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA1KDFAndSharedInfo");
+            provider.addAttributes("KeyAgreement.ECCDHU", generalEcAttributes);
+            provider.addAlgorithm("KeyAgreement.ECCDHU", PREFIX + "KeyAgreementSpi$DHUC");
 
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_stdDH_sha224kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA224KDFAndSharedInfo");
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_cofactorDH_sha224kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA224KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECDHWITHSHA1KDF", PREFIX + "KeyAgreementSpi$DHwithSHA1KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA1KDF", PREFIX + "KeyAgreementSpi$CDHwithSHA1KDFAndSharedInfo");
 
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_stdDH_sha256kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA256KDFAndSharedInfo");
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_cofactorDH_sha256kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA256KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECDHWITHSHA224KDF", PREFIX + "KeyAgreementSpi$DHwithSHA224KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA224KDF", PREFIX + "KeyAgreementSpi$CDHwithSHA224KDFAndSharedInfo");
 
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_stdDH_sha384kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA384KDFAndSharedInfo");
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_cofactorDH_sha384kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA384KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECDHWITHSHA256KDF", PREFIX + "KeyAgreementSpi$DHwithSHA256KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA256KDF", PREFIX + "KeyAgreementSpi$CDHwithSHA256KDFAndSharedInfo");
 
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_stdDH_sha512kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA512KDFAndSharedInfo");
-            provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.dhSinglePass_cofactorDH_sha512kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA512KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECDHWITHSHA384KDF", PREFIX + "KeyAgreementSpi$DHwithSHA384KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA384KDF", PREFIX + "KeyAgreementSpi$CDHwithSHA384KDFAndSharedInfo");
 
-            provider.addAlgorithm("KeyAgreement.ECDHWITHSHA1KDF", PREFIX + "KeyAgreementSpi$DHwithSHA1KDF");
+            provider.addAlgorithm("KeyAgreement.ECDHWITHSHA512KDF", PREFIX + "KeyAgreementSpi$DHwithSHA512KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA512KDF", PREFIX + "KeyAgreementSpi$CDHwithSHA512KDFAndSharedInfo");
+
+            provider.addAlgorithm("KeyAgreement", X9ObjectIdentifiers.dhSinglePass_stdDH_sha1kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA1KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement", X9ObjectIdentifiers.dhSinglePass_cofactorDH_sha1kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA1KDFAndSharedInfo");
+
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_stdDH_sha224kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA224KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_cofactorDH_sha224kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA224KDFAndSharedInfo");
+
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_stdDH_sha256kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA256KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_cofactorDH_sha256kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA256KDFAndSharedInfo");
+
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_stdDH_sha384kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA384KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_cofactorDH_sha384kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA384KDFAndSharedInfo");
+
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_stdDH_sha512kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA512KDFAndSharedInfo");
+            provider.addAlgorithm("KeyAgreement", SECObjectIdentifiers.dhSinglePass_cofactorDH_sha512kdf_scheme, PREFIX + "KeyAgreementSpi$CDHwithSHA512KDFAndSharedInfo");
 
             provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA1CKDF", PREFIX + "KeyAgreementSpi$DHwithSHA1CKDF");
             provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA256CKDF", PREFIX + "KeyAgreementSpi$DHwithSHA256CKDF");
             provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA384CKDF", PREFIX + "KeyAgreementSpi$DHwithSHA384CKDF");
             provider.addAlgorithm("KeyAgreement.ECCDHWITHSHA512CKDF", PREFIX + "KeyAgreementSpi$DHwithSHA512CKDF");
+
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA1CKDF", PREFIX + "KeyAgreementSpi$DHUwithSHA1CKDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA224CKDF", PREFIX + "KeyAgreementSpi$DHUwithSHA224CKDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA256CKDF", PREFIX + "KeyAgreementSpi$DHUwithSHA256CKDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA384CKDF", PREFIX + "KeyAgreementSpi$DHUwithSHA384CKDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA512CKDF", PREFIX + "KeyAgreementSpi$DHUwithSHA512CKDF");
+
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA1KDF", PREFIX + "KeyAgreementSpi$DHUwithSHA1KDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA224KDF", PREFIX + "KeyAgreementSpi$DHUwithSHA224KDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA256KDF", PREFIX + "KeyAgreementSpi$DHUwithSHA256KDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA384KDF", PREFIX + "KeyAgreementSpi$DHUwithSHA384KDF");
+            provider.addAlgorithm("KeyAgreement.ECCDHUWITHSHA512KDF", PREFIX + "KeyAgreementSpi$DHUwithSHA512KDF");
+
+            provider.addAlgorithm("KeyAgreement.ECKAEGWITHSHA1KDF", PREFIX + "KeyAgreementSpi$ECKAEGwithSHA1KDF");
+            provider.addAlgorithm("KeyAgreement.ECKAEGWITHSHA224KDF", PREFIX + "KeyAgreementSpi$ECKAEGwithSHA224KDF");
+            provider.addAlgorithm("KeyAgreement.ECKAEGWITHSHA256KDF", PREFIX + "KeyAgreementSpi$ECKAEGwithSHA256KDF");
+            provider.addAlgorithm("KeyAgreement.ECKAEGWITHSHA384KDF", PREFIX + "KeyAgreementSpi$ECKAEGwithSHA384KDF");
+            provider.addAlgorithm("KeyAgreement.ECKAEGWITHSHA512KDF", PREFIX + "KeyAgreementSpi$ECKAEGwithSHA512KDF");
+
+            provider.addAlgorithm("KeyAgreement", BSIObjectIdentifiers.ecka_eg_X963kdf_SHA1, PREFIX + "KeyAgreementSpi$ECKAEGwithSHA1KDF");
+            provider.addAlgorithm("KeyAgreement", BSIObjectIdentifiers.ecka_eg_X963kdf_SHA224, PREFIX + "KeyAgreementSpi$ECKAEGwithSHA224KDF");
+            provider.addAlgorithm("KeyAgreement", BSIObjectIdentifiers.ecka_eg_X963kdf_SHA256, PREFIX + "KeyAgreementSpi$ECKAEGwithSHA256KDF");
+            provider.addAlgorithm("KeyAgreement", BSIObjectIdentifiers.ecka_eg_X963kdf_SHA384, PREFIX + "KeyAgreementSpi$ECKAEGwithSHA384KDF");
+            provider.addAlgorithm("KeyAgreement", BSIObjectIdentifiers.ecka_eg_X963kdf_SHA512, PREFIX + "KeyAgreementSpi$ECKAEGwithSHA512KDF");
+
+            provider.addAlgorithm("KeyAgreement", BSIObjectIdentifiers.ecka_eg_X963kdf_RIPEMD160, PREFIX + "KeyAgreementSpi$ECKAEGwithRIPEMD160KDF");
+            provider.addAlgorithm("KeyAgreement.ECKAEGWITHRIPEMD160KDF", PREFIX + "KeyAgreementSpi$ECKAEGwithRIPEMD160KDF");
             */
             // END Android-removed: Unsupported algorithms
 
@@ -119,6 +162,12 @@ public class EC
                 provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA256CKDF", PREFIX + "KeyAgreementSpi$MQVwithSHA256CKDF");
                 provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA384CKDF", PREFIX + "KeyAgreementSpi$MQVwithSHA384CKDF");
                 provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA512CKDF", PREFIX + "KeyAgreementSpi$MQVwithSHA512CKDF");
+
+                provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA1KDF", PREFIX + "KeyAgreementSpi$MQVwithSHA1KDF");
+                provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA224KDF", PREFIX + "KeyAgreementSpi$MQVwithSHA224KDF");
+                provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA256KDF", PREFIX + "KeyAgreementSpi$MQVwithSHA256KDF");
+                provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA384KDF", PREFIX + "KeyAgreementSpi$MQVwithSHA384KDF");
+                provider.addAlgorithm("KeyAgreement.ECMQVWITHSHA512KDF", PREFIX + "KeyAgreementSpi$MQVwithSHA512KDF");
 
                 provider.addAlgorithm("KeyAgreement." + X9ObjectIdentifiers.mqvSinglePass_sha1kdf_scheme, PREFIX + "KeyAgreementSpi$MQVwithSHA1KDFAndSharedInfo");
                 provider.addAlgorithm("KeyAgreement." + SECObjectIdentifiers.mqvSinglePass_sha224kdf_scheme, PREFIX + "KeyAgreementSpi$MQVwithSHA224KDFAndSharedInfo");

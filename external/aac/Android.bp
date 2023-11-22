@@ -22,11 +22,20 @@ cc_library_static {
         "-Wno-#warnings",
         "-Wuninitialized",
         "-Wno-self-assign",
+        "-Wno-implicit-fallthrough",
     ],
     sanitize: {
-        misc_undefined:["unsigned-integer-overflow", "signed-integer-overflow"],
-        cfi: true,
+        misc_undefined:[
+           "unsigned-integer-overflow",
+           "signed-integer-overflow",
+           "bounds",
+        ],
+        // Enable CFI if this becomes a shared library.
+        // cfi: true,
     },
+    shared_libs: [
+        "liblog",
+    ],
     export_include_dirs: [
         "libAACdec/include",
         "libAACenc/include",

@@ -3,6 +3,9 @@
  * found in the LICENSE file.
  */
 
+#include <limits.h>
+#include <syslog.h>
+
 #include "dsp_util.h"
 
 #ifndef max
@@ -373,8 +376,8 @@ static void interleave_stereo(float *input1, float *input2,
 #define interleave_stereo interleave_stereo
 #endif
 
-void dsp_util_deinterleave(int16_t *input, float *const *output, int channels,
-			   int frames)
+static void dsp_util_deinterleave_s16le(int16_t *input, float *const *output,
+				 int channels, int frames)
 {
 	float *output_ptr[channels];
 	int i, j;
@@ -394,8 +397,83 @@ void dsp_util_deinterleave(int16_t *input, float *const *output, int channels,
 			*(output_ptr[j]++) = *input++ / 32768.0f;
 }
 
-void dsp_util_interleave(float *const *input, int16_t *output, int channels,
-			 int frames)
+
+static void dsp_util_deinterleave_s24le(int32_t *input, float *const *output,
+					int channels, int frames)
+{
+	float *output_ptr[channels];
+	int i, j;
+
+	for (i = 0; i < channels; i++)
+		output_ptr[i] = output[i];
+
+	for (i = 0; i < frames; i++)
+		for (j = 0; j < channels; j++, input++)
+			*(output_ptr[j]++) =
+				(*input << 8) / 2147483648.0f;
+}
+
+static void dsp_util_deinterleave_s243le(uint8_t *input, float *const *output,
+					 int channels, int frames)
+{
+	float *output_ptr[channels];
+	int32_t sample;
+	int i, j;
+
+	for (i = 0; i < channels; i++)
+		output_ptr[i] = output[i];
+
+	for (i = 0; i < frames; i++)
+		for (j = 0; j < channels; j++, input += 3) {
+			sample = 0;
+			memcpy((uint8_t *)&sample + 1, input, 3);
+			*(output_ptr[j]++) = sample / 2147483648.0f;
+		}
+}
+
+static void dsp_util_deinterleave_s32le(int32_t *input, float *const *output,
+					int channels, int frames)
+{
+	float *output_ptr[channels];
+	int i, j;
+
+	for (i = 0; i < channels; i++)
+		output_ptr[i] = output[i];
+
+	for (i = 0; i < frames; i++)
+		for (j = 0; j < channels; j++, input++)
+			*(output_ptr[j]++) = *input / 2147483648.0f;
+}
+
+int dsp_util_deinterleave(uint8_t *input, float *const *output, int channels,
+			  snd_pcm_format_t format, int frames)
+{
+	switch (format) {
+	case SND_PCM_FORMAT_S16_LE:
+		dsp_util_deinterleave_s16le((int16_t *)input, output,
+					    channels, frames);
+		break;
+	case SND_PCM_FORMAT_S24_LE:
+		dsp_util_deinterleave_s24le((int32_t *)input, output,
+					  channels, frames);
+		break;
+	case SND_PCM_FORMAT_S24_3LE:
+		dsp_util_deinterleave_s243le(input, output,
+					     channels, frames);
+		break;
+	case SND_PCM_FORMAT_S32_LE:
+		dsp_util_deinterleave_s32le((int32_t *)input, output,
+					     channels, frames);
+		break;
+	default:
+		syslog(LOG_ERR, "Invalid format to deinterleave");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void dsp_util_interleave_s16le(float *const *input, int16_t *output,
+				      int channels, int frames)
 {
 	float *input_ptr[channels];
 	int i, j;
@@ -416,6 +494,87 @@ void dsp_util_interleave(float *const *input, int16_t *output, int channels,
 			f += (f >= 0) ? 0.5f : -0.5f;
 			*output++ = max(-32768, min(32767, (int)(f)));
 		}
+}
+
+static void dsp_util_interleave_s24le(float *const *input, int32_t *output,
+				      int channels, int frames)
+{
+	float *input_ptr[channels];
+	int i, j;
+
+	for (i = 0; i < channels; i++)
+		input_ptr[i] = input[i];
+
+	for (i = 0; i < frames; i++)
+		for (j = 0; j < channels; j++, output++) {
+			float f = *(input_ptr[j]++) * 2147483648.0f;
+			f += (f >= 0) ? 0.5f : -0.5f;
+			*output = max((float)INT_MIN, min((float)INT_MAX, f));
+			*output >>= 8;
+		}
+}
+
+static void dsp_util_interleave_s243le(float *const *input, uint8_t *output,
+				       int channels, int frames)
+{
+	float *input_ptr[channels];
+	int i, j;
+	int32_t tmp;
+
+	for (i = 0; i < channels; i++)
+		input_ptr[i] = input[i];
+
+	for (i = 0; i < frames; i++)
+		for (j = 0; j < channels; j++, output += 3) {
+			float f = *(input_ptr[j]++) * 2147483648.0f;
+			f += (f >= 0) ? 0.5f : -0.5f;
+			tmp = max((float)INT_MIN, min((float)INT_MAX, f));
+			tmp >>= 8;
+			memcpy(output, &tmp, 3);
+		}
+}
+
+static void dsp_util_interleave_s32le(float *const *input, int32_t *output,
+				      int channels, int frames)
+{
+	float *input_ptr[channels];
+	int i, j;
+
+	for (i = 0; i < channels; i++)
+		input_ptr[i] = input[i];
+
+	for (i = 0; i < frames; i++)
+		for (j = 0; j < channels; j++, output++) {
+			float f = *(input_ptr[j]++) * 2147483648.0f;
+			f += (f >= 0) ? 0.5f : -0.5f;
+			*output = max((float)INT_MIN, min((float)INT_MAX, f));
+		}
+}
+
+int dsp_util_interleave(float *const *input, uint8_t *output, int channels,
+			snd_pcm_format_t format, int frames)
+{
+	switch (format) {
+	case SND_PCM_FORMAT_S16_LE:
+		dsp_util_interleave_s16le(input, (int16_t *)output,
+					  channels, frames);
+		break;
+	case SND_PCM_FORMAT_S24_LE:
+		dsp_util_interleave_s24le(input, (int32_t *)output,
+					  channels, frames);
+		break;
+	case SND_PCM_FORMAT_S24_3LE:
+		dsp_util_interleave_s243le(input, output, channels, frames);
+		break;
+	case SND_PCM_FORMAT_S32_LE:
+		dsp_util_interleave_s32le(input, (int32_t *)output,
+					  channels, frames);
+		break;
+	default:
+		syslog(LOG_ERR, "Invalid format to interleave");
+		return -EINVAL;
+	}
+	return 0;
 }
 
 void dsp_enable_flush_denormal_to_zero()

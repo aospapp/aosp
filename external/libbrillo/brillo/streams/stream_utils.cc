@@ -80,7 +80,7 @@ void PerformRead(const std::shared_ptr<CopyDataState>& state) {
 
 }  // anonymous namespace
 
-bool ErrorStreamClosed(const tracked_objects::Location& location,
+bool ErrorStreamClosed(const base::Location& location,
                        ErrorPtr* error) {
   Error::AddTo(error,
                location,
@@ -90,7 +90,7 @@ bool ErrorStreamClosed(const tracked_objects::Location& location,
   return false;
 }
 
-bool ErrorOperationNotSupported(const tracked_objects::Location& location,
+bool ErrorOperationNotSupported(const base::Location& location,
                                 ErrorPtr* error) {
   Error::AddTo(error,
                location,
@@ -100,7 +100,7 @@ bool ErrorOperationNotSupported(const tracked_objects::Location& location,
   return false;
 }
 
-bool ErrorReadPastEndOfStream(const tracked_objects::Location& location,
+bool ErrorReadPastEndOfStream(const base::Location& location,
                               ErrorPtr* error) {
   Error::AddTo(error,
                location,
@@ -110,7 +110,7 @@ bool ErrorReadPastEndOfStream(const tracked_objects::Location& location,
   return false;
 }
 
-bool ErrorOperationTimeout(const tracked_objects::Location& location,
+bool ErrorOperationTimeout(const base::Location& location,
                            ErrorPtr* error) {
   Error::AddTo(error,
                location,
@@ -120,7 +120,7 @@ bool ErrorOperationTimeout(const tracked_objects::Location& location,
   return false;
 }
 
-bool CheckInt64Overflow(const tracked_objects::Location& location,
+bool CheckInt64Overflow(const base::Location& location,
                         uint64_t position,
                         int64_t offset,
                         ErrorPtr* error) {
@@ -148,7 +148,7 @@ bool CheckInt64Overflow(const tracked_objects::Location& location,
   return false;
 }
 
-bool CalculateStreamPosition(const tracked_objects::Location& location,
+bool CalculateStreamPosition(const base::Location& location,
                              int64_t offset,
                              Stream::Whence whence,
                              uint64_t current_position,

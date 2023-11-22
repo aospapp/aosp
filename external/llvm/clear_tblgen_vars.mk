@@ -1,2 +1,1 @@
-TBLGEN_TABLES :=
-TBLGEN_TD_DIR :=
+$(error Use llvm-defaults with an Android.bp module. make is not supported)

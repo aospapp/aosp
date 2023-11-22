@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros.network import hostap_config
 from autotest_lib.server.cros.network import wifi_cell_test_base
 
@@ -19,15 +18,13 @@ class network_WiFi_MaskedBSSID(wifi_cell_test_base.WiFiCellTestBase):
         Check that we can see both APs in scan results.
 
         """
-        self.context.router.require_capabilities(
-                [site_linux_system.LinuxSystem.CAPABILITY_MULTI_AP_SAME_BAND])
-        frequency = 2412
+        freqs = [2412, 5180]
         configurations = [hostap_config.HostapConfig(
-                          frequency=frequency,
-                          mode=hostap_config.HostapConfig.MODE_11B,
-                          bssid='00:11:22:33:44:55',
-                          ssid=('CrOS_Masked%d' % i),
-                          min_streams=1) for i in range(2)]
+                          frequency=freq,
+                          mode=hostap_config.HostapConfig.MODE_11N_MIXED,
+                          bssid=('00:11:22:33:44:55'),
+                          ssid=('CrOS_Masked%d' % i)) \
+                           for i, freq in enumerate(freqs)]
         # Create an AP, manually specifying both the SSID and BSSID.
         self.context.configure(configurations[0])
         # Create a second AP that responds to probe requests with the same BSSID
@@ -38,6 +35,6 @@ class network_WiFi_MaskedBSSID(wifi_cell_test_base.WiFiCellTestBase):
         # We cannot connect to this AP, since there are two separate APs that
         # respond to the same BSSID, but we can test to make sure both SSIDs
         # appears in the scan.
-        self.context.client.scan([frequency],
+        self.context.client.scan(freqs,
                                  [config.ssid for config in configurations])
         self.context.router.deconfig()

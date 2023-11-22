@@ -119,7 +119,6 @@ static int do_cmd(const char *argv0, int argc, char **argv)
 	return EXIT_FAILURE;
 }
 
-#ifndef ANDROID
 static int batch(const char *name)
 {
 	char *line = NULL;
@@ -168,15 +167,12 @@ static int batch(const char *name)
 	rtnl_close(&rth);
 	return ret;
 }
-#endif
 
 
 int main(int argc, char **argv)
 {
 	char *basename;
-#ifndef ANDROID
 	char *batch_file = NULL;
-#endif
 
 	basename = strrchr(argv[0], '/');
 	if (basename == NULL)
@@ -254,14 +250,12 @@ int main(int argc, char **argv)
 			exit(0);
 		} else if (matches(opt, "-force") == 0) {
 			++force;
-#ifndef ANDROID
 		} else if (matches(opt, "-batch") == 0) {
 			argc--;
 			argv++;
 			if (argc <= 1)
 				usage();
 			batch_file = argv[1];
-#endif
 		} else if (matches(opt, "-brief") == 0) {
 			++brief;
 		} else if (matches(opt, "-json") == 0) {
@@ -303,10 +297,8 @@ int main(int argc, char **argv)
 	if (json)
 		check_if_color_enabled();
 
-#ifndef ANDROID
 	if (batch_file)
 		return batch(batch_file);
-#endif
 
 	if (rtnl_open(&rth, 0) < 0)
 		exit(1);

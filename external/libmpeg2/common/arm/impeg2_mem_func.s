@@ -146,7 +146,7 @@ impeg2_memset_8bit_8x8_block_a9q:
 
 impeg2_memset0_16bit_8x8_linear_block_a9q:
 
-    stmfd           r13!, {r14}
+    stmfd           sp!, {r14}
 
     vmov.i16        q0, #0
 
@@ -170,7 +170,7 @@ impeg2_memset0_16bit_8x8_linear_block_a9q:
 
 
 
-    ldmfd           r13!, {pc}
+    ldmfd           sp!, {pc}
 
 
 

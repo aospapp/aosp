@@ -30,6 +30,7 @@
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuSeedBuilder.hpp"
 #include "tcuTestLog.hpp"
@@ -92,7 +93,7 @@ struct TestConfig
 	ImageConfig	dst;
 };
 
-void checkSupport (Context& context, const TestConfig& config)
+void checkSupport (Context& context, const TestConfig config)
 {
 	if (!de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), string("VK_KHR_sampler_ycbcr_conversion")))
 		TCU_THROW(NotSupportedError, "Extension VK_KHR_sampler_ycbcr_conversion not supported");
@@ -170,7 +171,7 @@ vk::Move<vk::VkImage> createImage (const vk::DeviceInterface&	vkd,
 		vk::VK_SHARING_MODE_EXCLUSIVE,
 		0u,
 		(const deUint32*)DE_NULL,
-		vk::VK_IMAGE_LAYOUT_UNDEFINED,
+		tiling == vk::VK_IMAGE_TILING_LINEAR ? vk::VK_IMAGE_LAYOUT_PREINITIALIZED : vk::VK_IMAGE_LAYOUT_UNDEFINED,
 	};
 
 	return vk::createImage(vkd, device, &createInfo);
@@ -744,8 +745,6 @@ void logTestCaseInfo (TestLog&							log,
 
 tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 {
-	checkSupport(context, config);
-
 	{
 		const size_t			copyCount	= 10;
 		TestLog&				log			(context.getTestContext().getLog());
@@ -797,17 +796,8 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 				const vk::VkQueue						queue			(context.getUniversalQueue());
 				const vk::Unique<vk::VkCommandPool>		cmdPool			(createCommandPool(vkd, device, (vk::VkCommandPoolCreateFlags)0, queueFamilyNdx));
 				const vk::Unique<vk::VkCommandBuffer>	cmdBuffer		(allocateCommandBuffer(vkd, device, *cmdPool, vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY));
-				{
-					const vk::VkCommandBufferBeginInfo	beginInfo		=
-					{
-						vk::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-						DE_NULL,
-						(vk::VkCommandBufferUsageFlags)vk::VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-						(const vk::VkCommandBufferInheritanceInfo*)DE_NULL
-					};
 
-					VK_CHECK(vkd.beginCommandBuffer(*cmdBuffer, &beginInfo));
-				}
+				beginCommandBuffer(vkd, *cmdBuffer);
 
 				for (size_t i = 0; i < copies.size(); i++)
 				{
@@ -839,26 +829,9 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 											&preCopyBarrier);
 				}
 
-				VK_CHECK(vkd.endCommandBuffer(*cmdBuffer));
+				endCommandBuffer(vkd, *cmdBuffer);
 
-				{
-					const vk::Unique<vk::VkFence>	fence		(createFence(vkd, device));
-					const vk::VkSubmitInfo			submitInfo	=
-					{
-						vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-						DE_NULL,
-						0u,
-						(const vk::VkSemaphore*)DE_NULL,
-						(const vk::VkPipelineStageFlags*)DE_NULL,
-						1u,
-						&*cmdBuffer,
-						0u,
-						(const vk::VkSemaphore*)DE_NULL,
-					};
-
-					VK_CHECK(vkd.queueSubmit(queue, 1u, &submitInfo, *fence));
-					VK_CHECK(vkd.waitForFences(device, 1u, &*fence, VK_TRUE, ~0ull));
-				}
+				submitCommandsAndWait(vkd, device, queue, *cmdBuffer);
 			}
 
 			if (config.dst.tiling == vk::VK_IMAGE_TILING_OPTIMAL)
@@ -917,6 +890,9 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 				}
 			}
 
+			bool ignoreLsb6Bits = areLsb6BitsDontCare(srcData.getFormat(), dstData.getFormat());
+			bool ignoreLsb4Bits = areLsb4BitsDontCare(srcData.getFormat(), dstData.getFormat());
+
 			for (deUint32 planeNdx = 0; planeNdx < result.getDescription().numPlanes; ++planeNdx)
 			{
 				for (size_t byteNdx = 0; byteNdx < result.getPlaneSize(planeNdx); byteNdx++)
@@ -924,9 +900,15 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 					const deUint8	res	= ((const deUint8*)result.getPlanePtr(planeNdx))[byteNdx];
 					const deUint8	ref	= ((const deUint8*)reference.getPlanePtr(planeNdx))[byteNdx];
 
-					if (res != ref)
+					deUint8 mask = 0xFF;
+					if (!(byteNdx & 0x01) && (ignoreLsb6Bits))
+						mask = 0xC0;
+					else if (!(byteNdx & 0x01) && (ignoreLsb4Bits))
+						mask = 0xF0;
+
+					if ((res & mask) != (ref & mask))
 					{
-						log << TestLog::Message << "Plane: " << planeNdx << ", Offset: " << byteNdx << ", Expected: " << (deUint32)ref << ", Got: " << (deUint32)res << TestLog::EndMessage;
+						log << TestLog::Message << "Plane: " << planeNdx << ", Offset: " << byteNdx << ", Expected: " << (deUint32)(ref & mask) << ", Got: " << (deUint32)(res & mask) << TestLog::EndMessage;
 						errorCount++;
 
 						if (errorCount > maxErrorCount)
@@ -1102,7 +1084,7 @@ void initTests (tcu::TestCaseGroup* testGroup)
 						const bool			dstDisjoint	= dstDisjointNdx == 1;
 						const TestConfig	config		(ImageConfig(srcFormat, srcTiling, srcDisjoint, srcSize), ImageConfig(dstFormat, dstTiling, dstDisjoint, dstSize));
 
-						addFunctionCase(dstFormatGroup.get(), string(srcTilingName) + (srcDisjoint ? "_disjoint_" : "_") + string(dstTilingName) + (dstDisjoint ? "_disjoint" : ""), "", imageCopyTest, config);
+						addFunctionCase(dstFormatGroup.get(), string(srcTilingName) + (srcDisjoint ? "_disjoint_" : "_") + string(dstTilingName) + (dstDisjoint ? "_disjoint" : ""), "", checkSupport, imageCopyTest, config);
 					}
 				}
 			}

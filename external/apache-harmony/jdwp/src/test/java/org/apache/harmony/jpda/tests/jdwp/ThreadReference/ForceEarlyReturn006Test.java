@@ -30,11 +30,11 @@ public class ForceEarlyReturn006Test extends JDWPSyncTestCase {
 
     static final String thisCommandName = "ThreadReference.ForceEarlyReturn command ";
 
-    static final String testObjSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/TestObject;";
+    static final String testObjSignature = getClassSignature(TestObject.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ForceEarlyReturnDebuggee";
+        return ForceEarlyReturnDebuggee.class.getName();
     }
 
     // Get the objectID of test thread

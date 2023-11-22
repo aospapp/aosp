@@ -15,6 +15,7 @@
 
 ltp_packages := \
   ltp_abort01 \
+  ltp_abs01 \
   ltp_accept01 \
   ltp_accept4_01 \
   ltp_access01 \
@@ -23,8 +24,6 @@ ltp_packages := \
   ltp_access04 \
   ltp_acct01 \
   ltp_acl1 \
-  ltp_acl_file_test \
-  ltp_acl_link_test \
   ltp_add_key01 \
   ltp_add_key02 \
   ltp_add_key03 \
@@ -33,11 +32,10 @@ ltp_packages := \
   ltp_adjtimex02 \
   ltp_aio-stress \
   ltp_aio01 \
-  ltp_aio_tio \
+  ltp_aio02 \
   ltp_aiocp \
   ltp_aiodio_append \
   ltp_aiodio_sparse \
-  ltp_alarm01 \
   ltp_alarm02 \
   ltp_alarm03 \
   ltp_alarm05 \
@@ -47,10 +45,12 @@ ltp_packages := \
   ltp_asapi_02 \
   ltp_asapi_03 \
   ltp_asyncio02 \
+  ltp_atof01 \
   ltp_autogroup01 \
   ltp_bdflush01 \
   ltp_bind01 \
   ltp_bind02 \
+  ltp_bind03 \
   ltp_block_dev \
   ltp_brk01 \
   ltp_cacheflush01 \
@@ -64,6 +64,9 @@ ltp_packages := \
   ltp_capset01 \
   ltp_capset02 \
   ltp_cgroup_fj_proc \
+  ltp_cgroup_regression_6_2 \
+  ltp_cgroup_regression_fork_processes \
+  ltp_cgroup_regression_getdelays \
   ltp_cgroup_xattr \
   ltp_chdir01 \
   ltp_chdir02 \
@@ -79,9 +82,13 @@ ltp_packages := \
   ltp_chmod05 \
   ltp_chmod07 \
   ltp_chown01 \
+  ltp_chown01_16 \
   ltp_chown02 \
+  ltp_chown02_16 \
   ltp_chown03 \
+  ltp_chown03_16 \
   ltp_chown05 \
+  ltp_chown05_16 \
   ltp_chroot01 \
   ltp_chroot02 \
   ltp_chroot03 \
@@ -123,6 +130,12 @@ ltp_packages := \
   ltp_cpuctl_test04 \
   ltp_cpufreq_boost \
   ltp_cpuset01 \
+  ltp_cpuset_cpu_hog \
+  ltp_cpuset_list_compute \
+  ltp_cpuset_mem_hog \
+  ltp_cpuset_memory_pressure \
+  ltp_cpuset_sched_domains_check \
+  ltp_cpuset_syscall_test \
   ltp_crash01 \
   ltp_crash02 \
   ltp_creat01 \
@@ -136,15 +149,17 @@ ltp_packages := \
   ltp_create_datafile \
   ltp_create_long_dirs \
   ltp_create_short_dirs \
-  ltp_cve-2012-0957 \
+  ltp_crypto_user01 \
   ltp_cve-2014-0196 \
+  ltp_cve-2015-3290 \
   ltp_cve-2016-10044 \
-  ltp_cve-2016-4997 \
   ltp_cve-2016-7042 \
   ltp_cve-2016-7117 \
+  ltp_cve-2017-16939 \
+  ltp_cve-2017-17052 \
+  ltp_cve-2017-17053 \
   ltp_cve-2017-2618 \
   ltp_cve-2017-2671 \
-  ltp_cve-2017-6951 \
   ltp_data_space \
   ltp_delete_module01 \
   ltp_delete_module02 \
@@ -176,15 +191,23 @@ ltp_packages := \
   ltp_dup205 \
   ltp_dup3_01 \
   ltp_dup3_02 \
+  ltp_eas_big_to_small \
+  ltp_eas_one_big_task \
+  ltp_eas_one_small_task \
+  ltp_eas_small_big_toggle \
+  ltp_eas_small_to_big \
+  ltp_eas_two_big_three_small \
   ltp_endian_switch01 \
   ltp_epoll-ltp \
   ltp_epoll_create1_01 \
   ltp_epoll_ctl01 \
   ltp_epoll_ctl02 \
+  ltp_epoll_pwait01 \
   ltp_epoll_wait01 \
   ltp_epoll_wait02 \
   ltp_epoll_wait03 \
   ltp_event_generator \
+  ltp_eventfd01 \
   ltp_eventfd2_01 \
   ltp_eventfd2_02 \
   ltp_eventfd2_03 \
@@ -205,6 +228,11 @@ ltp_packages := \
   ltp_execve04 \
   ltp_execve05 \
   ltp_execve_child \
+  ltp_execveat01 \
+  ltp_execveat02 \
+  ltp_execveat03 \
+  ltp_execveat_child \
+  ltp_execveat_errno \
   ltp_execvp01 \
   ltp_execvp01_child \
   ltp_exit01 \
@@ -229,6 +257,10 @@ ltp_packages := \
   ltp_fanotify06 \
   ltp_fanotify07 \
   ltp_fanotify08 \
+  ltp_fanotify09 \
+  ltp_fanotify10 \
+  ltp_fanotify11 \
+  ltp_fanout01 \
   ltp_fchdir01 \
   ltp_fchdir02 \
   ltp_fchdir03 \
@@ -238,13 +270,17 @@ ltp_packages := \
   ltp_fchmod04 \
   ltp_fchmod05 \
   ltp_fchmod06 \
-  ltp_fchmod07 \
   ltp_fchmodat01 \
   ltp_fchown01 \
+  ltp_fchown01_16 \
   ltp_fchown02 \
+  ltp_fchown02_16 \
   ltp_fchown03 \
+  ltp_fchown03_16 \
   ltp_fchown04 \
+  ltp_fchown04_16 \
   ltp_fchown05 \
+  ltp_fchown05_16 \
   ltp_fchownat01 \
   ltp_fchownat02 \
   ltp_fcntl01 \
@@ -321,6 +357,9 @@ ltp_packages := \
   ltp_fcntl36_64 \
   ltp_fdatasync01 \
   ltp_fdatasync02 \
+  ltp_fgetxattr01 \
+  ltp_fgetxattr02 \
+  ltp_fgetxattr03 \
   ltp_flistxattr01 \
   ltp_flistxattr02 \
   ltp_flistxattr03 \
@@ -333,7 +372,6 @@ ltp_packages := \
   ltp_flock02 \
   ltp_flock03 \
   ltp_flock04 \
-  ltp_flock05 \
   ltp_flock06 \
   ltp_fork01 \
   ltp_fork02 \
@@ -350,13 +388,16 @@ ltp_packages := \
   ltp_fork13 \
   ltp_fork14 \
   ltp_fork_exec_loop \
-  ltp_fork_processes \
   ltp_fpathconf01 \
   ltp_fptest01 \
   ltp_fptest02 \
   ltp_frag \
+  ltp_fremovexattr01 \
+  ltp_fremovexattr02 \
   ltp_fs_fill \
   ltp_fs_perms \
+  ltp_fsetxattr01 \
+  ltp_fsetxattr02 \
   ltp_fstat01 \
   ltp_fstat01_64 \
   ltp_fstat02 \
@@ -442,18 +483,26 @@ ltp_packages := \
   ltp_getcwd02 \
   ltp_getcwd03 \
   ltp_getcwd04 \
-  ltp_getdelays \
   ltp_getdents01 \
   ltp_getdents02 \
   ltp_getdomainname01 \
   ltp_getdtablesize01 \
   ltp_getegid01 \
+  ltp_getegid01_16 \
   ltp_getegid02 \
+  ltp_getegid02_16 \
   ltp_geteuid01 \
+  ltp_geteuid01_16 \
   ltp_geteuid02 \
+  ltp_geteuid02_16 \
   ltp_getgid01 \
+  ltp_getgid01_16 \
   ltp_getgid03 \
+  ltp_getgid03_16 \
   ltp_getgroups01 \
+  ltp_getgroups01_16 \
+  ltp_getgroups03 \
+  ltp_getgroups03_16 \
   ltp_gethostbyname_r01 \
   ltp_gethostname01 \
   ltp_getitimer01 \
@@ -475,13 +524,20 @@ ltp_packages := \
   ltp_getrandom03 \
   ltp_getrandom04 \
   ltp_getresgid01 \
+  ltp_getresgid01_16 \
   ltp_getresgid02 \
+  ltp_getresgid02_16 \
   ltp_getresgid03 \
+  ltp_getresgid03_16 \
   ltp_getresuid01 \
+  ltp_getresuid01_16 \
   ltp_getresuid02 \
+  ltp_getresuid02_16 \
   ltp_getresuid03 \
+  ltp_getresuid03_16 \
   ltp_getrlimit01 \
   ltp_getrlimit02 \
+  ltp_getrlimit03 \
   ltp_getrusage01 \
   ltp_getrusage02 \
   ltp_getrusage03_child \
@@ -495,22 +551,23 @@ ltp_packages := \
   ltp_gettimeofday01 \
   ltp_gettimeofday02 \
   ltp_getuid01 \
+  ltp_getuid01_16 \
   ltp_getuid03 \
+  ltp_getuid03_16 \
   ltp_getxattr01 \
   ltp_getxattr02 \
   ltp_getxattr03 \
   ltp_getxattr04 \
+  ltp_getxattr05 \
   ltp_hackbench \
   ltp_hangup01 \
   ltp_ht_affinity \
   ltp_ht_enabled \
-  ltp_ht_interrupt \
   ltp_hugemmap01 \
   ltp_hugemmap02 \
   ltp_hugemmap04 \
   ltp_hugemmap06 \
   ltp_ima_boot_aggregate \
-  ltp_ima_measure \
   ltp_ima_mmap \
   ltp_in \
   ltp_in6_02 \
@@ -523,6 +580,9 @@ ltp_packages := \
   ltp_inotify04 \
   ltp_inotify05 \
   ltp_inotify06 \
+  ltp_inotify07 \
+  ltp_inotify08 \
+  ltp_inotify09 \
   ltp_inotify_init1_01 \
   ltp_inotify_init1_02 \
   ltp_input01 \
@@ -530,6 +590,11 @@ ltp_packages := \
   ltp_input04 \
   ltp_input05 \
   ltp_input06 \
+  ltp_io_cancel01 \
+  ltp_io_destroy01 \
+  ltp_io_getevents01 \
+  ltp_io_setup01 \
+  ltp_io_submit01 \
   ltp_iobw \
   ltp_ioctl01 \
   ltp_ioctl03 \
@@ -568,10 +633,14 @@ ltp_packages := \
   ltp_ksm02 \
   ltp_ksm03 \
   ltp_ksm04 \
+  ltp_ksm05 \
   ltp_ksm06 \
   ltp_lchown01 \
+  ltp_lchown01_16 \
   ltp_lchown02 \
+  ltp_lchown02_16 \
   ltp_lchown03 \
+  ltp_lchown03_16 \
   ltp_lftest \
   ltp_lgetxattr01 \
   ltp_lgetxattr02 \
@@ -588,10 +657,14 @@ ltp_packages := \
   ltp_listxattr01 \
   ltp_listxattr02 \
   ltp_listxattr03 \
+  ltp_llistxattr01 \
+  ltp_llistxattr02 \
+  ltp_llistxattr03 \
   ltp_llseek01 \
   ltp_llseek02 \
   ltp_llseek03 \
   ltp_locktests \
+  ltp_lremovexattr01 \
   ltp_lseek01 \
   ltp_lseek02 \
   ltp_lseek07 \
@@ -613,6 +686,7 @@ ltp_packages := \
   ltp_madvise07 \
   ltp_madvise08 \
   ltp_madvise09 \
+  ltp_madvise10 \
   ltp_max_map_count \
   ltp_mbind01 \
   ltp_mc_member_test \
@@ -625,6 +699,7 @@ ltp_packages := \
   ltp_mem02 \
   ltp_mem03 \
   ltp_mem_process \
+  ltp_membarrier01 \
   ltp_memcg_process_stress \
   ltp_memcg_test_1 \
   ltp_memcg_test_2 \
@@ -635,19 +710,19 @@ ltp_packages := \
   ltp_memctl_test01 \
   ltp_memfd_create01 \
   ltp_memfd_create02 \
+  ltp_memfd_create03 \
+  ltp_memfd_create04 \
   ltp_memset01 \
   ltp_memtoy \
   ltp_migrate_pages01 \
   ltp_migrate_pages02 \
-  ltp_min_free_kbytes \
+  ltp_migrate_pages03 \
   ltp_mincore01 \
   ltp_mincore02 \
-  ltp_mkdir01 \
   ltp_mkdir02 \
   ltp_mkdir03 \
   ltp_mkdir04 \
   ltp_mkdir05 \
-  ltp_mkdir08 \
   ltp_mkdir09 \
   ltp_mkdirat01 \
   ltp_mkdirat02 \
@@ -666,6 +741,9 @@ ltp_packages := \
   ltp_mlock02 \
   ltp_mlock03 \
   ltp_mlock04 \
+  ltp_mlock201 \
+  ltp_mlock202 \
+  ltp_mlock203 \
   ltp_mlockall01 \
   ltp_mlockall02 \
   ltp_mlockall03 \
@@ -740,7 +818,6 @@ ltp_packages := \
   ltp_munlock01 \
   ltp_munlock02 \
   ltp_munlockall01 \
-  ltp_munlockall02 \
   ltp_munmap01 \
   ltp_munmap02 \
   ltp_munmap03 \
@@ -751,8 +828,10 @@ ltp_packages := \
   ltp_netstress \
   ltp_newns \
   ltp_newuname01 \
+  ltp_nextafter01 \
   ltp_nfs01_open_files \
   ltp_nfs04_create_file \
+  ltp_nfs05_make_tree \
   ltp_nfs_flock \
   ltp_nfs_flock_dgen \
   ltp_nftw01 \
@@ -804,6 +883,7 @@ ltp_packages := \
   ltp_pause01 \
   ltp_pause02 \
   ltp_pause03 \
+  ltp_pcrypt_aead01 \
   ltp_pec_listener \
   ltp_perf_event_open01 \
   ltp_perf_event_open02 \
@@ -824,6 +904,7 @@ ltp_packages := \
   ltp_pipe11 \
   ltp_pipe2_01 \
   ltp_pipe2_02 \
+  ltp_pivot_root01 \
   ltp_pm_get_sched_values \
   ltp_poll01 \
   ltp_poll02 \
@@ -838,6 +919,7 @@ ltp_packages := \
   ltp_ppoll01 \
   ltp_prctl01 \
   ltp_prctl02 \
+  ltp_prctl03 \
   ltp_pread01 \
   ltp_pread01_64 \
   ltp_pread02 \
@@ -848,6 +930,12 @@ ltp_packages := \
   ltp_preadv01_64 \
   ltp_preadv02 \
   ltp_preadv02_64 \
+  ltp_preadv03 \
+  ltp_preadv03_64 \
+  ltp_preadv201 \
+  ltp_preadv201_64 \
+  ltp_preadv202 \
+  ltp_preadv202_64 \
   ltp_print_caps \
   ltp_proc01 \
   ltp_process_vm01 \
@@ -860,6 +948,7 @@ ltp_packages := \
   ltp_pselect02_64 \
   ltp_pselect03 \
   ltp_pselect03_64 \
+  ltp_pt_test \
   ltp_ptem01 \
   ltp_pth_str01 \
   ltp_pth_str02 \
@@ -873,16 +962,25 @@ ltp_packages := \
   ltp_ptrace05 \
   ltp_ptrace07 \
   ltp_pty01 \
+  ltp_pty02 \
   ltp_pwrite01 \
   ltp_pwrite01_64 \
   ltp_pwrite02 \
   ltp_pwrite02_64 \
+  ltp_pwrite03 \
+  ltp_pwrite03_64 \
   ltp_pwrite04 \
   ltp_pwrite04_64 \
   ltp_pwritev01 \
   ltp_pwritev01_64 \
   ltp_pwritev02 \
   ltp_pwritev02_64 \
+  ltp_pwritev03 \
+  ltp_pwritev03_64 \
+  ltp_pwritev201 \
+  ltp_pwritev201_64 \
+  ltp_pwritev202 \
+  ltp_pwritev202_64 \
   ltp_quotactl01 \
   ltp_quotactl02 \
   ltp_quotactl03 \
@@ -892,6 +990,7 @@ ltp_packages := \
   ltp_read02 \
   ltp_read03 \
   ltp_read04 \
+  ltp_read_all \
   ltp_read_checkzero \
   ltp_readahead01 \
   ltp_readahead02 \
@@ -899,14 +998,13 @@ ltp_packages := \
   ltp_readdir02 \
   ltp_readdir21 \
   ltp_readlink01 \
-  ltp_readlink02 \
   ltp_readlink03 \
-  ltp_readlink04 \
   ltp_readlinkat01 \
   ltp_readlinkat02 \
   ltp_readv01 \
   ltp_readv02 \
   ltp_readv03 \
+  ltp_realpath01 \
   ltp_reboot01 \
   ltp_reboot02 \
   ltp_recv01 \
@@ -914,6 +1012,7 @@ ltp_packages := \
   ltp_recvmsg01 \
   ltp_recvmsg02 \
   ltp_recvmsg03 \
+  ltp_remap_file_pages02 \
   ltp_removexattr01 \
   ltp_removexattr02 \
   ltp_rename01 \
@@ -936,22 +1035,28 @@ ltp_packages := \
   ltp_request_key01 \
   ltp_request_key02 \
   ltp_request_key03 \
+  ltp_request_key04 \
+  ltp_request_key05 \
   ltp_rmdir01 \
   ltp_rmdir02 \
   ltp_rmdir03 \
-  ltp_rmdir04 \
-  ltp_rmdir05 \
   ltp_rt_sigaction01 \
   ltp_rt_sigaction02 \
   ltp_rt_sigaction03 \
+  ltp_rt_sigpending02 \
   ltp_rt_sigprocmask01 \
   ltp_rt_sigprocmask02 \
   ltp_rt_sigqueueinfo01 \
+  ltp_rt_sigsuspend01 \
   ltp_rt_sigtimedwait01 \
+  ltp_rt_tgsigqueueinfo01 \
   ltp_rtc01 \
   ltp_sbrk01 \
   ltp_sbrk02 \
   ltp_sbrk03 \
+  ltp_sched_boost \
+  ltp_sched_cfs_prio \
+  ltp_sched_dl_runtime \
   ltp_sched_driver \
   ltp_sched_get_priority_max01 \
   ltp_sched_get_priority_max02 \
@@ -965,6 +1070,10 @@ ltp_packages := \
   ltp_sched_getparam03 \
   ltp_sched_getscheduler01 \
   ltp_sched_getscheduler02 \
+  ltp_sched_latency_dl \
+  ltp_sched_latency_rt \
+  ltp_sched_prio_3_fifo \
+  ltp_sched_prio_3_rr \
   ltp_sched_rr_get_interval01 \
   ltp_sched_rr_get_interval02 \
   ltp_sched_rr_get_interval03 \
@@ -986,10 +1095,23 @@ ltp_packages := \
   ltp_sched_tc5 \
   ltp_sched_tc6 \
   ltp_sched_yield01 \
+  ltp_sctp_big_chunk \
   ltp_select01 \
+  ltp_select01_SYS__newselect \
+  ltp_select01_SYS_pselect6 \
+  ltp_select01_SYS_select \
   ltp_select02 \
+  ltp_select02_SYS__newselect \
+  ltp_select02_SYS_pselect6 \
+  ltp_select02_SYS_select \
   ltp_select03 \
+  ltp_select03_SYS__newselect \
+  ltp_select03_SYS_pselect6 \
+  ltp_select03_SYS_select \
   ltp_select04 \
+  ltp_select04_SYS__newselect \
+  ltp_select04_SYS_pselect6 \
+  ltp_select04_SYS_select \
   ltp_send01 \
   ltp_sendfile02 \
   ltp_sendfile02_64 \
@@ -1007,10 +1129,12 @@ ltp_packages := \
   ltp_sendfile08_64 \
   ltp_sendfile09 \
   ltp_sendfile09_64 \
+  ltp_sendmmsg01 \
   ltp_sendmsg01 \
   ltp_sendto01 \
   ltp_sendto02 \
   ltp_set_robust_list01 \
+  ltp_set_thread_area01 \
   ltp_set_tid_address01 \
   ltp_setdomainname01 \
   ltp_setdomainname02 \
@@ -1018,19 +1142,33 @@ ltp_packages := \
   ltp_setegid01 \
   ltp_setegid02 \
   ltp_setfsgid01 \
+  ltp_setfsgid01_16 \
   ltp_setfsgid02 \
+  ltp_setfsgid02_16 \
   ltp_setfsgid03 \
+  ltp_setfsgid03_16 \
   ltp_setfsuid01 \
+  ltp_setfsuid01_16 \
   ltp_setfsuid02 \
+  ltp_setfsuid02_16 \
   ltp_setfsuid03 \
+  ltp_setfsuid03_16 \
   ltp_setfsuid04 \
+  ltp_setfsuid04_16 \
   ltp_setgid01 \
+  ltp_setgid01_16 \
   ltp_setgid02 \
+  ltp_setgid02_16 \
   ltp_setgid03 \
+  ltp_setgid03_16 \
   ltp_setgroups01 \
+  ltp_setgroups01_16 \
   ltp_setgroups02 \
+  ltp_setgroups02_16 \
   ltp_setgroups03 \
+  ltp_setgroups03_16 \
   ltp_setgroups04 \
+  ltp_setgroups04_16 \
   ltp_sethostname01 \
   ltp_sethostname02 \
   ltp_sethostname03 \
@@ -1044,27 +1182,48 @@ ltp_packages := \
   ltp_setpgid03_child \
   ltp_setpgrp01 \
   ltp_setpgrp02 \
+  ltp_setpriority01 \
   ltp_setpriority02 \
   ltp_setregid01 \
+  ltp_setregid01_16 \
   ltp_setregid02 \
+  ltp_setregid02_16 \
   ltp_setregid03 \
+  ltp_setregid03_16 \
   ltp_setregid04 \
+  ltp_setregid04_16 \
   ltp_setresgid01 \
+  ltp_setresgid01_16 \
   ltp_setresgid02 \
+  ltp_setresgid02_16 \
   ltp_setresgid03 \
+  ltp_setresgid03_16 \
   ltp_setresgid04 \
+  ltp_setresgid04_16 \
   ltp_setresuid01 \
+  ltp_setresuid01_16 \
   ltp_setresuid02 \
+  ltp_setresuid02_16 \
   ltp_setresuid03 \
+  ltp_setresuid03_16 \
   ltp_setresuid04 \
+  ltp_setresuid04_16 \
   ltp_setresuid05 \
+  ltp_setresuid05_16 \
   ltp_setreuid01 \
+  ltp_setreuid01_16 \
   ltp_setreuid02 \
+  ltp_setreuid02_16 \
   ltp_setreuid03 \
+  ltp_setreuid03_16 \
   ltp_setreuid04 \
+  ltp_setreuid04_16 \
   ltp_setreuid05 \
+  ltp_setreuid05_16 \
   ltp_setreuid06 \
+  ltp_setreuid06_16 \
   ltp_setreuid07 \
+  ltp_setreuid07_16 \
   ltp_setrlimit01 \
   ltp_setrlimit02 \
   ltp_setrlimit03 \
@@ -1073,16 +1232,20 @@ ltp_packages := \
   ltp_setsid01 \
   ltp_setsockopt01 \
   ltp_setsockopt02 \
+  ltp_setsockopt03 \
   ltp_settimeofday01 \
   ltp_settimeofday02 \
   ltp_setuid01 \
-  ltp_setuid02 \
+  ltp_setuid01_16 \
   ltp_setuid03 \
+  ltp_setuid03_16 \
   ltp_setuid04 \
+  ltp_setuid04_16 \
   ltp_setxattr01 \
   ltp_setxattr02 \
   ltp_setxattr03 \
   ltp_sgetmask01 \
+  ltp_shmctl05 \
   ltp_sigaction01 \
   ltp_sigaction02 \
   ltp_sigaltstack01 \
@@ -1100,6 +1263,7 @@ ltp_packages := \
   ltp_sigpending02 \
   ltp_sigprocmask01 \
   ltp_sigrelse01 \
+  ltp_sigsuspend01 \
   ltp_sigtimedwait01 \
   ltp_sigwait01 \
   ltp_sigwaitinfo01 \
@@ -1141,6 +1305,11 @@ ltp_packages := \
   ltp_statfs03_64 \
   ltp_statvfs01 \
   ltp_statvfs02 \
+  ltp_statx01 \
+  ltp_statx02 \
+  ltp_statx03 \
+  ltp_statx04 \
+  ltp_statx06 \
   ltp_stream01 \
   ltp_stream02 \
   ltp_stream03 \
@@ -1148,6 +1317,9 @@ ltp_packages := \
   ltp_stream05 \
   ltp_stress_cd \
   ltp_string01 \
+  ltp_sugov_latency \
+  ltp_sugov_stale_util \
+  ltp_sugov_wakeups \
   ltp_support_numa \
   ltp_swapoff01 \
   ltp_swapoff02 \
@@ -1164,12 +1336,12 @@ ltp_packages := \
   ltp_sync01 \
   ltp_sync02 \
   ltp_sync_file_range01 \
+  ltp_syncfs01 \
   ltp_syscall01 \
   ltp_sysconf01 \
   ltp_sysctl01 \
   ltp_sysctl03 \
   ltp_sysctl04 \
-  ltp_sysctl05 \
   ltp_sysfs01 \
   ltp_sysfs02 \
   ltp_sysfs03 \
@@ -1201,12 +1373,17 @@ ltp_packages := \
   ltp_test15 \
   ltp_test16 \
   ltp_test17 \
-  ltp_test_6_2 \
-  ltp_testcases_bin_acl_test01 \
+  ltp_test18 \
+  ltp_test19 \
+  ltp_test_exec \
+  ltp_test_exec_child \
   ltp_testcases_bin_add_ipv6addr \
   ltp_testcases_bin_arping01.sh \
   ltp_testcases_bin_ask_password.sh \
   ltp_testcases_bin_assign_password.sh \
+  ltp_testcases_bin_bbr01.sh \
+  ltp_testcases_bin_bbr02.sh \
+  ltp_testcases_bin_bind_noport01.sh \
   ltp_testcases_bin_broken_ip4-checksum \
   ltp_testcases_bin_broken_ip4-dstaddr \
   ltp_testcases_bin_broken_ip4-fragment \
@@ -1226,6 +1403,14 @@ ltp_packages := \
   ltp_testcases_bin_cgroup_fj_common.sh \
   ltp_testcases_bin_cgroup_fj_function.sh \
   ltp_testcases_bin_cgroup_fj_stress.sh \
+  ltp_testcases_bin_cgroup_lib.sh \
+  ltp_testcases_bin_cgroup_regression_10_1.sh \
+  ltp_testcases_bin_cgroup_regression_10_2.sh \
+  ltp_testcases_bin_cgroup_regression_3_1.sh \
+  ltp_testcases_bin_cgroup_regression_3_2.sh \
+  ltp_testcases_bin_cgroup_regression_6_1.sh \
+  ltp_testcases_bin_cgroup_regression_9_1.sh \
+  ltp_testcases_bin_cgroup_regression_9_2.sh \
   ltp_testcases_bin_cgroup_regression_test.sh \
   ltp_testcases_bin_change_password.sh \
   ltp_testcases_bin_check_envval \
@@ -1236,6 +1421,8 @@ ltp_packages := \
   ltp_testcases_bin_clockdiff01.sh \
   ltp_testcases_bin_cmdlib.sh \
   ltp_testcases_bin_connector_test.sh \
+  ltp_testcases_bin_cp_tests.sh \
+  ltp_testcases_bin_cpio_tests.sh \
   ltp_testcases_bin_cpuacct.sh \
   ltp_testcases_bin_cpuhotplug01.sh \
   ltp_testcases_bin_cpuhotplug02.sh \
@@ -1307,59 +1494,15 @@ ltp_packages := \
   ltp_testcases_bin_fs_bind_bin_makedir \
   ltp_testcases_bin_fs_bind_bin_setup \
   ltp_testcases_bin_fs_bind_bin_setupnslock \
-  ltp_testcases_bin_fs_bind_bind_test01 \
-  ltp_testcases_bin_fs_bind_bind_test02 \
-  ltp_testcases_bin_fs_bind_bind_test03 \
-  ltp_testcases_bin_fs_bind_bind_test04 \
-  ltp_testcases_bin_fs_bind_bind_test05 \
-  ltp_testcases_bin_fs_bind_bind_test06 \
-  ltp_testcases_bin_fs_bind_bind_test07 \
-  ltp_testcases_bin_fs_bind_bind_test07-2 \
-  ltp_testcases_bin_fs_bind_bind_test08 \
-  ltp_testcases_bin_fs_bind_bind_test09 \
   ltp_testcases_bin_fs_bind_bind_test10 \
   ltp_testcases_bin_fs_bind_bind_test11 \
   ltp_testcases_bin_fs_bind_bind_test12 \
-  ltp_testcases_bin_fs_bind_bind_test13 \
   ltp_testcases_bin_fs_bind_bind_test14 \
   ltp_testcases_bin_fs_bind_bind_test15 \
   ltp_testcases_bin_fs_bind_bind_test16 \
-  ltp_testcases_bin_fs_bind_bind_test17 \
   ltp_testcases_bin_fs_bind_bind_test18 \
   ltp_testcases_bin_fs_bind_bind_test19 \
-  ltp_testcases_bin_fs_bind_bind_test20 \
-  ltp_testcases_bin_fs_bind_bind_test21 \
-  ltp_testcases_bin_fs_bind_bind_test22 \
-  ltp_testcases_bin_fs_bind_bind_test23 \
-  ltp_testcases_bin_fs_bind_bind_test24 \
-  ltp_testcases_bin_fs_bind_cloneNS_test01 \
-  ltp_testcases_bin_fs_bind_cloneNS_test02 \
-  ltp_testcases_bin_fs_bind_cloneNS_test03 \
-  ltp_testcases_bin_fs_bind_cloneNS_test04 \
-  ltp_testcases_bin_fs_bind_cloneNS_test05 \
-  ltp_testcases_bin_fs_bind_cloneNS_test06 \
-  ltp_testcases_bin_fs_bind_cloneNS_test07 \
-  ltp_testcases_bin_fs_bind_move_test01 \
-  ltp_testcases_bin_fs_bind_move_test02 \
-  ltp_testcases_bin_fs_bind_move_test03 \
-  ltp_testcases_bin_fs_bind_move_test04 \
-  ltp_testcases_bin_fs_bind_move_test05 \
-  ltp_testcases_bin_fs_bind_move_test06 \
-  ltp_testcases_bin_fs_bind_move_test07 \
   ltp_testcases_bin_fs_bind_move_test08 \
-  ltp_testcases_bin_fs_bind_move_test09 \
-  ltp_testcases_bin_fs_bind_move_test10 \
-  ltp_testcases_bin_fs_bind_move_test11 \
-  ltp_testcases_bin_fs_bind_move_test12 \
-  ltp_testcases_bin_fs_bind_move_test13 \
-  ltp_testcases_bin_fs_bind_move_test14 \
-  ltp_testcases_bin_fs_bind_move_test15 \
-  ltp_testcases_bin_fs_bind_move_test16 \
-  ltp_testcases_bin_fs_bind_move_test17 \
-  ltp_testcases_bin_fs_bind_move_test18 \
-  ltp_testcases_bin_fs_bind_move_test19 \
-  ltp_testcases_bin_fs_bind_move_test20 \
-  ltp_testcases_bin_fs_bind_move_test21 \
   ltp_testcases_bin_fs_bind_move_test22 \
   ltp_testcases_bin_fs_bind_rbind_test01 \
   ltp_testcases_bin_fs_bind_rbind_test02 \
@@ -1369,21 +1512,11 @@ ltp_packages := \
   ltp_testcases_bin_fs_bind_rbind_test06 \
   ltp_testcases_bin_fs_bind_rbind_test07 \
   ltp_testcases_bin_fs_bind_rbind_test07-2 \
-  ltp_testcases_bin_fs_bind_rbind_test08 \
   ltp_testcases_bin_fs_bind_rbind_test09 \
-  ltp_testcases_bin_fs_bind_rbind_test10 \
-  ltp_testcases_bin_fs_bind_rbind_test11 \
-  ltp_testcases_bin_fs_bind_rbind_test12 \
   ltp_testcases_bin_fs_bind_rbind_test13 \
-  ltp_testcases_bin_fs_bind_rbind_test14 \
-  ltp_testcases_bin_fs_bind_rbind_test15 \
-  ltp_testcases_bin_fs_bind_rbind_test16 \
   ltp_testcases_bin_fs_bind_rbind_test17 \
-  ltp_testcases_bin_fs_bind_rbind_test18 \
-  ltp_testcases_bin_fs_bind_rbind_test19 \
   ltp_testcases_bin_fs_bind_rbind_test20 \
   ltp_testcases_bin_fs_bind_rbind_test21 \
-  ltp_testcases_bin_fs_bind_rbind_test22 \
   ltp_testcases_bin_fs_bind_rbind_test23 \
   ltp_testcases_bin_fs_bind_rbind_test24 \
   ltp_testcases_bin_fs_bind_rbind_test25 \
@@ -1401,9 +1534,6 @@ ltp_packages := \
   ltp_testcases_bin_fs_bind_rbind_test37 \
   ltp_testcases_bin_fs_bind_rbind_test38 \
   ltp_testcases_bin_fs_bind_rbind_test39 \
-  ltp_testcases_bin_fs_bind_regression_test01 \
-  ltp_testcases_bin_fs_bind_regression_test02 \
-  ltp_testcases_bin_fs_bind_regression_test03 \
   ltp_testcases_bin_fs_di \
   ltp_testcases_bin_fs_inod \
   ltp_testcases_bin_fs_racer.sh \
@@ -1426,15 +1556,29 @@ ltp_packages := \
   ltp_testcases_bin_ftp-upload-stress01-rmt \
   ltp_testcases_bin_ftp-upload-stress02-rmt \
   ltp_testcases_bin_ftp01 \
-  ltp_testcases_bin_ftp02 \
-  ltp_testcases_bin_ftp03 \
-  ltp_testcases_bin_ftp04 \
-  ltp_testcases_bin_ftp05 \
   ltp_testcases_bin_ftp_setup \
   ltp_testcases_bin_ftrace_lib.sh \
   ltp_testcases_bin_ftrace_regression01.sh \
   ltp_testcases_bin_ftrace_regression02.sh \
   ltp_testcases_bin_ftrace_stress_ftrace_buffer_size_kb.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_current_tracer.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_ftrace_enabled.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_function_profile_enabled.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_set_event.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_set_ftrace_filter.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_set_ftrace_pid.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_stack_max_size.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_stack_trace.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_trace.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_trace_clock.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_trace_options.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_trace_pipe.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_trace_stat.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_tracing_cpumask.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_tracing_enabled.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_tracing_max_latency.sh \
+  ltp_testcases_bin_ftrace_stress_ftrace_tracing_on.sh \
+  ltp_testcases_bin_ftrace_stress_test.sh \
   ltp_testcases_bin_gdb01.sh \
   ltp_testcases_bin_geneve01.sh \
   ltp_testcases_bin_get_ifname \
@@ -1475,6 +1619,7 @@ ltp_packages := \
   ltp_testcases_bin_icmp6-multi-diffnic07 \
   ltp_testcases_bin_if-addr-adddel \
   ltp_testcases_bin_if-addr-addlarge \
+  ltp_testcases_bin_if-lib.sh \
   ltp_testcases_bin_if-mtu-change \
   ltp_testcases_bin_if-route-adddel \
   ltp_testcases_bin_if-route-addlarge \
@@ -1502,6 +1647,7 @@ ltp_packages := \
   ltp_testcases_bin_ltpSockets.sh \
   ltp_testcases_bin_macsec01.sh \
   ltp_testcases_bin_macsec02.sh \
+  ltp_testcases_bin_macsec_lib.sh \
   ltp_testcases_bin_macvlan01.sh \
   ltp_testcases_bin_macvtap01.sh \
   ltp_testcases_bin_mc_cmds \
@@ -1545,8 +1691,13 @@ ltp_packages := \
   ltp_testcases_bin_memcg_test_4.sh \
   ltp_testcases_bin_memcg_usage_in_bytes_test.sh \
   ltp_testcases_bin_memcg_use_hierarchy_test.sh \
+  ltp_testcases_bin_mkdir_tests.sh \
   ltp_testcases_bin_modaltr.sh \
-  ltp_testcases_bin_move_pages.sh \
+  ltp_testcases_bin_mpls01.sh \
+  ltp_testcases_bin_mpls02.sh \
+  ltp_testcases_bin_mpls03.sh \
+  ltp_testcases_bin_mpls04.sh \
+  ltp_testcases_bin_mpls_lib.sh \
   ltp_testcases_bin_myfunctions-io.sh \
   ltp_testcases_bin_myfunctions.sh \
   ltp_testcases_bin_net_cmdlib.sh \
@@ -1580,17 +1731,13 @@ ltp_packages := \
   ltp_testcases_bin_route4-change-dst \
   ltp_testcases_bin_route4-change-gw \
   ltp_testcases_bin_route4-change-if \
-  ltp_testcases_bin_route4-ifdown \
   ltp_testcases_bin_route4-redirect \
   ltp_testcases_bin_route4-rmmod \
   ltp_testcases_bin_route6-change-dst \
   ltp_testcases_bin_route6-change-gw \
   ltp_testcases_bin_route6-change-if \
-  ltp_testcases_bin_route6-ifdown \
   ltp_testcases_bin_route6-redirect \
   ltp_testcases_bin_route6-rmmod \
-  ltp_testcases_bin_rpc01 \
-  ltp_testcases_bin_rpcinfo01 \
   ltp_testcases_bin_rsh01 \
   ltp_testcases_bin_run_capbounds.sh \
   ltp_testcases_bin_run_cpuctl_latency_test.sh \
@@ -1613,8 +1760,6 @@ ltp_packages := \
   ltp_testcases_bin_runpwtests_exclusive03.sh \
   ltp_testcases_bin_runpwtests_exclusive04.sh \
   ltp_testcases_bin_runpwtests_exclusive05.sh \
-  ltp_testcases_bin_rup01 \
-  ltp_testcases_bin_rusers01 \
   ltp_testcases_bin_rwtest \
   ltp_testcases_bin_sched_stress.sh \
   ltp_testcases_bin_sctp01.sh \
@@ -1622,6 +1767,7 @@ ltp_packages := \
   ltp_testcases_bin_sctp_ipsec_vti.sh \
   ltp_testcases_bin_sendfile01 \
   ltp_testcases_bin_set_ipv4addr \
+  ltp_testcases_bin_sit01.sh \
   ltp_testcases_bin_smack_common.sh \
   ltp_testcases_bin_smack_file_access.sh \
   ltp_testcases_bin_smack_set_ambient.sh \
@@ -1638,16 +1784,10 @@ ltp_packages := \
   ltp_testcases_bin_ssh-stress01-rmt \
   ltp_testcases_bin_ssh-stress02-rmt \
   ltp_testcases_bin_ssh-stress03-rmt \
-  ltp_testcases_bin_ssh01 \
-  ltp_testcases_bin_ssh01_s1 \
-  ltp_testcases_bin_ssh02 \
-  ltp_testcases_bin_ssh02_s1 \
-  ltp_testcases_bin_ssh03 \
-  ltp_testcases_bin_ssh03_s1 \
-  ltp_testcases_bin_ssh_setup \
   ltp_testcases_bin_stop_freeze_sleep_thaw_cont.sh \
   ltp_testcases_bin_stop_freeze_thaw_cont.sh \
   ltp_testcases_bin_stress_floppy \
+  ltp_testcases_bin_sysctl01.sh \
   ltp_testcases_bin_tcp4-multi-diffip01 \
   ltp_testcases_bin_tcp4-multi-diffip02 \
   ltp_testcases_bin_tcp4-multi-diffip03 \
@@ -1956,28 +2096,22 @@ ltp_packages := \
   ltp_testcases_bin_tcp6-uni-winscale12 \
   ltp_testcases_bin_tcp6-uni-winscale13 \
   ltp_testcases_bin_tcp6-uni-winscale14 \
+  ltp_testcases_bin_tcp_cc_lib.sh \
   ltp_testcases_bin_tcp_fastopen_run.sh \
   ltp_testcases_bin_tcp_ipsec.sh \
   ltp_testcases_bin_tcp_ipsec_vti.sh \
   ltp_testcases_bin_tcpdump01 \
   ltp_testcases_bin_telnet01 \
   ltp_testcases_bin_test.sh \
-  ltp_testcases_bin_test_10_1.sh \
-  ltp_testcases_bin_test_10_2.sh \
-  ltp_testcases_bin_test_3_1.sh \
-  ltp_testcases_bin_test_3_2.sh \
-  ltp_testcases_bin_test_6_1.sh \
-  ltp_testcases_bin_test_9_1.sh \
-  ltp_testcases_bin_test_9_2.sh \
   ltp_testcases_bin_test_controllers.sh \
   ltp_testcases_bin_test_ioctl \
-  ltp_testcases_bin_test_net.sh \
-  ltp_testcases_bin_test_net_stress.sh \
   ltp_testcases_bin_test_robind.sh \
   ltp_testcases_bin_testall.sh \
   ltp_testcases_bin_tracepath01.sh \
   ltp_testcases_bin_traceroute01.sh \
   ltp_testcases_bin_tst_ansi_color.sh \
+  ltp_testcases_bin_tst_net.sh \
+  ltp_testcases_bin_tst_net_stress.sh \
   ltp_testcases_bin_tst_test.sh \
   ltp_testcases_bin_udp4-multi-diffip01 \
   ltp_testcases_bin_udp4-multi-diffip02 \
@@ -2095,8 +2229,6 @@ ltp_packages := \
   ltp_testcases_data_ld01_rf1.c \
   ltp_testcases_data_mc_member_ManyGroups \
   ltp_testcases_data_mc_member_TooManyGroups \
-  ltp_testcases_data_rpc01_file.1 \
-  ltp_testcases_data_rpc01_file.2 \
   ltp_testcases_data_stress_floppy_dd_file \
   ltp_testcases_data_stress_floppy_dumpdir_1K_file \
   ltp_testcases_data_unzip01_dir.out \
@@ -2105,6 +2237,9 @@ ltp_packages := \
   ltp_testsf_c6 \
   ltp_testsf_s \
   ltp_testsf_s6 \
+  ltp_tgkill01 \
+  ltp_tgkill02 \
+  ltp_tgkill03 \
   ltp_thp01 \
   ltp_thp02 \
   ltp_thp03 \
@@ -2140,6 +2275,7 @@ ltp_packages := \
   ltp_tomoyo_policy_memory_test \
   ltp_tomoyo_rewrite_test \
   ltp_tpci \
+  ltp_trace_sched \
   ltp_trerrno \
   ltp_truncate01 \
   ltp_truncate01_64 \
@@ -2149,6 +2285,7 @@ ltp_packages := \
   ltp_truncate03_64 \
   ltp_tst_brk \
   ltp_tst_brkm \
+  ltp_tst_check_drivers \
   ltp_tst_checkpoint \
   ltp_tst_checkpoint_wait_timeout \
   ltp_tst_checkpoint_wake_timeout \
@@ -2158,11 +2295,12 @@ ltp_packages := \
   ltp_tst_dataroot03 \
   ltp_tst_device \
   ltp_tst_exit \
-  ltp_tst_flush \
+  ltp_tst_expiration_timer \
   ltp_tst_fs_fill_hardlinks \
   ltp_tst_fs_fill_subdirs \
   ltp_tst_fs_has_free \
   ltp_tst_get_unused_port \
+  ltp_tst_getconf \
   ltp_tst_kvcmp \
   ltp_tst_ncpus \
   ltp_tst_ncpus_conf \
@@ -2183,6 +2321,7 @@ ltp_packages := \
   ltp_tst_strerrno \
   ltp_tst_strsig \
   ltp_tst_strstatus \
+  ltp_tst_supported_fs \
   ltp_tst_tmpdir_test \
   ltp_uaccess \
   ltp_umask01 \
@@ -2195,13 +2334,15 @@ ltp_packages := \
   ltp_uname01 \
   ltp_uname02 \
   ltp_uname03 \
+  ltp_uname04 \
   ltp_unlink05 \
-  ltp_unlink06 \
   ltp_unlink07 \
   ltp_unlink08 \
   ltp_unlinkat01 \
   ltp_unshare01 \
   ltp_unshare02 \
+  ltp_ustat01 \
+  ltp_ustat02 \
   ltp_utime01 \
   ltp_utime02 \
   ltp_utime03 \
@@ -2210,9 +2351,12 @@ ltp_packages := \
   ltp_utime06 \
   ltp_utimensat01 \
   ltp_utimes01 \
+  ltp_verify_caps_exec \
   ltp_vfork \
   ltp_vfork01 \
   ltp_vfork02 \
+  ltp_vhangup01 \
+  ltp_vhangup02 \
   ltp_vma01 \
   ltp_vma02 \
   ltp_vma03 \
@@ -2240,6 +2384,7 @@ ltp_packages := \
   ltp_waitpid12 \
   ltp_waitpid13 \
   ltp_write01 \
+  ltp_write02 \
   ltp_write03 \
   ltp_write04 \
   ltp_write05 \

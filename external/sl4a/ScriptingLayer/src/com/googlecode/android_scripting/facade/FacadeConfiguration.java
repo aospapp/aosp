@@ -16,16 +16,6 @@
 
 package com.googlecode.android_scripting.facade;
 
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-
 import com.google.common.collect.Maps;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothA2dpFacade;
@@ -33,10 +23,9 @@ import com.googlecode.android_scripting.facade.bluetooth.BluetoothA2dpSinkFacade
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothAvrcpFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothConnectionFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothFacade;
-import com.googlecode.android_scripting.facade.bluetooth.BluetoothHealthFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHfpClientFacade;
-import com.googlecode.android_scripting.facade.bluetooth.BluetoothHidFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHidDeviceFacade;
+import com.googlecode.android_scripting.facade.bluetooth.BluetoothHidFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHspFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothLeAdvertiseFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothLeAdvertisingSetFacade;
@@ -44,8 +33,8 @@ import com.googlecode.android_scripting.facade.bluetooth.BluetoothLeScanFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothMapClientFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothMapFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothMediaFacade;
-import com.googlecode.android_scripting.facade.bluetooth.BluetoothPbapClientFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothPanFacade;
+import com.googlecode.android_scripting.facade.bluetooth.BluetoothPbapClientFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothRfcommFacade;
 import com.googlecode.android_scripting.facade.bluetooth.GattClientFacade;
 import com.googlecode.android_scripting.facade.bluetooth.GattServerFacade;
@@ -65,9 +54,10 @@ import com.googlecode.android_scripting.facade.telephony.TelecomCallFacade;
 import com.googlecode.android_scripting.facade.telephony.TelecomManagerFacade;
 import com.googlecode.android_scripting.facade.telephony.TelephonyManagerFacade;
 import com.googlecode.android_scripting.facade.ui.UiFacade;
+import com.googlecode.android_scripting.facade.webcam.WebCamFacade;
 import com.googlecode.android_scripting.facade.wifi.HttpFacade;
-import com.googlecode.android_scripting.facade.wifi.WifiManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiAwareManagerFacade;
+import com.googlecode.android_scripting.facade.wifi.WifiManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiP2pManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiRtt2ManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiRttManagerFacade;
@@ -78,8 +68,16 @@ import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcMinSdk;
 import com.googlecode.android_scripting.rpc.RpcStartEvent;
 import com.googlecode.android_scripting.rpc.RpcStopEvent;
-import com.googlecode.android_scripting.facade.net.IpSecManagerFacade;
-import com.googlecode.android_scripting.facade.webcam.WebCamFacade;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * Encapsulates the list of supported facades and their construction.
@@ -127,7 +125,6 @@ public class FacadeConfiguration {
         sFacadeClassList.add(BluetoothA2dpFacade.class);
         sFacadeClassList.add(BluetoothAvrcpFacade.class);
         sFacadeClassList.add(BluetoothConnectionFacade.class);
-        sFacadeClassList.add(BluetoothHealthFacade.class);
         sFacadeClassList.add(BluetoothHspFacade.class);
         sFacadeClassList.add(BluetoothHidFacade.class);
         sFacadeClassList.add(BluetoothHidDeviceFacade.class);

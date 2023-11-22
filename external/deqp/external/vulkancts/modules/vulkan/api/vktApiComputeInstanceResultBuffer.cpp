@@ -45,13 +45,13 @@ ComputeInstanceResultBuffer::ComputeInstanceResultBuffer (const DeviceInterface 
 
 void ComputeInstanceResultBuffer::readResultContentsTo(tcu::Vec4 (*results)[4]) const
 {
-	invalidateMappedMemoryRange(m_vki, m_device, m_bufferMem->getMemory(), m_bufferMem->getOffset(), sizeof(*results));
+	invalidateAlloc(m_vki, m_device, *m_bufferMem);
 	deMemcpy(*results, m_bufferMem->getHostPtr(), sizeof(*results));
 }
 
 void ComputeInstanceResultBuffer::readResultContentsTo(deUint32 *result) const
 {
-	invalidateMappedMemoryRange(m_vki, m_device, m_bufferMem->getMemory(), m_bufferMem->getOffset(), sizeof(*result));
+	invalidateAlloc(m_vki, m_device, *m_bufferMem);
 	deMemcpy(result, m_bufferMem->getHostPtr(), sizeof(*result));
 }
 
@@ -86,7 +86,7 @@ Move<VkBuffer> ComputeInstanceResultBuffer::createResultBuffer(const DeviceInter
 	for (size_t offset = 0; offset < DATA_SIZE; offset += sizeof(float))
 		deMemcpy(((deUint8 *) mapPtr) + offset, &clearValue, sizeof(float));
 
-	flushMappedMemoryRange(vki, device, allocation->getMemory(), allocation->getOffset(), (VkDeviceSize) DATA_SIZE);
+	flushAlloc(vki, device, *allocation);
 
 	*outAllocation = allocation;
 	return buffer;
@@ -98,8 +98,8 @@ VkBufferMemoryBarrier ComputeInstanceResultBuffer::createResultBufferBarrier(VkB
 	{
 		VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 		DE_NULL,
-		VK_ACCESS_SHADER_WRITE_BIT,									// outputMask
-		VK_ACCESS_SHADER_READ_BIT,									// inputMask
+		VK_ACCESS_SHADER_WRITE_BIT,									// srcAccessMask
+		VK_ACCESS_HOST_READ_BIT,									// dstAccessMask
 		VK_QUEUE_FAMILY_IGNORED,									// srcQueueFamilyIndex
 		VK_QUEUE_FAMILY_IGNORED,									// destQueueFamilyIndex
 		buffer,														// buffer

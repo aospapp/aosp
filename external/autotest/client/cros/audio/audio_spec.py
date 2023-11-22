@@ -6,6 +6,7 @@
 
 _BOARD_TYPE_CHROMEBOX = 'CHROMEBOX'
 _BOARD_TYPE_CHROMEBIT = 'CHROMEBIT'
+_BOARD_WITHOUT_SOUND_CARD = ['gale', 'veyron_rialto']
 
 def has_internal_speaker(board_type, board_name):
     """Checks if a board has internal speaker.
@@ -17,7 +18,8 @@ def has_internal_speaker(board_type, board_name):
 
     """
     if ((board_type == _BOARD_TYPE_CHROMEBOX and board_name != 'stumpy')
-            or board_type == _BOARD_TYPE_CHROMEBIT):
+            or board_type == _BOARD_TYPE_CHROMEBIT
+            or board_name in _BOARD_WITHOUT_SOUND_CARD):
         return False
     return True
 
@@ -47,3 +49,17 @@ def has_headphone(board_type):
     if board_type == _BOARD_TYPE_CHROMEBIT:
         return False
     return True
+
+
+def has_hotwording(board_name, model_name):
+    """Checks if a board has hotwording.
+
+    @param board_name: board name of the DUT.
+    @param model_name: model name of the DUT.
+
+    @returns: True if the board has hotwording.
+
+    """
+    if board_name in ['coral', 'eve', 'kevin', 'nami', 'pyro', 'samus']:
+        return True
+    return False

@@ -487,6 +487,11 @@ public interface UProperty
      * Binary property Prepended_Concatenation_Mark.
      */
     public static final int PREPENDED_CONCATENATION_MARK=63;
+    /**
+     * Binary property Extended_Pictographic.
+     * See http://www.unicode.org/reports/tr51/#Emoji_Properties
+     */
+    public static final int EXTENDED_PICTOGRAPHIC=64;
 
     /**
      * One more than the last constant for binary Unicode properties.
@@ -494,7 +499,7 @@ public interface UProperty
      * @hide unsupported on Android
      */
     @Deprecated
-    public static final int BINARY_LIMIT = 64;
+    public static final int BINARY_LIMIT = 65;
 
     /**
      * Enumerated property Bidi_Class.
@@ -652,12 +657,34 @@ public interface UProperty
     public static final int BIDI_PAIRED_BRACKET_TYPE = 0x1015;
 
     /**
+     * Enumerated property Indic_Positional_Category.
+     * New in Unicode 6.0 as provisional property Indic_Matra_Category;
+     * renamed and changed to informative in Unicode 8.0.
+     * See http://www.unicode.org/reports/tr44/#IndicPositionalCategory.txt
+     */
+    public static final int INDIC_POSITIONAL_CATEGORY = 0x1016;
+
+    /**
+     * Enumerated property Indic_Syllabic_Category.
+     * New in Unicode 6.0 as provisional; informative since Unicode 8.0.
+     * See http://www.unicode.org/reports/tr44/#IndicSyllabicCategory.txt
+     */
+    public static final int INDIC_SYLLABIC_CATEGORY = 0x1017;
+
+    /**
+     * Enumerated property Vertical_Orientation.
+     * Used for UAX #50 Unicode Vertical Text Layout (https://www.unicode.org/reports/tr50/).
+     * New as a UCD property in Unicode 10.0.
+     */
+    public static final int VERTICAL_ORIENTATION = 0x1018;
+
+    /**
      * One more than the last constant for enumerated/integer Unicode properties.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
      * @hide unsupported on Android
      */
     @Deprecated
-    public static final int INT_LIMIT = 0x1016;
+    public static final int INT_LIMIT = 0x1019;
 
     /**
      * Bitmask property General_Category_Mask.

@@ -42,7 +42,7 @@ std::string TmpFile::mktmp()
 {
     using std::string;
 
-    char path[] = "Tmp_ParameterFramework_XXXXXX";
+    char path[] = RW_PATH "Tmp_ParameterFramework_XXXXXX";
     int fd = mkstemp(path);
     if (fd == -1) {
         throwErrnoError("Could not create tmp file with pattern \"" + string(path) + '"');
@@ -53,5 +53,5 @@ std::string TmpFile::mktmp()
     return path;
 }
 
-} // utility
-} // parameterFramework
+} // namespace utility
+} // namespace parameterFramework

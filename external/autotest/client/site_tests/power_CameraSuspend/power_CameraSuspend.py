@@ -7,6 +7,7 @@ import numpy
 from autotest_lib.client.bin import test
 from autotest_lib.client.cros.camera import camera_utils
 from autotest_lib.client.cros.power import sys_power
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.common_lib import error
 
 try:
@@ -34,7 +35,8 @@ class power_CameraSuspend(test.test):
 
     version = 1
 
-    def run_once(self, save_images=False):
+    def run_once(self, capability, save_images=False):
+        device_capability.DeviceCapability().ensure_capability(capability)
         # open the camera via opencv
         cam_name, cam_index = camera_utils.find_camera()
         if cam_index is None:

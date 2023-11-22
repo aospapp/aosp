@@ -27,4 +27,5 @@ hardware acceleration support.
 VIDEO_NAME = 'traffic/traffic-1920x1080-8005020218f6b86bfa978e550d04956e.mp4'
 VIDEO_DESCRIPTION = 'h264_1080p'
 job.run_test('video_PlaybackPerf', video_name=VIDEO_NAME,
-             video_description=VIDEO_DESCRIPTION)
+             video_description=VIDEO_DESCRIPTION,
+             capability='hw_dec_h264_1080_30')

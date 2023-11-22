@@ -29,6 +29,7 @@ import org.apache.harmony.jpda.tests.framework.TestOptions;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
+import org.apache.harmony.jpda.tests.jdwp.Events.DebuggeeException;
 import org.apache.harmony.jpda.tests.jdwp.Events.ExceptionCaughtDebuggee;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -55,7 +56,7 @@ public class ExceptionTest extends JDWPEventTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String exceptionSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/DebuggeeException;";
+        String exceptionSignature = getClassSignature(DebuggeeException.class);
         boolean isCatch = true;
         boolean isUncatch = true;
         logWriter.println("\n>> testExceptionEvent: => setException(...)...");

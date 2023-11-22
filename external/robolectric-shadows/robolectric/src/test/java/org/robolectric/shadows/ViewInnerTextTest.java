@@ -7,19 +7,19 @@ import android.content.Context;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ViewInnerTextTest {
   private Context context;
 
   @Before
   public void setUp() throws Exception {
-    context = RuntimeEnvironment.application;
+    context = ApplicationProvider.getApplicationContext();
   }
 
   @Test

@@ -264,6 +264,9 @@ public abstract class URLHandler {
 
     public abstract void guide(URLVisitor visitor, boolean recurse, boolean strip);
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public interface URLVisitor {
         void visit(String str);
     }

@@ -267,17 +267,24 @@ def:see_also_tags(also) ?><?cs
 def:since_tags(obj) ?><?cs
 if:reference.apilevels && obj.since ?><?cs
   if:string.slice(obj.since,0,1) > 0 ?>
-    added in <?cs
+    Added in <?cs
       if:string.find(obj.since,'.') > -1
         ?><a href="<?cs var:toroot ?>topic/libraries/support-library/revisions.html">version<?cs
       else
         ?><a href="<?cs var:toroot ?>guide/topics/manifest/uses-sdk-element.html#ApiLevels">API level<?cs
       /if ?> <?cs
     var:obj.since ?></a><?cs
-  else ?>
-    <b><a href="<?cs var:toroot ?>preview/">Android <?cs var:obj.since ?> Developer Preview</a></b><?cs
+  else ?><a data-version-added="<?cs var:obj.since ?>" href="<?cs var:toroot ?>preview/"><b>Added in Android <?cs
+    var:obj.since ?></b></a><?cs
   /if?><?cs
-/if ?><?cs
+/if ?>
+  <?cs if:obj.deprecatedsince ?><?cs
+    if:class.artifact ?><br>Deprecated in version <?cs var:obj.deprecatedsince ?><?cs
+    else ?><br>Deprecated in
+    <a href="<?cs var:toroot ?>guide/topics/manifest/uses-sdk-element.html#ApiLevels">API level
+      <?cs var:obj.deprecatedsince ?></a><?cs
+    /if ?>
+  <?cs /if ?><?cs
 /def ?><?cs
 
 # print the artifact ?><?cs
@@ -393,7 +400,13 @@ def:class_link_table(classes) ?><?cs
   set:count = #1 ?>
   <table class="jd-sumtable-expando"><?cs
       each:cl=classes ?>
-        <tr class="<?cs if:count % #2 ?>alt-color<?cs /if ?> api apilevel-<?cs var:cl.type.since ?>" >
+        <tr <?cs
+            if:cl.type.since
+              ?>data-version-added="<?cs var:cl.type.since ?>"<?cs
+            /if ?><?cs
+            if:cl.type.deprecatedsince
+              ?> data-version-deprecated="<?cs var:cl.type.deprecatedsince ?>"<?cs
+            /if ?> >
               <td><?cs call:type_link(cl.type) ?></td>
               <td width="100%"><?cs call:short_descr(cl) ?>&nbsp;</td>
           </tr><?cs set:count = count + #1 ?><?cs
@@ -407,7 +420,7 @@ def:class_link_list(label, classes) ?><?cs
     <li><h2 class="hide-from-toc"><?cs var:label ?></h2>
       <ul><?cs
       each:cl=classes ?>
-        <li class="api apilevel-<?cs var:cl.type.since ?>"><?cs call:type_link2(cl.type,"true") ?></li><?cs
+        <li><?cs call:type_link2(cl.type,"true") ?></li><?cs
       /each ?>
       </ul>
     </li><?cs
@@ -420,7 +433,7 @@ def:list(label, classes) ?><?cs
     <li><h2 class="hide-from-toc"><?cs var:label ?></h2>
       <ul><?cs
       each:cl=classes ?>
-          <li class="<?cs if:class.name == cl.label?>selected <?cs /if ?>api apilevel-<?cs var:cl.since ?>"><?cs call:type_link2(cl,"true") ?></li><?cs
+          <li<?cs if:class.name == cl.label?> class="selected"<?cs /if ?>><?cs call:type_link2(cl,"true") ?></li><?cs
       /each ?>
       </ul>
     </li><?cs
@@ -430,7 +443,7 @@ def:list(label, classes) ?><?cs
 # A list of links to packages, for use in the side navigation of packages (panel nav) ?><?cs
 def:package_link_list(packages) ?><?cs
   each:pkg=packages ?>
-    <li class="<?cs if:(class.package.name == pkg.name) || (package.name == pkg.name)?>selected <?cs /if ?>api apilevel-<?cs var:pkg.since ?>"><?cs call:package_link(pkg) ?></li><?cs
+    <li<?cs if:(class.package.name == pkg.name) || (package.name == pkg.name)?> class="selected"<?cs /if ?>><?cs call:package_link(pkg) ?></li><?cs
   /each ?><?cs
 /def ?>
 

@@ -32,8 +32,8 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import sys
 import glob
+import sys
 
 import tensorflow as tf
 
@@ -46,7 +46,7 @@ FLAGS = None
 
 def load_graph(filename):
   """Unpersists graph from file as default graph."""
-  with tf.gfile.FastGFile(filename, 'rb') as f:
+  with tf.gfile.GFile(filename, 'rb') as f:
     graph_def = tf.GraphDef()
     graph_def.ParseFromString(f.read())
     tf.import_graph_def(graph_def, name='')
@@ -65,7 +65,7 @@ def run_graph(wav_dir, labels, input_layer_name, output_layer_name,
     #   predictions  will contain a two-dimensional array, where one
     #   dimension represents the input image count, and the other has
     #   predictions per class
-    for wav_path in glob.glob(wav_dir + "/*.wav"):
+    for wav_path in glob.glob(wav_dir + '/*.wav'):
       if not wav_path or not tf.gfile.Exists(wav_path):
         tf.logging.fatal('Audio file does not exist %s', wav_path)
 

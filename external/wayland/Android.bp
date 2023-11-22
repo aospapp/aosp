@@ -72,6 +72,15 @@ genrule {
     tools: ["wayland_scanner"],
 }
 
+// Generate protocol header files used by the server
+genrule {
+    name: "wayland_core_server_protocol_headers",
+    cmd: "$(location wayland_scanner) server-header < $(in) > $(out)",
+    srcs: [":wayland_core_protocol"],
+    out: ["wayland-server-protocol.h"],
+    tools: ["wayland_scanner"],
+}
+
 // Build wayland_client
 cc_library_static {
     name: "libwayland_client",
@@ -95,5 +104,33 @@ cc_library_static {
     export_generated_headers: [
         "wayland_version_header",
         "wayland_core_client_protocol_headers"
+    ],
+}
+
+// Build wayland_server
+cc_library_static {
+    name: "libwayland_server",
+    vendor_available: true,
+    defaults: ["wayland_defaults"],
+    srcs: [
+        "src/connection.c",
+        "src/wayland-os.c",
+        "src/wayland-util.c",
+        "src/wayland-server.c",
+        "src/wayland-shm.c",
+        "src/event-loop.c",
+    ],
+    cflags: ["-Wall", "-Werror"],
+    generated_sources: ["wayland_core_protocol_sources"],
+    static_libs: ["libffi"],
+    local_include_dirs: ["src"],
+    generated_headers: [
+        "wayland_version_header",
+        "wayland_core_server_protocol_headers",
+    ],
+    export_include_dirs: ["src"],
+    export_generated_headers: [
+        "wayland_version_header",
+        "wayland_core_server_protocol_headers",
     ],
 }

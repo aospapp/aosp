@@ -13,6 +13,8 @@ class Values(object):
 
     confirm_screen = 1
 
+    firmware_screen = 15
+
     has_lid = True
 
     usb_image_boot_timeout = 60
@@ -21,3 +23,5 @@ class Values(object):
 
     chrome_ec = True
     ec_capability = ['x86', 'battery', 'charging', 'lid']
+
+    smm_store = False

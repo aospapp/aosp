@@ -40,7 +40,7 @@
  *  right-hand remainder of a C array.)
  */
 
-#define WORD_BITS	16	/* sizeof(uword) * CHAR_BIT on the 
+#define WORD_BITS	16	/* sizeof(uword) * CHAR_BIT on the
 				 * target architecture---if this isn't 16,
 				 * you're in trouble with this library anyway.
 				 */
@@ -58,9 +58,9 @@ void write_code P2((s_spex, n_spex), struct spex * s_spex, int n_spex)
 
 	for (; n_spex > 0; n_spex--, sp++) {
 
-		/*	insert       old 
+		/*	insert       old
 		 *	new var	     value     unused
-		 *	here  
+		 *	here
 		 *
 		 *	[____________xxxxxx**********]
 		 *
@@ -68,7 +68,7 @@ void write_code P2((s_spex, n_spex), struct spex * s_spex, int n_spex)
 		 */
 		printf("sr = sr >> %d | %s << %d;\n",
 			sp->varsize,
-			sp->var, 
+			sp->var,
 			WORD_BITS - sp->varsize);
 
 		n_in += sp->varsize;

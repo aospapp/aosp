@@ -19,6 +19,4 @@ Calls cros-disks to mount supported archive files
 """
 
 job.run_test('platform_CrosDisksArchive', timeout_s=10,
-             archive_types=['zip'], tag='zip')
-job.run_test('platform_CrosDisksArchive', timeout_s=10,
              archive_types=['rar'], tag='rar')

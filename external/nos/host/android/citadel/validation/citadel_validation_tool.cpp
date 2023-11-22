@@ -156,7 +156,6 @@ bool CyclesSinceBoot(NuggetClientInterface & client, uint32_t* cycles) {
  * The current implementation of the test writes random vales to registers and
  * reads them back. This lets us check the correct values were sent across the
  * channel.
- * TODO(b/65067435): Replace with less intrusive calls.
  */
 int CmdStressSpi(NuggetClientInterface& client, char** params) {
     std::random_device rd;
@@ -211,7 +210,6 @@ int CmdStressSpi(NuggetClientInterface& client, char** params) {
 /*
  * The current implementation directly reads some registers and checks they
  * contain valid values.
- * TODO(b/65067435): Replace with less intrusive calls.
  */
 int CmdHealthCheck(NuggetClientInterface& client) {
     int ret = EXIT_SUCCESS;

@@ -16,9 +16,6 @@ class firmware_ECWakeSource(FirmwareTest):
     """
     version = 1
 
-    # Delay for waiting client to shut down
-    SHUTDOWN_DELAY = 10
-
     def initialize(self, host, cmdline_args):
         super(firmware_ECWakeSource, self).initialize(host, cmdline_args)
         # Only run in normal mode
@@ -32,7 +29,6 @@ class firmware_ECWakeSource(FirmwareTest):
     def hibernate_and_wake_by_power_button(self):
         """Shutdown to G2/S5, then hibernate EC. Finally, wake by power button."""
         self.faft_client.system.run_shell_command("shutdown -H now")
-        time.sleep(self.SHUTDOWN_DELAY)
         self.switcher.wait_for_client_offline()
         self.ec.send_command("hibernate 1000")
         time.sleep(self.WAKE_DELAY)

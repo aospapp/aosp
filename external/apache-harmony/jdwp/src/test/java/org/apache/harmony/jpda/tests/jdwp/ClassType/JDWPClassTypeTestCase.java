@@ -41,16 +41,7 @@ public class JDWPClassTypeTestCase extends JDWPSyncTestCase {
      */
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ClassType.ClassTypeDebuggee";
-    }
-
-    /**
-     * Returns signature of debuggee class which is used by
-     * testcases in this test.
-     * @return signature of debuggee class.
-     */
-    protected String getDebuggeeSignature() {
-      return "Lorg/apache/harmony/jpda/tests/jdwp/ClassType/ClassTypeDebuggee;";
+        return ClassTypeDebuggee.class.getName();
     }
 
     /**

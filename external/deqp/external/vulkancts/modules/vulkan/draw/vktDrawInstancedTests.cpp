@@ -24,6 +24,8 @@
 
 #include "vktDrawInstancedTests.hpp"
 
+#include <climits>
+
 #include "deSharedPtr.hpp"
 #include "rrRenderer.hpp"
 #include "tcuImageCompare.hpp"
@@ -31,6 +33,9 @@
 #include "tcuTextureUtil.hpp"
 #include "vkImageUtil.hpp"
 #include "vkPrograms.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkQueryUtil.hpp"
 #include "vktDrawBufferObjectUtil.hpp"
 #include "vktDrawCreateInfoUtil.hpp"
 #include "vktDrawImageObjectUtil.hpp"
@@ -61,6 +66,9 @@ struct TestParams
 
 	DrawFunction			function;
 	vk::VkPrimitiveTopology	topology;
+
+	deBool					testAttribDivisor;
+	deUint32				attribDivisor;
 };
 
 struct VertexPositionAndColor
@@ -97,6 +105,10 @@ std::ostream & operator<<(std::ostream & str, TestParams const & v)
 	}
 
 	string << "_" << de::toString(v.topology);
+
+	if (v.testAttribDivisor)
+		string << "_attrib_divisor_" << v.attribDivisor;
+
 	return str << string.str();
 }
 
@@ -133,10 +145,7 @@ de::SharedPtr<Buffer> createAndUploadBuffer(const std::vector<T> data, const vk:
 
 	deMemcpy(ptr, &data[0], static_cast<size_t>(dataSize));
 
-	vk::flushMappedMemoryRange(vk, context.getDevice(),
-							   buffer->getBoundMemory().getMemory(),
-							   buffer->getBoundMemory().getOffset(),
-							   VK_WHOLE_SIZE);
+	vk::flushAlloc(vk, context.getDevice(), buffer->getBoundMemory());
 	return buffer;
 }
 
@@ -161,9 +170,9 @@ public:
 		for (int packetNdx = 0; packetNdx < numPackets; ++packetNdx)
 		{
 			const int		instanceNdx		= packets[packetNdx]->instanceNdx + m_firstInstance;
-			const tcu::Vec4	position		= rr::readVertexAttribFloat(inputs[0], instanceNdx,	packets[packetNdx]->vertexNdx);
-			const tcu::Vec4	color			= rr::readVertexAttribFloat(inputs[1], instanceNdx,	packets[packetNdx]->vertexNdx);
-			const tcu::Vec4	color2			= rr::readVertexAttribFloat(inputs[2], instanceNdx, packets[packetNdx]->vertexNdx);
+			const tcu::Vec4	position		= rr::readVertexAttribFloat(inputs[0], packets[packetNdx]->instanceNdx,	packets[packetNdx]->vertexNdx, m_firstInstance);
+			const tcu::Vec4	color			= rr::readVertexAttribFloat(inputs[1], packets[packetNdx]->instanceNdx,	packets[packetNdx]->vertexNdx, m_firstInstance);
+			const tcu::Vec4	color2			= rr::readVertexAttribFloat(inputs[2], packets[packetNdx]->instanceNdx, packets[packetNdx]->vertexNdx, m_firstInstance);
 			packets[packetNdx]->position	= position + tcu::Vec4((float)(packets[packetNdx]->instanceNdx * 2.0 / m_numInstances), 0.0, 0.0, 0.0);
 			packets[packetNdx]->outputs[0]	= color + tcu::Vec4((float)instanceNdx / (float)m_numInstances, 0.0, 0.0, 1.0) + color2;
 		}
@@ -207,7 +216,7 @@ public:
 	virtual	tcu::TestStatus						iterate					(void);
 
 private:
-	void										prepareVertexData		(int instanceCount, int firstInstance);
+	void										prepareVertexData		(int instanceCount, int firstInstance, int instanceDivisor);
 
 	const TestParams							m_params;
 	const vk::DeviceInterface&					m_vk;
@@ -274,6 +283,19 @@ public:
 
 	TestInstance* createInstance (Context& context) const
 	{
+		if (m_params.testAttribDivisor)
+		{
+			const vk::VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT& vertexAttributeDivisorFeatures = context.getVertexAttributeDivisorFeatures();
+			if (!vk::isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_vertex_attribute_divisor"))
+				TCU_THROW(NotSupportedError, "Implementation does not support VK_EXT_vertex_attribute_divisor");
+
+			if (m_params.attribDivisor != 1 && !vertexAttributeDivisorFeatures.vertexAttributeInstanceRateDivisor)
+				TCU_THROW(NotSupportedError, "Implementation does not support vertexAttributeInstanceRateDivisor");
+
+			if (m_params.attribDivisor == 0 && !vertexAttributeDivisorFeatures.vertexAttributeInstanceRateZeroDivisor)
+				TCU_THROW(NotSupportedError, "Implementation does not support vertexAttributeInstanceRateDivisorZero");
+		}
+
 		return new InstancedDrawInstance(context, m_params);
 	}
 
@@ -311,7 +333,7 @@ InstancedDrawInstance::InstancedDrawInstance(Context &context, TestParams params
 	const ImageCreateInfo targetImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_colorAttachmentFormat, targetImageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT,
 		vk::VK_IMAGE_TILING_OPTIMAL, vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-	m_colorTargetImage						= Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator());
+	m_colorTargetImage						= Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 	const ImageViewCreateInfo colorTargetViewInfo(m_colorTargetImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, m_colorAttachmentFormat);
 	m_colorTargetView						= vk::createImageView(m_vk, device, &colorTargetViewInfo);
@@ -393,6 +415,14 @@ InstancedDrawInstance::InstancedDrawInstance(Context &context, TestParams params
 															  DE_LENGTH_OF_ARRAY(vertexInputAttributeDescriptions),
 															  vertexInputAttributeDescriptions);
 
+	const vk::VkVertexInputBindingDivisorDescriptionEXT vertexInputBindingDivisorDescription =
+	{
+		1u,
+		m_params.attribDivisor,
+	};
+	if (m_params.testAttribDivisor)
+		m_vertexInputState.addDivisors(1, &vertexInputBindingDivisorDescription);
+
 	const CmdPoolCreateInfo cmdPoolCreateInfo(queueFamilyIndex);
 	m_cmdPool = vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
 
@@ -403,19 +433,8 @@ InstancedDrawInstance::InstancedDrawInstance(Context &context, TestParams params
 
 	const PipelineCreateInfo::ColorBlendState::Attachment vkCbAttachmentState;
 
-	vk::VkViewport viewport;
-	viewport.x				= 0;
-	viewport.y				= 0;
-	viewport.width			= static_cast<float>(WIDTH);
-	viewport.height			= static_cast<float>(HEIGHT);
-	viewport.minDepth		= 0.0f;
-	viewport.maxDepth		= 1.0f;
-
-	vk::VkRect2D scissor;
-	scissor.offset.x		= 0;
-	scissor.offset.y		= 0;
-	scissor.extent.width	= WIDTH;
-	scissor.extent.height	= HEIGHT;
+	vk::VkViewport	viewport	= vk::makeViewport(WIDTH, HEIGHT);
+	vk::VkRect2D	scissor		= vk::makeRect2D(WIDTH, HEIGHT);
 
 	PipelineCreateInfo pipelineCreateInfo(*m_pipelineLayout, *m_renderPass, 0, 0);
 	pipelineCreateInfo.addShader(PipelineCreateInfo::PipelineShaderStage(*vs, "main", vk::VK_SHADER_STAGE_VERTEX_BIT));
@@ -434,13 +453,13 @@ InstancedDrawInstance::InstancedDrawInstance(Context &context, TestParams params
 tcu::TestStatus InstancedDrawInstance::iterate()
 {
 	const vk::VkQueue		queue					= m_context.getUniversalQueue();
+	const vk::VkDevice		device					= m_context.getDevice();
 	static const deUint32	instanceCounts[]		= { 0, 1, 2, 4, 20 };
 	static const deUint32	firstInstanceIndices[]	= { 0, 1, 3, 4, 20 };
 
 	qpTestResult			res						= QP_TEST_RESULT_PASS;
 
 	const vk::VkClearColorValue clearColor = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-	const CmdBufferBeginInfo beginInfo;
 	int firstInstanceIndicesCount = 1;
 
 	// Require 'drawIndirectFirstInstance' feature to run non-zero firstInstance indirect draw tests.
@@ -456,14 +475,15 @@ tcu::TestStatus InstancedDrawInstance::iterate()
 			const deUint32				prepareCount			= de::max(instanceCount, 1u);
 			const deUint32				firstInstance			= firstInstanceIndices[firstInstanceIndexNdx];
 
-			prepareVertexData(prepareCount, firstInstance);
+			prepareVertexData(prepareCount, firstInstance, m_params.testAttribDivisor ? m_params.attribDivisor : 1);
 			const de::SharedPtr<Buffer>	vertexBuffer			= createAndUploadBuffer(m_data, m_vk, m_context, vk::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 			const de::SharedPtr<Buffer>	instancedVertexBuffer	= createAndUploadBuffer(m_instancedColor, m_vk, m_context, vk::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 			de::SharedPtr<Buffer>		indexBuffer;
 			de::SharedPtr<Buffer>		indirectBuffer;
-			m_vk.beginCommandBuffer(*m_cmdBuffer, &beginInfo);
+			beginCommandBuffer(m_vk, *m_cmdBuffer, 0u);
 
-			initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL);
+			initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+										  vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 			const ImageSubresourceRange subresourceRange(vk::VK_IMAGE_ASPECT_COLOR_BIT);
 			m_vk.cmdClearColorImage(*m_cmdBuffer, m_colorTargetImage->object(),
@@ -481,10 +501,8 @@ tcu::TestStatus InstancedDrawInstance::iterate()
 				vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
-			const vk::VkRect2D renderArea = { { 0, 0 }, { WIDTH, HEIGHT } };
-			const RenderPassBeginInfo renderPassBegin(*m_renderPass, *m_framebuffer, renderArea);
-
-			m_vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+			const vk::VkRect2D renderArea = vk::makeRect2D(WIDTH, HEIGHT);
+			beginRenderPass(m_vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, renderArea);
 
 			if (m_params.function == TestParams::FUNCTION_DRAW_INDEXED || m_params.function == TestParams::FUNCTION_DRAW_INDEXED_INDIRECT)
 			{
@@ -558,24 +576,10 @@ tcu::TestStatus InstancedDrawInstance::iterate()
 					DE_ASSERT(false);
 			}
 
-			m_vk.cmdEndRenderPass(*m_cmdBuffer);
-			m_vk.endCommandBuffer(*m_cmdBuffer);
+			endRenderPass(m_vk, *m_cmdBuffer);
+			endCommandBuffer(m_vk, *m_cmdBuffer);
 
-			vk::VkSubmitInfo submitInfo =
-			{
-				vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType				sType;
-				DE_NULL,									// const void*					pNext;
-				0,											// deUint32						waitSemaphoreCount;
-				DE_NULL,									// const VkSemaphore*			pWaitSemaphores;
-				(const vk::VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask;
-				1,											// deUint32						commandBufferCount;
-				&m_cmdBuffer.get(),							// const VkCommandBuffer*		pCommandBuffers;
-				0,											// deUint32						signalSemaphoreCount;
-				DE_NULL										// const VkSemaphore*			pSignalSemaphores;
-			};
-			VK_CHECK(m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL));
-
-			VK_CHECK(m_vk.queueWaitIdle(queue));
+			submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 			// Reference rendering
 			std::vector<tcu::Vec4>	vetrices;
@@ -603,7 +607,8 @@ tcu::TestStatus InstancedDrawInstance::iterate()
 			{
 				rr::VertexAttrib(rr::VERTEXATTRIBTYPE_FLOAT, 4, sizeof(tcu::Vec4), 0, &vetrices[0]),
 				rr::VertexAttrib(rr::VERTEXATTRIBTYPE_FLOAT, 4, sizeof(tcu::Vec4), 0, &colors[0]),
-				rr::VertexAttrib(rr::VERTEXATTRIBTYPE_FLOAT, 4, sizeof(tcu::Vec4), 1, &m_instancedColor[0])
+				// The reference renderer treats a divisor of 0 as meaning per-vertex.  Use INT_MAX instead; it should work just as well.
+				rr::VertexAttrib(rr::VERTEXATTRIBTYPE_FLOAT, 4, sizeof(tcu::Vec4), m_params.testAttribDivisor ? (m_params.attribDivisor == 0 ? INT_MAX : m_params.attribDivisor) : 1, &m_instancedColor[0])
 			};
 
 			if (m_params.function == TestParams::FUNCTION_DRAW || m_params.function == TestParams::FUNCTION_DRAW_INDIRECT)
@@ -654,7 +659,7 @@ tcu::TestStatus InstancedDrawInstance::iterate()
 	return tcu::TestStatus(res, qpGetTestResultName(res));
 }
 
-void InstancedDrawInstance::prepareVertexData(int instanceCount, int firstInstance)
+void InstancedDrawInstance::prepareVertexData(int instanceCount, int firstInstance, int instanceDivisor)
 {
 	m_data.clear();
 	m_indexes.clear();
@@ -719,9 +724,10 @@ void InstancedDrawInstance::prepareVertexData(int instanceCount, int firstInstan
 		}
 	}
 
+	const int colorCount = instanceDivisor == 0 ? 1 : (instanceCount + firstInstance + instanceDivisor - 1) / instanceDivisor;
 	for (int i = 0; i < instanceCount + firstInstance; i++)
 	{
-		m_instancedColor.push_back(tcu::Vec4(0.0, (float)(1.0 - i * 1.0 / (instanceCount + firstInstance)) / 2, 0.0, 1.0));
+		m_instancedColor.push_back(tcu::Vec4(0.0, (float)(1.0 - i * 1.0 / colorCount) / 2, 0.0, 1.0));
 	}
 }
 
@@ -747,17 +753,31 @@ InstancedTests::InstancedTests(tcu::TestContext& testCtx)
 		TestParams::FUNCTION_DRAW_INDEXED_INDIRECT,
 	};
 
+	static const deUint32 divisors[] = { 0, 1, 2, 4, 20 };
+
 	for (int topologyNdx = 0; topologyNdx < DE_LENGTH_OF_ARRAY(topologies); topologyNdx++)
 	{
 		for (int functionNdx = 0; functionNdx < DE_LENGTH_OF_ARRAY(functions); functionNdx++)
 		{
-			TestParams param;
-			param.function = functions[functionNdx];
-			param.topology = topologies[topologyNdx];
+			for (int testAttribDivisor = 0; testAttribDivisor < 2; testAttribDivisor++)
+			{
+				for (int divisorNdx = 0; divisorNdx < DE_LENGTH_OF_ARRAY(divisors); divisorNdx++)
+				{
+					// If we don't have VK_EXT_vertex_attribute_divisor, we only get a divisor or 1.
+					if (!testAttribDivisor && divisors[divisorNdx] != 1)
+						continue;
 
-			std::string testName = de::toString(param);
+					TestParams param;
+					param.function = functions[functionNdx];
+					param.topology = topologies[topologyNdx];
+					param.testAttribDivisor = testAttribDivisor ? DE_TRUE : DE_FALSE;
+					param.attribDivisor = divisors[divisorNdx];
 
-			addChild(new InstancedDrawCase(m_testCtx, de::toLower(testName), "Instanced drawing test", param));
+					std::string testName = de::toString(param);
+
+					addChild(new InstancedDrawCase(m_testCtx, de::toLower(testName), "Instanced drawing test", param));
+				}
+			}
 		}
 	}
 }

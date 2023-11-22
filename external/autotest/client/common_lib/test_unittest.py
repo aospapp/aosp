@@ -10,7 +10,6 @@ import unittest
 import common
 from autotest_lib.client.common_lib import test
 from autotest_lib.client.common_lib.test_utils import mock
-from autotest_lib.client.common_lib import error as common_lib_error
 
 class TestTestCase(unittest.TestCase):
     class _neutered_base_test(test.base_test):
@@ -95,101 +94,6 @@ class Test_base_test_execute(TestTestCase):
             self.test._call_run_once([], False, None, (1, 2), {'arg': 'val'})
         except:
             pass
-        self.god.check_playback()
-
-
-    def _setup_failed_test_calls(self, fail_count, error):
-        """
-        Set up failed test calls for use with call_run_once_with_retry.
-
-        @param fail_count: The amount of times to mock a failure.
-        @param error: The error to raise while failing.
-        """
-        self.god.stub_function(self.test.job, 'record')
-        self.god.stub_function(self.test, '_call_run_once')
-        # tests the test._call_run_once implementation
-        for run in xrange(0, fail_count):
-            self.test._call_run_once.expect_call([], False, None, (1, 2),
-                                                 {'arg': 'val'}).and_raises(
-                                                          error)
-            info_str = 'Run %s failed with %s' % (run, error)
-            # On the final run we do not emit this message.
-            if run != self.test.job.test_retry and isinstance(error,
-                                               common_lib_error.TestFailRetry):
-                self.test.job.record.expect_call('INFO', None, None, info_str)
-
-
-    def test_call_run_once_with_retry_exception(self):
-        """
-        Test call_run_once_with_retry duplicating a test that will always fail.
-        """
-        self.test.job.test_retry = 5
-        self.god.stub_function(self.test, 'drop_caches_between_iterations')
-        self.god.stub_function(self.test, 'run_once')
-        before_hook = self.god.create_mock_function('before_hook')
-        after_hook = self.god.create_mock_function('after_hook')
-        self.test.register_before_iteration_hook(before_hook)
-        self.test.register_after_iteration_hook(after_hook)
-        error = common_lib_error.TestFailRetry('fail')
-        self._setup_failed_test_calls(self.test.job.test_retry+1, error)
-        try:
-            self.test._call_run_once_with_retry([], False, None, (1, 2),
-                                                {'arg': 'val'})
-        except Exception as err:
-            if err != error:
-                raise
-        self.god.check_playback()
-
-
-    def test_call_run_once_with_retry_exception_unretryable(self):
-        """
-        Test call_run_once_with_retry duplicating a test that will always fail
-        with a non-retryable exception.
-        """
-        self.test.job.test_retry = 5
-        self.god.stub_function(self.test, 'drop_caches_between_iterations')
-        self.god.stub_function(self.test, 'run_once')
-        before_hook = self.god.create_mock_function('before_hook')
-        after_hook = self.god.create_mock_function('after_hook')
-        self.test.register_before_iteration_hook(before_hook)
-        self.test.register_after_iteration_hook(after_hook)
-        error = common_lib_error.TestFail('fail')
-        self._setup_failed_test_calls(1, error)
-        try:
-            self.test._call_run_once_with_retry([], False, None, (1, 2),
-                                                {'arg': 'val'})
-        except Exception as err:
-            if err != error:
-                raise
-        self.god.check_playback()
-
-
-    def test_call_run_once_with_retry_exception_and_pass(self):
-        """
-        Test call_run_once_with_retry duplicating a test that fails at first
-        and later passes.
-        """
-        # Stubbed out for the write_keyval call.
-        self.test.outputdir = '/tmp'
-
-        num_to_fail = 2
-        self.test.job.test_retry = 5
-        self.god.stub_function(self.test, 'drop_caches_between_iterations')
-        self.god.stub_function(self.test, 'run_once')
-        before_hook = self.god.create_mock_function('before_hook')
-        after_hook = self.god.create_mock_function('after_hook')
-        self.god.stub_function(self.test, '_call_run_once')
-        self.test.register_before_iteration_hook(before_hook)
-        self.test.register_after_iteration_hook(after_hook)
-        self.god.stub_function(self.test.job, 'record')
-        # tests the test._call_run_once implementation
-        error = common_lib_error.TestFailRetry('fail')
-        self._setup_failed_test_calls(num_to_fail, error)
-        # Passing call
-        self.test._call_run_once.expect_call([], False, None, (1, 2),
-                                             {'arg': 'val'})
-        self.test._call_run_once_with_retry([], False, None, (1, 2),
-                                            {'arg': 'val'})
         self.god.check_playback()
 
 

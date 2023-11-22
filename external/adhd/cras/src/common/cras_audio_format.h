@@ -124,6 +124,16 @@ static inline size_t cras_get_format_bytes(const struct cras_audio_format *fmt)
 	return (size_t)bytes * fmt->num_channels;
 }
 
+/* Sets channel layout to a default value where channels [0, num_channels] are
+ * placed to the same position of its channel index, otherwise set to -1. */
+static inline void cras_audio_format_set_default_channel_layout(
+		struct cras_audio_format *format)
+{
+	unsigned int i;
+	for (i = 0; i < CRAS_CH_MAX; i++)
+		format->channel_layout[i] = i < format->num_channels ? i : -1;
+}
+
 /* Create an audio format structure. */
 struct cras_audio_format *cras_audio_format_create(snd_pcm_format_t format,
 						   size_t frame_rate,

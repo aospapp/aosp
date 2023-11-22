@@ -130,6 +130,10 @@ if (NOT DEFINED TCUTIL_PLATFORM_SRCS)
 		set(TCUTIL_PLATFORM_SRCS
 			osx/tcuOSXPlatform.cpp
 			osx/tcuOSXPlatform.hpp
+			osx/tcuOSXVulkanPlatform.cpp
+			osx/tcuOSXVulkanPlatform.hpp
+			osx/tcuOSXMetalView.mm
+			osx/tcuOSXMetalView.hpp
 			)
 
 	else ()

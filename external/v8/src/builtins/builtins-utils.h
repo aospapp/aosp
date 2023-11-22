@@ -8,15 +8,11 @@
 #include "src/arguments.h"
 #include "src/base/logging.h"
 #include "src/builtins/builtins.h"
-#include "src/factory.h"
+#include "src/heap/factory.h"
 #include "src/isolate.h"
 
 namespace v8 {
 namespace internal {
-
-namespace compiler {
-class CodeAssemblerState;
-}
 
 // Arguments object passed to C++ builtins.
 class BuiltinArguments : public Arguments {
@@ -38,28 +34,18 @@ class BuiltinArguments : public Arguments {
     return Arguments::at<S>(index);
   }
 
-  Handle<Object> atOrUndefined(Isolate* isolate, int index) {
-    if (index >= length()) {
-      return isolate->factory()->undefined_value();
-    }
-    return at<Object>(index);
-  }
+  static constexpr int kNewTargetOffset = 0;
+  static constexpr int kTargetOffset = 1;
+  static constexpr int kArgcOffset = 2;
+  static constexpr int kPaddingOffset = 3;
 
-  Handle<Object> receiver() { return Arguments::at<Object>(0); }
+  static constexpr int kNumExtraArgs = 4;
+  static constexpr int kNumExtraArgsWithReceiver = 5;
 
-  static const int kNewTargetOffset = 0;
-  static const int kTargetOffset = 1;
-  static const int kArgcOffset = 2;
-  static const int kNumExtraArgs = 3;
-  static const int kNumExtraArgsWithReceiver = 4;
-
-  Handle<JSFunction> target() {
-    return Arguments::at<JSFunction>(Arguments::length() - 1 - kTargetOffset);
-  }
-  Handle<HeapObject> new_target() {
-    return Arguments::at<HeapObject>(Arguments::length() - 1 -
-                                     kNewTargetOffset);
-  }
+  inline Handle<Object> atOrUndefined(Isolate* isolate, int index);
+  inline Handle<Object> receiver();
+  inline Handle<JSFunction> target();
+  inline Handle<HeapObject> new_target();
 
   // Gets the total number of arguments including the receiver (but
   // excluding extra arguments).
@@ -81,19 +67,20 @@ class BuiltinArguments : public Arguments {
 // TODO(cbruni): add global flag to check whether any tracing events have been
 // enabled.
 #define BUILTIN(name)                                                         \
-  MUST_USE_RESULT static Object* Builtin_Impl_##name(BuiltinArguments args,   \
-                                                     Isolate* isolate);       \
+  V8_WARN_UNUSED_RESULT static Object* Builtin_Impl_##name(                   \
+      BuiltinArguments args, Isolate* isolate);                               \
                                                                               \
   V8_NOINLINE static Object* Builtin_Impl_Stats_##name(                       \
       int args_length, Object** args_object, Isolate* isolate) {              \
     BuiltinArguments args(args_length, args_object);                          \
-    RuntimeCallTimerScope timer(isolate, &RuntimeCallStats::Builtin_##name);  \
+    RuntimeCallTimerScope timer(isolate,                                      \
+                                RuntimeCallCounterId::kBuiltin_##name);       \
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("v8.runtime"),                     \
                  "V8.Builtin_" #name);                                        \
     return Builtin_Impl_##name(args, isolate);                                \
   }                                                                           \
                                                                               \
-  MUST_USE_RESULT Object* Builtin_##name(                                     \
+  V8_WARN_UNUSED_RESULT Object* Builtin_##name(                               \
       int args_length, Object** args_object, Isolate* isolate) {              \
     DCHECK(isolate->context() == nullptr || isolate->context()->IsContext()); \
     if (V8_UNLIKELY(FLAG_runtime_stats)) {                                    \
@@ -103,33 +90,8 @@ class BuiltinArguments : public Arguments {
     return Builtin_Impl_##name(args, isolate);                                \
   }                                                                           \
                                                                               \
-  MUST_USE_RESULT static Object* Builtin_Impl_##name(BuiltinArguments args,   \
-                                                     Isolate* isolate)
-
-// ----------------------------------------------------------------------------
-// Support macro for defining builtins with Turbofan.
-// ----------------------------------------------------------------------------
-//
-// A builtin function is defined by writing:
-//
-//   TF_BUILTIN(name, code_assember_base_class) {
-//     ...
-//   }
-//
-// In the body of the builtin function the arguments can be accessed
-// as "Parameter(n)".
-#define TF_BUILTIN(Name, AssemblerBase)                                 \
-  class Name##Assembler : public AssemblerBase {                        \
-   public:                                                              \
-    explicit Name##Assembler(compiler::CodeAssemblerState* state)       \
-        : AssemblerBase(state) {}                                       \
-    void Generate##Name##Impl();                                        \
-  };                                                                    \
-  void Builtins::Generate_##Name(compiler::CodeAssemblerState* state) { \
-    Name##Assembler assembler(state);                                   \
-    assembler.Generate##Name##Impl();                                   \
-  }                                                                     \
-  void Name##Assembler::Generate##Name##Impl()
+  V8_WARN_UNUSED_RESULT static Object* Builtin_Impl_##name(                   \
+      BuiltinArguments args, Isolate* isolate)
 
 // ----------------------------------------------------------------------------
 

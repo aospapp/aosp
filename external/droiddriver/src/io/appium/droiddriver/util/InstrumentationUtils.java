@@ -20,10 +20,13 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Looper;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
 import io.appium.droiddriver.exceptions.DroidDriverException;
 import io.appium.droiddriver.exceptions.TimeoutException;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -43,7 +46,7 @@ public class InstrumentationUtils {
   private static long runOnMainSyncTimeoutMillis;
 
   /**
-   * Initializes this class. If you don't use android.support.test.runner.AndroidJUnitRunner or a
+   * Initializes this class. If you don't use androidx.test.runner.AndroidJUnitRunner or a
    * runner that supports {link InstrumentationRegistry}, you need to call this method
    * appropriately.
    */
@@ -60,7 +63,7 @@ public class InstrumentationUtils {
 
   private static synchronized void checkInitialized() {
     if (instrumentation == null) {
-      // Assume android.support.test.runner.InstrumentationRegistry is valid
+      // Assume androidx.test.runner.InstrumentationRegistry is valid
       init(InstrumentationRegistry.getInstrumentation(), InstrumentationRegistry.getArguments());
     }
   }

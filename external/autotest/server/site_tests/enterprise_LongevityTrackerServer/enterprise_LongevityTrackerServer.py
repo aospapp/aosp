@@ -216,8 +216,8 @@ class enterprise_LongevityTrackerServer(test.test):
                 kiosk_app_attributes=kiosk_app_attributes,
                 check_client_result=True)
 
-        if self.kiosk_app_name == 'riseplayer':
-            self.kiosk_facade.config_rise_player(ext_id, app_config_id)
+        #if self.kiosk_app_name == 'riseplayer':
+        #    self.kiosk_facade.config_rise_player(ext_id, app_config_id)
 
 
     def _run_perf_capture_cycle(self):
@@ -357,7 +357,6 @@ class enterprise_LongevityTrackerServer(test.test):
         time.sleep(STABILIZATION_DURATION)
 
         self._initialize_test_variables()
-
         for iteration in range(self.perf_params['perf_capture_iterations']):
             #TODO(krishnargv@): Add a method to verify that the Kiosk app is
             #                   active and is running on the DUT.
@@ -374,5 +373,4 @@ class enterprise_LongevityTrackerServer(test.test):
                         self.resultsdir, 'results-chart.json')
                 data_obj = self._format_data_for_upload(chart_data)
                 self._send_to_dashboard(data_obj)
-
         tpm_utils.ClearTPMOwnerRequest(self.client)

@@ -54,6 +54,11 @@ class hardware_SsdDetection(test.test):
         if re.search("mmcblk", device):
             return
 
+        type_path = '/sys/block/%s/device/type' % dev[0]
+        type = os.path.realpath(type_path)
+        if re.search("ufs", type):
+            return
+
         hdparm = utils.run('/sbin/hdparm -I %s' % device)
 
         # Check if device is a SSD

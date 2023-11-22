@@ -8,12 +8,6 @@ import os
 import common
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import global_config
-try:
-    # test that imports autoserv_utils for vm_tests
-    from autotest_lib.scheduler import drone_manager
-except ImportError as e:
-    drone_manager = None
-    pass
 
 AUTOTEST_INSTALL_DIR = global_config.global_config.get_config_value('SCHEDULER',
                                                  'drone_installation_directory')
@@ -100,7 +94,6 @@ def autoserv_run_job_command(autoserv_directory, machines,
 
         owner = getattr(job, 'owner', None)
         name = getattr(job, 'name', None)
-        test_retry = getattr(job, 'test_retry', None)
         control_type = getattr(job, 'control_type', None)
 
 
@@ -108,8 +101,6 @@ def autoserv_run_job_command(autoserv_directory, machines,
             command += ['-u', owner]
         if name:
             command += ['-l', name]
-        if test_retry:
-            command += ['--test-retry='+str(test_retry)]
         if control_type is not None: # still want to enter if control_type==0
             control_type_value = control_data.CONTROL_TYPE.get_value(
                     control_type)
@@ -135,30 +126,3 @@ def autoserv_run_job_command(autoserv_directory, machines,
         command.extend(['--lab', 'True'])
 
     return command + extra_args
-
-
-def _autoserv_command_line(machines, extra_args, job=None, queue_entry=None,
-                           verbose=True, in_lab=False, use_virtualenv=False):
-    """
-    @returns The autoserv command line as a list of executable + parameters.
-
-    @param machines - string - A machine or comma separated list of machines
-            for the (-m) flag.
-    @param extra_args - list - Additional arguments to pass to autoserv.
-    @param job - Job object - If supplied, -u owner, -l name, --test-retry,
-            and client -c or server -s parameters will be added.
-    @param queue_entry - A HostQueueEntry object - If supplied and no Job
-            object was supplied, this will be used to lookup the Job object.
-    @param in_lab: If true, informs autoserv it is running within a lab
-                   environment. This information is useful as autoserv knows
-                   the database is available and can make database calls such
-                   as looking up host attributes at runtime.
-    @param use_virtualenv: See autoserv_run_job_command.
-    """
-    if drone_manager is None:
-        raise ImportError('Unable to import drone_manager in autoserv_utils')
-
-    return autoserv_run_job_command(autoserv_directory,
-            machines, results_directory=drone_manager.WORKING_DIRECTORY,
-            extra_args=extra_args, job=job, queue_entry=queue_entry,
-            verbose=verbose, in_lab=in_lab, use_virtualenv=use_virtualenv)

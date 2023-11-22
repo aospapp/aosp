@@ -9,7 +9,7 @@ CRITERIA = """
 This test will fail if, after playback of touch events, taps do not appear
 on test page.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
+ATTRIBUTES = "suite:touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

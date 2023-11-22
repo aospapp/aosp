@@ -28,11 +28,11 @@ class webm(object):
         options += ' --disable-docs'
         options += ' --disable-runtime-cpu-detect'
         if arch == 'armv7l':
-            def_flag(flags, 'CC', 'armv7a-cros-linux-gnueabi-gcc')
-            def_flag(flags, 'CXX', 'armv7a-cros-linux-gnueabi-g++')
-            def_flag(flags, 'LD', 'armv7a-cros-linux-gnueabi-g++')
-            def_flag(flags, 'AR', 'armv7a-cros-linux-gnueabi-ar')
-            def_flag(flags, 'AS', 'armv7a-cros-linux-gnueabi-as')
+            def_flag(flags, 'CC', 'armv7a-cros-linux-gnueabihf-gcc')
+            def_flag(flags, 'CXX', 'armv7a-cros-linux-gnueabihf-g++')
+            def_flag(flags, 'LD', 'armv7a-cros-linux-gnueabihf-g++')
+            def_flag(flags, 'AR', 'armv7a-cros-linux-gnueabihf-ar')
+            def_flag(flags, 'AS', 'armv7a-cros-linux-gnueabihf-as')
             options += ' --target=armv7-linux-gcc'
         elif arch == 'x86_64':
             def_flag(flags, 'CC', 'x86_64-cros-linux-gnu-gcc')

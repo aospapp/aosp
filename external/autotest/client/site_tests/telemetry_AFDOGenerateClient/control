@@ -10,7 +10,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "Chrome AFDO"
 TEST_TYPE = "client"
-RETRIES = 1
+JOB_RETRIES = 1
 
 DOC = """
 Run a pre-defined set of pages for the DUT for Chrome profile collection.

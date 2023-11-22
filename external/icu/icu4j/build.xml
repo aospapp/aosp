@@ -57,7 +57,7 @@
     <property name="icu4j.api.doc.window.title" value="ICU4J ${api.doc.version}"/>
     <property name="icu4j.api.doc.header" value="ICU4J ${api.doc.version}"/>
 
-    <property name="icu4j.api.doc.jdk.link" value="http://docs.oracle.com/javase/8/docs/api/"/>
+    <property name="icu4j.api.doc.jdk.link" value="https://docs.oracle.com/javase/8/docs/api/"/>
     <property name="icu4j.api.doc.copyright.footer" value="&lt;font size=-1&gt;Copyright &#x00A9; 2016 Unicode, Inc. and others.&lt;/font&gt;"/>
 
     <!-- API docs for maven repo -->
@@ -86,10 +86,6 @@
     <property name="external-jars" value="lib"/>
 
     <!-- Java version check -->
-    <condition property="is.java6">
-        <matches string="${java.version}" pattern="1\.6\.\d.*"/>
-    </condition>
-
     <condition property="is.java7">
         <matches string="${java.version}" pattern="1\.7\.\d.*"/>
     </condition>
@@ -102,10 +98,25 @@
         <matches string="${java.version}" pattern="9((-.|\.\d).*)?"/>
     </condition>
 
+    <condition property="is.java10">
+        <matches string="${java.version}" pattern="10((-.|\.\d).*)?"/>
+    </condition>
+
+    <condition property="is.java11">
+        <matches string="${java.version}" pattern="11((-.|\.\d).*)?"/>
+    </condition>
+
+    <condition property="is.java12">
+        <matches string="${java.version}" pattern="12((-.|\.\d).*)?"/>
+    </condition>
+
     <condition property="is.java8.plus">
         <or>
             <isset property="is.java8"/>
             <isset property="is.java9"/>
+            <isset property="is.java10"/>
+            <isset property="is.java11"/>
+            <isset property="is.java12"/>
         </or>
     </condition>
 
@@ -116,16 +127,10 @@
         </or>
     </condition>
 
-    <condition property="is.java6.plus">
-        <or>
-            <isset property="is.java6"/>
-            <isset property="is.java7.plus"/>
-        </or>
-    </condition>
     <fail message="The JDK version is too old or unknown.">
         <condition>
             <not>
-                <isset property="is.java6.plus"/>
+                <isset property="is.java7.plus"/>
             </not>
         </condition>
     </fail>
@@ -645,7 +650,7 @@
         </icu-junit>
     </target>
 
-    <target name="localespiCheck" if="is.java6.plus" depends="info, localespi, localespi-tests" description="Run the ICU4J Locale SPI test suite">
+    <target name="localespiCheck" depends="info, localespi, localespi-tests" description="Run the ICU4J Locale SPI test suite">
         <antcall target="_localespiCheck"/>
         <fail message="test failed" if="icu-junit-failure" />
     </target>
@@ -735,7 +740,7 @@
         <condition property="release.build.config.ok">
             <and>
                 <isset property="is.java8"/>
-                <isset property="java6.bootclasspath"/>
+                <isset property="java7.bootclasspath"/>
                 <isset property="jcite.libs"/>
             </and>
         </condition>
@@ -745,8 +750,8 @@
         <condition property="disp.is.java8" value="${java.version}" else="${java.version} - Must be 1.8!">
             <isset property="is.java8"/>
         </condition>
-        <condition property="disp.java6.bootclasspath" value="${java6.bootclasspath}" else="Not Defined!">
-            <isset property="java6.bootclasspath"/>
+        <condition property="disp.java7.bootclasspath" value="${java7.bootclasspath}" else="Not Defined!">
+            <isset property="java7.bootclasspath"/>
         </condition>
         <condition property="disp.jcite.libs" value="${jcite.libs}" else="Not Defined!">
             <isset property="jcite.libs"/>
@@ -754,8 +759,8 @@
 
         <echo message="################################################################"/>
         <echo message="[WARNING] Insufficient Build Configuration for ICU4J Release"/>
-        <echo message="JDK Tools Version:              ${disp.is.java8}"/>
-        <echo message="JRE 6 System Library Path:      ${disp.java6.bootclasspath}"/>
+        <echo message="JDK 8 Tools:                    ${disp.is.java8}"/>
+        <echo message="JRE 7 System Library Path:      ${disp.java7.bootclasspath}"/>
         <echo message="JCite Library Path:             ${disp.jcite.libs}"/>
         <echo message="################################################################"/>
     </target>
@@ -1177,11 +1182,7 @@
         <ant dir="${icu4j.langdata.dir}" inheritAll="false"/>
     </target>
 
-    <target name="localespi" if="is.java6.plus" description="Build Locale SPI classes">
-        <antcall target="_build-localespi"/>
-    </target>
-
-    <target name="_build-localespi" depends="core, collate, currdata, langdata, regiondata">
+    <target name="localespi" depends="core, collate, currdata, langdata, regiondata" description="Build Locale SPI classes">
         <ant dir="${icu4j.localespi.dir}" inheritAll="false"/>
     </target>
 
@@ -1217,11 +1218,7 @@
         </ant>
     </target>
 
-    <target name="localespi-tests" if="is.java6.plus" description="Build Locale SPI tests">
-        <antcall target="_build-localespi-tests"/>
-    </target>
-
-    <target name="_build-localespi-tests" depends="localespi, test-framework">
+    <target name="localespi-tests" depends="localespi, test-framework" description="Build Locale SPI tests">
         <ant dir="${icu4j.localespi-tests.dir}" inheritAll="false">
             <reference refid="junit.jars"/>
         </ant>
@@ -1255,7 +1252,7 @@
         <ant dir="${icu4j.tools.dir}" inheritAll="false"/>
     </target>
 
-    <target name="perf-tests" if="is.java6.plus" depends="core, charset, collate, tools" description="Build performance test classes">
+    <target name="perf-tests" depends="core, charset, collate, tools" description="Build performance test classes">
         <ant dir="${icu4j.perf-tests.dir}" inheritAll="false"/>
     </target>
 
@@ -1285,9 +1282,6 @@
     </target>
 
     <target name="_docsStyleSheet">
-        <condition property="docs.style.sheet" value="stylesheet6.css">
-            <isset property="is.java6"/>
-        </condition>
         <condition property="docs.style.sheet" value="stylesheet7.css">
             <isset property="is.java7"/>
         </condition>
@@ -1319,7 +1313,7 @@
                 bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
                 link="${icu4j.api.doc.jdk.link}"
-                source="1.5"
+                source="1.7"
                 stylesheetfile="${docs.style.sheet}"
                 failonerror="true">
             <packageset dir="${icu4j.core.dir}/src">
@@ -1355,7 +1349,7 @@
                 bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet"
                 link="${icu4j.api.doc.jdk.link}"
-                source="1.5"
+                source="1.7"
                 failonerror="true">
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
@@ -1400,7 +1394,7 @@
                 bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
                 link="${icu4j.api.doc.jdk.link}"
-                source="1.5"
+                source="1.7"
                 stylesheetfile="${docs.style.sheet}"
                 failonerror="true">
             <packageset dir="${icu4j.core.dir}/src">
@@ -1439,7 +1433,7 @@
                 bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
                 link="${icu4j.api.doc.jdk.link}"
-                source="1.5"
+                source="1.7"
                 stylesheetfile="${docs.style.sheet}"
                 failonerror="true"
                 classpath="${icu4j.jar.file}">
@@ -1466,7 +1460,7 @@
                 bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use"
                 link="${icu4j.api.doc.jdk.link}"
-                source="1.5"
+                source="1.7"
                 failonerror="true"
                 classpath="${icu4j.jar.file}">
             <packageset dir="${icu4j.localespi.dir}/src">
@@ -1605,8 +1599,8 @@
 
     <!-- Release management targets -->
     <target name="checktags" depends="info, build-tools" description="Check API tags before release">
-        <javadoc source="1.6"
-                 bootclasspath="${java6.bootclasspath}"
+        <javadoc source="1.7"
+                 bootclasspath="${java7.bootclasspath}"
                  encoding="${java.src.encoding}">
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
@@ -1627,8 +1621,8 @@
 
     <target name="gatherapi" depends="info, build-tools" description="Run API database generator tool">
         <mkdir dir="${out.dir}"/>
-        <javadoc source="1.6"
-                 bootclasspath="${java6.bootclasspath}"
+        <javadoc source="1.7"
+                 bootclasspath="${java7.bootclasspath}"
                  encoding="${java.src.encoding}">
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
@@ -1673,8 +1667,8 @@
 
     <target name="gatherapiOld" depends="info, build-tools" description="Run API database generator tool (Pre Java 5 style)">
         <mkdir dir="${out.dir}"/>
-        <javadoc source="1.6"
-                 bootclasspath="${java6.bootclasspath}"
+        <javadoc source="1.7"
+                 bootclasspath="${java7.bootclasspath}"
                  encoding="${java.src.encoding}">
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
@@ -1735,7 +1729,33 @@
         </java>
     </target>
 
-    <target name="draftAPIs" depends="info, gatherapi" description="Run API collector tool and generate draft API report">
+    <target name="checkAPIStatusConsistency" depends="info, build-tools, gatherapi"
+        description="Check consistency between API class status and methods overriding java.lang.Object">
+        <!--
+            If you need classes excluded from this check, define followig property in build-local.properties.
+            e.g. checkAPIStatusConsistency.skip.classes=com.ibm.icu.text.Normalizer;com.ibm.icu.util.ULocale
+        -->
+        <property name="checkAPIStatusConsistency.skip.classes" value=""/>
+        <java classname="com.ibm.icu.dev.tool.docs.APIStatusConsistencyChecker"
+                failonerror="true">
+            <arg value="${out.dir}/icu4j${api.report.version}.api3.gz" />
+            <arg value="${checkAPIStatusConsistency.skip.classes}" />
+            <classpath>
+                <pathelement location="${icu4j.build-tools.jar}"/>
+                <pathelement location="${icu4j.core.jar}"/>
+                <pathelement location="${icu4j.collate.jar}"/>
+                <pathelement location="${icu4j.charset.jar}"/>
+                <pathelement location="${icu4j.currdata.jar}"/>
+                <pathelement location="${icu4j.langdata.jar}"/>
+                <pathelement location="${icu4j.regiondata.jar}"/>
+                <pathelement location="${icu4j.translit.jar}"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="checkAPIStatus" depends="checkAPIStatusConsistency, checkDeprecated"/>
+
+    <target name="draftAPIs" depends="info, gatherapi" description="Run API collector tool and generate draft API report in html">
         <java classname="com.ibm.icu.dev.tool.docs.CollectAPI"
                 classpath="${icu4j.build-tools.jar}"
                 failonerror="true">
@@ -1743,6 +1763,19 @@
             <arg value="Draft"/>
             <arg value="-o"/>
             <arg value="${out.dir}/draftAPIs.html"/>
+            <arg value="${out.dir}/icu4j${api.report.version}.api3.gz" />
+        </java>
+    </target>
+
+    <target name="draftAPIsTSV" depends="info, gatherapi" description="Run API collector tool and generate draft API report in TSV">
+        <java classname="com.ibm.icu.dev.tool.docs.CollectAPI"
+                classpath="${icu4j.build-tools.jar}"
+                failonerror="true">
+            <arg value="-f"/>
+            <arg value="Draft"/>
+            <arg value="-o"/>
+            <arg value="${out.dir}/draftAPIs.tsv"/>
+            <arg value="-t"/>
             <arg value="${out.dir}/icu4j${api.report.version}.api3.gz" />
         </java>
     </target>

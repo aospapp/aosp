@@ -8,6 +8,7 @@ import re
 import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 
 
@@ -32,7 +33,7 @@ class WpaCliProxy(object):
     ANDROID_CMD_FORMAT = '/system/bin/wpa_cli IFNAME={0[ifname]} {0[cmd]}'
     BRILLO_CMD_FORMAT = 'su system /system/bin/wpa_cli -i{0[ifname]} -p/data/misc/wifi/sockets {0[cmd]}'
     CROS_CMD_FORMAT = 'su wpa -s /bin/bash -c "/usr/bin/wpa_cli {0[cmd]}"'
-    CAST_CMD_FORMAT = '/system/bin/wpa_cli {0[cmd]}'
+    CAST_CMD_FORMAT = '/system/bin/wpa_cli -i {0[ifname]} {0[cmd]}'
 
 
     def __init__(self, host, wifi_if):
@@ -144,31 +145,6 @@ class WpaCliProxy(object):
         status_dict = self._get_status_dict()
         return (status_dict.get('ssid', None) == ssid and
                 status_dict.get('ip_address', None))
-
-
-    def _wait_until(self, value_check, timeout_seconds):
-        """
-        Call a function repeatedly until we time out.
-
-        Call value_check() every POLLING_INTERVAL_SECONDS seconds
-        until |timeout_seconds| have passed.  Return whether
-        value_check() returned a True value and the time we spent in this
-        function.
-
-        @param timeout_seconds numeric: number of seconds to wait.
-        @return a tuple (success, duration_seconds) where success is a boolean
-                and duration is a float.
-
-        """
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            duration = time.time() - start_time
-            if value_check():
-                return (True, duration)
-
-            time.sleep(self.POLLING_INTERVAL_SECONDS)
-        duration = time.time() - start_time
-        return (False, duration)
 
 
     def clean_profiles(self):
@@ -313,17 +289,25 @@ class WpaCliProxy(object):
             return assoc_result.serialize()
 
         # Wait on association to finish.
-        success, assoc_result.association_time = self._wait_until(
-                lambda: self._is_associated(assoc_params.ssid),
-                assoc_params.association_timeout)
+        start_time = time.time()
+        success = utils.poll_for_condition(
+                condition=lambda: self._is_associated(assoc_params.ssid),
+                timeout=assoc_params.association_timeout,
+                sleep_interval=self.POLLING_INTERVAL_SECONDS,
+                desc='Wait on association to finish')
+        assoc_result.association_time = time.time() - start_time
         if not success:
             assoc_result.failure_reason = 'Association timed out'
             return assoc_result.serialize()
 
         # Then wait for ip configuration to finish.
-        success, assoc_result.configuration_time = self._wait_until(
-                lambda: self._is_connected(assoc_params.ssid),
-                assoc_params.configuration_timeout)
+        start_time = time.time()
+        success = utils.poll_for_condition(
+                condition=lambda: self._is_connected(assoc_params.ssid),
+                timeout=assoc_params.configuration_timeout,
+                sleep_interval=self.POLLING_INTERVAL_SECONDS,
+                desc='Wait for ip configuration to finish')
+        assoc_result.configuration_time = time.time() - start_time
         if not success:
             assoc_result.failure_reason = 'DHCP negotiation timed out'
             return assoc_result.serialize()

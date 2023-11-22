@@ -11,9 +11,9 @@ TEST_CLASS = "video"
 TEST_TYPE = "client"
 
 DOC = """
-This test measures the power consumption of WebRTC locally and does not have
-suite. The test needs RPM to run on a bot and the control files are in server
-side.
+This test is redundant with respect to calls made within server test
+video_PowerConsumption.
+This control file is to measure the power consumption of WebRTC locally.
 """
 
 job.run_test("video_WebRtcPerf",

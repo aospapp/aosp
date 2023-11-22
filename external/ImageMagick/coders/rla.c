@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -204,7 +204,7 @@ static Image *ReadRLAImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
-  (void) ResetMagickMemory(&rla_info,0,sizeof(rla_info));
+  (void) memset(&rla_info,0,sizeof(rla_info));
   rla_info.window.left=(short) ReadBlobMSBShort(image);
   rla_info.window.right=(short) ReadBlobMSBShort(image);
   rla_info.window.bottom=(short) ReadBlobMSBShort(image);
@@ -216,37 +216,43 @@ static Image *ReadRLAImage(const ImageInfo *image_info,ExceptionInfo *exception)
   rla_info.frame=(short) ReadBlobMSBShort(image);
   rla_info.storage_type=(short) ReadBlobMSBShort(image);
   rla_info.number_channels=(short) ReadBlobMSBShort(image);
+  if (rla_info.number_channels < 0)
+    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   rla_info.number_matte_channels=(short) ReadBlobMSBShort(image);
+  if (rla_info.number_matte_channels < 0)
+    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+  if ((rla_info.number_channels > 3) || (rla_info.number_matte_channels > 3))
+    ThrowReaderException(CoderError,"Unsupported number of channels");
   if (rla_info.number_channels == 0)
     rla_info.number_channels=3;
   rla_info.number_channels+=rla_info.number_matte_channels;
   rla_info.number_auxiliary_channels=(short) ReadBlobMSBShort(image);
   rla_info.revision=(short) ReadBlobMSBShort(image);
-  count=ReadBlob(image,16,(unsigned char *) rla_info.gamma);
-  count=ReadBlob(image,24,(unsigned char *) rla_info.red_primary);
-  count=ReadBlob(image,24,(unsigned char *) rla_info.green_primary);
-  count=ReadBlob(image,24,(unsigned char *) rla_info.blue_primary);
-  count=ReadBlob(image,24,(unsigned char *) rla_info.white_point);
+  (void) ReadBlob(image,16,(unsigned char *) rla_info.gamma);
+  (void) ReadBlob(image,24,(unsigned char *) rla_info.red_primary);
+  (void) ReadBlob(image,24,(unsigned char *) rla_info.green_primary);
+  (void) ReadBlob(image,24,(unsigned char *) rla_info.blue_primary);
+  (void) ReadBlob(image,24,(unsigned char *) rla_info.white_point);
   rla_info.job_number=ReadBlobMSBSignedLong(image);
-  count=ReadBlob(image,128,(unsigned char *) rla_info.name);
-  count=ReadBlob(image,128,(unsigned char *) rla_info.description);
+  (void) ReadBlob(image,128,(unsigned char *) rla_info.name);
+  (void) ReadBlob(image,128,(unsigned char *) rla_info.description);
   rla_info.description[127]='\0';
-  count=ReadBlob(image,64,(unsigned char *) rla_info.program);
-  count=ReadBlob(image,32,(unsigned char *) rla_info.machine);
-  count=ReadBlob(image,32,(unsigned char *) rla_info.user);
-  count=ReadBlob(image,20,(unsigned char *) rla_info.date);
-  count=ReadBlob(image,24,(unsigned char *) rla_info.aspect);
-  count=ReadBlob(image,8,(unsigned char *) rla_info.aspect_ratio);
-  count=ReadBlob(image,32,(unsigned char *) rla_info.chan);
+  (void) ReadBlob(image,64,(unsigned char *) rla_info.program);
+  (void) ReadBlob(image,32,(unsigned char *) rla_info.machine);
+  (void) ReadBlob(image,32,(unsigned char *) rla_info.user);
+  (void) ReadBlob(image,20,(unsigned char *) rla_info.date);
+  (void) ReadBlob(image,24,(unsigned char *) rla_info.aspect);
+  (void) ReadBlob(image,8,(unsigned char *) rla_info.aspect_ratio);
+  (void) ReadBlob(image,32,(unsigned char *) rla_info.chan);
   rla_info.field=(short) ReadBlobMSBShort(image);
-  count=ReadBlob(image,12,(unsigned char *) rla_info.time);
-  count=ReadBlob(image,32,(unsigned char *) rla_info.filter);
+  (void) ReadBlob(image,12,(unsigned char *) rla_info.time);
+  (void) ReadBlob(image,32,(unsigned char *) rla_info.filter);
   rla_info.bits_per_channel=(short) ReadBlobMSBShort(image);
   rla_info.matte_type=(short) ReadBlobMSBShort(image);
   rla_info.matte_bits=(short) ReadBlobMSBShort(image);
   rla_info.auxiliary_type=(short) ReadBlobMSBShort(image);
   rla_info.auxiliary_bits=(short) ReadBlobMSBShort(image);
-  count=ReadBlob(image,32,(unsigned char *) rla_info.auxiliary);
+  (void) ReadBlob(image,32,(unsigned char *) rla_info.auxiliary);
   count=ReadBlob(image,36,(unsigned char *) rla_info.space);
   if ((size_t) count != 36)
     ThrowReaderException(CorruptImageError,"UnableToReadImageData");
@@ -279,6 +285,11 @@ static Image *ReadRLAImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   for (i=0; i < (ssize_t) image->rows; i++)
     scanlines[i]=(MagickOffsetType) ReadBlobMSBSignedLong(image);
+  if (EOFBlob(image) != MagickFalse)
+    {
+      scanlines=(MagickOffsetType *) RelinquishMagickMemory(scanlines);
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   /*
     Read image data.
   */
@@ -287,7 +298,10 @@ static Image *ReadRLAImage(const ImageInfo *image_info,ExceptionInfo *exception)
   {
     offset=SeekBlob(image,scanlines[image->rows-y-1],SEEK_SET);
     if (offset < 0)
-      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+      {
+        scanlines=(MagickOffsetType *) RelinquishMagickMemory(scanlines);
+        ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+      }
     for (channel=0; channel < (int) rla_info.number_channels; channel++)
     {
       length=ReadBlobMSBSignedShort(image);
@@ -382,15 +396,17 @@ static Image *ReadRLAImage(const ImageInfo *image_info,ExceptionInfo *exception)
         while (runlength > 0);
       }
     }
+    if (EOFBlob(image) != MagickFalse)
+      break;
     status=SetImageProgress(image,LoadImageTag,(MagickOffsetType) y,
       image->rows);
     if (status == MagickFalse)
       break;
   }
+  scanlines=(MagickOffsetType *) RelinquishMagickMemory(scanlines);
   if (EOFBlob(image) != MagickFalse)
     ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",
       image->filename);
-  scanlines=(MagickOffsetType *) RelinquishMagickMemory(scanlines);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
 }
@@ -426,7 +442,7 @@ ModuleExport size_t RegisterRLAImage(void)
   entry=AcquireMagickInfo("RLA","RLA","Alias/Wavefront image");
   entry->decoder=(DecodeImageHandler *) ReadRLAImage;
   entry->flags^=CoderAdjoinFlag;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

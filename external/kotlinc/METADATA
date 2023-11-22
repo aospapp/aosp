@@ -1,7 +1,5 @@
 name: "kotlinc"
-description:
-    "Standalone Kotlin command-line compiler tools."
-
+description: "Standalone Kotlin command-line compiler tools."
 third_party {
   url {
     type: HOMEPAGE
@@ -9,13 +7,17 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/JetBrains/kotlin/releases/download/v1.2.30/kotlin-compiler-1.2.30.zip"
+    value: "https://github.com/JetBrains/kotlin/releases/download/v1.3.21/kotlin-compiler-1.3.21.zip"
   }
   url {
     type: ARCHIVE
     value: "https://github.com/JetBrains/intellij-community/raw/171/lib/src/trove4j_src.jar"
   }
-  version: "1.2.30"
-  last_upgrade_date { year: 2018 month: 3 day: 06 }
+  version: "v1.3.21"
   license_type: RECIPROCAL
+  last_upgrade_date {
+    year: 2019
+    month: 2
+    day: 6
+  }
 }

@@ -1,5 +1,5 @@
 /* Return the next data element from the section after possibly converting it.
-   Copyright (C) 1998-2005, 2006, 2007, 2015 Red Hat, Inc.
+   Copyright (C) 1998-2005, 2006, 2007, 2015, 2016 Red Hat, Inc.
    This file is part of elfutils.
    Written by Ulrich Drepper <drepper@redhat.com>, 1998.
 
@@ -50,10 +50,8 @@
       : 0))
 
 /* Associate section types with libelf types.  */
-static const Elf_Type shtype_map[EV_NUM - 1][TYPEIDX (SHT_HISUNW) + 1] =
+static const Elf_Type shtype_map[TYPEIDX (SHT_HISUNW) + 1] =
   {
-    [EV_CURRENT - 1] =
-    {
       [SHT_SYMTAB] = ELF_T_SYM,
       [SHT_RELA] = ELF_T_RELA,
       [SHT_HASH] = ELF_T_WORD,
@@ -65,7 +63,7 @@ static const Elf_Type shtype_map[EV_NUM - 1][TYPEIDX (SHT_HISUNW) + 1] =
       [SHT_PREINIT_ARRAY] = ELF_T_ADDR,
       [SHT_GROUP] = ELF_T_WORD,
       [SHT_SYMTAB_SHNDX] = ELF_T_WORD,
-      [SHT_NOTE] = ELF_T_NHDR,
+      [SHT_NOTE] = ELF_T_NHDR, /* Need alignment to guess ELF_T_NHDR8.  */
       [TYPEIDX (SHT_GNU_verdef)] = ELF_T_VDEF,
       [TYPEIDX (SHT_GNU_verneed)] = ELF_T_VNEED,
       [TYPEIDX (SHT_GNU_versym)] = ELF_T_HALF,
@@ -73,12 +71,10 @@ static const Elf_Type shtype_map[EV_NUM - 1][TYPEIDX (SHT_HISUNW) + 1] =
       [TYPEIDX (SHT_SUNW_move)] = ELF_T_MOVE,
       [TYPEIDX (SHT_GNU_LIBLIST)] = ELF_T_LIB,
       [TYPEIDX (SHT_GNU_HASH)] = ELF_T_GNUHASH,
-    }
   };
 
-#if !ALLOW_UNALIGNED
 /* Associate libelf types with their internal alignment requirements.  */
-const uint_fast8_t __libelf_type_aligns[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] =
+const uint_fast8_t __libelf_type_aligns[ELFCLASSNUM - 1][ELF_T_NUM] =
   {
 # define TYPE_ALIGNS(Bits)						      \
     {									      \
@@ -107,20 +103,17 @@ const uint_fast8_t __libelf_type_aligns[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] 
       [ELF_T_GNUHASH] = __alignof__ (Elf32_Word),			      \
       [ELF_T_AUXV] = __alignof__ (ElfW2(Bits,auxv_t)),			      \
       [ELF_T_CHDR] = __alignof__ (ElfW2(Bits,Chdr)),			      \
+      [ELF_T_NHDR8] = 8 /* Special case for GNU Property note.  */	      \
     }
-    [EV_CURRENT - 1] =
-    {
       [ELFCLASS32 - 1] = TYPE_ALIGNS (32),
       [ELFCLASS64 - 1] = TYPE_ALIGNS (64),
-    }
 # undef TYPE_ALIGNS
   };
-#endif
 
 
 Elf_Type
 internal_function
-__libelf_data_type (Elf *elf, int sh_type)
+__libelf_data_type (Elf *elf, int sh_type, GElf_Xword align)
 {
   /* Some broken ELF ABI for 64-bit machines use the wrong hash table
      entry size.  See elf-knowledge.h for more information.  */
@@ -131,17 +124,24 @@ __libelf_data_type (Elf *elf, int sh_type)
       return (SH_ENTSIZE_HASH (ehdr) == 4 ? ELF_T_WORD : ELF_T_XWORD);
     }
   else
-    return shtype_map[LIBELF_EV_IDX][TYPEIDX (sh_type)];
+    {
+      Elf_Type t = shtype_map[TYPEIDX (sh_type)];
+      /* Special case for GNU Property notes.  */
+      if (t == ELF_T_NHDR && align == 8)
+	t = ELF_T_NHDR8;
+      return t;
+    }
 }
 
 /* Convert the data in the current section.  */
 static void
-convert_data (Elf_Scn *scn, int version __attribute__ ((unused)), int eclass,
+convert_data (Elf_Scn *scn, int eclass,
 	      int data, size_t size, Elf_Type type)
 {
   const size_t align = __libelf_type_align (eclass, type);
 
-  if (data == MY_ELFDATA)
+  /* Do we need to convert the data and/or adjust for alignment?  */
+  if (data == MY_ELFDATA || type == ELF_T_BYTE)
     {
       if (((((size_t) (char *) scn->rawdata_base)) & (align - 1)) == 0)
 	/* No need to copy, we can use the raw data.  */
@@ -173,8 +173,7 @@ convert_data (Elf_Scn *scn, int version __attribute__ ((unused)), int eclass,
       /* Make sure the source is correctly aligned for the conversion
 	 function to directly access the data elements.  */
       char *rawdata_source;
-      if (ALLOW_UNALIGNED ||
-	  ((((size_t) (char *) scn->rawdata_base)) & (align - 1)) == 0)
+      if (((((size_t) (char *) scn->rawdata_base)) & (align - 1)) == 0)
 	rawdata_source = scn->rawdata_base;
       else
 	{
@@ -190,11 +189,7 @@ convert_data (Elf_Scn *scn, int version __attribute__ ((unused)), int eclass,
 	}
 
       /* Get the conversion function.  */
-#if EV_NUM != 2
-      fp = __elf_xfctstom[version - 1][__libelf_version - 1][eclass - 1][type];
-#else
-      fp = __elf_xfctstom[0][0][eclass - 1][type];
-#endif
+      fp = __elf_xfctstom[eclass - 1][type];
 
       fp (scn->data_base, rawdata_source, size, 0);
 
@@ -263,9 +258,15 @@ __libelf_set_rawdata_wrlock (Elf_Scn *scn)
       /* First a test whether the section is valid at all.  */
       size_t entsize;
 
-      /* Compressed data has a header, but then compressed data.  */
+      /* Compressed data has a header, but then compressed data.
+	 Make sure to set the alignment of the header explicitly,
+	 don't trust the file alignment for the section, it is
+	 often wrong.  */
       if ((flags & SHF_COMPRESSED) != 0)
-	entsize = 1;
+	{
+	  entsize = 1;
+	  align = __libelf_type_align (elf->class, ELF_T_CHDR);
+	}
       else if (type == SHT_HASH)
 	{
 	  GElf_Ehdr ehdr_mem;
@@ -274,12 +275,14 @@ __libelf_set_rawdata_wrlock (Elf_Scn *scn)
 	}
       else
 	{
-	  Elf_Type t = shtype_map[LIBELF_EV_IDX][TYPEIDX (type)];
-	  if (t == ELF_T_VDEF || t == ELF_T_NHDR
+	  Elf_Type t = shtype_map[TYPEIDX (type)];
+	  if (t == ELF_T_NHDR && align == 8)
+	    t = ELF_T_NHDR8;
+	  if (t == ELF_T_VDEF || t == ELF_T_NHDR || t == ELF_T_NHDR8
 	      || (t == ELF_T_GNUHASH && elf->class == ELFCLASS64))
 	    entsize = 1;
 	  else
-	    entsize = __libelf_type_sizes[LIBELF_EV_IDX][elf->class - 1][t];
+	    entsize = __libelf_type_sizes[elf->class - 1][t];
 	}
 
       /* We assume it is an array of bytes if it is none of the structured
@@ -312,6 +315,17 @@ __libelf_set_rawdata_wrlock (Elf_Scn *scn)
 	}
       else if (likely (elf->fildes != -1))
 	{
+	  /* First see whether the information in the section header is
+	     valid and it does not ask for too much.  Check for unsigned
+	     overflow.  */
+	  if (unlikely (offset > elf->maximum_size
+			|| elf->maximum_size - offset < size))
+	    {
+	      /* Something is wrong.  */
+	      __libelf_seterrno (ELF_E_INVALID_SECTION_HEADER);
+	      return 1;
+	    }
+
 	  /* We have to read the data from the file.  Allocate the needed
 	     memory.  */
 	  scn->rawdata_base = scn->rawdata.d.d_buf
@@ -349,7 +363,7 @@ __libelf_set_rawdata_wrlock (Elf_Scn *scn)
   if ((flags & SHF_COMPRESSED) != 0)
     scn->rawdata.d.d_type = ELF_T_CHDR;
   else
-    scn->rawdata.d.d_type = __libelf_data_type (elf, type);
+    scn->rawdata.d.d_type = __libelf_data_type (elf, type, align);
   scn->rawdata.d.d_off = 0;
 
   /* Make sure the alignment makes sense.  d_align should be aligned both
@@ -363,7 +377,7 @@ __libelf_set_rawdata_wrlock (Elf_Scn *scn)
      at least an ehdr this will only trigger for alignment values > 64
      which should be uncommon.  */
   align = align ?: 1;
-  if (align > offset)
+  if (type != SHT_NOBITS && align > offset)
     align = offset;
   scn->rawdata.d.d_align = align;
   if (elf->class == ELFCLASS32
@@ -420,7 +434,7 @@ __libelf_set_data_list_rdlock (Elf_Scn *scn, int wrlocked)
 	}
 
       /* Convert according to the version and the type.   */
-      convert_data (scn, __libelf_version, elf->class,
+      convert_data (scn, elf->class,
 		    (elf->class == ELFCLASS32
 		     || (offsetof (struct Elf, state.elf32.ehdr)
 			 == offsetof (struct Elf, state.elf64.ehdr))

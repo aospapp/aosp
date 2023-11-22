@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import logging, threading
+import time
 
 from autotest_lib.server import test
 from autotest_lib.client.common_lib import error
@@ -11,6 +12,7 @@ _CHROME_PATH = '/opt/google/chrome/chrome'
 _LONG_TIMEOUT = 120
 _DO_NOT_RUN_ON_TYPE = ['CHROMEBOX', 'CHROMEBIT', 'OTHER']
 _DO_NOT_RUN_ON_BOARD = ['monroe']
+_SLEEP_BEFORE_SUSPEND_SEC = 5
 
 class platform_InternalDisplay(test.test):
     version = 1
@@ -45,6 +47,7 @@ class platform_InternalDisplay(test.test):
         if self.host.has_internal_display() is not 'internal_display':
             raise error.TestFail('Internal display is missing after reboot.')
 
+        time.sleep(_SLEEP_BEFORE_SUSPEND_SEC)
         boot_id = self.run_suspend()
         logging.info('DUT suspended')
         self.host.test_wait_for_resume(boot_id, _LONG_TIMEOUT)

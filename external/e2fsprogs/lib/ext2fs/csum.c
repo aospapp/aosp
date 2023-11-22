@@ -34,7 +34,8 @@ void ext2fs_init_csum_seed(ext2_filsys fs)
 {
 	if (ext2fs_has_feature_csum_seed(fs->super))
 		fs->csum_seed = fs->super->s_checksum_seed;
-	else if (ext2fs_has_feature_metadata_csum(fs->super))
+	else if (ext2fs_has_feature_metadata_csum(fs->super) ||
+		 ext2fs_has_feature_ea_inode(fs->super))
 		fs->csum_seed = ext2fs_crc32c_le(~0, fs->super->s_uuid,
 						 sizeof(fs->super->s_uuid));
 }
@@ -562,7 +563,7 @@ int ext2fs_inode_bitmap_csum_verify(ext2_filsys fs, dgrp_t group,
 	provided = gdp->bg_inode_bitmap_csum_lo;
 	calculated = ext2fs_crc32c_le(fs->csum_seed, (unsigned char *)bitmap,
 				      size);
-	if (fs->super->s_desc_size >= EXT4_BG_INODE_BITMAP_CSUM_HI_END)
+	if (EXT2_DESC_SIZE(fs->super) >= EXT4_BG_INODE_BITMAP_CSUM_HI_END)
 		provided |= (__u32)gdp->bg_inode_bitmap_csum_hi << 16;
 	else
 		calculated &= 0xFFFF;
@@ -582,7 +583,7 @@ errcode_t ext2fs_inode_bitmap_csum_set(ext2_filsys fs, dgrp_t group,
 
 	crc = ext2fs_crc32c_le(fs->csum_seed, (unsigned char *)bitmap, size);
 	gdp->bg_inode_bitmap_csum_lo = crc & 0xFFFF;
-	if (fs->super->s_desc_size >= EXT4_BG_INODE_BITMAP_CSUM_HI_END)
+	if (EXT2_DESC_SIZE(fs->super) >= EXT4_BG_INODE_BITMAP_CSUM_HI_END)
 		gdp->bg_inode_bitmap_csum_hi = crc >> 16;
 
 	return 0;
@@ -600,7 +601,7 @@ int ext2fs_block_bitmap_csum_verify(ext2_filsys fs, dgrp_t group,
 	provided = gdp->bg_block_bitmap_csum_lo;
 	calculated = ext2fs_crc32c_le(fs->csum_seed, (unsigned char *)bitmap,
 				      size);
-	if (fs->super->s_desc_size >= EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION)
+	if (EXT2_DESC_SIZE(fs->super) >= EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION)
 		provided |= (__u32)gdp->bg_block_bitmap_csum_hi << 16;
 	else
 		calculated &= 0xFFFF;
@@ -620,7 +621,7 @@ errcode_t ext2fs_block_bitmap_csum_set(ext2_filsys fs, dgrp_t group,
 
 	crc = ext2fs_crc32c_le(fs->csum_seed, (unsigned char *)bitmap, size);
 	gdp->bg_block_bitmap_csum_lo = crc & 0xFFFF;
-	if (fs->super->s_desc_size >= EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION)
+	if (EXT2_DESC_SIZE(fs->super) >= EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION)
 		gdp->bg_block_bitmap_csum_hi = crc >> 16;
 
 	return 0;
@@ -632,7 +633,7 @@ static errcode_t ext2fs_inode_csum(ext2_filsys fs, ext2_ino_t inum,
 {
 	__u32 gen;
 	struct ext2_inode_large *desc = inode;
-	size_t size = fs->super->s_inode_size;
+	size_t size = EXT2_INODE_SIZE(fs->super);
 	__u16 old_lo;
 	__u16 old_hi = 0;
 
@@ -1012,6 +1013,7 @@ int main(int argc, char **argv)
 		printf("checksums for different data shouldn't match\n");
 		exit(1);
 	}
+	ext2fs_free(fs);
 
 	return 0;
 }

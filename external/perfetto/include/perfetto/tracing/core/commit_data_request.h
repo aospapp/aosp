@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #ifndef INCLUDE_PERFETTO_TRACING_CORE_COMMIT_DATA_REQUEST_H_
@@ -57,6 +57,10 @@ class PERFETTO_EXPORT CommitDataRequest {
     ChunksToMove& operator=(ChunksToMove&&);
     ChunksToMove(const ChunksToMove&);
     ChunksToMove& operator=(const ChunksToMove&);
+    bool operator==(const ChunksToMove&) const;
+    bool operator!=(const ChunksToMove& other) const {
+      return !(*this == other);
+    }
 
     // Conversion methods from/to the corresponding protobuf types.
     void FromProto(const perfetto::protos::CommitDataRequest_ChunksToMove&);
@@ -91,6 +95,8 @@ class PERFETTO_EXPORT CommitDataRequest {
       Patch& operator=(Patch&&);
       Patch(const Patch&);
       Patch& operator=(const Patch&);
+      bool operator==(const Patch&) const;
+      bool operator!=(const Patch& other) const { return !(*this == other); }
 
       // Conversion methods from/to the corresponding protobuf types.
       void FromProto(
@@ -122,6 +128,10 @@ class PERFETTO_EXPORT CommitDataRequest {
     ChunkToPatch& operator=(ChunkToPatch&&);
     ChunkToPatch(const ChunkToPatch&);
     ChunkToPatch& operator=(const ChunkToPatch&);
+    bool operator==(const ChunkToPatch&) const;
+    bool operator!=(const ChunkToPatch& other) const {
+      return !(*this == other);
+    }
 
     // Conversion methods from/to the corresponding protobuf types.
     void FromProto(const perfetto::protos::CommitDataRequest_ChunkToPatch&);
@@ -138,6 +148,8 @@ class PERFETTO_EXPORT CommitDataRequest {
 
     int patches_size() const { return static_cast<int>(patches_.size()); }
     const std::vector<Patch>& patches() const { return patches_; }
+    std::vector<Patch>* mutable_patches() { return &patches_; }
+    void clear_patches() { patches_.clear(); }
     Patch* add_patches() {
       patches_.emplace_back();
       return &patches_.back();
@@ -164,6 +176,10 @@ class PERFETTO_EXPORT CommitDataRequest {
   CommitDataRequest& operator=(CommitDataRequest&&);
   CommitDataRequest(const CommitDataRequest&);
   CommitDataRequest& operator=(const CommitDataRequest&);
+  bool operator==(const CommitDataRequest&) const;
+  bool operator!=(const CommitDataRequest& other) const {
+    return !(*this == other);
+  }
 
   // Conversion methods from/to the corresponding protobuf types.
   void FromProto(const perfetto::protos::CommitDataRequest&);
@@ -175,6 +191,10 @@ class PERFETTO_EXPORT CommitDataRequest {
   const std::vector<ChunksToMove>& chunks_to_move() const {
     return chunks_to_move_;
   }
+  std::vector<ChunksToMove>* mutable_chunks_to_move() {
+    return &chunks_to_move_;
+  }
+  void clear_chunks_to_move() { chunks_to_move_.clear(); }
   ChunksToMove* add_chunks_to_move() {
     chunks_to_move_.emplace_back();
     return &chunks_to_move_.back();
@@ -186,6 +206,10 @@ class PERFETTO_EXPORT CommitDataRequest {
   const std::vector<ChunkToPatch>& chunks_to_patch() const {
     return chunks_to_patch_;
   }
+  std::vector<ChunkToPatch>* mutable_chunks_to_patch() {
+    return &chunks_to_patch_;
+  }
+  void clear_chunks_to_patch() { chunks_to_patch_.clear(); }
   ChunkToPatch* add_chunks_to_patch() {
     chunks_to_patch_.emplace_back();
     return &chunks_to_patch_.back();
@@ -205,4 +229,5 @@ class PERFETTO_EXPORT CommitDataRequest {
 };
 
 }  // namespace perfetto
+
 #endif  // INCLUDE_PERFETTO_TRACING_CORE_COMMIT_DATA_REQUEST_H_

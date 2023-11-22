@@ -8,7 +8,7 @@ import re
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros import autoupdater
+from autotest_lib.server.cros import autoupdater
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.update_engine import update_engine_test
 from chromite.lib import retry_util
@@ -18,9 +18,11 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
 
     version = 1
 
-    _P2P_ATTEMPTS_FILE = '/var/lib/update_engine/prefs/p2p-num-attempts'
-    _P2P_FIRST_ATTEMPT_FILE = '/var/lib/update_engine/prefs/p2p-first-attempt' \
-                              '-timestamp'
+    _CURRENT_RESPONSE_SIGNATURE_PREF = 'current-response-signature'
+    _CURRENT_URL_INDEX_PREF = 'current-url-index'
+    _P2P_FIRST_ATTEMPT_TIMESTAMP_PREF = 'p2p-first-attempt-timestamp'
+    _P2P_NUM_ATTEMPTS_PREF = 'p2p-num-attempts'
+
 
     def setup(self):
         self._omaha_devserver = None
@@ -37,6 +39,7 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                 logging.info('Failed to disable P2P in cleanup.')
         super(autoupdate_P2P, self).cleanup()
 
+
     def _enable_p2p_update_on_hosts(self):
         """Turn on the option to enable p2p updating on both DUTs."""
         logging.info('Enabling p2p_update on hosts.')
@@ -48,18 +51,55 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
             except Exception:
                 raise error.TestFail('Failed to enable p2p on %s' % host)
 
-            if self._too_many_attempts:
-                host.run('echo 11 > %s' % self._P2P_ATTEMPTS_FILE)
-            else:
-                host.run('rm %s' % self._P2P_ATTEMPTS_FILE, ignore_status=True)
 
-            if self._deadline_expired:
-                host.run('echo 1 > %s' % self._P2P_FIRST_ATTEMPT_FILE)
-            else:
-                host.run('rm %s' % self._P2P_FIRST_ATTEMPT_FILE,
-                         ignore_status=True)
+    def _setup_second_hosts_prefs(self):
+        """The second DUT needs to be setup for the test."""
+        num_attempts = os.path.join(self._UPDATE_ENGINE_PREFS_DIR,
+                                    self._P2P_NUM_ATTEMPTS_PREF)
+        if self._too_many_attempts:
+            self._hosts[1].run('echo 11 > %s' % num_attempts)
+        else:
+            self._hosts[1].run('rm %s' % num_attempts, ignore_status=True)
 
-            host.reboot()
+        first_attempt = os.path.join(self._UPDATE_ENGINE_PREFS_DIR,
+                                     self._P2P_FIRST_ATTEMPT_TIMESTAMP_PREF)
+        if self._deadline_expired:
+            self._hosts[1].run('echo 1 > %s' % first_attempt)
+        else:
+            self._hosts[1].run('rm %s' % first_attempt, ignore_status=True)
+
+
+    def _copy_payload_signature_between_hosts(self):
+        """
+        Copies the current-payload-signature between hosts.
+
+        We copy the pref file from host one (that updated normally) to host two
+        (that will be updating via p2p). We do this because otherwise host two
+        would have to actually update and fail in order to get itself into
+        the error states (deadline expired and too many attempts).
+
+        """
+        pref_file = os.path.join(self._UPDATE_ENGINE_PREFS_DIR,
+                                 self._CURRENT_RESPONSE_SIGNATURE_PREF)
+        self._hosts[0].get_file(pref_file, self.resultsdir)
+        result_pref_file = os.path.join(self.resultsdir,
+                                        self._CURRENT_RESPONSE_SIGNATURE_PREF)
+        self._hosts[1].send_file(result_pref_file,
+                                 self._UPDATE_ENGINE_PREFS_DIR)
+
+
+    def _reset_current_url_index(self):
+        """
+        Reset current-url-index pref to 0.
+
+        Since we are copying the state from one DUT to the other we also need to
+        reset the current url index or UE will reset all of its state.
+
+        """
+        current_url_index = os.path.join(self._UPDATE_ENGINE_PREFS_DIR,
+                                         self._CURRENT_URL_INDEX_PREF)
+
+        self._hosts[1].run('echo 0 > %s' % current_url_index)
 
 
     def _update_dut(self, host, update_url):
@@ -71,16 +111,23 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
 
         """
         logging.info('Updating first DUT with a regular update.')
+        host.reboot()
+
+        # Sometimes update request is lost if checking right after reboot so
+        # make sure update_engine is ready.
+        self._set_active_p2p_host(self._hosts[0])
+        utils.poll_for_condition(condition=self._is_update_engine_idle,
+                                 desc='Waiting for update engine idle')
         try:
             updater = autoupdater.ChromiumOSUpdater(update_url, host)
             updater.update_image()
         except autoupdater.RootFSUpdateError:
             logging.exception('Failed to update the first DUT.')
-            raise error.TestFail('Updating the first DUT failed. Please check '
-                                 'the update_engine logs in the results dir.')
+            raise error.TestFail('Updating the first DUT failed. Error: %s.' %
+                                 self._get_last_error_string())
         finally:
             logging.info('Saving update engine logs to results dir.')
-            host.get_file('/var/log/update_engine.log',
+            host.get_file(self._UPDATE_ENGINE_LOG,
                           os.path.join(self.resultsdir,
                                        'update_engine.log_first_dut'))
         host.reboot()
@@ -121,7 +168,10 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
 
         """
         logging.info('Updating second host via p2p.')
-
+        host.reboot()
+        self._set_active_p2p_host(self._hosts[1])
+        utils.poll_for_condition(condition=self._is_update_engine_idle,
+                                 desc='Waiting for update engine idle')
         try:
             # Start a non-interactive update which is required for p2p.
             updater = autoupdater.ChromiumOSUpdater(update_url, host,
@@ -129,16 +179,16 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
             updater.update_image()
         except autoupdater.RootFSUpdateError:
             logging.exception('Failed to update the second DUT via P2P.')
-            raise error.TestFail('Failed to update the second DUT. Please '
-                                 'checkout update_engine logs in results dir.')
+            raise error.TestFail('Failed to update the second DUT. Error: %s' %
+                                 self._get_last_error_string())
         finally:
             logging.info('Saving update engine logs to results dir.')
-            host.get_file('/var/log/update_engine.log',
+            host.get_file(self._UPDATE_ENGINE_LOG,
                           os.path.join(self.resultsdir,
                                        'update_engine.log_second_dut'))
 
         # Return the update_engine logs so we can check for p2p entries.
-        return host.run('cat /var/log/update_engine.log').stdout
+        return host.run('cat %s' % self._UPDATE_ENGINE_LOG).stdout
 
 
     def _check_for_p2p_entries_in_update_log(self, update_engine_log):
@@ -155,11 +205,10 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
         line1 = "Checking if payload is available via p2p, file_id=" \
                 "cros_update_size_(.*)_hash_(.*)"
         line2 = "Lookup complete, p2p-client returned URL " \
-                "'http://%s:(.*)/cros_update_size_(.*)_hash_(.*).cros_au'" % \
-                self._hosts[0].ip
+                "'http://(.*)/cros_update_size_(.*)_hash_(.*).cros_au'"
         line3 = "Replacing URL (.*) with local URL " \
-                "http://%s:(.*)/cros_update_size_(.*)_hash_(.*).cros_au " \
-                "since p2p is enabled." % self._hosts[0].ip
+                "http://(.*)/cros_update_size_(.*)_hash_(.*).cros_au " \
+                "since p2p is enabled."
         errline = "Forcibly disabling use of p2p for downloading because no " \
                   "suitable peer could be found."
         too_many_attempts_err_str = "Forcibly disabling use of p2p for " \
@@ -230,15 +279,15 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                                                                      build2))
 
 
-    def run_once(self, hosts, job_repo_url=None, too_many_attempts=False,
+    def run_once(self, job_repo_url=None, too_many_attempts=False,
                  deadline_expired=False):
-        self._hosts = hosts
         logging.info('Hosts for this test: %s', self._hosts)
 
         self._too_many_attempts = too_many_attempts
         self._deadline_expired = deadline_expired
         self._verify_hosts(job_repo_url)
         self._enable_p2p_update_on_hosts()
+        self._setup_second_hosts_prefs()
 
         # Get an N-to-N delta payload update url to use for the test.
         # P2P updates are very slow so we will only update with a delta payload.
@@ -250,6 +299,10 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
         # The first device just updates normally.
         self._update_dut(self._hosts[0], update_url)
         self._check_p2p_still_enabled(self._hosts[0])
+
+        if too_many_attempts or deadline_expired:
+            self._copy_payload_signature_between_hosts()
+            self._reset_current_url_index()
 
         # Update the 2nd DUT with the delta payload via P2P from the 1st DUT.
         update_engine_log = self._update_via_p2p(self._hosts[1], update_url)

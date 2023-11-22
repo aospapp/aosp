@@ -374,7 +374,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_inv_quant_mpeg2(
                              )
 {
     UWORD8  *pu1_weighting_matrix;
-    WORD32 u4_sum_is_even;
+    WORD32 i4_sum;
     dec_state_t *ps_dec = (dec_state_t *)pv_dec;
     IMPEG2D_ERROR_CODES_T e_error = (IMPEG2D_ERROR_CODES_T)IVD_ERROR_NONE;
 
@@ -412,7 +412,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_inv_quant_mpeg2(
             ps_dec->pf_memset_16bit_8x8_linear_block (pi2_out_addr);
         }
 
-        u4_sum_is_even  = impeg2d_inv_quant_mpeg2(pi2_out_addr, pu1_weighting_matrix,
+        i4_sum  = impeg2d_inv_quant_mpeg2(pi2_out_addr, pu1_weighting_matrix,
                                                  ps_dec->u1_quant_scale, u2_intra_flag,
                                                  i4_num_coeffs, pi2_coeffs,
                                                  pi4_pos, pu1_scan,
@@ -435,7 +435,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_inv_quant_mpeg2(
         else
         {
             /*toggle last bit if sum is even ,else retain it as it is*/
-            pi2_out_addr[63]        ^= (u4_sum_is_even & 1);
+            pi2_out_addr[63]        ^= (i4_sum & 1);
 
             if (0 != pi2_out_addr[63])
             {
@@ -478,8 +478,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
     UWORD32 u4_sym_len;
 
     UWORD32 u4_decoded_value;
-    UWORD32 u4_level_first_byte;
-    WORD32  u4_level;
+    WORD32 i4_level_first_byte;
+    WORD32  i4_level;
     UWORD32 u4_run, u4_numCoeffs;
     UWORD32 u4_buf;
     UWORD32 u4_buf_nxt;
@@ -649,9 +649,9 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
 
                 DecodedValue = gau2_impeg2d_tab_one_1_9[u4_bits >> 8];
                 u4_sym_len = (DecodedValue & 0xf);
-                u4_level = DecodedValue >> 9;
+                i4_level = DecodedValue >> 9;
                 /* One table lookup */
-                if(0 != u4_level)
+                if(0 != i4_level)
                 {
                     u4_run = ((DecodedValue >> 4) & 0x1f);
                     u4_numCoeffs       += u4_run;
@@ -663,7 +663,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                     pu1_pos[*pi4_num_coeffs]    = u4_pos;
 
                     FLUSH_BITS(u4_offset,u4_buf,u4_buf_nxt,u4_sym_len,pu4_buf_aligned)
-                    pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                    pi2_outAddr[*pi4_num_coeffs]    = i4_level;
 
                     (*pi4_num_coeffs)++;
                 }
@@ -702,7 +702,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             DecodedValue    = gau2_impeg2d_tab_one_10_16[u4_bits];
 
                             u4_run = BITS(DecodedValue, 8,4);
-                            u4_level = ((WORD16) DecodedValue) >> 9;
+                            i4_level = ((WORD16) DecodedValue) >> 9;
 
                             u4_numCoeffs       += u4_run;
                             if (u4_numCoeffs >= NUM_COEFFS)
@@ -711,7 +711,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             }
                             u4_pos             = pu1_scan[u4_numCoeffs++];
                             pu1_pos[*pi4_num_coeffs]    = u4_pos;
-                            pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                            pi2_outAddr[*pi4_num_coeffs]    = i4_level;
                             (*pi4_num_coeffs)++;
                         }
                         /*********************************************************************/
@@ -724,10 +724,10 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,18)
                                 u4_decoded_value    = u4_bits;
                             u4_run             = (u4_decoded_value >> 12);
-                            u4_level           = (u4_decoded_value & 0x0FFF);
+                            i4_level           = (u4_decoded_value & 0x0FFF);
 
-                            if (u4_level)
-                                u4_level = (u4_level - ((u4_level & 0x0800) << 1));
+                            if (i4_level)
+                                i4_level = (i4_level - ((i4_level & 0x0800) << 1));
 
                             u4_numCoeffs       += u4_run;
                             if (u4_numCoeffs >= NUM_COEFFS)
@@ -736,7 +736,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             }
                             u4_pos             = pu1_scan[u4_numCoeffs++];
                             pu1_pos[*pi4_num_coeffs]    = u4_pos;
-                            pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                            pi2_outAddr[*pi4_num_coeffs]    = i4_level;
                             (*pi4_num_coeffs)++;
                         }
                         /*********************************************************************/
@@ -770,8 +770,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,14)
                                 u4_decoded_value     = u4_bits;
                             u4_run              = (u4_decoded_value >> 8);
-                            u4_level_first_byte = (u4_decoded_value & 0x0FF);
-                            if(u4_level_first_byte & 0x7F)
+                            i4_level_first_byte = (u4_decoded_value & 0x0FF);
+                            if(i4_level_first_byte & 0x7F)
                             {
                                 /*-------------------------------------------------------
                                 * First 8 bits of level are neither 1000000 nor 00000000
@@ -780,8 +780,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 *  Level = (msb of Level_First_Byte is 1)?
                                 *          Level_First_Byte - 256 : Level_First_Byte
                                 *-------------------------------------------------------*/
-                                u4_level = (u4_level_first_byte -
-                                    ((u4_level_first_byte & 0x80) << 1));
+                                i4_level = (i4_level_first_byte -
+                                    ((i4_level_first_byte & 0x80) << 1));
                             }
                             else
                             {
@@ -793,8 +793,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 *          Level_Second_Byte - 256 : Level_Second_Byte
                                 *-------------------------------------------------------*/
                                 IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,8)
-                                    u4_level = u4_bits;
-                                u4_level = (u4_level - (u4_level_first_byte << 1));
+                                    i4_level = u4_bits;
+                                i4_level = (i4_level - (i4_level_first_byte << 1));
                             }
                             u4_numCoeffs += u4_run;
                             if (u4_numCoeffs >= NUM_COEFFS)
@@ -805,7 +805,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             u4_pos = pu1_scan[u4_numCoeffs++];
 
                             pu1_pos[*pi4_num_coeffs]    = u4_pos;
-                            pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                            pi2_outAddr[*pi4_num_coeffs]    = i4_level;
                             (*pi4_num_coeffs)++;
                         }
                     }
@@ -840,9 +840,9 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
 
                 DecodedValue = gau2_impeg2d_tab_zero_1_9[u4_bits >> 8];
                 u4_sym_len = BITS(DecodedValue, 3, 0);
-                u4_level = ((WORD16) DecodedValue) >> 9;
+                i4_level = ((WORD16) DecodedValue) >> 9;
 
-                if (0 != u4_level)
+                if (0 != i4_level)
                 {
                     u4_run = BITS(DecodedValue, 8,4);
 
@@ -856,7 +856,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                     pu1_pos[*pi4_num_coeffs]    = u4_pos;
 
                     FLUSH_BITS(u4_offset,u4_buf,u4_buf_nxt,u4_sym_len,pu4_buf_aligned)
-                    pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                    pi2_outAddr[*pi4_num_coeffs]    = i4_level;
                     (*pi4_num_coeffs)++;
                 }
                 else
@@ -884,7 +884,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             DecodedValue    = gau2_impeg2d_tab_zero_10_16[u4_bits];
 
                             u4_run = BITS(DecodedValue, 8,4);
-                            u4_level = ((WORD16) DecodedValue) >> 9;
+                            i4_level = ((WORD16) DecodedValue) >> 9;
 
                             u4_numCoeffs       += u4_run;
                             if (u4_numCoeffs >= NUM_COEFFS)
@@ -898,7 +898,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 u4_sym_len--;
                             /* flushing */
                             FLUSH_BITS(u4_offset,u4_buf,u4_buf_nxt,u4_sym_len,pu4_buf_aligned)
-                            pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                            pi2_outAddr[*pi4_num_coeffs]    = i4_level;
 
                             (*pi4_num_coeffs)++;
                         }
@@ -910,10 +910,10 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,18)
                             u4_decoded_value    = u4_bits;
                             u4_run             = (u4_decoded_value >> 12);
-                            u4_level           = (u4_decoded_value & 0x0FFF);
+                            i4_level           = (u4_decoded_value & 0x0FFF);
 
-                            if (u4_level)
-                                u4_level = (u4_level - ((u4_level & 0x0800) << 1));
+                            if (i4_level)
+                                i4_level = (i4_level - ((i4_level & 0x0800) << 1));
 
                             u4_numCoeffs           += u4_run;
                             if (u4_numCoeffs >= NUM_COEFFS)
@@ -923,7 +923,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
 
                             u4_pos                 = pu1_scan[u4_numCoeffs++];
                             pu1_pos[*pi4_num_coeffs]    = u4_pos;
-                            pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                            pi2_outAddr[*pi4_num_coeffs]    = i4_level;
 
                             (*pi4_num_coeffs)++;
                         }
@@ -958,8 +958,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                             IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,14)
                             u4_decoded_value        = u4_bits;
                             u4_run                 = (u4_decoded_value >> 8);
-                            u4_level_first_byte    = (u4_decoded_value & 0x0FF);
-                            if(u4_level_first_byte & 0x7F)
+                            i4_level_first_byte    = (u4_decoded_value & 0x0FF);
+                            if(i4_level_first_byte & 0x7F)
                             {
                                 /*-------------------------------------------------------
                                 * First 8 bits of level are neither 1000000 nor 00000000
@@ -968,8 +968,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 *  Level = (msb of Level_First_Byte is 1)?
                                 *          Level_First_Byte - 256 : Level_First_Byte
                                 *-------------------------------------------------------*/
-                                u4_level = (u4_level_first_byte -
-                                    ((u4_level_first_byte & 0x80) << 1));
+                                i4_level = (i4_level_first_byte -
+                                    ((i4_level_first_byte & 0x80) << 1));
                             }
                             else
                             {
@@ -981,8 +981,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                                 *          Level_Second_Byte - 256 : Level_Second_Byte
                                 *-------------------------------------------------------*/
                                 IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,8)
-                                u4_level = u4_bits;
-                                u4_level = (u4_level - (u4_level_first_byte << 1));
+                                i4_level = u4_bits;
+                                i4_level = (i4_level - (i4_level_first_byte << 1));
                             }
                             u4_numCoeffs           += u4_run;
                             if (u4_numCoeffs >= NUM_COEFFS)
@@ -992,7 +992,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
 
                             u4_pos                 = pu1_scan[u4_numCoeffs++];
                             pu1_pos[*pi4_num_coeffs]    = u4_pos;
-                            pi2_outAddr[*pi4_num_coeffs]    = u4_level;
+                            pi2_outAddr[*pi4_num_coeffs]    = i4_level;
 
                             (*pi4_num_coeffs)++;
                         }
@@ -1047,7 +1047,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
 /*         05 09 2005   Harish M        First Version                        */
 /*                                                                           */
 /*****************************************************************************/
-UWORD8 impeg2d_inv_quant_mpeg1(WORD16 *pi2_blk,
+WORD32 impeg2d_inv_quant_mpeg1(WORD16 *pi2_blk,
                               UWORD8 *pu1_weighting_matrix,
                               UWORD8 u1_quant_scale,
                               WORD32 u4_intra_flag,
@@ -1156,7 +1156,7 @@ UWORD8 impeg2d_inv_quant_mpeg1(WORD16 *pi2_blk,
 /*         05 09 2005   Harish M        First Version                        */
 /*                                                                           */
 /*****************************************************************************/
-UWORD8 impeg2d_inv_quant_mpeg2(WORD16 *pi2_blk,
+WORD32 impeg2d_inv_quant_mpeg2(WORD16 *pi2_blk,
                               UWORD8 *pu1_weighting_matrix,
                               UWORD8 u1_quant_scale,
                               WORD32 u4_intra_flag,
@@ -1170,7 +1170,7 @@ UWORD8 impeg2d_inv_quant_mpeg2(WORD16 *pi2_blk,
 
     WORD32  i4_pos;
     /* Used for Mismatch control */
-    UWORD32 sum;
+    WORD32 sum;
 
     WORD32  i4_iter;
 

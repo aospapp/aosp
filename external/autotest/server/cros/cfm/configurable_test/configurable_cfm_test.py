@@ -5,6 +5,9 @@ from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_collector
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_port_manager
 from autotest_lib.server.cros.cfm import cfm_base_test
 from autotest_lib.server.cros.cfm.configurable_test import action_context
+from autotest_lib.server.cros.cfm.utils import bond_http_api
+from autotest_lib.server.cros.cfm.utils import perf_metrics_collector
+
 
 class TestRunner(object):
     """
@@ -27,6 +30,7 @@ class TestRunner(object):
         logging.info('RUNNING:\n%s', str(cfm_test))
         cfm_test.scenario.execute(self.context)
 
+
 class HostFileContentsCollector(object):
     """
     File contents collector that executes commands against the host.
@@ -47,6 +51,7 @@ class HostFileContentsCollector(object):
         @returns The contents of the file
         """
         return self.host.run_output('cat "%s"' % path)
+
 
 class ConfigurableCfmTest(cfm_base_test.CfmBaseTest):
     """
@@ -80,12 +85,18 @@ class ConfigurableCfmTest(cfm_base_test.CfmBaseTest):
                 host=host,
                 usb_device_collector=device_collector,
                 usb_port_manager=port_manager,
-                crash_detector=crash_file_detector)
+                crash_detector=crash_file_detector,
+                perf_metrics_collector=self._create_perf_metrics_collector(),
+                bond_api=bond_http_api.BondHttpApi())
         self.test_runner = TestRunner(context)
+
+    def _create_perf_metrics_collector(self):
+        system_facade = self._facade_factory.create_system_facade()
+        return perf_metrics_collector.PerfMetricsCollector(system_facade,
+            self.cfm_facade, self.output_perf_value)
 
     def run_once(self):
         """
         Runs the test.
         """
         self.test_runner.run_test(self.cfm_test)
-

@@ -38,6 +38,8 @@
 #include "vkBuilderUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuTestLog.hpp"
 
@@ -89,6 +91,8 @@ struct SparseAllocation
 	VkDeviceSize						resourceSize;		//!< buffer size in bytes
 	std::vector<AllocationSp>			allocations;		//!< actual allocated memory
 	std::vector<VkSparseMemoryBind>		memoryBinds;		//!< memory binds backing the resource
+	deUint32							memoryType;			//!< memory type (same for all allocations)
+	deUint32							heapIndex;			//!< memory heap index
 };
 
 //! Utility to lay out memory allocations for a sparse buffer, including holes and aliased regions.
@@ -106,7 +110,9 @@ public:
 	SparseAllocationBuilder&	addAliasedMemoryBind	(const deUint32 allocationNdx, const deUint32 chunkOffset, const deUint32 numChunks = 1u);
 	SparseAllocationBuilder&	addMemoryAllocation		(void);
 
-	MovePtr<SparseAllocation>	build					(const DeviceInterface&		vk,
+	MovePtr<SparseAllocation>	build					(const InstanceInterface&	instanceInterface,
+														 const VkPhysicalDevice		physicalDevice,
+														 const DeviceInterface&		vk,
 														 const VkDevice				device,
 														 Allocator&					allocator,
 														 VkBufferCreateInfo			referenceCreateInfo,		//!< buffer size is ignored in this info
@@ -199,17 +205,13 @@ SparseAllocationBuilder& SparseAllocationBuilder::addAliasedMemoryBind	(const de
 	return *this;
 }
 
-inline VkMemoryRequirements requirementsWithSize (VkMemoryRequirements requirements, const VkDeviceSize size)
-{
-	requirements.size = size;
-	return requirements;
-}
-
-MovePtr<SparseAllocation> SparseAllocationBuilder::build (const DeviceInterface&	vk,
-														  const VkDevice			device,
-														  Allocator&				allocator,
-														  VkBufferCreateInfo		referenceCreateInfo,
-														  const VkDeviceSize		minChunkSize) const
+MovePtr<SparseAllocation> SparseAllocationBuilder::build (const InstanceInterface&			instanceInterface,
+														  const VkPhysicalDevice			physicalDevice,
+														  const DeviceInterface&			vk,
+														  const VkDevice					device,
+														  Allocator&						allocator,
+														  VkBufferCreateInfo				referenceCreateInfo,
+														  const VkDeviceSize				minChunkSize) const
 {
 
 	MovePtr<SparseAllocation>	sparseAllocation			(new SparseAllocation());
@@ -218,11 +220,19 @@ MovePtr<SparseAllocation> SparseAllocationBuilder::build (const DeviceInterface&
 	const Unique<VkBuffer>		refBuffer					(createBuffer(vk, device, &referenceCreateInfo));
 	const VkMemoryRequirements	memoryRequirements			= getBufferMemoryRequirements(vk, device, *refBuffer);
 	const VkDeviceSize			chunkSize					= std::max(memoryRequirements.alignment, static_cast<VkDeviceSize>(deAlign64(minChunkSize, memoryRequirements.alignment)));
+	const deUint32				memoryTypeNdx				= findMatchingMemoryType(instanceInterface, physicalDevice, memoryRequirements, MemoryRequirement::Any);
+	VkMemoryAllocateInfo		allocInfo					=
+	{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,	//	VkStructureType			sType;
+		DE_NULL,								//	const void*				pNext;
+		memoryRequirements.size,				//	VkDeviceSize			allocationSize;
+		memoryTypeNdx,							//	deUint32				memoryTypeIndex;
+	};
 
 	for (std::vector<deUint32>::const_iterator numChunksIter = m_chunksPerAllocation.begin(); numChunksIter != m_chunksPerAllocation.end(); ++numChunksIter)
 	{
-		sparseAllocation->allocations.push_back(makeDeSharedPtr(
-			allocator.allocate(requirementsWithSize(memoryRequirements, *numChunksIter * chunkSize), MemoryRequirement::Any)));
+		allocInfo.allocationSize = *numChunksIter * chunkSize;
+		sparseAllocation->allocations.push_back(makeDeSharedPtr(allocator.allocate(allocInfo, (VkDeviceSize)0)));
 	}
 
 	for (std::vector<MemoryBind>::const_iterator memBindIter = m_memoryBinds.begin(); memBindIter != m_memoryBinds.end(); ++memBindIter)
@@ -242,6 +252,8 @@ MovePtr<SparseAllocation> SparseAllocationBuilder::build (const DeviceInterface&
 
 	sparseAllocation->resourceSize		= referenceCreateInfo.size;
 	sparseAllocation->numResourceChunks = m_resourceChunkNdx;
+	sparseAllocation->memoryType		= memoryTypeNdx;
+	sparseAllocation->heapIndex			= getHeapIndexForMemoryType(instanceInterface, physicalDevice, memoryTypeNdx);
 
 	return sparseAllocation;
 }
@@ -267,59 +279,6 @@ VkImageCreateInfo makeImageCreateInfo (const VkFormat format, const IVec2& size,
 		VK_IMAGE_LAYOUT_UNDEFINED,						// VkImageLayout			initialLayout;
 	};
 	return imageParams;
-}
-
-Move<VkRenderPass> makeRenderPass (const DeviceInterface&	vk,
-								   const VkDevice			device,
-								   const VkFormat			colorFormat)
-{
-	const VkAttachmentDescription colorAttachmentDescription =
-	{
-		(VkAttachmentDescriptionFlags)0,					// VkAttachmentDescriptionFlags		flags;
-		colorFormat,										// VkFormat							format;
-		VK_SAMPLE_COUNT_1_BIT,								// VkSampleCountFlagBits			samples;
-		VK_ATTACHMENT_LOAD_OP_CLEAR,						// VkAttachmentLoadOp				loadOp;
-		VK_ATTACHMENT_STORE_OP_STORE,						// VkAttachmentStoreOp				storeOp;
-		VK_ATTACHMENT_LOAD_OP_DONT_CARE,					// VkAttachmentLoadOp				stencilLoadOp;
-		VK_ATTACHMENT_STORE_OP_DONT_CARE,					// VkAttachmentStoreOp				stencilStoreOp;
-		VK_IMAGE_LAYOUT_UNDEFINED,							// VkImageLayout					initialLayout;
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,			// VkImageLayout					finalLayout;
-	};
-
-	const VkAttachmentReference colorAttachmentRef =
-	{
-		0u,													// deUint32			attachment;
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// VkImageLayout	layout;
-	};
-
-	const VkSubpassDescription subpassDescription =
-	{
-		(VkSubpassDescriptionFlags)0,						// VkSubpassDescriptionFlags		flags;
-		VK_PIPELINE_BIND_POINT_GRAPHICS,					// VkPipelineBindPoint				pipelineBindPoint;
-		0u,													// deUint32							inputAttachmentCount;
-		DE_NULL,											// const VkAttachmentReference*		pInputAttachments;
-		1u,													// deUint32							colorAttachmentCount;
-		&colorAttachmentRef,								// const VkAttachmentReference*		pColorAttachments;
-		DE_NULL,											// const VkAttachmentReference*		pResolveAttachments;
-		DE_NULL,											// const VkAttachmentReference*		pDepthStencilAttachment;
-		0u,													// deUint32							preserveAttachmentCount;
-		DE_NULL												// const deUint32*					pPreserveAttachments;
-	};
-
-	const VkRenderPassCreateInfo renderPassInfo =
-	{
-		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,			// VkStructureType					sType;
-		DE_NULL,											// const void*						pNext;
-		(VkRenderPassCreateFlags)0,							// VkRenderPassCreateFlags			flags;
-		1u,													// deUint32							attachmentCount;
-		&colorAttachmentDescription,						// const VkAttachmentDescription*	pAttachments;
-		1u,													// deUint32							subpassCount;
-		&subpassDescription,								// const VkSubpassDescription*		pSubpasses;
-		0u,													// deUint32							dependencyCount;
-		DE_NULL												// const VkSubpassDependency*		pDependencies;
-	};
-
-	return createRenderPass(vk, device, &renderPassInfo);
 }
 
 Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&					vk,
@@ -366,15 +325,8 @@ Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&					vk,
 		VK_FALSE,														// VkBool32                                    primitiveRestartEnable;
 	};
 
-	const VkViewport viewport = makeViewport(
-		0.0f, 0.0f,
-		static_cast<float>(renderSize.x()), static_cast<float>(renderSize.y()),
-		0.0f, 1.0f);
-
-	const VkRect2D scissor = {
-		makeOffset2D(0, 0),
-		makeExtent2D(static_cast<deUint32>(renderSize.x()), static_cast<deUint32>(renderSize.y())),
-	};
+	const VkViewport	viewport	= makeViewport(renderSize);
+	const VkRect2D		scissor		= makeRect2D(renderSize);
 
 	const VkPipelineViewportStateCreateInfo pipelineViewportStateInfo =
 	{
@@ -591,86 +543,16 @@ public:
 	{
 		beginCommandBuffer(vk, *m_cmdBuffer);
 
-		const VkClearValue			clearValue	= makeClearValueColor(m_clearColor);
-		const VkRect2D				renderArea	=
-		{
-			makeOffset2D(0, 0),
-			makeExtent2D(m_renderSize.x(), m_renderSize.y()),
-		};
-		const VkRenderPassBeginInfo renderPassBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,		// VkStructureType         sType;
-			DE_NULL,										// const void*             pNext;
-			*m_renderPass,									// VkRenderPass            renderPass;
-			*m_framebuffer,									// VkFramebuffer           framebuffer;
-			renderArea,										// VkRect2D                renderArea;
-			1u,												// uint32_t                clearValueCount;
-			&clearValue,									// const VkClearValue*     pClearValues;
-		};
-		vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		beginRenderPass(vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), m_clearColor);
 
 		vk.cmdBindPipeline(*m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipeline);
 		drawDelegate.rendererDraw(*m_pipelineLayout, *m_cmdBuffer);
 
-		vk.cmdEndRenderPass(*m_cmdBuffer);
+		endRenderPass(vk, *m_cmdBuffer);
 
-		// Prepare color image for copy
-		{
-			const VkImageMemoryBarrier barriers[] =
-			{
-				{
-					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,						// VkStructureType			sType;
-					DE_NULL,													// const void*				pNext;
-					VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,						// VkAccessFlags			outputMask;
-					VK_ACCESS_TRANSFER_READ_BIT,								// VkAccessFlags			inputMask;
-					VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,					// VkImageLayout			oldLayout;
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,						// VkImageLayout			newLayout;
-					VK_QUEUE_FAMILY_IGNORED,									// deUint32					srcQueueFamilyIndex;
-					VK_QUEUE_FAMILY_IGNORED,									// deUint32					destQueueFamilyIndex;
-					*m_colorImage,												// VkImage					image;
-					m_colorSubresourceRange,									// VkImageSubresourceRange	subresourceRange;
-				},
-			};
+		copyImageToBuffer(vk, *m_cmdBuffer, *m_colorImage, m_colorBuffer, m_renderSize);
 
-			vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
-				0u, DE_NULL, 0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers);
-		}
-		// Color image -> host buffer
-		{
-			const VkBufferImageCopy region =
-			{
-				0ull,																		// VkDeviceSize                bufferOffset;
-				0u,																			// uint32_t                    bufferRowLength;
-				0u,																			// uint32_t                    bufferImageHeight;
-				makeImageSubresourceLayers(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u),			// VkImageSubresourceLayers    imageSubresource;
-				makeOffset3D(0, 0, 0),														// VkOffset3D                  imageOffset;
-				makeExtent3D(m_renderSize.x(), m_renderSize.y(), 1u),						// VkExtent3D                  imageExtent;
-			};
-
-			vk.cmdCopyImageToBuffer(*m_cmdBuffer, *m_colorImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_colorBuffer, 1u, &region);
-		}
-		// Buffer write barrier
-		{
-			const VkBufferMemoryBarrier barriers[] =
-			{
-				{
-					VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,		// VkStructureType    sType;
-					DE_NULL,										// const void*        pNext;
-					VK_ACCESS_TRANSFER_WRITE_BIT,					// VkAccessFlags      srcAccessMask;
-					VK_ACCESS_HOST_READ_BIT,						// VkAccessFlags      dstAccessMask;
-					VK_QUEUE_FAMILY_IGNORED,						// uint32_t           srcQueueFamilyIndex;
-					VK_QUEUE_FAMILY_IGNORED,						// uint32_t           dstQueueFamilyIndex;
-					m_colorBuffer,									// VkBuffer           buffer;
-					0ull,											// VkDeviceSize       offset;
-					VK_WHOLE_SIZE,									// VkDeviceSize       size;
-				},
-			};
-
-			vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u,
-				0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers, DE_NULL, 0u);
-		}
-
-		VK_CHECK(vk.endCommandBuffer(*m_cmdBuffer));
+		endCommandBuffer(vk, *m_cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *m_cmdBuffer, 0U, DE_NULL, DE_NULL, 0U, DE_NULL, useDeviceGroups, deviceID);
 	}
 
@@ -784,7 +666,7 @@ public:
 		m_colorBufferAlloc				= bindBuffer(vk, getDevice(), getAllocator(), *m_colorBuffer, MemoryRequirement::HostVisible);
 
 		deMemset(m_colorBufferAlloc->getHostPtr(), 0, static_cast<std::size_t>(m_colorBufferSize));
-		flushMappedMemoryRange(vk, getDevice(), m_colorBufferAlloc->getMemory(), m_colorBufferAlloc->getOffset(), m_colorBufferSize);
+		flushAlloc(vk, getDevice(), *m_colorBufferAlloc);
 	}
 
 protected:
@@ -833,7 +715,7 @@ protected:
 
 	bool isResultImageCorrect (void) const
 	{
-		invalidateMappedMemoryRange(getDeviceInterface(), getDevice(), m_colorBufferAlloc->getMemory(), 0ull, m_colorBufferSize);
+		invalidateAlloc(getDeviceInterface(), getDevice(), *m_colorBufferAlloc);
 
 		const tcu::ConstPixelBufferAccess resultImage (mapVkFormat(m_colorFormat), m_renderSize.x(), m_renderSize.y(), 1u, m_colorBufferAlloc->getHostPtr());
 
@@ -964,6 +846,7 @@ public:
 
 	tcu::TestStatus iterate (void)
 	{
+		const InstanceInterface&	instance			= m_context.getInstanceInterface();
 		const DeviceInterface&		vk					= getDeviceInterface();
 		MovePtr<SparseAllocation>	sparseAllocation;
 		Move<VkBuffer>				sparseBuffer;
@@ -986,7 +869,7 @@ public:
 				{
 					const UniquePtr<SparseAllocation> minAllocation(SparseAllocationBuilder()
 						.addMemoryBind()
-						.build(vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize));
+						.build(instance, getPhysicalDevice(secondDeviceID), vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize));
 
 					numMaxChunks = deMaxu32(static_cast<deUint32>(m_context.getDeviceProperties().limits.maxUniformBufferRange / minAllocation->resourceSize), 1u);
 				}
@@ -995,7 +878,7 @@ public:
 				{
 					sparseAllocation = SparseAllocationBuilder()
 						.addMemoryBind()
-						.build(vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize);
+						.build(instance, getPhysicalDevice(secondDeviceID), vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize);
 				}
 				else
 				{
@@ -1014,8 +897,20 @@ public:
 					if (m_aliased)
 						builder.addAliasedMemoryBind(0u, 0u);
 
-					sparseAllocation = builder.build(vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize);
+					sparseAllocation = builder.build(instance, getPhysicalDevice(secondDeviceID), vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize);
 					DE_ASSERT(sparseAllocation->resourceSize <= m_context.getDeviceProperties().limits.maxUniformBufferRange);
+				}
+
+				if (firstDeviceID != secondDeviceID)
+				{
+					VkPeerMemoryFeatureFlags	peerMemoryFeatureFlags = (VkPeerMemoryFeatureFlags)0;
+					vk.getDeviceGroupPeerMemoryFeatures(getDevice(), sparseAllocation->heapIndex, firstDeviceID, secondDeviceID, &peerMemoryFeatureFlags);
+
+					if (((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_COPY_DST_BIT)    == 0) ||
+						((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT) == 0))
+					{
+						TCU_THROW(NotSupportedError, "Peer memory does not support COPY_DST and GENERIC_SRC");
+					}
 				}
 
 				// Create the buffer
@@ -1046,7 +941,7 @@ public:
 					for (deUint32 i = 0; i < numBufferEntries; ++i)
 						pData[i] = IVec4(3*i ^ 127, 0, 0, 0);
 
-					flushMappedMemoryRange(vk, getDevice(), stagingBufferAlloc->getMemory(), stagingBufferAlloc->getOffset(), stagingBufferSize);
+					flushAlloc(vk, getDevice(), *stagingBufferAlloc);
 
 					const VkBufferCopy copyRegion =
 					{
@@ -1111,7 +1006,7 @@ public:
 				m_vertexBufferAlloc	= bindBuffer(vk, getDevice(), getAllocator(), *m_vertexBuffer, MemoryRequirement::HostVisible);
 
 				deMemcpy(m_vertexBufferAlloc->getHostPtr(), &vertexData[0], vertexBufferSize);
-				flushMappedMemoryRange(vk, getDevice(), m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset(), vertexBufferSize);
+				flushAlloc(vk, getDevice(), *m_vertexBufferAlloc);
 			}
 
 			// Draw
@@ -1244,9 +1139,16 @@ class DrawGridTestInstance : public SparseBufferTestInstance
 public:
 	DrawGridTestInstance (Context& context, const TestFlags flags, const VkBufferUsageFlags usage, const VkDeviceSize minChunkSize)
 		: SparseBufferTestInstance	(context, flags)
+		, m_bufferUsage				(usage)
+		, m_minChunkSize			(minChunkSize)
 	{
-		const DeviceInterface&	vk							= getDeviceInterface();
-		VkBufferCreateInfo		referenceBufferCreateInfo	= getSparseBufferCreateInfo(usage);
+	}
+
+	void createResources (deUint32 memoryDeviceIndex)
+	{
+		const InstanceInterface&	instance					= m_context.getInstanceInterface();
+		const DeviceInterface&		vk							= getDeviceInterface();
+		VkBufferCreateInfo			referenceBufferCreateInfo	= getSparseBufferCreateInfo(m_bufferUsage);
 
 		{
 			// Allocate two chunks, each covering half of the viewport
@@ -1264,20 +1166,17 @@ public:
 			if (m_aliased)
 				builder.addAliasedMemoryBind(0u, 0u);
 
-			m_sparseAllocation	= builder.build(vk, getDevice(), getAllocator(), referenceBufferCreateInfo, minChunkSize);
+			m_sparseAllocation	= builder.build(instance, getPhysicalDevice(memoryDeviceIndex), vk, getDevice(), getAllocator(), referenceBufferCreateInfo, m_minChunkSize);
 		}
 
 		// Create the buffer
 		referenceBufferCreateInfo.size	= m_sparseAllocation->resourceSize;
 		m_sparseBuffer					= makeBuffer(vk, getDevice(), referenceBufferCreateInfo);
 
-
 		m_perDrawBufferOffset	= m_sparseAllocation->resourceSize / m_sparseAllocation->numResourceChunks;
 		m_stagingBufferSize		= 2 * m_perDrawBufferOffset;
 		m_stagingBuffer			= makeBuffer(vk, getDevice(), makeBufferCreateInfo(m_stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
 		m_stagingBufferAlloc	= bindBuffer(vk, getDevice(), getAllocator(), *m_stagingBuffer, MemoryRequirement::HostVisible);
-
-
 	}
 
 	tcu::TestStatus iterate (void)
@@ -1289,6 +1188,20 @@ public:
 			const deUint32	firstDeviceID	= physDevID;
 			const deUint32	secondDeviceID	= (firstDeviceID + 1) % m_numPhysicalDevices;
 
+			createResources(secondDeviceID);
+
+			if (firstDeviceID != secondDeviceID)
+			{
+				VkPeerMemoryFeatureFlags	peerMemoryFeatureFlags = (VkPeerMemoryFeatureFlags)0;
+				vk.getDeviceGroupPeerMemoryFeatures(getDevice(), m_sparseAllocation->heapIndex, firstDeviceID, secondDeviceID, &peerMemoryFeatureFlags);
+
+				if (((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_COPY_DST_BIT)    == 0) ||
+					((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT) == 0))
+				{
+					TCU_THROW(NotSupportedError, "Peer memory does not support COPY_DST and GENERIC_SRC");
+				}
+			}
+
 			// Bind the memory
 			bindSparseBuffer(vk, getDevice(), m_sparseQueue.queueHandle, *m_sparseBuffer, *m_sparseAllocation, usingDeviceGroups(), firstDeviceID, secondDeviceID);
 
@@ -1296,7 +1209,7 @@ public:
 
 			// Upload to the sparse buffer
 			{
-				flushMappedMemoryRange(vk, getDevice(), m_stagingBufferAlloc->getMemory(), m_stagingBufferAlloc->getOffset(), m_stagingBufferSize);
+				flushAlloc(vk, getDevice(), *m_stagingBufferAlloc);
 
 				VkDeviceSize	firstChunkOffset	= 0ull;
 				VkDeviceSize	secondChunkOffset	= m_perDrawBufferOffset;
@@ -1343,6 +1256,9 @@ public:
 
 protected:
 	virtual void				initializeBuffers		(void) = 0;
+
+	const VkBufferUsageFlags	m_bufferUsage;
+	const VkDeviceSize			m_minChunkSize;
 
 	VkDeviceSize				m_perDrawBufferOffset;
 
@@ -1445,7 +1361,7 @@ public:
 
 			generateGrid(m_vertexBufferAlloc->getHostPtr(), step, -1.0f, -1.0f, GRID_SIZE, GRID_SIZE);
 
-			flushMappedMemoryRange(vk, getDevice(), m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset(), vertexBufferSize);
+			flushAlloc(vk, getDevice(), *m_vertexBufferAlloc);
 		}
 
 		// Sparse index buffer
@@ -1507,7 +1423,7 @@ public:
 
 		{
 			generateGrid(m_vertexBufferAlloc->getHostPtr(), 2.0f, -1.0f, -1.0f, 1, 1);
-			flushMappedMemoryRange(vk, getDevice(), m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset(), vertexBufferSize);
+			flushAlloc(vk, getDevice(), *m_vertexBufferAlloc);
 		}
 
 		// Indirect buffer

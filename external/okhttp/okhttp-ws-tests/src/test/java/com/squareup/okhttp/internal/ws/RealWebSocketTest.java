@@ -39,6 +39,7 @@ import static com.squareup.okhttp.ws.WebSocket.BINARY;
 import static com.squareup.okhttp.ws.WebSocket.TEXT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -500,10 +501,4 @@ public final class RealWebSocketTest {
       command.run();
     }
   }
-
-  // ANDROID-BEGIN Android uses JUnit 4.10 which does not have assertNotEquals()
-  private static void assertNotEquals(Object o1, Object o2) {
-    org.junit.Assert.assertFalse(o1 == o2 || (o1 != null && o1.equals(o2)));
-  }
-  // ANDROID-END
 }

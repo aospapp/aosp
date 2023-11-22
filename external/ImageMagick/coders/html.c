@@ -18,13 +18,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -96,7 +96,7 @@ static MagickBooleanType IsHTML(const unsigned char *magick,const size_t length)
 {
   if (length < 5)
     return(MagickFalse);
-  if (LocaleNCompare((char *) magick,"<html",5) == 0)
+  if (LocaleNCompare((char *) magick+1,"html",5) == 0)
     return(MagickTrue);
   return(MagickFalse);
 }
@@ -271,7 +271,8 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
   AppendImageFormat("map",filename);
   GetPathComponent(filename,BasePath,basename);
   (void) CopyMagickString(mapname,basename,MagickPathExtent);
-  (void) CopyMagickString(image->filename,image_info->filename,MagickPathExtent);
+  (void) CopyMagickString(image->filename,image_info->filename,
+    MagickPathExtent);
   (void) CopyMagickString(filename,image->filename,MagickPathExtent);
   write_info=CloneImageInfo(image_info);
   *write_info->magick='\0';
@@ -334,7 +335,8 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
       (void) FormatLocaleString(buffer,MagickPathExtent,
         "<map id=\"%s\" name=\"%s\">\n",mapname,mapname);
       (void) WriteBlobString(image,buffer);
-      (void) FormatLocaleString(buffer,MagickPathExtent,"  <area href=\"%s",url);
+      (void) FormatLocaleString(buffer,MagickPathExtent,"  <area href=\"%s",
+        url);
       (void) WriteBlobString(image,buffer);
       if (image->directory == (char *) NULL)
         {
@@ -346,7 +348,7 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
         }
       else
         for (p=image->directory; *p != '\0'; p++)
-          if (*p != '\n')
+          if (*p != '\xff')
             (void) WriteBlobByte(image,(unsigned char) *p);
           else
             {
@@ -421,7 +423,7 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
     }
   else
     for (p=image->directory; *p != '\0'; p++)
-      if (*p != '\n')
+      if (*p != '\xff')
         (void) WriteBlobByte(image,(unsigned char) *p);
       else
         {

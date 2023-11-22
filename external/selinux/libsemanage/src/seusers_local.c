@@ -35,12 +35,16 @@ static char *semanage_user_roles(semanage_handle_t * handle, const char *sename)
 				for (i = 0; i<num_roles; i++) {
 					size += (strlen(roles_arr[i]) + 1);
 				}
-				roles = malloc(size);
-				if (roles) {
-					strcpy(roles,roles_arr[0]);
-					for (i = 1; i<num_roles; i++) {
-						strcat(roles,",");
-						strcat(roles,roles_arr[i]);
+				if (num_roles == 0) {
+					roles = strdup("");
+				} else {
+					roles = malloc(size);
+					if (roles) {
+						strcpy(roles,roles_arr[0]);
+						for (i = 1; i<num_roles; i++) {
+							strcat(roles,",");
+							strcat(roles,roles_arr[i]);
+						}
 					}
 				}
 			}
@@ -67,16 +71,17 @@ static int semanage_seuser_audit(semanage_handle_t * handle,
 	const char *sep = "-";
 	int rc = -1;
 	strcpy(msg, "login");
+	if (previous) {
+		name = semanage_seuser_get_name(previous);
+		psename = semanage_seuser_get_sename(previous);
+		pmls = semanage_seuser_get_mlsrange(previous);
+		proles = semanage_user_roles(handle, psename);
+	}
 	if (seuser) {
 		name = semanage_seuser_get_name(seuser);
 		sename = semanage_seuser_get_sename(seuser);
 		mls = semanage_seuser_get_mlsrange(seuser);
 		roles = semanage_user_roles(handle, sename);
-	}
-	if (previous) {
-		psename = semanage_seuser_get_sename(previous);
-		pmls = semanage_seuser_get_mlsrange(previous);
-		proles = semanage_user_roles(handle, psename);
 	}
 	if (audit_type != AUDIT_ROLE_REMOVE) {
 		if (sename && (!psename || strcmp(psename, sename) != 0)) {

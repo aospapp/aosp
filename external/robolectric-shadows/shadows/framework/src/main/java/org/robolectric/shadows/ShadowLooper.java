@@ -2,22 +2,22 @@ package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR2;
 import static org.robolectric.RuntimeEnvironment.isMainThread;
-import static org.robolectric.Shadows.shadowOf;
 import static org.robolectric.shadow.api.Shadow.invokeConstructor;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
 
 import android.os.Looper;
+import android.os.MessageQueue;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 import org.robolectric.RoboSettings;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.HiddenApi;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.annotation.Resetter;
+import org.robolectric.shadow.api.Shadow;
 import org.robolectric.util.Scheduler;
 
 /**
@@ -30,6 +30,7 @@ import org.robolectric.util.Scheduler;
 @Implements(Looper.class)
 @SuppressWarnings("SynchronizeOnNonFinalField")
 public class ShadowLooper {
+
   // Replaced SoftThreadLocal with a WeakHashMap, because ThreadLocal make it impossible to access their contents from other
   // threads, but we need to be able to access the loopers for all threads so that we can shut them down when resetThreadLoopers()
   // is called. This also allows us to implement the useful getLooperForThread() method.
@@ -60,6 +61,7 @@ public class ShadowLooper {
             // Reset the schedulers of all loopers. This prevents un-run tasks queued up in static
             // background handlers from leaking to subsequent tests.
             shadowOf(looper).getScheduler().reset();
+            shadowOf(looper.getQueue()).reset();
           }
         }
       }
@@ -72,7 +74,7 @@ public class ShadowLooper {
   }
 
   @Implementation
-  public void __constructor__(boolean quitAllowed) {
+  protected void __constructor__(boolean quitAllowed) {
     invokeConstructor(Looper.class, realObject, from(boolean.class, quitAllowed));
     if (isMainThread()) {
       mainLooper = realObject;
@@ -83,17 +85,17 @@ public class ShadowLooper {
   }
 
   @Implementation
-  public static Looper getMainLooper() {
+  protected static Looper getMainLooper() {
     return mainLooper;
   }
 
   @Implementation
-  public static Looper myLooper() {
+  protected static Looper myLooper() {
     return getLooperForThread(Thread.currentThread());
   }
 
   @Implementation
-  public static void loop() {
+  protected static void loop() {
     shadowOf(Looper.myLooper()).doLoop();
   }
 
@@ -111,13 +113,13 @@ public class ShadowLooper {
   }
 
   @Implementation
-  public void quit() {
+  protected void quit() {
     if (realObject == Looper.getMainLooper()) throw new RuntimeException("Main thread not allowed to quit");
     quitUnchecked();
   }
 
   @Implementation(minSdk = JELLY_BEAN_MR2)
-  public void quitSafely() {
+  protected void quitSafely() {
     quit();
   }
 
@@ -126,12 +128,8 @@ public class ShadowLooper {
       quit = true;
       realObject.notifyAll();
       getScheduler().reset();
+      shadowOf(realObject.getQueue()).reset();
     }
-  }
-  
-  @HiddenApi @Implementation
-  public int postSyncBarrier() {
-    return 1;
   }
 
   public boolean hasQuit() {
@@ -140,6 +138,8 @@ public class ShadowLooper {
     }
   }
 
+  /** @deprecated Use `shadowOf({@link Looper#getMainLooper()})` instead. */
+  @Deprecated
   public static ShadowLooper getShadowMainLooper() {
     return shadowOf(Looper.getMainLooper());
   }
@@ -147,19 +147,50 @@ public class ShadowLooper {
   public static Looper getLooperForThread(Thread thread) {
     return isMainThread(thread) ? mainLooper : loopingLoopers.get(thread);
   }
-  
+
+  /**
+   * Pauses execution of tasks posted to the ShadowLooper. This means that during tests, tasks sent
+   * to the looper will not execute immediately, but will be queued in a way that is similar to how
+   * a real looper works. These queued tasks must be executed explicitly by calling {@link
+   * #runToEndOftasks} or a similar method, otherwise they will not run at all before your test
+   * ends.
+   *
+   * @param looper the looper to pause
+   */
   public static void pauseLooper(Looper looper) {
     shadowOf(looper).pause();
   }
 
+  /**
+   * Puts the shadow looper in an "unpaused" state (this is the default state). This means that
+   * during tests, tasks sent to the looper will execute inline, immediately, on the calling (main)
+   * thread instead of being queued, in a way similar to how Guava's "DirectExecutorService" works.
+   * This is likely not to be what you want: it will cause code to be potentially executed in a
+   * different order than how it would execute on the device, and if you are using certain Android
+   * APIs (such as view animations) that are non-reentrant, they may not work at all or do
+   * unpredictable things. For more information, see <a
+   * href="https://github.com/robolectric/robolectric/issues/3369">this discussion</a>.
+   *
+   * @param looper the looper to pause
+   */
   public static void unPauseLooper(Looper looper) {
     shadowOf(looper).unPause();
   }
 
+  /**
+   * Puts the main ShadowLooper in an "paused" state.
+   *
+   * @see #pauseLooper
+   */
   public static void pauseMainLooper() {
     getShadowMainLooper().pause();
   }
 
+  /**
+   * Puts the main ShadowLooper in an "unpaused" state.
+   *
+   * @see #unPauseLooper
+   */
   public static void unPauseMainLooper() {
     getShadowMainLooper().unPause();
   }
@@ -331,11 +362,11 @@ public class ShadowLooper {
   }
 
   public void resetScheduler() {
-    ShadowMessageQueue sQueue = shadowOf(realObject.getQueue());
+    ShadowMessageQueue shadowMessageQueue = shadowOf(realObject.getQueue());
     if (realObject == Looper.getMainLooper() || RoboSettings.isUseGlobalScheduler()) {
-      sQueue.setScheduler(RuntimeEnvironment.getMasterScheduler());
+      shadowMessageQueue.setScheduler(RuntimeEnvironment.getMasterScheduler());
     } else {
-      sQueue.setScheduler(new Scheduler());
+      shadowMessageQueue.setScheduler(new Scheduler());
     }
   }
 
@@ -358,7 +389,7 @@ public class ShadowLooper {
   public Scheduler getScheduler() {
     return shadowOf(realObject.getQueue()).getScheduler();
   }
-  
+
   public void runPaused(Runnable r) {
     boolean wasPaused = setPaused(true);
     try {
@@ -366,5 +397,13 @@ public class ShadowLooper {
     } finally {
       if (!wasPaused) unPause();
     }
+  }
+
+  private static ShadowLooper shadowOf(Looper looper) {
+    return Shadow.extract(looper);
+  }
+
+  private static ShadowMessageQueue shadowOf(MessageQueue mq) {
+    return Shadow.extract(mq);
   }
 }

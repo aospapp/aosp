@@ -87,6 +87,7 @@ private:
 	const int									m_imageCount;
 
 	const vk::VkComponentMapping				m_componentMapping;
+	tcu::BVec4									m_componentMask;
 	const vk::VkImageSubresourceRange			m_subresourceRange;
 	const vk::VkSamplerCreateInfo				m_samplerParams;
 	const float									m_samplerLod;
@@ -122,8 +123,6 @@ private:
 
 	vk::Move<vk::VkCommandPool>					m_cmdPool;
 	vk::Move<vk::VkCommandBuffer>				m_cmdBuffer;
-
-	vk::Move<vk::VkFence>						m_fence;
 };
 
 } // pipeline

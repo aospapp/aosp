@@ -73,12 +73,6 @@ cc_defaults {
         // const correctly when handling string constants.
         "-Wwrite-strings",
 
-        // As we can load both libvixl-arm.so and libvixl-arm64.so in the
-        // same process, and some functions are emitted in both libraries,
-        // flags for selecting implementation details for these functions
-        // must be shared to emit identical code. Otherwise we can get
-        // undefined behavior, especially with link-time optimization.
-        // b/64359573
         "-DVIXL_CODE_BUFFER_MALLOC",
     ],
     local_include_dirs: ["src"],
@@ -88,23 +82,31 @@ cc_defaults {
     },
 }
 
-cc_defaults {
+art_cc_defaults {
     name: "vixl-arm",
     defaults: ["vixl-common"],
-    cppflags: [
-        "-DVIXL_INCLUDE_TARGET_T32",
-        ],
-    srcs: ["src/aarch32/*.cc"],
+    codegen: {
+        arm: {
+            srcs: ["src/aarch32/*.cc"],
+            cppflags: [
+                "-DVIXL_INCLUDE_TARGET_T32",
+            ],
+        },
+    },
 }
 
-cc_defaults {
+art_cc_defaults {
     name: "vixl-arm64",
     defaults: ["vixl-common"],
-    cppflags: [
-        "-DVIXL_INCLUDE_SIMULATOR_AARCH64",
-        "-DVIXL_INCLUDE_TARGET_A64",
-        ],
-    srcs: ["src/aarch64/*.cc"],
+    codegen: {
+        arm64: {
+            srcs: ["src/aarch64/*.cc"],
+            cppflags: [
+                "-DVIXL_INCLUDE_SIMULATOR_AARCH64",
+                "-DVIXL_INCLUDE_TARGET_A64",
+            ],
+        }
+    },
 }
 
 cc_defaults {
@@ -127,40 +129,31 @@ cc_defaults {
     ],
 }
 
-cc_library {
-    name: "libvixl-arm64",
-    defaults: [
-        "vixl-release",
-        "vixl-arm64",
-        "dex2oat-pgo-defaults",
-    ],
-    vendor_available: true,
-    vndk: {
-        enabled: true,
-    },
-}
-
-cc_library {
-    name: "libvixld-arm64",
-    defaults: ["vixl-debug", "vixl-arm64"],
-}
-
-cc_library {
-    name: "libvixl-arm",
+art_cc_library {
+    name: "libvixl",
     defaults: [
         "vixl-release",
         "vixl-arm",
+        "vixl-arm64",
         "dex2oat-pgo-defaults",
     ],
-    vendor_available: true,
-    vndk: {
-        enabled: true,
+
+    target: {
+        android: {
+            lto: {
+                 thin: true,
+            },
+        },
     },
 }
 
-cc_library {
-    name: "libvixld-arm",
-    defaults: ["vixl-debug", "vixl-arm"],
+art_cc_library {
+    name: "libvixld",
+    defaults: [
+        "vixl-debug",
+        "vixl-arm",
+        "vixl-arm64",
+    ],
 }
 
 //######## VIXL HOST TESTS #########

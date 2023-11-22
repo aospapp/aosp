@@ -195,6 +195,66 @@ void Assembler::ret(const Register& xn) {
 }
 
 
+void Assembler::braaz(const Register& xn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits());
+  Emit(BRAAZ | Rn(xn) | Rd_mask);
+}
+
+void Assembler::brabz(const Register& xn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits());
+  Emit(BRABZ | Rn(xn) | Rd_mask);
+}
+
+void Assembler::blraaz(const Register& xn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits());
+  Emit(BLRAAZ | Rn(xn) | Rd_mask);
+}
+
+void Assembler::blrabz(const Register& xn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits());
+  Emit(BLRABZ | Rn(xn) | Rd_mask);
+}
+
+void Assembler::retaa() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(RETAA | Rn_mask | Rd_mask);
+}
+
+void Assembler::retab() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(RETAB | Rn_mask | Rd_mask);
+}
+
+// The Arm ARM names the register Xm but encodes it in the Xd bitfield.
+void Assembler::braa(const Register& xn, const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits() && xm.Is64Bits());
+  Emit(BRAA | Rn(xn) | RdSP(xm));
+}
+
+void Assembler::brab(const Register& xn, const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits() && xm.Is64Bits());
+  Emit(BRAB | Rn(xn) | RdSP(xm));
+}
+
+void Assembler::blraa(const Register& xn, const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits() && xm.Is64Bits());
+  Emit(BLRAA | Rn(xn) | RdSP(xm));
+}
+
+void Assembler::blrab(const Register& xn, const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xn.Is64Bits() && xm.Is64Bits());
+  Emit(BLRAB | Rn(xn) | RdSP(xm));
+}
+
+
 void Assembler::b(int64_t imm26) { Emit(B | ImmUncondBranch(imm26)); }
 
 
@@ -255,6 +315,7 @@ void Assembler::NEONTable(const VRegister& vd,
                           const VRegister& vn,
                           const VRegister& vm,
                           NEONTableOp op) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.Is16B() || vd.Is8B());
   VIXL_ASSERT(vn.Is16B());
   VIXL_ASSERT(AreSameFormat(vd, vm));
@@ -265,6 +326,7 @@ void Assembler::NEONTable(const VRegister& vd,
 void Assembler::tbl(const VRegister& vd,
                     const VRegister& vn,
                     const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONTable(vd, vn, vm, NEON_TBL_1v);
 }
 
@@ -274,6 +336,7 @@ void Assembler::tbl(const VRegister& vd,
                     const VRegister& vn2,
                     const VRegister& vm) {
   USE(vn2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vn, vn2));
   VIXL_ASSERT(AreConsecutive(vn, vn2));
   NEONTable(vd, vn, vm, NEON_TBL_2v);
@@ -286,6 +349,7 @@ void Assembler::tbl(const VRegister& vd,
                     const VRegister& vn3,
                     const VRegister& vm) {
   USE(vn2, vn3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vn, vn2, vn3));
   VIXL_ASSERT(AreConsecutive(vn, vn2, vn3));
   NEONTable(vd, vn, vm, NEON_TBL_3v);
@@ -299,6 +363,7 @@ void Assembler::tbl(const VRegister& vd,
                     const VRegister& vn4,
                     const VRegister& vm) {
   USE(vn2, vn3, vn4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vn, vn2, vn3, vn4));
   VIXL_ASSERT(AreConsecutive(vn, vn2, vn3, vn4));
   NEONTable(vd, vn, vm, NEON_TBL_4v);
@@ -308,6 +373,7 @@ void Assembler::tbl(const VRegister& vd,
 void Assembler::tbx(const VRegister& vd,
                     const VRegister& vn,
                     const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONTable(vd, vn, vm, NEON_TBX_1v);
 }
 
@@ -317,6 +383,7 @@ void Assembler::tbx(const VRegister& vd,
                     const VRegister& vn2,
                     const VRegister& vm) {
   USE(vn2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vn, vn2));
   VIXL_ASSERT(AreConsecutive(vn, vn2));
   NEONTable(vd, vn, vm, NEON_TBX_2v);
@@ -329,6 +396,7 @@ void Assembler::tbx(const VRegister& vd,
                     const VRegister& vn3,
                     const VRegister& vm) {
   USE(vn2, vn3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vn, vn2, vn3));
   VIXL_ASSERT(AreConsecutive(vn, vn2, vn3));
   NEONTable(vd, vn, vm, NEON_TBX_3v);
@@ -342,6 +410,7 @@ void Assembler::tbx(const VRegister& vd,
                     const VRegister& vn4,
                     const VRegister& vm) {
   USE(vn2, vn3, vn4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vn, vn2, vn3, vn4));
   VIXL_ASSERT(AreConsecutive(vn, vn2, vn3, vn4));
   NEONTable(vd, vn, vm, NEON_TBX_4v);
@@ -736,6 +805,7 @@ void Assembler::DataProcessing3Source(const Register& rd,
 void Assembler::crc32b(const Register& wd,
                        const Register& wn,
                        const Register& wm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && wm.Is32Bits());
   Emit(SF(wm) | Rm(wm) | CRC32B | Rn(wn) | Rd(wd));
 }
@@ -744,6 +814,7 @@ void Assembler::crc32b(const Register& wd,
 void Assembler::crc32h(const Register& wd,
                        const Register& wn,
                        const Register& wm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && wm.Is32Bits());
   Emit(SF(wm) | Rm(wm) | CRC32H | Rn(wn) | Rd(wd));
 }
@@ -752,6 +823,7 @@ void Assembler::crc32h(const Register& wd,
 void Assembler::crc32w(const Register& wd,
                        const Register& wn,
                        const Register& wm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && wm.Is32Bits());
   Emit(SF(wm) | Rm(wm) | CRC32W | Rn(wn) | Rd(wd));
 }
@@ -760,6 +832,7 @@ void Assembler::crc32w(const Register& wd,
 void Assembler::crc32x(const Register& wd,
                        const Register& wn,
                        const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && xm.Is64Bits());
   Emit(SF(xm) | Rm(xm) | CRC32X | Rn(wn) | Rd(wd));
 }
@@ -768,6 +841,7 @@ void Assembler::crc32x(const Register& wd,
 void Assembler::crc32cb(const Register& wd,
                         const Register& wn,
                         const Register& wm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && wm.Is32Bits());
   Emit(SF(wm) | Rm(wm) | CRC32CB | Rn(wn) | Rd(wd));
 }
@@ -776,6 +850,7 @@ void Assembler::crc32cb(const Register& wd,
 void Assembler::crc32ch(const Register& wd,
                         const Register& wn,
                         const Register& wm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && wm.Is32Bits());
   Emit(SF(wm) | Rm(wm) | CRC32CH | Rn(wn) | Rd(wd));
 }
@@ -784,6 +859,7 @@ void Assembler::crc32ch(const Register& wd,
 void Assembler::crc32cw(const Register& wd,
                         const Register& wn,
                         const Register& wm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && wm.Is32Bits());
   Emit(SF(wm) | Rm(wm) | CRC32CW | Rn(wn) | Rd(wd));
 }
@@ -792,6 +868,7 @@ void Assembler::crc32cw(const Register& wd,
 void Assembler::crc32cx(const Register& wd,
                         const Register& wn,
                         const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kCRC32));
   VIXL_ASSERT(wd.Is32Bits() && wn.Is32Bits() && xm.Is64Bits());
   Emit(SF(xm) | Rm(xm) | CRC32CX | Rn(wn) | Rd(wd));
 }
@@ -942,6 +1019,60 @@ void Assembler::cls(const Register& rd, const Register& rn) {
   DataProcessing1Source(rd, rn, CLS);
 }
 
+#define PAUTH_VARIATIONS(V) \
+  V(paci, PACI)             \
+  V(pacd, PACD)             \
+  V(auti, AUTI)             \
+  V(autd, AUTD)
+
+#define DEFINE_ASM_FUNCS(PRE, OP)                                  \
+  void Assembler::PRE##a(const Register& xd, const Register& xn) { \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
+    VIXL_ASSERT(xd.Is64Bits() && xn.Is64Bits());                   \
+    Emit(SF(xd) | OP##A | Rd(xd) | RnSP(xn));                      \
+  }                                                                \
+                                                                   \
+  void Assembler::PRE##za(const Register& xd) {                    \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
+    VIXL_ASSERT(xd.Is64Bits());                                    \
+    Emit(SF(xd) | OP##ZA | Rd(xd));                                \
+  }                                                                \
+                                                                   \
+  void Assembler::PRE##b(const Register& xd, const Register& xn) { \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
+    VIXL_ASSERT(xd.Is64Bits() && xn.Is64Bits());                   \
+    Emit(SF(xd) | OP##B | Rd(xd) | RnSP(xn));                      \
+  }                                                                \
+                                                                   \
+  void Assembler::PRE##zb(const Register& xd) {                    \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
+    VIXL_ASSERT(xd.Is64Bits());                                    \
+    Emit(SF(xd) | OP##ZB | Rd(xd));                                \
+  }
+
+PAUTH_VARIATIONS(DEFINE_ASM_FUNCS)
+#undef DEFINE_ASM_FUNCS
+
+void Assembler::pacga(const Register& xd,
+                      const Register& xn,
+                      const Register& xm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth, CPUFeatures::kPAuthGeneric));
+  VIXL_ASSERT(xd.Is64Bits() && xn.Is64Bits() && xm.Is64Bits());
+  Emit(SF(xd) | PACGA | Rd(xd) | Rn(xn) | RmSP(xm));
+}
+
+void Assembler::xpaci(const Register& xd) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xd.Is64Bits());
+  Emit(SF(xd) | XPACI | Rd(xd));
+}
+
+void Assembler::xpacd(const Register& xd) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  VIXL_ASSERT(xd.Is64Bits());
+  Emit(SF(xd) | XPACD | Rd(xd));
+}
+
 
 void Assembler::ldp(const CPURegister& rt,
                     const CPURegister& rt2,
@@ -969,6 +1100,8 @@ void Assembler::LoadStorePair(const CPURegister& rt,
                               const CPURegister& rt2,
                               const MemOperand& addr,
                               LoadStorePairOp op) {
+  VIXL_ASSERT(CPUHas(rt, rt2));
+
   // 'rt' and 'rt2' can only be aliased for stores.
   VIXL_ASSERT(((op & LoadStorePairLBit) == 0) || !rt.Is(rt2));
   VIXL_ASSERT(AreSameSizeAndType(rt, rt2));
@@ -982,7 +1115,6 @@ void Assembler::LoadStorePair(const CPURegister& rt,
   if (addr.IsImmediateOffset()) {
     addrmodeop = LoadStorePairOffsetFixed;
   } else {
-    VIXL_ASSERT(addr.GetOffset() != 0);
     if (addr.IsPreIndex()) {
       addrmodeop = LoadStorePairPreIndexFixed;
     } else {
@@ -1012,6 +1144,8 @@ void Assembler::LoadStorePairNonTemporal(const CPURegister& rt,
                                          const CPURegister& rt2,
                                          const MemOperand& addr,
                                          LoadStorePairNonTemporalOp op) {
+  VIXL_ASSERT(CPUHas(rt, rt2));
+
   VIXL_ASSERT(!rt.Is(rt2));
   VIXL_ASSERT(AreSameSizeAndType(rt, rt2));
   VIXL_ASSERT(addr.IsImmediateOffset());
@@ -1198,6 +1332,7 @@ void Assembler::ldrsw(const Register& xt, RawLiteral* literal) {
 
 
 void Assembler::ldr(const CPURegister& rt, RawLiteral* literal) {
+  VIXL_ASSERT(CPUHas(rt));
   VIXL_ASSERT(literal->GetSize() == static_cast<size_t>(rt.GetSizeInBytes()));
   ldr(rt, static_cast<int>(LinkAndGetWordOffsetTo(literal)));
 }
@@ -1209,6 +1344,7 @@ void Assembler::ldrsw(const Register& rt, int64_t imm19) {
 
 
 void Assembler::ldr(const CPURegister& rt, int64_t imm19) {
+  VIXL_ASSERT(CPUHas(rt));
   LoadLiteralOp op = LoadLiteralOpFor(rt);
   Emit(op | ImmLLiteral(imm19) | Rt(rt));
 }
@@ -1388,6 +1524,211 @@ void Assembler::ldar(const Register& rt, const MemOperand& src) {
 }
 
 
+void Assembler::stllrb(const Register& rt, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kLORegions));
+  VIXL_ASSERT(dst.IsImmediateOffset() && (dst.GetOffset() == 0));
+  Emit(STLLRB | Rs_mask | Rt(rt) | Rt2_mask | RnSP(dst.GetBaseRegister()));
+}
+
+
+void Assembler::stllrh(const Register& rt, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kLORegions));
+  VIXL_ASSERT(dst.IsImmediateOffset() && (dst.GetOffset() == 0));
+  Emit(STLLRH | Rs_mask | Rt(rt) | Rt2_mask | RnSP(dst.GetBaseRegister()));
+}
+
+
+void Assembler::stllr(const Register& rt, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kLORegions));
+  VIXL_ASSERT(dst.IsImmediateOffset() && (dst.GetOffset() == 0));
+  LoadStoreExclusive op = rt.Is64Bits() ? STLLR_x : STLLR_w;
+  Emit(op | Rs_mask | Rt(rt) | Rt2_mask | RnSP(dst.GetBaseRegister()));
+}
+
+
+void Assembler::ldlarb(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kLORegions));
+  VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
+  Emit(LDLARB | Rs_mask | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister()));
+}
+
+
+void Assembler::ldlarh(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kLORegions));
+  VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
+  Emit(LDLARH | Rs_mask | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister()));
+}
+
+
+void Assembler::ldlar(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kLORegions));
+  VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
+  LoadStoreExclusive op = rt.Is64Bits() ? LDLAR_x : LDLAR_w;
+  Emit(op | Rs_mask | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister()));
+}
+
+
+// clang-format off
+#define COMPARE_AND_SWAP_W_X_LIST(V) \
+  V(cas,   CAS)                      \
+  V(casa,  CASA)                     \
+  V(casl,  CASL)                     \
+  V(casal, CASAL)
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, OP)                                          \
+  void Assembler::FN(const Register& rs,                                 \
+                     const Register& rt,                                 \
+                     const MemOperand& src) {                            \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                          \
+    VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));      \
+    LoadStoreExclusive op = rt.Is64Bits() ? OP##_x : OP##_w;             \
+    Emit(op | Rs(rs) | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister())); \
+  }
+COMPARE_AND_SWAP_W_X_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
+
+// clang-format off
+#define COMPARE_AND_SWAP_W_LIST(V) \
+  V(casb,   CASB)                  \
+  V(casab,  CASAB)                 \
+  V(caslb,  CASLB)                 \
+  V(casalb, CASALB)                \
+  V(cash,   CASH)                  \
+  V(casah,  CASAH)                 \
+  V(caslh,  CASLH)                 \
+  V(casalh, CASALH)
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, OP)                                          \
+  void Assembler::FN(const Register& rs,                                 \
+                     const Register& rt,                                 \
+                     const MemOperand& src) {                            \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                          \
+    VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));      \
+    Emit(OP | Rs(rs) | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister())); \
+  }
+COMPARE_AND_SWAP_W_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
+
+
+// clang-format off
+#define COMPARE_AND_SWAP_PAIR_LIST(V) \
+  V(casp,   CASP)                     \
+  V(caspa,  CASPA)                    \
+  V(caspl,  CASPL)                    \
+  V(caspal, CASPAL)
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, OP)                                          \
+  void Assembler::FN(const Register& rs,                                 \
+                     const Register& rs1,                                \
+                     const Register& rt,                                 \
+                     const Register& rt1,                                \
+                     const MemOperand& src) {                            \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                          \
+    USE(rs1, rt1);                                                       \
+    VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));      \
+    VIXL_ASSERT(AreEven(rs, rt));                                        \
+    VIXL_ASSERT(AreConsecutive(rs, rs1));                                \
+    VIXL_ASSERT(AreConsecutive(rt, rt1));                                \
+    LoadStoreExclusive op = rt.Is64Bits() ? OP##_x : OP##_w;             \
+    Emit(op | Rs(rs) | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister())); \
+  }
+COMPARE_AND_SWAP_PAIR_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
+
+// These macros generate all the variations of the atomic memory operations,
+// e.g. ldadd, ldadda, ldaddb, staddl, etc.
+// For a full list of the methods with comments, see the assembler header file.
+
+// clang-format off
+#define ATOMIC_MEMORY_SIMPLE_OPERATION_LIST(V, DEF) \
+  V(DEF, add,  LDADD)                               \
+  V(DEF, clr,  LDCLR)                               \
+  V(DEF, eor,  LDEOR)                               \
+  V(DEF, set,  LDSET)                               \
+  V(DEF, smax, LDSMAX)                              \
+  V(DEF, smin, LDSMIN)                              \
+  V(DEF, umax, LDUMAX)                              \
+  V(DEF, umin, LDUMIN)
+
+#define ATOMIC_MEMORY_STORE_MODES(V, NAME, OP) \
+  V(NAME,     OP##_x,   OP##_w)                \
+  V(NAME##l,  OP##L_x,  OP##L_w)               \
+  V(NAME##b,  OP##B,    OP##B)                 \
+  V(NAME##lb, OP##LB,   OP##LB)                \
+  V(NAME##h,  OP##H,    OP##H)                 \
+  V(NAME##lh, OP##LH,   OP##LH)
+
+#define ATOMIC_MEMORY_LOAD_MODES(V, NAME, OP) \
+  ATOMIC_MEMORY_STORE_MODES(V, NAME, OP)      \
+  V(NAME##a,   OP##A_x,  OP##A_w)             \
+  V(NAME##al,  OP##AL_x, OP##AL_w)            \
+  V(NAME##ab,  OP##AB,   OP##AB)              \
+  V(NAME##alb, OP##ALB,  OP##ALB)             \
+  V(NAME##ah,  OP##AH,   OP##AH)              \
+  V(NAME##alh, OP##ALH,  OP##ALH)
+// clang-format on
+
+#define DEFINE_ASM_LOAD_FUNC(FN, OP_X, OP_W)                        \
+  void Assembler::ld##FN(const Register& rs,                        \
+                         const Register& rt,                        \
+                         const MemOperand& src) {                   \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                     \
+    VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0)); \
+    AtomicMemoryOp op = rt.Is64Bits() ? OP_X : OP_W;                \
+    Emit(op | Rs(rs) | Rt(rt) | RnSP(src.GetBaseRegister()));       \
+  }
+#define DEFINE_ASM_STORE_FUNC(FN, OP_X, OP_W)                         \
+  void Assembler::st##FN(const Register& rs, const MemOperand& src) { \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                       \
+    ld##FN(rs, AppropriateZeroRegFor(rs), src);                       \
+  }
+
+ATOMIC_MEMORY_SIMPLE_OPERATION_LIST(ATOMIC_MEMORY_LOAD_MODES,
+                                    DEFINE_ASM_LOAD_FUNC)
+ATOMIC_MEMORY_SIMPLE_OPERATION_LIST(ATOMIC_MEMORY_STORE_MODES,
+                                    DEFINE_ASM_STORE_FUNC)
+
+#define DEFINE_ASM_SWP_FUNC(FN, OP_X, OP_W)                         \
+  void Assembler::FN(const Register& rs,                            \
+                     const Register& rt,                            \
+                     const MemOperand& src) {                       \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                     \
+    VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0)); \
+    AtomicMemoryOp op = rt.Is64Bits() ? OP_X : OP_W;                \
+    Emit(op | Rs(rs) | Rt(rt) | RnSP(src.GetBaseRegister()));       \
+  }
+
+ATOMIC_MEMORY_LOAD_MODES(DEFINE_ASM_SWP_FUNC, swp, SWP)
+
+#undef DEFINE_ASM_LOAD_FUNC
+#undef DEFINE_ASM_STORE_FUNC
+#undef DEFINE_ASM_SWP_FUNC
+
+
+void Assembler::ldaprb(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc));
+  VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
+  AtomicMemoryOp op = LDAPRB;
+  Emit(op | Rs(xzr) | Rt(rt) | RnSP(src.GetBaseRegister()));
+}
+
+void Assembler::ldaprh(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc));
+  VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
+  AtomicMemoryOp op = LDAPRH;
+  Emit(op | Rs(xzr) | Rt(rt) | RnSP(src.GetBaseRegister()));
+}
+
+void Assembler::ldapr(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc));
+  VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
+  AtomicMemoryOp op = rt.Is64Bits() ? LDAPR_x : LDAPR_w;
+  Emit(op | Rs(xzr) | Rt(rt) | RnSP(src.GetBaseRegister()));
+}
+
 void Assembler::prfm(PrefetchOperation op,
                      const MemOperand& address,
                      LoadStoreScalingOption option) {
@@ -1435,7 +1776,13 @@ void Assembler::ic(InstructionCacheOp op, const Register& rt) {
 }
 
 
-void Assembler::hint(SystemHint code) { Emit(HINT | ImmHint(code) | Rt(xzr)); }
+void Assembler::hint(SystemHint code) { hint(static_cast<int>(code)); }
+
+
+void Assembler::hint(int imm7) {
+  VIXL_ASSERT(IsUint7(imm7));
+  Emit(HINT | ImmHint(imm7) | Rt(xzr));
+}
 
 
 // NEON structure loads and stores.
@@ -1547,6 +1894,7 @@ void Assembler::LoadStoreStructSingleAllLanes(const VRegister& vt,
 
 
 void Assembler::ld1(const VRegister& vt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   LoadStoreStruct(vt, src, NEON_LD1_1v);
 }
 
@@ -1555,6 +1903,7 @@ void Assembler::ld1(const VRegister& vt,
                     const VRegister& vt2,
                     const MemOperand& src) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStruct(vt, src, NEON_LD1_2v);
@@ -1566,6 +1915,7 @@ void Assembler::ld1(const VRegister& vt,
                     const VRegister& vt3,
                     const MemOperand& src) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStruct(vt, src, NEON_LD1_3v);
@@ -1578,6 +1928,7 @@ void Assembler::ld1(const VRegister& vt,
                     const VRegister& vt4,
                     const MemOperand& src) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStruct(vt, src, NEON_LD1_4v);
@@ -1588,6 +1939,7 @@ void Assembler::ld2(const VRegister& vt,
                     const VRegister& vt2,
                     const MemOperand& src) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStruct(vt, src, NEON_LD2);
@@ -1599,6 +1951,7 @@ void Assembler::ld2(const VRegister& vt,
                     int lane,
                     const MemOperand& src) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStructSingle(vt, lane, src, NEONLoadStoreSingleStructLoad2);
@@ -1609,6 +1962,7 @@ void Assembler::ld2r(const VRegister& vt,
                      const VRegister& vt2,
                      const MemOperand& src) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStructSingleAllLanes(vt, src, NEON_LD2R);
@@ -1620,6 +1974,7 @@ void Assembler::ld3(const VRegister& vt,
                     const VRegister& vt3,
                     const MemOperand& src) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStruct(vt, src, NEON_LD3);
@@ -1632,6 +1987,7 @@ void Assembler::ld3(const VRegister& vt,
                     int lane,
                     const MemOperand& src) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStructSingle(vt, lane, src, NEONLoadStoreSingleStructLoad3);
@@ -1643,6 +1999,7 @@ void Assembler::ld3r(const VRegister& vt,
                      const VRegister& vt3,
                      const MemOperand& src) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStructSingleAllLanes(vt, src, NEON_LD3R);
@@ -1655,6 +2012,7 @@ void Assembler::ld4(const VRegister& vt,
                     const VRegister& vt4,
                     const MemOperand& src) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStruct(vt, src, NEON_LD4);
@@ -1668,6 +2026,7 @@ void Assembler::ld4(const VRegister& vt,
                     int lane,
                     const MemOperand& src) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStructSingle(vt, lane, src, NEONLoadStoreSingleStructLoad4);
@@ -1680,6 +2039,7 @@ void Assembler::ld4r(const VRegister& vt,
                      const VRegister& vt4,
                      const MemOperand& src) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStructSingleAllLanes(vt, src, NEON_LD4R);
@@ -1687,6 +2047,7 @@ void Assembler::ld4r(const VRegister& vt,
 
 
 void Assembler::st1(const VRegister& vt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   LoadStoreStruct(vt, src, NEON_ST1_1v);
 }
 
@@ -1695,6 +2056,7 @@ void Assembler::st1(const VRegister& vt,
                     const VRegister& vt2,
                     const MemOperand& src) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStruct(vt, src, NEON_ST1_2v);
@@ -1706,6 +2068,7 @@ void Assembler::st1(const VRegister& vt,
                     const VRegister& vt3,
                     const MemOperand& src) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStruct(vt, src, NEON_ST1_3v);
@@ -1718,6 +2081,7 @@ void Assembler::st1(const VRegister& vt,
                     const VRegister& vt4,
                     const MemOperand& src) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStruct(vt, src, NEON_ST1_4v);
@@ -1728,6 +2092,7 @@ void Assembler::st2(const VRegister& vt,
                     const VRegister& vt2,
                     const MemOperand& dst) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStruct(vt, dst, NEON_ST2);
@@ -1739,6 +2104,7 @@ void Assembler::st2(const VRegister& vt,
                     int lane,
                     const MemOperand& dst) {
   USE(vt2);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2));
   VIXL_ASSERT(AreConsecutive(vt, vt2));
   LoadStoreStructSingle(vt, lane, dst, NEONLoadStoreSingleStructStore2);
@@ -1750,6 +2116,7 @@ void Assembler::st3(const VRegister& vt,
                     const VRegister& vt3,
                     const MemOperand& dst) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStruct(vt, dst, NEON_ST3);
@@ -1762,6 +2129,7 @@ void Assembler::st3(const VRegister& vt,
                     int lane,
                     const MemOperand& dst) {
   USE(vt2, vt3);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3));
   LoadStoreStructSingle(vt, lane, dst, NEONLoadStoreSingleStructStore3);
@@ -1774,6 +2142,7 @@ void Assembler::st4(const VRegister& vt,
                     const VRegister& vt4,
                     const MemOperand& dst) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStruct(vt, dst, NEON_ST4);
@@ -1787,6 +2156,7 @@ void Assembler::st4(const VRegister& vt,
                     int lane,
                     const MemOperand& dst) {
   USE(vt2, vt3, vt4);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vt, vt2, vt3, vt4));
   VIXL_ASSERT(AreConsecutive(vt, vt2, vt3, vt4));
   LoadStoreStructSingle(vt, lane, dst, NEONLoadStoreSingleStructStore4);
@@ -1834,16 +2204,19 @@ void Assembler::LoadStoreStructSingle(const VRegister& vt,
 
 
 void Assembler::ld1(const VRegister& vt, int lane, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   LoadStoreStructSingle(vt, lane, src, NEONLoadStoreSingleStructLoad1);
 }
 
 
 void Assembler::ld1r(const VRegister& vt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   LoadStoreStructSingleAllLanes(vt, src, NEON_LD1R);
 }
 
 
 void Assembler::st1(const VRegister& vt, int lane, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   LoadStoreStructSingle(vt, lane, dst, NEONLoadStoreSingleStructStore1);
 }
 
@@ -1933,12 +2306,13 @@ void Assembler::NEON3DifferentHN(const VRegister& vd,
 // clang-format on
 
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)        \
-void Assembler::FN(const VRegister& vd,    \
-                   const VRegister& vn,    \
-                   const VRegister& vm) {  \
-  VIXL_ASSERT(AS);                         \
-  NEON3DifferentL(vd, vn, vm, OP);         \
+#define DEFINE_ASM_FUNC(FN, OP, AS)                   \
+void Assembler::FN(const VRegister& vd,               \
+                   const VRegister& vn,               \
+                   const VRegister& vm) {             \
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));            \
+  VIXL_ASSERT(AS);                                    \
+  NEON3DifferentL(vd, vn, vm, OP);                    \
 }
 NEON_3DIFF_LONG_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
@@ -1955,12 +2329,13 @@ NEON_3DIFF_LONG_LIST(DEFINE_ASM_FUNC)
   V(rsubhn2, NEON_RSUBHN2, vd.IsQ())
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)         \
-  void Assembler::FN(const VRegister& vd,   \
-                     const VRegister& vn,   \
-                     const VRegister& vm) { \
-    VIXL_ASSERT(AS);                        \
-    NEON3DifferentHN(vd, vn, vm, OP);       \
+#define DEFINE_ASM_FUNC(FN, OP, AS)          \
+  void Assembler::FN(const VRegister& vd,    \
+                     const VRegister& vn,    \
+                     const VRegister& vm) {  \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON)); \
+    VIXL_ASSERT(AS);                         \
+    NEON3DifferentHN(vd, vn, vm, OP);        \
   }
 NEON_3DIFF_HN_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
@@ -1968,6 +2343,7 @@ NEON_3DIFF_HN_LIST(DEFINE_ASM_FUNC)
 void Assembler::uaddw(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsD());
   NEON3DifferentW(vd, vn, vm, NEON_UADDW);
 }
@@ -1976,6 +2352,7 @@ void Assembler::uaddw(const VRegister& vd,
 void Assembler::uaddw2(const VRegister& vd,
                        const VRegister& vn,
                        const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsQ());
   NEON3DifferentW(vd, vn, vm, NEON_UADDW2);
 }
@@ -1984,6 +2361,7 @@ void Assembler::uaddw2(const VRegister& vd,
 void Assembler::saddw(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsD());
   NEON3DifferentW(vd, vn, vm, NEON_SADDW);
 }
@@ -1992,6 +2370,7 @@ void Assembler::saddw(const VRegister& vd,
 void Assembler::saddw2(const VRegister& vd,
                        const VRegister& vn,
                        const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsQ());
   NEON3DifferentW(vd, vn, vm, NEON_SADDW2);
 }
@@ -2000,6 +2379,7 @@ void Assembler::saddw2(const VRegister& vd,
 void Assembler::usubw(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsD());
   NEON3DifferentW(vd, vn, vm, NEON_USUBW);
 }
@@ -2008,6 +2388,7 @@ void Assembler::usubw(const VRegister& vd,
 void Assembler::usubw2(const VRegister& vd,
                        const VRegister& vn,
                        const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsQ());
   NEON3DifferentW(vd, vn, vm, NEON_USUBW2);
 }
@@ -2016,6 +2397,7 @@ void Assembler::usubw2(const VRegister& vd,
 void Assembler::ssubw(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsD());
   NEON3DifferentW(vd, vn, vm, NEON_SSUBW);
 }
@@ -2024,6 +2406,7 @@ void Assembler::ssubw(const VRegister& vd,
 void Assembler::ssubw2(const VRegister& vd,
                        const VRegister& vn,
                        const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vm.IsQ());
   NEON3DifferentW(vd, vn, vm, NEON_SSUBW2);
 }
@@ -2038,6 +2421,71 @@ void Assembler::mov(const Register& rd, const Register& rm) {
   } else {
     orr(rd, AppropriateZeroRegFor(rd), rm);
   }
+}
+
+void Assembler::xpaclri() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(XPACLRI);
+}
+
+void Assembler::pacia1716() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(PACIA1716);
+}
+
+void Assembler::pacib1716() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(PACIB1716);
+}
+
+void Assembler::autia1716() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(AUTIA1716);
+}
+
+void Assembler::autib1716() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(AUTIB1716);
+}
+
+void Assembler::paciaz() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(PACIAZ);
+}
+
+void Assembler::pacibz() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(PACIBZ);
+}
+
+void Assembler::autiaz() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(AUTIAZ);
+}
+
+void Assembler::autibz() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(AUTIBZ);
+}
+
+void Assembler::paciasp() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(PACIASP);
+}
+
+void Assembler::pacibsp() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(PACIBSP);
+}
+
+void Assembler::autiasp() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(AUTIASP);
+}
+
+void Assembler::autibsp() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  Emit(AUTIBSP);
 }
 
 
@@ -2075,12 +2523,20 @@ void Assembler::isb() {
   Emit(ISB | ImmBarrierDomain(FullSystem) | ImmBarrierType(BarrierAll));
 }
 
+void Assembler::esb() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRAS));
+  hint(ESB);
+}
+
+void Assembler::csdb() { hint(CSDB); }
 
 void Assembler::fmov(const VRegister& vd, double imm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
   if (vd.IsScalar()) {
     VIXL_ASSERT(vd.Is1D());
     Emit(FMOV_d_imm | Rd(vd) | ImmFP64(imm));
   } else {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
     VIXL_ASSERT(vd.Is2D());
     Instr op = NEONModifiedImmediate_MOVI | NEONModifiedImmediateOpBit;
     Instr q = NEON_Q;
@@ -2091,10 +2547,12 @@ void Assembler::fmov(const VRegister& vd, double imm) {
 
 
 void Assembler::fmov(const VRegister& vd, float imm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
   if (vd.IsScalar()) {
     VIXL_ASSERT(vd.Is1S());
     Emit(FMOV_s_imm | Rd(vd) | ImmFP32(imm));
   } else {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
     VIXL_ASSERT(vd.Is2S() | vd.Is4S());
     Instr op = NEONModifiedImmediate_MOVI;
     Instr q = vd.Is4S() ? NEON_Q : 0;
@@ -2104,30 +2562,76 @@ void Assembler::fmov(const VRegister& vd, float imm) {
 }
 
 
+void Assembler::fmov(const VRegister& vd, Float16 imm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vd.IsScalar()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+    VIXL_ASSERT(vd.Is1H());
+    Emit(FMOV_h_imm | Rd(vd) | ImmFP16(imm));
+  } else {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kNEONHalf));
+    VIXL_ASSERT(vd.Is4H() | vd.Is8H());
+    Instr q = vd.Is8H() ? NEON_Q : 0;
+    uint32_t encoded_imm = FP16ToImm8(imm);
+    Emit(q | NEONModifiedImmediate_FMOV | ImmNEONabcdefgh(encoded_imm) |
+         NEONCmode(0xf) | Rd(vd));
+  }
+}
+
+
 void Assembler::fmov(const Register& rd, const VRegister& vn) {
-  VIXL_ASSERT(vn.Is1S() || vn.Is1D());
-  VIXL_ASSERT(rd.GetSizeInBits() == vn.GetSizeInBits());
-  FPIntegerConvertOp op = rd.Is32Bits() ? FMOV_ws : FMOV_xd;
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  VIXL_ASSERT(vn.Is1H() || vn.Is1S() || vn.Is1D());
+  VIXL_ASSERT((rd.GetSizeInBits() == vn.GetSizeInBits()) || vn.Is1H());
+  FPIntegerConvertOp op;
+  switch (vn.GetSizeInBits()) {
+    case 16:
+      VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+      op = rd.Is64Bits() ? FMOV_xh : FMOV_wh;
+      break;
+    case 32:
+      op = FMOV_ws;
+      break;
+    default:
+      op = FMOV_xd;
+  }
   Emit(op | Rd(rd) | Rn(vn));
 }
 
 
 void Assembler::fmov(const VRegister& vd, const Register& rn) {
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
-  VIXL_ASSERT(vd.GetSizeInBits() == rn.GetSizeInBits());
-  FPIntegerConvertOp op = vd.Is32Bits() ? FMOV_sw : FMOV_dx;
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());
+  VIXL_ASSERT((vd.GetSizeInBits() == rn.GetSizeInBits()) || vd.Is1H());
+  FPIntegerConvertOp op;
+  switch (vd.GetSizeInBits()) {
+    case 16:
+      VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+      op = rn.Is64Bits() ? FMOV_hx : FMOV_hw;
+      break;
+    case 32:
+      op = FMOV_sw;
+      break;
+    default:
+      op = FMOV_dx;
+  }
   Emit(op | Rd(vd) | Rn(rn));
 }
 
 
 void Assembler::fmov(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+  }
+  VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());
   VIXL_ASSERT(vd.IsSameFormat(vn));
   Emit(FPType(vd) | FMOV | Rd(vd) | Rn(vn));
 }
 
 
 void Assembler::fmov(const VRegister& vd, int index, const Register& rn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kFP));
   VIXL_ASSERT((index == 1) && vd.Is1D() && rn.IsX());
   USE(index);
   Emit(FMOV_d1_x | Rd(vd) | Rn(rn));
@@ -2135,6 +2639,7 @@ void Assembler::fmov(const VRegister& vd, int index, const Register& rn) {
 
 
 void Assembler::fmov(const Register& rd, const VRegister& vn, int index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kFP));
   VIXL_ASSERT((index == 1) && vn.Is1D() && rd.IsX());
   USE(index);
   Emit(FMOV_x_d1 | Rd(rd) | Rn(vn));
@@ -2145,7 +2650,18 @@ void Assembler::fmadd(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm,
                       const VRegister& va) {
-  FPDataProcessing3Source(vd, vn, vm, va, vd.Is1S() ? FMADD_s : FMADD_d);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  FPDataProcessing3SourceOp op;
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+    op = FMADD_h;
+  } else if (vd.Is1S()) {
+    op = FMADD_s;
+  } else {
+    VIXL_ASSERT(vd.Is1D());
+    op = FMADD_d;
+  }
+  FPDataProcessing3Source(vd, vn, vm, va, op);
 }
 
 
@@ -2153,7 +2669,18 @@ void Assembler::fmsub(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm,
                       const VRegister& va) {
-  FPDataProcessing3Source(vd, vn, vm, va, vd.Is1S() ? FMSUB_s : FMSUB_d);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  FPDataProcessing3SourceOp op;
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+    op = FMSUB_h;
+  } else if (vd.Is1S()) {
+    op = FMSUB_s;
+  } else {
+    VIXL_ASSERT(vd.Is1D());
+    op = FMSUB_d;
+  }
+  FPDataProcessing3Source(vd, vn, vm, va, op);
 }
 
 
@@ -2161,7 +2688,18 @@ void Assembler::fnmadd(const VRegister& vd,
                        const VRegister& vn,
                        const VRegister& vm,
                        const VRegister& va) {
-  FPDataProcessing3Source(vd, vn, vm, va, vd.Is1S() ? FNMADD_s : FNMADD_d);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  FPDataProcessing3SourceOp op;
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+    op = FNMADD_h;
+  } else if (vd.Is1S()) {
+    op = FNMADD_s;
+  } else {
+    VIXL_ASSERT(vd.Is1D());
+    op = FNMADD_d;
+  }
+  FPDataProcessing3Source(vd, vn, vm, va, op);
 }
 
 
@@ -2169,15 +2707,36 @@ void Assembler::fnmsub(const VRegister& vd,
                        const VRegister& vn,
                        const VRegister& vm,
                        const VRegister& va) {
-  FPDataProcessing3Source(vd, vn, vm, va, vd.Is1S() ? FNMSUB_s : FNMSUB_d);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  FPDataProcessing3SourceOp op;
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+    op = FNMSUB_h;
+  } else if (vd.Is1S()) {
+    op = FNMSUB_s;
+  } else {
+    VIXL_ASSERT(vd.Is1D());
+    op = FNMSUB_d;
+  }
+  FPDataProcessing3Source(vd, vn, vm, va, op);
 }
 
 
 void Assembler::fnmul(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
   VIXL_ASSERT(AreSameSizeAndType(vd, vn, vm));
-  Instr op = vd.Is1S() ? FNMUL_s : FNMUL_d;
+  Instr op;
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+    op = FNMUL_h;
+  } else if (vd.Is1S()) {
+    op = FNMUL_s;
+  } else {
+    VIXL_ASSERT(vd.Is1D());
+    op = FNMUL_d;
+  }
   Emit(FPType(vd) | op | Rm(vm) | Rn(vn) | Rd(vd));
 }
 
@@ -2190,7 +2749,7 @@ void Assembler::FPCompareMacro(const VRegister& vn,
   // value of +0.0, we don't need to check for -0.0 because the sign of 0.0
   // doesn't affect the result of the comparison.
   VIXL_ASSERT(value == 0.0);
-  VIXL_ASSERT(vn.Is1S() || vn.Is1D());
+  VIXL_ASSERT(vn.Is1H() || vn.Is1S() || vn.Is1D());
   Instr op = (trap == EnableTrap) ? FCMPE_zero : FCMP_zero;
   Emit(FPType(vn) | op | Rn(vn));
 }
@@ -2199,7 +2758,7 @@ void Assembler::FPCompareMacro(const VRegister& vn,
 void Assembler::FPCompareMacro(const VRegister& vn,
                                const VRegister& vm,
                                FPTrapFlags trap) {
-  VIXL_ASSERT(vn.Is1S() || vn.Is1D());
+  VIXL_ASSERT(vn.Is1H() || vn.Is1S() || vn.Is1D());
   VIXL_ASSERT(vn.IsSameSizeAndType(vm));
   Instr op = (trap == EnableTrap) ? FCMPE : FCMP;
   Emit(FPType(vn) | op | Rm(vm) | Rn(vn));
@@ -2207,21 +2766,29 @@ void Assembler::FPCompareMacro(const VRegister& vn,
 
 
 void Assembler::fcmp(const VRegister& vn, const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
   FPCompareMacro(vn, vm, DisableTrap);
 }
 
 
 void Assembler::fcmpe(const VRegister& vn, const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
   FPCompareMacro(vn, vm, EnableTrap);
 }
 
 
 void Assembler::fcmp(const VRegister& vn, double value) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
   FPCompareMacro(vn, value, DisableTrap);
 }
 
 
 void Assembler::fcmpe(const VRegister& vn, double value) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
   FPCompareMacro(vn, value, EnableTrap);
 }
 
@@ -2231,7 +2798,7 @@ void Assembler::FPCCompareMacro(const VRegister& vn,
                                 StatusFlags nzcv,
                                 Condition cond,
                                 FPTrapFlags trap) {
-  VIXL_ASSERT(vn.Is1S() || vn.Is1D());
+  VIXL_ASSERT(vn.Is1H() || vn.Is1S() || vn.Is1D());
   VIXL_ASSERT(vn.IsSameSizeAndType(vm));
   Instr op = (trap == EnableTrap) ? FCCMPE : FCCMP;
   Emit(FPType(vn) | op | Rm(vm) | Cond(cond) | Rn(vn) | Nzcv(nzcv));
@@ -2241,6 +2808,8 @@ void Assembler::fccmp(const VRegister& vn,
                       const VRegister& vm,
                       StatusFlags nzcv,
                       Condition cond) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
   FPCCompareMacro(vn, vm, nzcv, cond, DisableTrap);
 }
 
@@ -2249,6 +2818,8 @@ void Assembler::fccmpe(const VRegister& vn,
                        const VRegister& vm,
                        StatusFlags nzcv,
                        Condition cond) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
   FPCCompareMacro(vn, vm, nzcv, cond, EnableTrap);
 }
 
@@ -2257,9 +2828,93 @@ void Assembler::fcsel(const VRegister& vd,
                       const VRegister& vn,
                       const VRegister& vm,
                       Condition cond) {
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vd.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+  VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());
   VIXL_ASSERT(AreSameFormat(vd, vn, vm));
   Emit(FPType(vd) | FCSEL | Rm(vm) | Cond(cond) | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::fcvt(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  FPDataProcessing1SourceOp op;
+  // The half-precision variants belong to base FP, and do not require kFPHalf.
+  if (vd.Is1D()) {
+    VIXL_ASSERT(vn.Is1S() || vn.Is1H());
+    op = vn.Is1S() ? FCVT_ds : FCVT_dh;
+  } else if (vd.Is1S()) {
+    VIXL_ASSERT(vn.Is1D() || vn.Is1H());
+    op = vn.Is1D() ? FCVT_sd : FCVT_sh;
+  } else {
+    VIXL_ASSERT(vd.Is1H());
+    VIXL_ASSERT(vn.Is1D() || vn.Is1S());
+    op = vn.Is1D() ? FCVT_hd : FCVT_hs;
+  }
+  FPDataProcessing1Source(vd, vn, op);
+}
+
+
+void Assembler::fcvtl(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is4S() && vn.Is4H()) || (vd.Is2D() && vn.Is2S()));
+  // The half-precision variants belong to base FP, and do not require kFPHalf.
+  Instr format = vd.Is2D() ? (1 << NEONSize_offset) : 0;
+  Emit(format | NEON_FCVTL | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::fcvtl2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is4S() && vn.Is8H()) || (vd.Is2D() && vn.Is4S()));
+  // The half-precision variants belong to base FP, and do not require kFPHalf.
+  Instr format = vd.Is2D() ? (1 << NEONSize_offset) : 0;
+  Emit(NEON_Q | format | NEON_FCVTL | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::fcvtn(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vn.Is4S() && vd.Is4H()) || (vn.Is2D() && vd.Is2S()));
+  // The half-precision variants belong to base FP, and do not require kFPHalf.
+  Instr format = vn.Is2D() ? (1 << NEONSize_offset) : 0;
+  Emit(format | NEON_FCVTN | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::fcvtn2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vn.Is4S() && vd.Is8H()) || (vn.Is2D() && vd.Is4S()));
+  // The half-precision variants belong to base FP, and do not require kFPHalf.
+  Instr format = vn.Is2D() ? (1 << NEONSize_offset) : 0;
+  Emit(NEON_Q | format | NEON_FCVTN | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::fcvtxn(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  Instr format = 1 << NEONSize_offset;
+  if (vd.IsScalar()) {
+    VIXL_ASSERT(vd.Is1S() && vn.Is1D());
+    Emit(format | NEON_FCVTXN_scalar | Rn(vn) | Rd(vd));
+  } else {
+    VIXL_ASSERT(vd.Is2S() && vn.Is2D());
+    Emit(format | NEON_FCVTXN | Rn(vn) | Rd(vd));
+  }
+}
+
+
+void Assembler::fcvtxn2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT(vd.Is4S() && vn.Is2D());
+  Instr format = 1 << NEONSize_offset;
+  Emit(NEON_Q | format | NEON_FCVTXN | Rn(vn) | Rd(vd));
+}
+
+void Assembler::fjcvtzs(const Register& rd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kJSCVT));
+  VIXL_ASSERT(rd.IsW() && vn.Is1D());
+  Emit(FJCVTZS | Rn(vn) | Rd(rd));
 }
 
 
@@ -2281,67 +2936,17 @@ void Assembler::NEONFPConvertToInt(const VRegister& vd,
 }
 
 
-void Assembler::fcvt(const VRegister& vd, const VRegister& vn) {
-  FPDataProcessing1SourceOp op;
-  if (vd.Is1D()) {
-    VIXL_ASSERT(vn.Is1S() || vn.Is1H());
-    op = vn.Is1S() ? FCVT_ds : FCVT_dh;
-  } else if (vd.Is1S()) {
-    VIXL_ASSERT(vn.Is1D() || vn.Is1H());
-    op = vn.Is1D() ? FCVT_sd : FCVT_sh;
-  } else {
-    VIXL_ASSERT(vd.Is1H());
-    VIXL_ASSERT(vn.Is1D() || vn.Is1S());
-    op = vn.Is1D() ? FCVT_hd : FCVT_hs;
+void Assembler::NEONFP16ConvertToInt(const VRegister& vd,
+                                     const VRegister& vn,
+                                     Instr op) {
+  VIXL_ASSERT(AreSameFormat(vd, vn));
+  VIXL_ASSERT(vn.IsLaneSizeH());
+  if (vn.IsScalar()) {
+    op |= NEON_Q | NEONScalar;
+  } else if (vn.Is8H()) {
+    op |= NEON_Q;
   }
-  FPDataProcessing1Source(vd, vn, op);
-}
-
-
-void Assembler::fcvtl(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is4S() && vn.Is4H()) || (vd.Is2D() && vn.Is2S()));
-  Instr format = vd.Is2D() ? (1 << NEONSize_offset) : 0;
-  Emit(format | NEON_FCVTL | Rn(vn) | Rd(vd));
-}
-
-
-void Assembler::fcvtl2(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is4S() && vn.Is8H()) || (vd.Is2D() && vn.Is4S()));
-  Instr format = vd.Is2D() ? (1 << NEONSize_offset) : 0;
-  Emit(NEON_Q | format | NEON_FCVTL | Rn(vn) | Rd(vd));
-}
-
-
-void Assembler::fcvtn(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vn.Is4S() && vd.Is4H()) || (vn.Is2D() && vd.Is2S()));
-  Instr format = vn.Is2D() ? (1 << NEONSize_offset) : 0;
-  Emit(format | NEON_FCVTN | Rn(vn) | Rd(vd));
-}
-
-
-void Assembler::fcvtn2(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vn.Is4S() && vd.Is8H()) || (vn.Is2D() && vd.Is4S()));
-  Instr format = vn.Is2D() ? (1 << NEONSize_offset) : 0;
-  Emit(NEON_Q | format | NEON_FCVTN | Rn(vn) | Rd(vd));
-}
-
-
-void Assembler::fcvtxn(const VRegister& vd, const VRegister& vn) {
-  Instr format = 1 << NEONSize_offset;
-  if (vd.IsScalar()) {
-    VIXL_ASSERT(vd.Is1S() && vn.Is1D());
-    Emit(format | NEON_FCVTXN_scalar | Rn(vn) | Rd(vd));
-  } else {
-    VIXL_ASSERT(vd.Is2S() && vn.Is2D());
-    Emit(format | NEON_FCVTXN | Rn(vn) | Rd(vd));
-  }
-}
-
-
-void Assembler::fcvtxn2(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT(vd.Is4S() && vn.Is2D());
-  Instr format = 1 << NEONSize_offset;
-  Emit(NEON_Q | format | NEON_FCVTXN | Rn(vn) | Rd(vd));
+  Emit(op | Rn(vn) | Rd(vd));
 }
 
 
@@ -2357,17 +2962,27 @@ void Assembler::fcvtxn2(const VRegister& vd, const VRegister& vn) {
 
 #define DEFINE_ASM_FUNCS(FN, VEC_OP, SCA_OP)                     \
   void Assembler::FN(const Register& rd, const VRegister& vn) {  \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP));                       \
+    if (vn.IsH()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));     \
     NEONFPConvertToInt(rd, vn, SCA_OP);                          \
   }                                                              \
   void Assembler::FN(const VRegister& vd, const VRegister& vn) { \
-    NEONFPConvertToInt(vd, vn, VEC_OP);                          \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));   \
+    if (vd.IsLaneSizeH()) {                                      \
+      VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));               \
+      NEONFP16ConvertToInt(vd, vn, VEC_OP##_H);                  \
+    } else {                                                     \
+      NEONFPConvertToInt(vd, vn, VEC_OP);                        \
+    }                                                            \
   }
 NEON_FP2REGMISC_FCVT_LIST(DEFINE_ASM_FUNCS)
 #undef DEFINE_ASM_FUNCS
 
 
 void Assembler::fcvtzs(const Register& rd, const VRegister& vn, int fbits) {
-  VIXL_ASSERT(vn.Is1S() || vn.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+  VIXL_ASSERT(vn.Is1H() || vn.Is1S() || vn.Is1D());
   VIXL_ASSERT((fbits >= 0) && (fbits <= rd.GetSizeInBits()));
   if (fbits == 0) {
     Emit(SF(rd) | FPType(vn) | FCVTZS | Rn(vn) | Rd(rd));
@@ -2379,18 +2994,28 @@ void Assembler::fcvtzs(const Register& rd, const VRegister& vn, int fbits) {
 
 
 void Assembler::fcvtzs(const VRegister& vd, const VRegister& vn, int fbits) {
+  // This form is a NEON scalar FP instruction.
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vn.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
   VIXL_ASSERT(fbits >= 0);
   if (fbits == 0) {
-    NEONFP2RegMisc(vd, vn, NEON_FCVTZS);
+    if (vd.IsLaneSizeH()) {
+      NEONFP2RegMiscFP16(vd, vn, NEON_FCVTZS_H);
+    } else {
+      NEONFP2RegMisc(vd, vn, NEON_FCVTZS);
+    }
   } else {
-    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S());
+    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S() ||
+                vd.Is1H() || vd.Is4H() || vd.Is8H());
     NEONShiftRightImmediate(vd, vn, fbits, NEON_FCVTZS_imm);
   }
 }
 
 
 void Assembler::fcvtzu(const Register& rd, const VRegister& vn, int fbits) {
-  VIXL_ASSERT(vn.Is1S() || vn.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vn.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+  VIXL_ASSERT(vn.Is1H() || vn.Is1S() || vn.Is1D());
   VIXL_ASSERT((fbits >= 0) && (fbits <= rd.GetSizeInBits()));
   if (fbits == 0) {
     Emit(SF(rd) | FPType(vn) | FCVTZU | Rn(vn) | Rd(rd));
@@ -2402,38 +3027,64 @@ void Assembler::fcvtzu(const Register& rd, const VRegister& vn, int fbits) {
 
 
 void Assembler::fcvtzu(const VRegister& vd, const VRegister& vn, int fbits) {
+  // This form is a NEON scalar FP instruction.
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vn.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
   VIXL_ASSERT(fbits >= 0);
   if (fbits == 0) {
-    NEONFP2RegMisc(vd, vn, NEON_FCVTZU);
+    if (vd.IsLaneSizeH()) {
+      NEONFP2RegMiscFP16(vd, vn, NEON_FCVTZU_H);
+    } else {
+      NEONFP2RegMisc(vd, vn, NEON_FCVTZU);
+    }
   } else {
-    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S());
+    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S() ||
+                vd.Is1H() || vd.Is4H() || vd.Is8H());
     NEONShiftRightImmediate(vd, vn, fbits, NEON_FCVTZU_imm);
   }
 }
 
 void Assembler::ucvtf(const VRegister& vd, const VRegister& vn, int fbits) {
+  // This form is a NEON scalar FP instruction.
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vn.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
   VIXL_ASSERT(fbits >= 0);
   if (fbits == 0) {
-    NEONFP2RegMisc(vd, vn, NEON_UCVTF);
+    if (vd.IsLaneSizeH()) {
+      NEONFP2RegMiscFP16(vd, vn, NEON_UCVTF_H);
+    } else {
+      NEONFP2RegMisc(vd, vn, NEON_UCVTF);
+    }
   } else {
-    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S());
+    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S() ||
+                vd.Is1H() || vd.Is4H() || vd.Is8H());
     NEONShiftRightImmediate(vd, vn, fbits, NEON_UCVTF_imm);
   }
 }
 
 void Assembler::scvtf(const VRegister& vd, const VRegister& vn, int fbits) {
+  // This form is a NEON scalar FP instruction.
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vn.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
   VIXL_ASSERT(fbits >= 0);
   if (fbits == 0) {
-    NEONFP2RegMisc(vd, vn, NEON_SCVTF);
+    if (vd.IsLaneSizeH()) {
+      NEONFP2RegMiscFP16(vd, vn, NEON_SCVTF_H);
+    } else {
+      NEONFP2RegMisc(vd, vn, NEON_SCVTF);
+    }
   } else {
-    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S());
+    VIXL_ASSERT(vd.Is1D() || vd.Is1S() || vd.Is2D() || vd.Is2S() || vd.Is4S() ||
+                vd.Is1H() || vd.Is4H() || vd.Is8H());
     NEONShiftRightImmediate(vd, vn, fbits, NEON_SCVTF_imm);
   }
 }
 
 
 void Assembler::scvtf(const VRegister& vd, const Register& rn, int fbits) {
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vd.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+  VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());
   VIXL_ASSERT(fbits >= 0);
   if (fbits == 0) {
     Emit(SF(rn) | FPType(vd) | SCVTF | Rn(rn) | Rd(vd));
@@ -2445,7 +3096,9 @@ void Assembler::scvtf(const VRegister& vd, const Register& rn, int fbits) {
 
 
 void Assembler::ucvtf(const VRegister& vd, const Register& rn, int fbits) {
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP));
+  if (vd.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));
+  VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());
   VIXL_ASSERT(fbits >= 0);
   if (fbits == 0) {
     Emit(SF(rn) | FPType(vd) | UCVTF | Rn(rn) | Rd(vd));
@@ -2484,37 +3137,83 @@ void Assembler::NEONFP3Same(const VRegister& vd,
 }
 
 
+void Assembler::NEON3SameFP16(const VRegister& vd,
+                              const VRegister& vn,
+                              const VRegister& vm,
+                              Instr op) {
+  VIXL_ASSERT(AreSameFormat(vd, vn, vm));
+  VIXL_ASSERT(vd.GetLaneSizeInBytes() == kHRegSizeInBytes);
+  if (vd.Is8H()) op |= NEON_Q;
+  Emit(op | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
 // clang-format off
-#define NEON_FP2REGMISC_LIST(V)                 \
-  V(fabs,    NEON_FABS,    FABS)                \
-  V(fneg,    NEON_FNEG,    FNEG)                \
-  V(fsqrt,   NEON_FSQRT,   FSQRT)               \
-  V(frintn,  NEON_FRINTN,  FRINTN)              \
-  V(frinta,  NEON_FRINTA,  FRINTA)              \
-  V(frintp,  NEON_FRINTP,  FRINTP)              \
-  V(frintm,  NEON_FRINTM,  FRINTM)              \
-  V(frintx,  NEON_FRINTX,  FRINTX)              \
-  V(frintz,  NEON_FRINTZ,  FRINTZ)              \
-  V(frinti,  NEON_FRINTI,  FRINTI)              \
-  V(frsqrte, NEON_FRSQRTE, NEON_FRSQRTE_scalar) \
-  V(frecpe,  NEON_FRECPE,  NEON_FRECPE_scalar )
+#define NEON_FP2REGMISC_LIST(V)                                        \
+  V(fabs,    NEON_FABS,    FABS,                FABS_h)                \
+  V(fneg,    NEON_FNEG,    FNEG,                FNEG_h)                \
+  V(fsqrt,   NEON_FSQRT,   FSQRT,               FSQRT_h)               \
+  V(frintn,  NEON_FRINTN,  FRINTN,              FRINTN_h)              \
+  V(frinta,  NEON_FRINTA,  FRINTA,              FRINTA_h)              \
+  V(frintp,  NEON_FRINTP,  FRINTP,              FRINTP_h)              \
+  V(frintm,  NEON_FRINTM,  FRINTM,              FRINTM_h)              \
+  V(frintx,  NEON_FRINTX,  FRINTX,              FRINTX_h)              \
+  V(frintz,  NEON_FRINTZ,  FRINTZ,              FRINTZ_h)              \
+  V(frinti,  NEON_FRINTI,  FRINTI,              FRINTI_h)              \
+  V(frsqrte, NEON_FRSQRTE, NEON_FRSQRTE_scalar, NEON_FRSQRTE_H_scalar) \
+  V(frecpe,  NEON_FRECPE,  NEON_FRECPE_scalar,  NEON_FRECPE_H_scalar)
 // clang-format on
 
-
-#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP)                      \
-  void Assembler::FN(const VRegister& vd, const VRegister& vn) { \
-    Instr op;                                                    \
-    if (vd.IsScalar()) {                                         \
-      VIXL_ASSERT(vd.Is1S() || vd.Is1D());                       \
-      op = SCA_OP;                                               \
-    } else {                                                     \
-      VIXL_ASSERT(vd.Is2S() || vd.Is2D() || vd.Is4S());          \
-      op = VEC_OP;                                               \
-    }                                                            \
-    NEONFP2RegMisc(vd, vn, op);                                  \
+#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP, SCA_OP_H)                        \
+  void Assembler::FN(const VRegister& vd, const VRegister& vn) {             \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP));                                   \
+    Instr op;                                                                \
+    if (vd.IsScalar()) {                                                     \
+      if (vd.Is1H()) {                                                       \
+        if ((SCA_OP_H & NEONScalar2RegMiscFP16FMask) ==                      \
+            NEONScalar2RegMiscFP16Fixed) {                                   \
+          VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kNEONHalf));   \
+        } else {                                                             \
+          VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));                         \
+        }                                                                    \
+        op = SCA_OP_H;                                                       \
+      } else {                                                               \
+        if ((SCA_OP & NEONScalar2RegMiscFMask) == NEONScalar2RegMiscFixed) { \
+          VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                           \
+        }                                                                    \
+        VIXL_ASSERT(vd.Is1S() || vd.Is1D());                                 \
+        op = SCA_OP;                                                         \
+      }                                                                      \
+    } else {                                                                 \
+      VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                               \
+      VIXL_ASSERT(vd.Is4H() || vd.Is8H() || vd.Is2S() || vd.Is2D() ||        \
+                  vd.Is4S());                                                \
+      if (vd.IsLaneSizeH()) {                                                \
+        VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));                         \
+        op = VEC_OP##_H;                                                     \
+        if (vd.Is8H()) {                                                     \
+          op |= NEON_Q;                                                      \
+        }                                                                    \
+      } else {                                                               \
+        op = VEC_OP;                                                         \
+      }                                                                      \
+    }                                                                        \
+    if (vd.IsLaneSizeH()) {                                                  \
+      NEONFP2RegMiscFP16(vd, vn, op);                                        \
+    } else {                                                                 \
+      NEONFP2RegMisc(vd, vn, op);                                            \
+    }                                                                        \
   }
 NEON_FP2REGMISC_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
+
+
+void Assembler::NEONFP2RegMiscFP16(const VRegister& vd,
+                                   const VRegister& vn,
+                                   Instr op) {
+  VIXL_ASSERT(AreSameFormat(vd, vn));
+  Emit(op | Rn(vn) | Rd(vd));
+}
 
 
 void Assembler::NEONFP2RegMisc(const VRegister& vd,
@@ -2546,18 +3245,21 @@ void Assembler::NEON2RegMisc(const VRegister& vd,
 
 
 void Assembler::cmeq(const VRegister& vd, const VRegister& vn, int value) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEON2RegMisc(vd, vn, NEON_CMEQ_zero, value);
 }
 
 
 void Assembler::cmge(const VRegister& vd, const VRegister& vn, int value) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEON2RegMisc(vd, vn, NEON_CMGE_zero, value);
 }
 
 
 void Assembler::cmgt(const VRegister& vd, const VRegister& vn, int value) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEON2RegMisc(vd, vn, NEON_CMGT_zero, value);
 }
@@ -2565,27 +3267,31 @@ void Assembler::cmgt(const VRegister& vd, const VRegister& vn, int value) {
 
 void Assembler::cmle(const VRegister& vd, const VRegister& vn, int value) {
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEON2RegMisc(vd, vn, NEON_CMLE_zero, value);
 }
 
 
 void Assembler::cmlt(const VRegister& vd, const VRegister& vn, int value) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEON2RegMisc(vd, vn, NEON_CMLT_zero, value);
 }
 
 
 void Assembler::shll(const VRegister& vd, const VRegister& vn, int shift) {
+  USE(shift);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT((vd.Is8H() && vn.Is8B() && shift == 8) ||
               (vd.Is4S() && vn.Is4H() && shift == 16) ||
               (vd.Is2D() && vn.Is2S() && shift == 32));
-  USE(shift);
   Emit(VFormat(vn) | NEON_SHLL | Rn(vn) | Rd(vd));
 }
 
 
 void Assembler::shll2(const VRegister& vd, const VRegister& vn, int shift) {
   USE(shift);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT((vd.Is8H() && vn.Is16B() && shift == 8) ||
               (vd.Is4S() && vn.Is8H() && shift == 16) ||
               (vd.Is2D() && vn.Is4S() && shift == 32));
@@ -2613,36 +3319,97 @@ void Assembler::NEONFP2RegMisc(const VRegister& vd,
 }
 
 
+void Assembler::NEONFP2RegMiscFP16(const VRegister& vd,
+                                   const VRegister& vn,
+                                   NEON2RegMiscFP16Op vop,
+                                   double value) {
+  VIXL_ASSERT(AreSameFormat(vd, vn));
+  VIXL_ASSERT(value == 0.0);
+  USE(value);
+
+  Instr op = vop;
+  if (vd.IsScalar()) {
+    VIXL_ASSERT(vd.Is1H());
+    op |= NEON_Q | NEONScalar;
+  } else {
+    VIXL_ASSERT(vd.Is4H() || vd.Is8H());
+    if (vd.Is8H()) {
+      op |= NEON_Q;
+    }
+  }
+
+  Emit(op | Rn(vn) | Rd(vd));
+}
+
+
 void Assembler::fcmeq(const VRegister& vd, const VRegister& vn, double value) {
-  NEONFP2RegMisc(vd, vn, NEON_FCMEQ_zero, value);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vd.IsLaneSizeH()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    NEONFP2RegMiscFP16(vd, vn, NEON_FCMEQ_H_zero, value);
+  } else {
+    NEONFP2RegMisc(vd, vn, NEON_FCMEQ_zero, value);
+  }
 }
 
 
 void Assembler::fcmge(const VRegister& vd, const VRegister& vn, double value) {
-  NEONFP2RegMisc(vd, vn, NEON_FCMGE_zero, value);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vd.IsLaneSizeH()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    NEONFP2RegMiscFP16(vd, vn, NEON_FCMGE_H_zero, value);
+  } else {
+    NEONFP2RegMisc(vd, vn, NEON_FCMGE_zero, value);
+  }
 }
 
 
 void Assembler::fcmgt(const VRegister& vd, const VRegister& vn, double value) {
-  NEONFP2RegMisc(vd, vn, NEON_FCMGT_zero, value);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vd.IsLaneSizeH()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    NEONFP2RegMiscFP16(vd, vn, NEON_FCMGT_H_zero, value);
+  } else {
+    NEONFP2RegMisc(vd, vn, NEON_FCMGT_zero, value);
+  }
 }
 
 
 void Assembler::fcmle(const VRegister& vd, const VRegister& vn, double value) {
-  NEONFP2RegMisc(vd, vn, NEON_FCMLE_zero, value);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vd.IsLaneSizeH()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    NEONFP2RegMiscFP16(vd, vn, NEON_FCMLE_H_zero, value);
+  } else {
+    NEONFP2RegMisc(vd, vn, NEON_FCMLE_zero, value);
+  }
 }
 
 
 void Assembler::fcmlt(const VRegister& vd, const VRegister& vn, double value) {
-  NEONFP2RegMisc(vd, vn, NEON_FCMLT_zero, value);
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  if (vd.IsLaneSizeH()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    NEONFP2RegMiscFP16(vd, vn, NEON_FCMLT_H_zero, value);
+  } else {
+    NEONFP2RegMisc(vd, vn, NEON_FCMLT_zero, value);
+  }
 }
 
 
 void Assembler::frecpx(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsScalar());
   VIXL_ASSERT(AreSameFormat(vd, vn));
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
-  Emit(FPFormat(vd) | NEON_FRECPX_scalar | Rn(vn) | Rd(vd));
+  Instr op;
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    op = NEON_FRECPX_H_scalar;
+  } else {
+    VIXL_ASSERT(vd.Is1S() || vd.Is1D());
+    op = NEON_FRECPX_scalar;
+  }
+  Emit(FPFormat(vd) | op | Rn(vn) | Rd(vd));
 }
 
 
@@ -2703,106 +3470,276 @@ void Assembler::frecpx(const VRegister& vd, const VRegister& vn) {
   V(uqrshl,   NEON_UQRSHL,   true)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)         \
-  void Assembler::FN(const VRegister& vd,   \
-                     const VRegister& vn,   \
-                     const VRegister& vm) { \
-    VIXL_ASSERT(AS);                        \
-    NEON3Same(vd, vn, vm, OP);              \
+#define DEFINE_ASM_FUNC(FN, OP, AS)          \
+  void Assembler::FN(const VRegister& vd,    \
+                     const VRegister& vn,    \
+                     const VRegister& vm) {  \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON)); \
+    VIXL_ASSERT(AS);                         \
+    NEON3Same(vd, vn, vm, OP);               \
   }
 NEON_3SAME_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
-
 // clang-format off
-#define NEON_FP3SAME_OP_LIST(V)                  \
-  V(fadd,    NEON_FADD,    FADD)                 \
-  V(fsub,    NEON_FSUB,    FSUB)                 \
-  V(fmul,    NEON_FMUL,    FMUL)                 \
-  V(fdiv,    NEON_FDIV,    FDIV)                 \
-  V(fmax,    NEON_FMAX,    FMAX)                 \
-  V(fmaxnm,  NEON_FMAXNM,  FMAXNM)               \
-  V(fmin,    NEON_FMIN,    FMIN)                 \
-  V(fminnm,  NEON_FMINNM,  FMINNM)               \
-  V(fmulx,   NEON_FMULX,   NEON_FMULX_scalar)    \
-  V(frecps,  NEON_FRECPS,  NEON_FRECPS_scalar)   \
-  V(frsqrts, NEON_FRSQRTS, NEON_FRSQRTS_scalar)  \
-  V(fabd,    NEON_FABD,    NEON_FABD_scalar)     \
-  V(fmla,    NEON_FMLA,    0)                    \
-  V(fmls,    NEON_FMLS,    0)                    \
-  V(facge,   NEON_FACGE,   NEON_FACGE_scalar)    \
-  V(facgt,   NEON_FACGT,   NEON_FACGT_scalar)    \
-  V(fcmeq,   NEON_FCMEQ,   NEON_FCMEQ_scalar)    \
-  V(fcmge,   NEON_FCMGE,   NEON_FCMGE_scalar)    \
-  V(fcmgt,   NEON_FCMGT,   NEON_FCMGT_scalar)    \
-  V(faddp,   NEON_FADDP,   0)                    \
-  V(fmaxp,   NEON_FMAXP,   0)                    \
-  V(fminp,   NEON_FMINP,   0)                    \
-  V(fmaxnmp, NEON_FMAXNMP, 0)                    \
-  V(fminnmp, NEON_FMINNMP, 0)
+#define NEON_FP3SAME_OP_LIST(V)                                        \
+  V(fmulx,   NEON_FMULX,   NEON_FMULX_scalar,   NEON_FMULX_H_scalar)   \
+  V(frecps,  NEON_FRECPS,  NEON_FRECPS_scalar,  NEON_FRECPS_H_scalar)  \
+  V(frsqrts, NEON_FRSQRTS, NEON_FRSQRTS_scalar, NEON_FRSQRTS_H_scalar) \
+  V(fabd,    NEON_FABD,    NEON_FABD_scalar,    NEON_FABD_H_scalar)    \
+  V(fmla,    NEON_FMLA,    0,                   0)                     \
+  V(fmls,    NEON_FMLS,    0,                   0)                     \
+  V(facge,   NEON_FACGE,   NEON_FACGE_scalar,   NEON_FACGE_H_scalar)   \
+  V(facgt,   NEON_FACGT,   NEON_FACGT_scalar,   NEON_FACGT_H_scalar)   \
+  V(fcmeq,   NEON_FCMEQ,   NEON_FCMEQ_scalar,   NEON_FCMEQ_H_scalar)   \
+  V(fcmge,   NEON_FCMGE,   NEON_FCMGE_scalar,   NEON_FCMGE_H_scalar)   \
+  V(fcmgt,   NEON_FCMGT,   NEON_FCMGT_scalar,   NEON_FCMGT_H_scalar)   \
+  V(faddp,   NEON_FADDP,   0,                   0)                     \
+  V(fmaxp,   NEON_FMAXP,   0,                   0)                     \
+  V(fminp,   NEON_FMINP,   0,                   0)                     \
+  V(fmaxnmp, NEON_FMAXNMP, 0,                   0)                     \
+  V(fadd,    NEON_FADD,    FADD,                0)                     \
+  V(fsub,    NEON_FSUB,    FSUB,                0)                     \
+  V(fmul,    NEON_FMUL,    FMUL,                0)                     \
+  V(fdiv,    NEON_FDIV,    FDIV,                0)                     \
+  V(fmax,    NEON_FMAX,    FMAX,                0)                     \
+  V(fmin,    NEON_FMIN,    FMIN,                0)                     \
+  V(fmaxnm,  NEON_FMAXNM,  FMAXNM,              0)                     \
+  V(fminnm,  NEON_FMINNM,  FMINNM,              0)                     \
+  V(fminnmp, NEON_FMINNMP, 0,                   0)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP)             \
-  void Assembler::FN(const VRegister& vd,               \
-                     const VRegister& vn,               \
-                     const VRegister& vm) {             \
-    Instr op;                                           \
-    if ((SCA_OP != 0) && vd.IsScalar()) {               \
-      VIXL_ASSERT(vd.Is1S() || vd.Is1D());              \
-      op = SCA_OP;                                      \
-    } else {                                            \
-      VIXL_ASSERT(vd.IsVector());                       \
-      VIXL_ASSERT(vd.Is2S() || vd.Is2D() || vd.Is4S()); \
-      op = VEC_OP;                                      \
-    }                                                   \
-    NEONFP3Same(vd, vn, vm, op);                        \
+// TODO: This macro is complicated because it classifies the instructions in the
+// macro list above, and treats each case differently. It could be somewhat
+// simpler if we were to split the macro, at the cost of some duplication.
+#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP, SCA_OP_H)                    \
+  void Assembler::FN(const VRegister& vd,                                \
+                     const VRegister& vn,                                \
+                     const VRegister& vm) {                              \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP));                               \
+    Instr op;                                                            \
+    bool is_fp16 = false;                                                \
+    if ((SCA_OP != 0) && vd.IsScalar()) {                                \
+      if ((SCA_OP_H != 0) && vd.Is1H()) {                                \
+        VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kNEONHalf)); \
+        is_fp16 = true;                                                  \
+        op = SCA_OP_H;                                                   \
+      } else {                                                           \
+        VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());                \
+        if ((SCA_OP & NEONScalar3SameFMask) == NEONScalar3SameFixed) {   \
+          VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                       \
+          if (vd.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));    \
+        } else if (vd.Is1H()) {                                          \
+          VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));                     \
+        }                                                                \
+        op = SCA_OP;                                                     \
+      }                                                                  \
+    } else {                                                             \
+      VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                           \
+      VIXL_ASSERT(vd.IsVector());                                        \
+      if (vd.Is4H() || vd.Is8H()) {                                      \
+        VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));                     \
+        is_fp16 = true;                                                  \
+        op = VEC_OP##_H;                                                 \
+      } else {                                                           \
+        VIXL_ASSERT(vd.Is2S() || vd.Is2D() || vd.Is4S());                \
+        op = VEC_OP;                                                     \
+      }                                                                  \
+    }                                                                    \
+    if (is_fp16) {                                                       \
+      NEON3SameFP16(vd, vn, vm, op);                                     \
+    } else {                                                             \
+      NEONFP3Same(vd, vn, vm, op);                                       \
+    }                                                                    \
   }
 NEON_FP3SAME_OP_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
 
 void Assembler::addp(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT((vd.Is1D() && vn.Is2D()));
   Emit(SFormat(vd) | NEON_ADDP_scalar | Rn(vn) | Rd(vd));
 }
 
 
+void Assembler::sqrdmlah(const VRegister& vd,
+                         const VRegister& vn,
+                         const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kRDM));
+  VIXL_ASSERT(AreSameFormat(vd, vn, vm));
+  VIXL_ASSERT(vd.IsVector() || !vd.IsQ());
+
+  Instr format, op = NEON_SQRDMLAH;
+  if (vd.IsScalar()) {
+    op |= NEON_Q | NEONScalar;
+    format = SFormat(vd);
+  } else {
+    format = VFormat(vd);
+  }
+
+  Emit(format | op | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::sqrdmlsh(const VRegister& vd,
+                         const VRegister& vn,
+                         const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kRDM));
+  VIXL_ASSERT(AreSameFormat(vd, vn, vm));
+  VIXL_ASSERT(vd.IsVector() || !vd.IsQ());
+
+  Instr format, op = NEON_SQRDMLSH;
+  if (vd.IsScalar()) {
+    op |= NEON_Q | NEONScalar;
+    format = SFormat(vd);
+  } else {
+    format = VFormat(vd);
+  }
+
+  Emit(format | op | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::sdot(const VRegister& vd,
+                     const VRegister& vn,
+                     const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kDotProduct));
+  VIXL_ASSERT(AreSameFormat(vn, vm));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B()) || (vd.Is4S() && vn.Is16B()));
+
+  Emit(VFormat(vd) | NEON_SDOT | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::udot(const VRegister& vd,
+                     const VRegister& vn,
+                     const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kDotProduct));
+  VIXL_ASSERT(AreSameFormat(vn, vm));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B()) || (vd.Is4S() && vn.Is16B()));
+
+  Emit(VFormat(vd) | NEON_UDOT | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
 void Assembler::faddp(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()));
-  Emit(FPFormat(vd) | NEON_FADDP_scalar | Rn(vn) | Rd(vd));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()) ||
+              (vd.Is1H() && vn.Is2H()));
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    Emit(NEON_FADDP_h_scalar | Rn(vn) | Rd(vd));
+  } else {
+    Emit(FPFormat(vd) | NEON_FADDP_scalar | Rn(vn) | Rd(vd));
+  }
 }
 
 
 void Assembler::fmaxp(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()));
-  Emit(FPFormat(vd) | NEON_FMAXP_scalar | Rn(vn) | Rd(vd));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()) ||
+              (vd.Is1H() && vn.Is2H()));
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    Emit(NEON_FMAXP_h_scalar | Rn(vn) | Rd(vd));
+  } else {
+    Emit(FPFormat(vd) | NEON_FMAXP_scalar | Rn(vn) | Rd(vd));
+  }
 }
 
 
 void Assembler::fminp(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()));
-  Emit(FPFormat(vd) | NEON_FMINP_scalar | Rn(vn) | Rd(vd));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()) ||
+              (vd.Is1H() && vn.Is2H()));
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    Emit(NEON_FMINP_h_scalar | Rn(vn) | Rd(vd));
+  } else {
+    Emit(FPFormat(vd) | NEON_FMINP_scalar | Rn(vn) | Rd(vd));
+  }
 }
 
 
 void Assembler::fmaxnmp(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()));
-  Emit(FPFormat(vd) | NEON_FMAXNMP_scalar | Rn(vn) | Rd(vd));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()) ||
+              (vd.Is1H() && vn.Is2H()));
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    Emit(NEON_FMAXNMP_h_scalar | Rn(vn) | Rd(vd));
+  } else {
+    Emit(FPFormat(vd) | NEON_FMAXNMP_scalar | Rn(vn) | Rd(vd));
+  }
 }
 
 
 void Assembler::fminnmp(const VRegister& vd, const VRegister& vn) {
-  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()));
-  Emit(FPFormat(vd) | NEON_FMINNMP_scalar | Rn(vn) | Rd(vd));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
+  VIXL_ASSERT((vd.Is1S() && vn.Is2S()) || (vd.Is1D() && vn.Is2D()) ||
+              (vd.Is1H() && vn.Is2H()));
+  if (vd.Is1H()) {
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+    Emit(NEON_FMINNMP_h_scalar | Rn(vn) | Rd(vd));
+  } else {
+    Emit(FPFormat(vd) | NEON_FMINNMP_scalar | Rn(vn) | Rd(vd));
+  }
+}
+
+
+// v8.3 complex numbers - floating-point complex multiply accumulate.
+void Assembler::fcmla(const VRegister& vd,
+                      const VRegister& vn,
+                      const VRegister& vm,
+                      int vm_index,
+                      int rot) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON, CPUFeatures::kFcma));
+  VIXL_ASSERT(vd.IsVector() && AreSameFormat(vd, vn));
+  VIXL_ASSERT((vm.IsH() && (vd.Is8H() || vd.Is4H())) ||
+              (vm.IsS() && vd.Is4S()));
+  if (vd.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+  int index_num_bits = vd.Is4S() ? 1 : 2;
+  Emit(VFormat(vd) | Rm(vm) | NEON_FCMLA_byelement |
+       ImmNEONHLM(vm_index, index_num_bits) | ImmRotFcmlaSca(rot) | Rn(vn) |
+       Rd(vd));
+}
+
+
+void Assembler::fcmla(const VRegister& vd,
+                      const VRegister& vn,
+                      const VRegister& vm,
+                      int rot) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON, CPUFeatures::kFcma));
+  VIXL_ASSERT(AreSameFormat(vd, vn, vm));
+  VIXL_ASSERT(vd.IsVector() && !vd.IsLaneSizeB());
+  if (vd.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+  Emit(VFormat(vd) | Rm(vm) | NEON_FCMLA | ImmRotFcmlaVec(rot) | Rn(vn) |
+       Rd(vd));
+}
+
+
+// v8.3 complex numbers - floating-point complex add.
+void Assembler::fcadd(const VRegister& vd,
+                      const VRegister& vn,
+                      const VRegister& vm,
+                      int rot) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON, CPUFeatures::kFcma));
+  VIXL_ASSERT(AreSameFormat(vd, vn, vm));
+  VIXL_ASSERT(vd.IsVector() && !vd.IsLaneSizeB());
+  if (vd.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));
+  Emit(VFormat(vd) | Rm(vm) | NEON_FCADD | ImmRotFcadd(rot) | Rn(vn) | Rd(vd));
 }
 
 
 void Assembler::orr(const VRegister& vd, const int imm8, const int left_shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONModifiedImmShiftLsl(vd, imm8, left_shift, NEONModifiedImmediate_ORR);
 }
 
 
 void Assembler::mov(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   if (vd.IsD()) {
     orr(vd.V8B(), vn.V8B(), vn.V8B());
@@ -2814,6 +3751,7 @@ void Assembler::mov(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::bic(const VRegister& vd, const int imm8, const int left_shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONModifiedImmShiftLsl(vd, imm8, left_shift, NEONModifiedImmediate_BIC);
 }
 
@@ -2822,6 +3760,7 @@ void Assembler::movi(const VRegister& vd,
                      const uint64_t imm,
                      Shift shift,
                      const int shift_amount) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT((shift == LSL) || (shift == MSL));
   if (vd.Is2D() || vd.Is1D()) {
     VIXL_ASSERT(shift_amount == 0);
@@ -2853,6 +3792,7 @@ void Assembler::movi(const VRegister& vd,
 
 
 void Assembler::mvn(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   if (vd.IsD()) {
     not_(vd.V8B(), vn.V8B());
@@ -2867,6 +3807,7 @@ void Assembler::mvni(const VRegister& vd,
                      const int imm8,
                      Shift shift,
                      const int shift_amount) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT((shift == LSL) || (shift == MSL));
   if (shift == LSL) {
     NEONModifiedImmShiftLsl(vd, imm8, shift_amount, NEONModifiedImmediate_MVNI);
@@ -2880,21 +3821,38 @@ void Assembler::NEONFPByElement(const VRegister& vd,
                                 const VRegister& vn,
                                 const VRegister& vm,
                                 int vm_index,
-                                NEONByIndexedElementOp vop) {
+                                NEONByIndexedElementOp vop,
+                                NEONByIndexedElementOp vop_half) {
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT((vd.Is2S() && vm.Is1S()) || (vd.Is4S() && vm.Is1S()) ||
               (vd.Is1S() && vm.Is1S()) || (vd.Is2D() && vm.Is1D()) ||
-              (vd.Is1D() && vm.Is1D()));
-  VIXL_ASSERT((vm.Is1S() && (vm_index < 4)) || (vm.Is1D() && (vm_index < 2)));
+              (vd.Is1D() && vm.Is1D()) || (vd.Is4H() && vm.Is1H()) ||
+              (vd.Is8H() && vm.Is1H()) || (vd.Is1H() && vm.Is1H()));
+  VIXL_ASSERT((vm.Is1S() && (vm_index < 4)) || (vm.Is1D() && (vm_index < 2)) ||
+              (vm.Is1H() && (vm.GetCode() < 16) && (vm_index < 8)));
 
   Instr op = vop;
-  int index_num_bits = vm.Is1S() ? 2 : 1;
+  int index_num_bits;
+  if (vm.Is1D()) {
+    index_num_bits = 1;
+  } else if (vm.Is1S()) {
+    index_num_bits = 2;
+  } else {
+    index_num_bits = 3;
+    op = vop_half;
+  }
+
   if (vd.IsScalar()) {
     op |= NEON_Q | NEONScalar;
   }
 
-  Emit(FPFormat(vd) | op | ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) |
-       Rn(vn) | Rd(vd));
+  if (!vm.Is1H()) {
+    op |= FPFormat(vd);
+  } else if (vd.Is8H()) {
+    op |= NEON_Q;
+  }
+
+  Emit(op | ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) | Rn(vn) | Rd(vd));
 }
 
 
@@ -2951,43 +3909,90 @@ void Assembler::NEONByElementL(const VRegister& vd,
 }
 
 
+void Assembler::sdot(const VRegister& vd,
+                     const VRegister& vn,
+                     const VRegister& vm,
+                     int vm_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kDotProduct));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B() && vm.Is1S4B()) ||
+              (vd.Is4S() && vn.Is16B() && vm.Is1S4B()));
+
+  int index_num_bits = 2;
+  Emit(VFormat(vd) | NEON_SDOT_byelement |
+       ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
+void Assembler::udot(const VRegister& vd,
+                     const VRegister& vn,
+                     const VRegister& vm,
+                     int vm_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kDotProduct));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B() && vm.Is1S4B()) ||
+              (vd.Is4S() && vn.Is16B() && vm.Is1S4B()));
+
+  int index_num_bits = 2;
+  Emit(VFormat(vd) | NEON_UDOT_byelement |
+       ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) | Rn(vn) | Rd(vd));
+}
+
+
 // clang-format off
-#define NEON_BYELEMENT_LIST(V)                         \
-  V(mul,      NEON_MUL_byelement,      vn.IsVector())  \
-  V(mla,      NEON_MLA_byelement,      vn.IsVector())  \
-  V(mls,      NEON_MLS_byelement,      vn.IsVector())  \
-  V(sqdmulh,  NEON_SQDMULH_byelement,  true)           \
-  V(sqrdmulh, NEON_SQRDMULH_byelement, true)
+#define NEON_BYELEMENT_LIST(V)                        \
+  V(mul,      NEON_MUL_byelement,      vn.IsVector()) \
+  V(mla,      NEON_MLA_byelement,      vn.IsVector()) \
+  V(mls,      NEON_MLS_byelement,      vn.IsVector()) \
+  V(sqdmulh,  NEON_SQDMULH_byelement,  true)          \
+  V(sqrdmulh, NEON_SQRDMULH_byelement, true)          \
 // clang-format on
 
-
-#define DEFINE_ASM_FUNC(FN, OP, AS)          \
-  void Assembler::FN(const VRegister& vd,    \
-                     const VRegister& vn,    \
-                     const VRegister& vm,    \
-                     int vm_index) {         \
-    VIXL_ASSERT(AS);                         \
-    NEONByElement(vd, vn, vm, vm_index, OP); \
+#define DEFINE_ASM_FUNC(FN, OP, AS)                     \
+  void Assembler::FN(const VRegister& vd,               \
+                     const VRegister& vn,               \
+                     const VRegister& vm,               \
+                     int vm_index) {                    \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));            \
+    VIXL_ASSERT(AS);                                    \
+    NEONByElement(vd, vn, vm, vm_index, OP);            \
   }
 NEON_BYELEMENT_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
 
 // clang-format off
-#define NEON_FPBYELEMENT_LIST(V) \
-  V(fmul,  NEON_FMUL_byelement)  \
-  V(fmla,  NEON_FMLA_byelement)  \
-  V(fmls,  NEON_FMLS_byelement)  \
-  V(fmulx, NEON_FMULX_byelement)
+#define NEON_BYELEMENT_RDM_LIST(V)     \
+  V(sqrdmlah, NEON_SQRDMLAH_byelement) \
+  V(sqrdmlsh, NEON_SQRDMLSH_byelement)
 // clang-format on
 
+#define DEFINE_ASM_FUNC(FN, OP)                                 \
+  void Assembler::FN(const VRegister& vd,                       \
+                     const VRegister& vn,                       \
+                     const VRegister& vm,                       \
+                     int vm_index) {                            \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kRDM)); \
+    NEONByElement(vd, vn, vm, vm_index, OP);                    \
+  }
+NEON_BYELEMENT_RDM_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
 
-#define DEFINE_ASM_FUNC(FN, OP)                \
-  void Assembler::FN(const VRegister& vd,      \
-                     const VRegister& vn,      \
-                     const VRegister& vm,      \
-                     int vm_index) {           \
-    NEONFPByElement(vd, vn, vm, vm_index, OP); \
+
+// clang-format off
+#define NEON_FPBYELEMENT_LIST(V) \
+  V(fmul,  NEON_FMUL_byelement,  NEON_FMUL_H_byelement)  \
+  V(fmla,  NEON_FMLA_byelement,  NEON_FMLA_H_byelement)  \
+  V(fmls,  NEON_FMLS_byelement,  NEON_FMLS_H_byelement)  \
+  V(fmulx, NEON_FMULX_byelement, NEON_FMULX_H_byelement)
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, OP, OP_H)                                  \
+  void Assembler::FN(const VRegister& vd,                              \
+                     const VRegister& vn,                              \
+                     const VRegister& vm,                              \
+                     int vm_index) {                                   \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));         \
+    if (vd.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf)); \
+    NEONFPByElement(vd, vn, vm, vm_index, OP, OP_H);                   \
   }
 NEON_FPBYELEMENT_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
@@ -3021,6 +4026,7 @@ NEON_FPBYELEMENT_LIST(DEFINE_ASM_FUNC)
                      const VRegister& vn,     \
                      const VRegister& vm,     \
                      int vm_index) {          \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));  \
     VIXL_ASSERT(AS);                          \
     NEONByElementL(vd, vn, vm, vm_index, OP); \
   }
@@ -3029,33 +4035,39 @@ NEON_BYELEMENT_LONG_LIST(DEFINE_ASM_FUNC)
 
 
 void Assembler::suqadd(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEON2RegMisc(vd, vn, NEON_SUQADD);
 }
 
 
 void Assembler::usqadd(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEON2RegMisc(vd, vn, NEON_USQADD);
 }
 
 
 void Assembler::abs(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEON2RegMisc(vd, vn, NEON_ABS);
 }
 
 
 void Assembler::sqabs(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEON2RegMisc(vd, vn, NEON_SQABS);
 }
 
 
 void Assembler::neg(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEON2RegMisc(vd, vn, NEON_NEG);
 }
 
 
 void Assembler::sqneg(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEON2RegMisc(vd, vn, NEON_SQNEG);
 }
 
@@ -3063,6 +4075,7 @@ void Assembler::sqneg(const VRegister& vd, const VRegister& vn) {
 void Assembler::NEONXtn(const VRegister& vd,
                         const VRegister& vn,
                         NEON2RegMiscOp vop) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   Instr format, op = vop;
   if (vd.IsScalar()) {
     VIXL_ASSERT((vd.Is1B() && vn.Is1H()) || (vd.Is1H() && vn.Is1S()) ||
@@ -3080,48 +4093,56 @@ void Assembler::NEONXtn(const VRegister& vd,
 
 
 void Assembler::xtn(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() && vd.IsD());
   NEONXtn(vd, vn, NEON_XTN);
 }
 
 
 void Assembler::xtn2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() && vd.IsQ());
   NEONXtn(vd, vn, NEON_XTN);
 }
 
 
 void Assembler::sqxtn(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsScalar() || vd.IsD());
   NEONXtn(vd, vn, NEON_SQXTN);
 }
 
 
 void Assembler::sqxtn2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() && vd.IsQ());
   NEONXtn(vd, vn, NEON_SQXTN);
 }
 
 
 void Assembler::sqxtun(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsScalar() || vd.IsD());
   NEONXtn(vd, vn, NEON_SQXTUN);
 }
 
 
 void Assembler::sqxtun2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() && vd.IsQ());
   NEONXtn(vd, vn, NEON_SQXTUN);
 }
 
 
 void Assembler::uqxtn(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsScalar() || vd.IsD());
   NEONXtn(vd, vn, NEON_UQXTN);
 }
 
 
 void Assembler::uqxtn2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() && vd.IsQ());
   NEONXtn(vd, vn, NEON_UQXTN);
 }
@@ -3129,6 +4150,7 @@ void Assembler::uqxtn2(const VRegister& vd, const VRegister& vn) {
 
 // NEON NOT and RBIT are distinguised by bit 22, the bottom bit of "size".
 void Assembler::not_(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is8B() || vd.Is16B());
   Emit(VFormat(vd) | NEON_RBIT_NOT | Rn(vn) | Rd(vd));
@@ -3136,6 +4158,7 @@ void Assembler::not_(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::rbit(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is8B() || vd.Is16B());
   Emit(VFormat(vn) | (1 << NEONSize_offset) | NEON_RBIT_NOT | Rn(vn) | Rd(vd));
@@ -3146,6 +4169,7 @@ void Assembler::ext(const VRegister& vd,
                     const VRegister& vn,
                     const VRegister& vm,
                     int index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn, vm));
   VIXL_ASSERT(vd.Is8B() || vd.Is16B());
   VIXL_ASSERT((0 <= index) && (index < vd.GetLanes()));
@@ -3154,6 +4178,7 @@ void Assembler::ext(const VRegister& vd,
 
 
 void Assembler::dup(const VRegister& vd, const VRegister& vn, int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   Instr q, scalar;
 
   // We support vn arguments of the form vn.VxT() or vn.T(), where x is the
@@ -3190,12 +4215,14 @@ void Assembler::dup(const VRegister& vd, const VRegister& vn, int vn_index) {
 
 
 void Assembler::mov(const VRegister& vd, const VRegister& vn, int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsScalar());
   dup(vd, vn, vn_index);
 }
 
 
 void Assembler::dup(const VRegister& vd, const Register& rn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(!vd.Is1D());
   VIXL_ASSERT(vd.Is2D() == rn.IsX());
   int q = vd.IsD() ? 0 : NEON_Q;
@@ -3207,6 +4234,7 @@ void Assembler::ins(const VRegister& vd,
                     int vd_index,
                     const VRegister& vn,
                     int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   // We support vd arguments of the form vd.VxT() or vd.T(), where x is the
   // number of lanes, and T is b, h, s or d.
@@ -3243,11 +4271,13 @@ void Assembler::mov(const VRegister& vd,
                     int vd_index,
                     const VRegister& vn,
                     int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   ins(vd, vd_index, vn, vn_index);
 }
 
 
 void Assembler::ins(const VRegister& vd, int vd_index, const Register& rn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   // We support vd arguments of the form vd.VxT() or vd.T(), where x is the
   // number of lanes, and T is b, h, s or d.
   int lane_size = vd.GetLaneSizeInBytes();
@@ -3280,11 +4310,13 @@ void Assembler::ins(const VRegister& vd, int vd_index, const Register& rn) {
 
 
 void Assembler::mov(const VRegister& vd, int vd_index, const Register& rn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   ins(vd, vd_index, rn);
 }
 
 
 void Assembler::umov(const Register& rd, const VRegister& vn, int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   // We support vn arguments of the form vn.VxT() or vn.T(), where x is the
   // number of lanes, and T is b, h, s or d.
   int lane_size = vn.GetLaneSizeInBytes();
@@ -3319,12 +4351,14 @@ void Assembler::umov(const Register& rd, const VRegister& vn, int vn_index) {
 
 
 void Assembler::mov(const Register& rd, const VRegister& vn, int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.GetSizeInBytes() >= 4);
   umov(rd, vn, vn_index);
 }
 
 
 void Assembler::smov(const Register& rd, const VRegister& vn, int vn_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   // We support vn arguments of the form vn.VxT() or vn.T(), where x is the
   // number of lanes, and T is b, h, s.
   int lane_size = vn.GetLaneSizeInBytes();
@@ -3353,6 +4387,7 @@ void Assembler::smov(const Register& rd, const VRegister& vn, int vn_index) {
 
 
 void Assembler::cls(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(!vd.Is1D() && !vd.Is2D());
   Emit(VFormat(vn) | NEON_CLS | Rn(vn) | Rd(vd));
@@ -3360,6 +4395,7 @@ void Assembler::cls(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::clz(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(!vd.Is1D() && !vd.Is2D());
   Emit(VFormat(vn) | NEON_CLZ | Rn(vn) | Rd(vd));
@@ -3367,6 +4403,7 @@ void Assembler::clz(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::cnt(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is8B() || vd.Is16B());
   Emit(VFormat(vn) | NEON_CNT | Rn(vn) | Rd(vd));
@@ -3374,6 +4411,7 @@ void Assembler::cnt(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::rev16(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is8B() || vd.Is16B());
   Emit(VFormat(vn) | NEON_REV16 | Rn(vn) | Rd(vd));
@@ -3381,6 +4419,7 @@ void Assembler::rev16(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::rev32(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is8B() || vd.Is16B() || vd.Is4H() || vd.Is8H());
   Emit(VFormat(vn) | NEON_REV32 | Rn(vn) | Rd(vd));
@@ -3388,6 +4427,7 @@ void Assembler::rev32(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::rev64(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(!vd.Is1D() && !vd.Is2D());
   Emit(VFormat(vn) | NEON_REV64 | Rn(vn) | Rd(vd));
@@ -3395,6 +4435,7 @@ void Assembler::rev64(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::ursqrte(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is2S() || vd.Is4S());
   Emit(VFormat(vn) | NEON_URSQRTE | Rn(vn) | Rd(vd));
@@ -3402,6 +4443,7 @@ void Assembler::ursqrte(const VRegister& vd, const VRegister& vn) {
 
 
 void Assembler::urecpe(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(AreSameFormat(vd, vn));
   VIXL_ASSERT(vd.Is2S() || vd.Is4S());
   Emit(VFormat(vn) | NEON_URECPE | Rn(vn) | Rd(vd));
@@ -3411,6 +4453,7 @@ void Assembler::urecpe(const VRegister& vd, const VRegister& vn) {
 void Assembler::NEONAddlp(const VRegister& vd,
                           const VRegister& vn,
                           NEON2RegMiscOp op) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT((op == NEON_SADDLP) || (op == NEON_UADDLP) ||
               (op == NEON_SADALP) || (op == NEON_UADALP));
 
@@ -3422,21 +4465,25 @@ void Assembler::NEONAddlp(const VRegister& vd,
 
 
 void Assembler::saddlp(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONAddlp(vd, vn, NEON_SADDLP);
 }
 
 
 void Assembler::uaddlp(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONAddlp(vd, vn, NEON_UADDLP);
 }
 
 
 void Assembler::sadalp(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONAddlp(vd, vn, NEON_SADALP);
 }
 
 
 void Assembler::uadalp(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONAddlp(vd, vn, NEON_UADALP);
 }
 
@@ -3452,47 +4499,74 @@ void Assembler::NEONAcrossLanesL(const VRegister& vd,
 
 
 void Assembler::saddlv(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONAcrossLanesL(vd, vn, NEON_SADDLV);
 }
 
 
 void Assembler::uaddlv(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONAcrossLanesL(vd, vn, NEON_UADDLV);
 }
 
 
 void Assembler::NEONAcrossLanes(const VRegister& vd,
                                 const VRegister& vn,
-                                NEONAcrossLanesOp op) {
+                                NEONAcrossLanesOp op,
+                                Instr op_half) {
   VIXL_ASSERT((vn.Is8B() && vd.Is1B()) || (vn.Is16B() && vd.Is1B()) ||
               (vn.Is4H() && vd.Is1H()) || (vn.Is8H() && vd.Is1H()) ||
               (vn.Is4S() && vd.Is1S()));
   if ((op & NEONAcrossLanesFPFMask) == NEONAcrossLanesFPFixed) {
-    Emit(FPFormat(vn) | op | Rn(vn) | Rd(vd));
+    if (vd.Is1H()) {
+      VIXL_ASSERT(op_half != 0);
+      Instr vop = op_half;
+      if (vn.Is8H()) {
+        vop |= NEON_Q;
+      }
+      Emit(vop | Rn(vn) | Rd(vd));
+    } else {
+      Emit(FPFormat(vn) | op | Rn(vn) | Rd(vd));
+    }
   } else {
     Emit(VFormat(vn) | op | Rn(vn) | Rd(vd));
   }
 }
 
+// clang-format off
+#define NEON_ACROSSLANES_LIST(V)           \
+  V(addv,    NEON_ADDV)                    \
+  V(smaxv,   NEON_SMAXV)                   \
+  V(sminv,   NEON_SMINV)                   \
+  V(umaxv,   NEON_UMAXV)                   \
+  V(uminv,   NEON_UMINV)
+// clang-format on
 
-#define NEON_ACROSSLANES_LIST(V)      \
-  V(fmaxv, NEON_FMAXV, vd.Is1S())     \
-  V(fminv, NEON_FMINV, vd.Is1S())     \
-  V(fmaxnmv, NEON_FMAXNMV, vd.Is1S()) \
-  V(fminnmv, NEON_FMINNMV, vd.Is1S()) \
-  V(addv, NEON_ADDV, true)            \
-  V(smaxv, NEON_SMAXV, true)          \
-  V(sminv, NEON_SMINV, true)          \
-  V(umaxv, NEON_UMAXV, true)          \
-  V(uminv, NEON_UMINV, true)
-
-
-#define DEFINE_ASM_FUNC(FN, OP, AS)                              \
+#define DEFINE_ASM_FUNC(FN, OP)                                  \
   void Assembler::FN(const VRegister& vd, const VRegister& vn) { \
-    VIXL_ASSERT(AS);                                             \
-    NEONAcrossLanes(vd, vn, OP);                                 \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                     \
+    NEONAcrossLanes(vd, vn, OP, 0);                              \
   }
 NEON_ACROSSLANES_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
+
+
+// clang-format off
+#define NEON_ACROSSLANES_FP_LIST(V)   \
+  V(fmaxv,   NEON_FMAXV,   NEON_FMAXV_H) \
+  V(fminv,   NEON_FMINV,   NEON_FMINV_H) \
+  V(fmaxnmv, NEON_FMAXNMV, NEON_FMAXNMV_H) \
+  V(fminnmv, NEON_FMINNMV, NEON_FMINNMV_H) \
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, OP, OP_H)                            \
+  void Assembler::FN(const VRegister& vd, const VRegister& vn) { \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));   \
+    if (vd.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));  \
+    VIXL_ASSERT(vd.Is1S() || vd.Is1H());                         \
+    NEONAcrossLanes(vd, vn, OP, OP_H);                           \
+  }
+NEON_ACROSSLANES_FP_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
 
@@ -3509,6 +4583,7 @@ void Assembler::NEONPerm(const VRegister& vd,
 void Assembler::trn1(const VRegister& vd,
                      const VRegister& vn,
                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONPerm(vd, vn, vm, NEON_TRN1);
 }
 
@@ -3516,6 +4591,7 @@ void Assembler::trn1(const VRegister& vd,
 void Assembler::trn2(const VRegister& vd,
                      const VRegister& vn,
                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONPerm(vd, vn, vm, NEON_TRN2);
 }
 
@@ -3523,6 +4599,7 @@ void Assembler::trn2(const VRegister& vd,
 void Assembler::uzp1(const VRegister& vd,
                      const VRegister& vn,
                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONPerm(vd, vn, vm, NEON_UZP1);
 }
 
@@ -3530,6 +4607,7 @@ void Assembler::uzp1(const VRegister& vd,
 void Assembler::uzp2(const VRegister& vd,
                      const VRegister& vn,
                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONPerm(vd, vn, vm, NEON_UZP2);
 }
 
@@ -3537,6 +4615,7 @@ void Assembler::uzp2(const VRegister& vd,
 void Assembler::zip1(const VRegister& vd,
                      const VRegister& vn,
                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONPerm(vd, vn, vm, NEON_ZIP1);
 }
 
@@ -3544,6 +4623,7 @@ void Assembler::zip1(const VRegister& vd,
 void Assembler::zip2(const VRegister& vd,
                      const VRegister& vn,
                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONPerm(vd, vn, vm, NEON_ZIP2);
 }
 
@@ -3628,230 +4708,288 @@ void Assembler::NEONShiftImmediateN(const VRegister& vd,
 
 
 void Assembler::shl(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftLeftImmediate(vd, vn, shift, NEON_SHL);
 }
 
 
 void Assembler::sli(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftLeftImmediate(vd, vn, shift, NEON_SLI);
 }
 
 
 void Assembler::sqshl(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONShiftLeftImmediate(vd, vn, shift, NEON_SQSHL_imm);
 }
 
 
 void Assembler::sqshlu(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONShiftLeftImmediate(vd, vn, shift, NEON_SQSHLU);
 }
 
 
 void Assembler::uqshl(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   NEONShiftLeftImmediate(vd, vn, shift, NEON_UQSHL_imm);
 }
 
 
 void Assembler::sshll(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsD());
   NEONShiftImmediateL(vd, vn, shift, NEON_SSHLL);
 }
 
 
 void Assembler::sshll2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsQ());
   NEONShiftImmediateL(vd, vn, shift, NEON_SSHLL);
 }
 
 
 void Assembler::sxtl(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   sshll(vd, vn, 0);
 }
 
 
 void Assembler::sxtl2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   sshll2(vd, vn, 0);
 }
 
 
 void Assembler::ushll(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsD());
   NEONShiftImmediateL(vd, vn, shift, NEON_USHLL);
 }
 
 
 void Assembler::ushll2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsQ());
   NEONShiftImmediateL(vd, vn, shift, NEON_USHLL);
 }
 
 
 void Assembler::uxtl(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   ushll(vd, vn, 0);
 }
 
 
 void Assembler::uxtl2(const VRegister& vd, const VRegister& vn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   ushll2(vd, vn, 0);
 }
 
 
 void Assembler::sri(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_SRI);
 }
 
 
 void Assembler::sshr(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_SSHR);
 }
 
 
 void Assembler::ushr(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_USHR);
 }
 
 
 void Assembler::srshr(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_SRSHR);
 }
 
 
 void Assembler::urshr(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_URSHR);
 }
 
 
 void Assembler::ssra(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_SSRA);
 }
 
 
 void Assembler::usra(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_USRA);
 }
 
 
 void Assembler::srsra(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_SRSRA);
 }
 
 
 void Assembler::ursra(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsVector() || vd.Is1D());
   NEONShiftRightImmediate(vd, vn, shift, NEON_URSRA);
 }
 
 
 void Assembler::shrn(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsD());
   NEONShiftImmediateN(vd, vn, shift, NEON_SHRN);
 }
 
 
 void Assembler::shrn2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_SHRN);
 }
 
 
 void Assembler::rshrn(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsD());
   NEONShiftImmediateN(vd, vn, shift, NEON_RSHRN);
 }
 
 
 void Assembler::rshrn2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_RSHRN);
 }
 
 
 void Assembler::sqshrn(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsD() || (vn.IsScalar() && vd.IsScalar()));
   NEONShiftImmediateN(vd, vn, shift, NEON_SQSHRN);
 }
 
 
 void Assembler::sqshrn2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_SQSHRN);
 }
 
 
 void Assembler::sqrshrn(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsD() || (vn.IsScalar() && vd.IsScalar()));
   NEONShiftImmediateN(vd, vn, shift, NEON_SQRSHRN);
 }
 
 
 void Assembler::sqrshrn2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_SQRSHRN);
 }
 
 
 void Assembler::sqshrun(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsD() || (vn.IsScalar() && vd.IsScalar()));
   NEONShiftImmediateN(vd, vn, shift, NEON_SQSHRUN);
 }
 
 
 void Assembler::sqshrun2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_SQSHRUN);
 }
 
 
 void Assembler::sqrshrun(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsD() || (vn.IsScalar() && vd.IsScalar()));
   NEONShiftImmediateN(vd, vn, shift, NEON_SQRSHRUN);
 }
 
 
 void Assembler::sqrshrun2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_SQRSHRUN);
 }
 
 
 void Assembler::uqshrn(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsD() || (vn.IsScalar() && vd.IsScalar()));
   NEONShiftImmediateN(vd, vn, shift, NEON_UQSHRN);
 }
 
 
 void Assembler::uqshrn2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_UQSHRN);
 }
 
 
 void Assembler::uqrshrn(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vd.IsD() || (vn.IsScalar() && vd.IsScalar()));
   NEONShiftImmediateN(vd, vn, shift, NEON_UQRSHRN);
 }
 
 
 void Assembler::uqrshrn2(const VRegister& vd, const VRegister& vn, int shift) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
   VIXL_ASSERT(vn.IsVector() && vd.IsQ());
   NEONShiftImmediateN(vd, vn, shift, NEON_UQRSHRN);
 }
 
 
 // Note:
-// Below, a difference in case for the same letter indicates a
-// negated bit.
+// For all ToImm instructions below, a difference in case
+// for the same letter indicates a negated bit.
 // If b is 1, then B is 0.
+uint32_t Assembler::FP16ToImm8(Float16 imm) {
+  VIXL_ASSERT(IsImmFP16(imm));
+  // Half: aBbb.cdef.gh00.0000 (16 bits)
+  uint16_t bits = Float16ToRawbits(imm);
+  // bit7: a000.0000
+  uint16_t bit7 = ((bits >> 15) & 0x1) << 7;
+  // bit6: 0b00.0000
+  uint16_t bit6 = ((bits >> 13) & 0x1) << 6;
+  // bit5_to_0: 00cd.efgh
+  uint16_t bit5_to_0 = (bits >> 6) & 0x3f;
+  uint32_t result = static_cast<uint32_t>(bit7 | bit6 | bit5_to_0);
+  return result;
+}
+
+
+Instr Assembler::ImmFP16(Float16 imm) {
+  return FP16ToImm8(imm) << ImmFP_offset;
+}
+
+
 uint32_t Assembler::FP32ToImm8(float imm) {
   VIXL_ASSERT(IsImmFP32(imm));
   // bits: aBbb.bbbc.defg.h000.0000.0000.0000.0000
@@ -4095,7 +5233,7 @@ void Assembler::FPDataProcessing3Source(const VRegister& vd,
                                         const VRegister& vm,
                                         const VRegister& va,
                                         FPDataProcessing3SourceOp op) {
-  VIXL_ASSERT(vd.Is1S() || vd.Is1D());
+  VIXL_ASSERT(vd.Is1H() || vd.Is1S() || vd.Is1D());
   VIXL_ASSERT(AreSameSizeAndType(vd, vn, vm, va));
   Emit(FPType(vd) | op | Rm(vm) | Rn(vn) | Rd(vd) | Ra(va));
 }
@@ -4311,6 +5449,7 @@ void Assembler::LoadStore(const CPURegister& rt,
                           const MemOperand& addr,
                           LoadStoreOp op,
                           LoadStoreScalingOption option) {
+  VIXL_ASSERT(CPUHas(rt));
   Emit(op | Rt(rt) | LoadStoreMemOperand(addr, CalcLSDataSize(op), option));
 }
 
@@ -4333,6 +5472,30 @@ bool Assembler::IsImmAddSub(int64_t immediate) {
 
 bool Assembler::IsImmConditionalCompare(int64_t immediate) {
   return IsUint5(immediate);
+}
+
+
+bool Assembler::IsImmFP16(Float16 imm) {
+  // Valid values will have the form:
+  // aBbb.cdef.gh00.000
+  uint16_t bits = Float16ToRawbits(imm);
+  // bits[6..0] are cleared.
+  if ((bits & 0x3f) != 0) {
+    return false;
+  }
+
+  // bits[13..12] are all set or all cleared.
+  uint16_t b_pattern = (bits >> 12) & 0x03;
+  if (b_pattern != 0 && b_pattern != 0x03) {
+    return false;
+  }
+
+  // bit[15] and bit[14] are opposite.
+  if (((bits ^ (bits << 1)) & 0x4000) == 0) {
+    return false;
+  }
+
+  return true;
 }
 
 
@@ -4745,6 +5908,31 @@ LoadLiteralOp Assembler::LoadLiteralOpFor(const CPURegister& rt) {
 }
 
 
+bool Assembler::CPUHas(const CPURegister& rt) const {
+  // Core registers are available without any particular CPU features.
+  if (rt.IsRegister()) return true;
+  VIXL_ASSERT(rt.IsVRegister());
+  // The architecture does not allow FP and NEON to be implemented separately,
+  // but we can crudely categorise them based on register size, since FP only
+  // uses D, S and (occasionally) H registers.
+  if (rt.IsH() || rt.IsS() || rt.IsD()) {
+    return CPUHas(CPUFeatures::kFP) || CPUHas(CPUFeatures::kNEON);
+  }
+  VIXL_ASSERT(rt.IsB() || rt.IsQ());
+  return CPUHas(CPUFeatures::kNEON);
+}
+
+
+bool Assembler::CPUHas(const CPURegister& rt, const CPURegister& rt2) const {
+  // This is currently only used for loads and stores, where rt and rt2 must
+  // have the same size and type. We could extend this to cover other cases if
+  // necessary, but for now we can avoid checking both registers.
+  VIXL_ASSERT(AreSameSizeAndType(rt, rt2));
+  USE(rt2);
+  return CPUHas(rt);
+}
+
+
 bool AreAliased(const CPURegister& reg1,
                 const CPURegister& reg2,
                 const CPURegister& reg3,
@@ -4761,7 +5949,7 @@ bool AreAliased(const CPURegister& reg1,
 
   const CPURegister regs[] = {reg1, reg2, reg3, reg4, reg5, reg6, reg7, reg8};
 
-  for (unsigned i = 0; i < sizeof(regs) / sizeof(regs[0]); i++) {
+  for (size_t i = 0; i < ArrayLength(regs); i++) {
     if (regs[i].IsRegister()) {
       number_of_valid_regs++;
       unique_regs |= regs[i].GetBit();
@@ -4802,6 +5990,54 @@ bool AreSameSizeAndType(const CPURegister& reg1,
   match &= !reg7.IsValid() || reg7.IsSameSizeAndType(reg1);
   match &= !reg8.IsValid() || reg8.IsSameSizeAndType(reg1);
   return match;
+}
+
+bool AreEven(const CPURegister& reg1,
+             const CPURegister& reg2,
+             const CPURegister& reg3,
+             const CPURegister& reg4,
+             const CPURegister& reg5,
+             const CPURegister& reg6,
+             const CPURegister& reg7,
+             const CPURegister& reg8) {
+  VIXL_ASSERT(reg1.IsValid());
+  bool even = (reg1.GetCode() % 2) == 0;
+  even &= !reg2.IsValid() || ((reg2.GetCode() % 2) == 0);
+  even &= !reg3.IsValid() || ((reg3.GetCode() % 2) == 0);
+  even &= !reg4.IsValid() || ((reg4.GetCode() % 2) == 0);
+  even &= !reg5.IsValid() || ((reg5.GetCode() % 2) == 0);
+  even &= !reg6.IsValid() || ((reg6.GetCode() % 2) == 0);
+  even &= !reg7.IsValid() || ((reg7.GetCode() % 2) == 0);
+  even &= !reg8.IsValid() || ((reg8.GetCode() % 2) == 0);
+  return even;
+}
+
+
+bool AreConsecutive(const CPURegister& reg1,
+                    const CPURegister& reg2,
+                    const CPURegister& reg3,
+                    const CPURegister& reg4) {
+  VIXL_ASSERT(reg1.IsValid());
+
+  if (!reg2.IsValid()) {
+    return true;
+  } else if (reg2.GetCode() != ((reg1.GetCode() + 1) % kNumberOfRegisters)) {
+    return false;
+  }
+
+  if (!reg3.IsValid()) {
+    return true;
+  } else if (reg3.GetCode() != ((reg2.GetCode() + 1) % kNumberOfRegisters)) {
+    return false;
+  }
+
+  if (!reg4.IsValid()) {
+    return true;
+  } else if (reg4.GetCode() != ((reg3.GetCode() + 1) % kNumberOfRegisters)) {
+    return false;
+  }
+
+  return true;
 }
 
 

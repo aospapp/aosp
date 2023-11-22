@@ -16,23 +16,23 @@
 
 package com.android.volley.toolbox;
 
+import androidx.annotation.GuardedBy;
+import androidx.annotation.Nullable;
 import com.android.volley.NetworkResponse;
 import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.Response.ErrorListener;
 import com.android.volley.Response.Listener;
-
 import java.io.UnsupportedEncodingException;
 
-/**
- * A canned request for retrieving the response body at a given URL as a String.
- */
+/** A canned request for retrieving the response body at a given URL as a String. */
 public class StringRequest extends Request<String> {
 
     /** Lock to guard mListener as it is cleared on cancel() and read on delivery. */
     private final Object mLock = new Object();
 
-    // @GuardedBy("mLock")
+    @Nullable
+    @GuardedBy("mLock")
     private Listener<String> mListener;
 
     /**
@@ -43,8 +43,11 @@ public class StringRequest extends Request<String> {
      * @param listener Listener to receive the String response
      * @param errorListener Error listener, or null to ignore errors
      */
-    public StringRequest(int method, String url, Listener<String> listener,
-            ErrorListener errorListener) {
+    public StringRequest(
+            int method,
+            String url,
+            Listener<String> listener,
+            @Nullable ErrorListener errorListener) {
         super(method, url, errorListener);
         mListener = listener;
     }
@@ -56,7 +59,8 @@ public class StringRequest extends Request<String> {
      * @param listener Listener to receive the String response
      * @param errorListener Error listener, or null to ignore errors
      */
-    public StringRequest(String url, Listener<String> listener, ErrorListener errorListener) {
+    public StringRequest(
+            String url, Listener<String> listener, @Nullable ErrorListener errorListener) {
         this(Method.GET, url, listener, errorListener);
     }
 
@@ -80,11 +84,15 @@ public class StringRequest extends Request<String> {
     }
 
     @Override
+    @SuppressWarnings("DefaultCharset")
     protected Response<String> parseNetworkResponse(NetworkResponse response) {
         String parsed;
         try {
             parsed = new String(response.data, HttpHeaderParser.parseCharset(response.headers));
         } catch (UnsupportedEncodingException e) {
+            // Since minSdkVersion = 8, we can't call
+            // new String(response.data, Charset.defaultCharset())
+            // So suppress the warning instead.
             parsed = new String(response.data);
         }
         return Response.success(parsed, HttpHeaderParser.parseCacheHeaders(response));

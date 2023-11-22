@@ -84,7 +84,7 @@ protected:
 class DeviceDriver : public DeviceInterface
 {
 public:
-				DeviceDriver	(const InstanceInterface& instanceInterface, VkDevice device);
+				DeviceDriver	(const PlatformInterface& platformInterface, VkInstance instance, VkDevice device);
 				~DeviceDriver	(void);
 
 #include "vkConcreteDeviceInterface.inl"
@@ -141,6 +141,7 @@ public:
 	virtual Library*		createLibrary		(void) const = 0;
 
 	virtual wsi::Display*	createWsiDisplay	(wsi::Type wsiType) const;
+	virtual bool			hasDisplay	(wsi::Type wsiType) const;
 
 	virtual void			getMemoryLimits		(PlatformMemoryLimits& limits) const = 0;
 	virtual void			describePlatform	(std::ostream& dst) const;

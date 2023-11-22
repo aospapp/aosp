@@ -6073,7 +6073,7 @@ void CGOpenMPRuntime::emitTargetDataCalls(CodeGenFunction &CGF,
   // Generate the code for the opening of the data environment. Capture all the
   // arguments of the runtime call by reference because they are used in the
   // closing of the region.
-  auto &&BeginThenGen = [&D, &CGF, &BasePointersArray, &PointersArray,
+  auto &&BeginThenGen = [this, &D, &BasePointersArray, &PointersArray,
                          &SizesArray, &MapTypesArray, Device,
                          &NumOfPtrs](CodeGenFunction &CGF, PrePostActionTy &) {
     // Fill up the arrays with all the mapped variables.
@@ -6121,7 +6121,7 @@ void CGOpenMPRuntime::emitTargetDataCalls(CodeGenFunction &CGF,
   };
 
   // Generate code for the closing of the data region.
-  auto &&EndThenGen = [&CGF, &BasePointersArray, &PointersArray, &SizesArray,
+  auto &&EndThenGen = [this, &BasePointersArray, &PointersArray, &SizesArray,
                        &MapTypesArray, Device,
                        &NumOfPtrs](CodeGenFunction &CGF, PrePostActionTy &) {
     assert(BasePointersArray && PointersArray && SizesArray && MapTypesArray &&
@@ -6188,7 +6188,7 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
          "Expecting either target enter, exit data, or update directives.");
 
   // Generate the code for the opening of the data environment.
-  auto &&ThenGen = [&D, &CGF, Device](CodeGenFunction &CGF, PrePostActionTy &) {
+  auto &&ThenGen = [this, &D, Device](CodeGenFunction &CGF, PrePostActionTy &) {
     // Fill up the arrays with all the mapped variables.
     MappableExprsHandler::MapValuesArrayTy BasePointers;
     MappableExprsHandler::MapValuesArrayTy Pointers;

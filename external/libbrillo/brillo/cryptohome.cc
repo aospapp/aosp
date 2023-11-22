@@ -24,6 +24,17 @@ namespace home {
 
 const char kGuestUserName[] = "$guest";
 
+// Path to user homes mounted with the mount_hidden option. The user home mount
+// will be located at:
+// kHiddenUserHomeBaseDir/<sanitized_user_name>/kHiddenUserHomeMountSubdir
+const char kHiddenUserHomeBaseDir[] = "/home/.shadow";
+const char kHiddenUserHomeMountSubdir[] = "mount";
+
+// Subdirectory of a user home mount where daemon-specific data is stored.
+// This is used to assemble daemon data storage paths for hidden user home
+// mounts.
+const char kHiddenUserHomeRootSubdir[] = "root";
+
 static char g_user_home_prefix[PATH_MAX] = "/home/user/";
 static char g_root_home_prefix[PATH_MAX] = "/home/root/";
 static char g_system_salt_path[PATH_MAX] = "/home/.shadow/salt";
@@ -92,21 +103,33 @@ FilePath GetHashedUserPath(const std::string& hashed_username) {
 
 FilePath GetUserPath(const std::string& username) {
   if (!EnsureSystemSaltIsLoaded())
-    return FilePath("");
+    return FilePath();
   return GetHashedUserPath(SanitizeUserName(username));
 }
 
 FilePath GetRootPath(const std::string& username) {
   if (!EnsureSystemSaltIsLoaded())
-    return FilePath("");
+    return FilePath();
   return FilePath(base::StringPrintf(
       "%s%s", g_root_home_prefix, SanitizeUserName(username).c_str()));
 }
 
 FilePath GetDaemonPath(const std::string& username, const std::string& daemon) {
   if (!EnsureSystemSaltIsLoaded())
-    return FilePath("");
+    return FilePath();
   return GetRootPath(username).Append(daemon);
+}
+
+FilePath GetDaemonPathForHiddenUserHome(const std::string& username,
+                                        const std::string& daemon) {
+  if (!EnsureSystemSaltIsLoaded())
+    return FilePath();
+
+  return FilePath(kHiddenUserHomeBaseDir)
+      .Append(SanitizeUserName(username))
+      .Append(kHiddenUserHomeMountSubdir)
+      .Append(kHiddenUserHomeRootSubdir)
+      .Append(daemon);
 }
 
 bool IsSanitizedUserName(const std::string& sanitized) {

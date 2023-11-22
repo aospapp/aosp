@@ -87,7 +87,7 @@ static FLAC__fixedpoint local__compute_rbps_integerized(FLAC__uint32 err, FLAC__
 	bits = FLAC__bitmath_ilog2(err)+1;
 	if(bits > 16) {
 		err >>= (bits-16);
-		fracbits -= (bits-16);
+		fracbits -= (int)(bits-16);
 	}
 	rbps = (FLAC__uint32)err;
 
@@ -166,7 +166,7 @@ static FLAC__fixedpoint local__compute_rbps_wide_integerized(FLAC__uint64 err, F
 	bits = FLAC__bitmath_ilog2_wide(err)+1;
 	if(bits > 16) {
 		err >>= (bits-16);
-		fracbits -= (bits-16);
+		fracbits -= (int)(bits-16); // defined, but cast to int to avoid ubsan assert.
 	}
 	rbps = (FLAC__uint32)err;
 

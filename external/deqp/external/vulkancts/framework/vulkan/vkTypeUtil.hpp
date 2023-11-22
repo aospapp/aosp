@@ -94,14 +94,85 @@ inline VkComponentMapping makeComponentMappingRGBA (void)
 								VK_COMPONENT_SWIZZLE_A);
 }
 
-inline VkExtent3D makeExtent3D(const tcu::IVec3& vec)
+inline VkExtent3D makeExtent3D (const tcu::IVec3& vec)
 {
 	return makeExtent3D((deUint32)vec.x(), (deUint32)vec.y(), (deUint32)vec.z());
 }
 
-inline VkExtent3D makeExtent3D(const tcu::UVec3& vec)
+inline VkExtent3D makeExtent3D (const tcu::UVec3& vec)
 {
 	return makeExtent3D(vec.x(), vec.y(), vec.z());
+}
+
+inline VkRect2D makeRect2D (deInt32 x, deInt32 y, deUint32 width, deUint32 height)
+{
+	VkRect2D r;
+	r.offset.x		= x;
+	r.offset.y		= y;
+	r.extent.width	= width;
+	r.extent.height	= height;
+
+	return r;
+}
+
+inline VkRect2D makeRect2D(const tcu::IVec2& vec)
+{
+	return makeRect2D(0, 0, vec.x(), vec.y());
+}
+
+inline VkRect2D makeRect2D(const tcu::IVec3& vec)
+{
+	return makeRect2D(0, 0, vec.x(), vec.y());
+}
+
+inline VkRect2D makeRect2D(const tcu::UVec2& vec)
+{
+	return makeRect2D(0, 0, vec.x(), vec.y());
+}
+
+inline VkRect2D makeRect2D(const VkExtent3D& extent)
+{
+	return makeRect2D(0, 0, extent.width, extent.height);
+}
+
+inline VkRect2D makeRect2D(const VkExtent2D& extent)
+{
+	return makeRect2D(0, 0, extent.width, extent.height);
+}
+
+inline VkRect2D makeRect2D(const deUint32 width, const deUint32 height)
+{
+	return makeRect2D(0, 0, width, height);
+}
+
+inline VkViewport makeViewport(const tcu::IVec2& vec)
+{
+	return makeViewport(0.0f, 0.0f, (float)vec.x(), (float)vec.y(), 0.0f, 1.0f);
+}
+
+inline VkViewport makeViewport(const tcu::IVec3& vec)
+{
+	return makeViewport(0.0f, 0.0f, (float)vec.x(), (float)vec.y(), 0.0f, 1.0f);
+}
+
+inline VkViewport makeViewport(const tcu::UVec2& vec)
+{
+	return makeViewport(0.0f, 0.0f, (float)vec.x(), (float)vec.y(), 0.0f, 1.0f);
+}
+
+inline VkViewport makeViewport(const VkExtent3D& extent)
+{
+	return makeViewport(0.0f, 0.0f, (float)extent.width, (float)extent.height, 0.0f, 1.0f);
+}
+
+inline VkViewport makeViewport(const VkExtent2D& extent)
+{
+	return makeViewport(0.0f, 0.0f, (float)extent.width, (float)extent.height, 0.0f, 1.0f);
+}
+
+inline VkViewport makeViewport(const deUint32 width, const deUint32 height)
+{
+	return makeViewport(0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f);
 }
 
 } // vk

@@ -21,17 +21,15 @@ include(CTest)
 ################################
 # set lib version here
 
-set(GENERIC_LIB_VERSION "6.0.0")
-set(GENERIC_LIB_SOVERSION "6")
+set(GENERIC_LIB_VERSION "7.0.1")
+set(GENERIC_LIB_SOVERSION "7")
 
 ################################
 # Add definitions
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
-
 ################################
 # Add targets
-# By Default shared libray is being built
+# By Default shared library is being built
 # To build static libs also - Do cmake . -DBUILD_STATIC_LIBS:BOOL=ON
 # User can choose not to build shared library by using cmake -DBUILD_SHARED_LIBS:BOOL=OFF
 # To build only static libs use cmake . -DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_STATIC_LIBS:BOOL=ON
@@ -39,8 +37,10 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
 # To disable the building of the tests, use cmake . -DBUILD_TESTS:BOOL=OFF
 
 option(BUILD_SHARED_LIBS "build as shared library" ON)
-option(BUILD_STATIC_LIBS "build as static library" OFF)
 option(BUILD_TESTS "build xmltest (deprecated: Use BUILD_TESTING)" ON)
+
+# To allow using tinyxml in another shared library
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
@@ -48,19 +48,19 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 # to distinguish between debug and release lib
 set(CMAKE_DEBUG_POSTFIX "d")
 
-if(BUILD_SHARED_LIBS)
-add_library(tinyxml2 SHARED tinyxml2.cpp tinyxml2.h)
+add_library(tinyxml2 tinyxml2.cpp tinyxml2.h)
 
 set_target_properties(tinyxml2 PROPERTIES
         COMPILE_DEFINITIONS "TINYXML2_EXPORT"
 	VERSION "${GENERIC_LIB_VERSION}"
 	SOVERSION "${GENERIC_LIB_SOVERSION}")
 
+target_compile_definitions(tinyxml2 PUBLIC $<$<CONFIG:Debug>:TINYXML2_DEBUG>)
 
 if(DEFINED CMAKE_VERSION AND NOT "${CMAKE_VERSION}" VERSION_LESS "2.8.11")
     target_include_directories(tinyxml2 PUBLIC 
                           $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-                          $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>)
+                          $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
     if(MSVC)
       target_compile_definitions(tinyxml2 PUBLIC -D_CRT_SECURE_NO_WARNINGS)
@@ -82,73 +82,23 @@ install(TARGETS tinyxml2
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
-
-if(BUILD_STATIC_LIBS)
-add_library(tinyxml2_static STATIC tinyxml2.cpp tinyxml2.h)
-set_target_properties(tinyxml2_static PROPERTIES
-        COMPILE_DEFINITONS "TINYXML2_EXPORT"
-        VERSION "${GENERIC_LIB_VERSION}"
-        SOVERSION "${GENERIC_LIB_SOVERSION}")
-set_target_properties( tinyxml2_static PROPERTIES OUTPUT_NAME tinyxml2 )
-
-target_compile_definitions(tinyxml2_static PUBLIC -D_CRT_SECURE_NO_WARNINGS)
-
-if(DEFINED CMAKE_VERSION AND NOT "${CMAKE_VERSION}" VERSION_LESS "2.8.11")
-    target_include_directories(tinyxml2_static PUBLIC 
-                          $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-                          $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>)
-
-    if(MSVC)
-      target_compile_definitions(tinyxml2_static PUBLIC -D_CRT_SECURE_NO_WARNINGS)
-    endif(MSVC)
-else()
-    include_directories(${PROJECT_SOURCE_DIR})
-
-    if(MSVC)
-      add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-    endif(MSVC)
-endif()
-
-# export targets for find_package config mode
-export(TARGETS tinyxml2_static
-      FILE ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}Targets.cmake)
-
-install(TARGETS tinyxml2_static
-        EXPORT ${CMAKE_PROJECT_NAME}Targets
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
 
 if(BUILD_TESTING AND BUILD_TESTS)
   add_executable(xmltest xmltest.cpp)
-  if(BUILD_SHARED_LIBS)
-    add_dependencies(xmltest tinyxml2)
-    target_link_libraries(xmltest tinyxml2)
-  else(BUILD_STATIC_LIBS)
-    add_dependencies(xmltest tinyxml2_static)
-    target_link_libraries(xmltest tinyxml2_static)
-  endif()
+  add_dependencies(xmltest tinyxml2)
+  target_link_libraries(xmltest tinyxml2)
 
   # Copy test resources and create test output directory
   add_custom_command(TARGET xmltest POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources $<TARGET_FILE_DIR:xmltest>/resources
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources $<TARGET_FILE_DIR:xmltest>/resources
     COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:xmltest>/resources/out
-    COMMENT "Configuring xmltest resources directory: ${CMAKE_BINARY_DIR}/resources"
+    COMMENT "Configuring xmltest resources directory: ${CMAKE_CURRENT_BINARY_DIR}/resources"
   )
 
-  add_test(NAME xmltest COMMAND xmltest)
+  add_test(NAME xmltest COMMAND xmltest WORKING_DIRECTORY $<TARGET_FILE_DIR:xmltest>)
 endif()
 
 install(FILES tinyxml2.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-foreach(p LIB INCLUDE)
-	set(var CMAKE_INSTALL_${p}DIR)
-	if(NOT IS_ABSOLUTE "${${var}}")
-		set(${var} "${CMAKE_INSTALL_PREFIX}/${${var}}")
-	endif()
-endforeach()
 
 configure_file(tinyxml2.pc.in tinyxml2.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tinyxml2.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
@@ -164,13 +114,16 @@ if(NOT TARGET uninstall)
       COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 endif()
 
-file(WRITE
-    ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}Config.cmake
-    "include(\${CMAKE_CURRENT_LIST_DIR}/${CMAKE_PROJECT_NAME}Targets.cmake)\n")
-
+include(CMakePackageConfigHelpers)
+set(TARGETS_EXPORT_NAME "${PROJECT_NAME}Targets")
+configure_package_config_file(
+  "Config.cmake.in"
+  "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}"
+)
 install(FILES
         ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}Config.cmake
-        DESTINATION lib/cmake/${CMAKE_PROJECT_NAME})
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME})
 
-install(EXPORT ${CMAKE_PROJECT_NAME}Targets
-        DESTINATION lib/cmake/${CMAKE_PROJECT_NAME})
+install(EXPORT ${CMAKE_PROJECT_NAME}Targets NAMESPACE tinyxml2::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME})

@@ -114,13 +114,12 @@ if __name__ == '__main__':
 
 	pid = os.fork()
 	if pid == 0:
-		cmd = '/usr/bin/gnuplot %s/plot.cmds -' % tmpdir
+		cmd = 'gnuplot %s/plot.cmds -' % tmpdir
 
 		if verbose: print 'Executing %s' % cmd
 
-		cmd = cmd.split(None)
 		os.chdir(tmpdir)
-		os.execvp(cmd[0], cmd)
+		os.system(cmd)
 		sys.exit(1)
 
 	os.waitpid(pid, 0)

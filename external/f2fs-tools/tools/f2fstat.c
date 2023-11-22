@@ -81,7 +81,7 @@ void f2fstat(struct options *opt)
 	int ret;
 	char keyname[32];
 	char buf[4096];
-	struct mm_table key = { keyname, NULL };
+	struct mm_table key = { keyname, NULL, 0 };
 	struct mm_table *found;
 	int f2fstat_table_cnt;
 	char *head, *tail;
@@ -240,7 +240,7 @@ void print_head(char *res)
 
 	for (i = 0; i < 20; i++) {
 		ptr = (i == 0) ? strtok(res, " ") : strtok(NULL, " ");
-		strncpy(ptr_buf, name[i], strlen(name[i]));
+		strcpy(ptr_buf, name[i]);
 		if (i == 1) {
 			prev_index = ptr_buf - buf - 1;
 		} else if (i == 7) {

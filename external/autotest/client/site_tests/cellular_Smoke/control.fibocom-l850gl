@@ -10,12 +10,17 @@ This test will fail if one of the following conditions occur:
   - 3G modem fails to connect to network
   - the modem is not left in a working state
 """
-ATTRIBUTES = "suite:cellular_ota"
+ATTRIBUTES = "suite:cellular_ota_att, suite:cellular_ota_sprint, suite:cellular_ota_verizon"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 DEPENDENCIES = "modem:fibocom-l850gl"
+
+# TODO(crbug.com/932661) Fix the root cause of the flakiness and
+# remove this hack.
+JOB_RETRIES=3
+
 DOC = """
   Tests that 3G modem can connect to the network
 

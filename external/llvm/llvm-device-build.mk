@@ -48,18 +48,3 @@ LOCAL_C_INCLUDES :=	\
 	$(LLVM_ROOT_PATH)/include	\
 	$(LLVM_ROOT_PATH)/device/include	\
 	$(LOCAL_C_INCLUDES)
-
-###########################################################
-## Commands for running tblgen to compile a td file
-###########################################################
-define transform-device-td-to-out
-@mkdir -p $(dir $@)
-@echo "Device TableGen (gen-$(1)): $(TBLGEN_LOCAL_MODULE) <= $<"
-$(hide) $(LLVM_TBLGEN) \
-	-I $(dir $<)	\
-	-I $(LLVM_ROOT_PATH)/include	\
-	-I $(LLVM_ROOT_PATH)/device/include	\
-	-I $(LLVM_ROOT_PATH)/lib/Target	\
-    -gen-$(strip $(1)) \
-    -d $@.d -o $@ $<
-endef

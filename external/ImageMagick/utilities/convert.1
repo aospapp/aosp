@@ -7,7 +7,7 @@ convert \- convert between image formats as well as resize an image, blur, crop,
 .SH OVERVIEW
 The \fBconvert\fP program is a member of the ImageMagick(1) suite of tools.  Use it to convert between image formats as well as resize an image, blur, crop, despeckle, dither, draw on, flip, join, re-sample, and much more.  
 
-For more information about the convert command, point your browser to file:///usr/local/share/doc/ImageMagick-7/www/convert.html or http://www.imagemagick.org/script/convert.php.
+For more information about the convert command, point your browser to file:///usr/local/share/doc/ImageMagick-7/www/convert.html or http://imagemagick.org/script/convert.php.
 .SH DESCRIPTION
 Image Settings:
   \-adjoin              join images into a single multi-image file
@@ -59,10 +59,10 @@ Image Settings:
   \-intent type         type of rendering intent when managing the image color
   \-interlace type      type of image interlacing scheme
   \-interline-spacing value
-  \                     set the space between two text lines
+                        set the space between two text lines
   \-interpolate method  pixel color interpolation method
   \-interword-spacing value
-  \                     set the space between two words
+                        set the space between two words
   \-kerning value       set the space between two letters
   \-label string        assign a label to an image
   \-limit type value    pixel cache resource limit
@@ -84,6 +84,7 @@ Image Settings:
   \-red-primary point   chromaticity red primary point
   \-regard-warnings     pay attention to warning messages
   \-remap filename      transform image colors to match this set of colors
+  \-repage geometry     size and location of an image canvas
   \-respect-parentheses settings remain in effect until parenthesis boundary
   \-sampling-factor geometry
                        horizontal and vertical sampling factor
@@ -126,6 +127,8 @@ Image Operators:
   \-auto-gamma          automagically adjust gamma level of image
   \-auto-level          automagically adjust color levels of image
   \-auto-orient         automatically orient image
+  \-auto-threshold method
+                       automatically perform image thresholding
   \-bench iterations    measure performance
   \-black-threshold value
                        force all pixels below the threshold into black
@@ -133,11 +136,12 @@ Image Operators:
   \-blur geometry       reduce image noise and reduce detail levels
   \-border geometry     surround image with a border of color
   \-brightness-contrast geometry
-  \                     improve brightness / contrast of the image
+                        improve brightness / contrast of the image
   \-canny geometry      detect edges in the image
   \-channel mask        set the image channel mask
   \-charcoal radius     simulate a charcoal drawing
   \-chop geometry       remove pixels from the image interior
+  \-clahe geometry      contrast limited adaptive histogram equalization 
   \-clamp               keep pixel values in range (0-QuantumRange)
   \-clip                clip along the first path from the 8BIM profile
   \-clip-mask filename  associate a clip mask with the image
@@ -155,7 +159,7 @@ Image Operators:
   \-deskew threshold    straighten an image
   \-despeckle           reduce the speckles within an image
   \-distort method args
-  \                     distort images according to given method ad args
+                        distort images according to given method and args
   \-draw string         annotate the image with a graphic primitive
   \-edge radius         apply a filter to detect edges in the image
   \-emboss radius       emboss an image
@@ -186,7 +190,7 @@ Image Operators:
   \-layers method       optimize or compare image layers
   \-level value         adjust the level of image contrast
   \-level-colors color,color
-  \                     level image with the given colors
+                        level image with the given colors
   \-linear-stretch geometry
                        improve contrast by `stretching with saturation' the intensity range
   \-liquid-rescale geometry
@@ -218,9 +222,10 @@ Image Operators:
   \-raise value         lighten/darken image edges to create a 3-D effect
   \-random-threshold low,high
                        random threshold the image
+  \-range-threshold values
+                       perform either hard or soft thresholding within some range of values in an image
   \-region geometry     apply options to a portion of the image
   \-render              render vector graphics
-  \-repage geometry     size and location of an image canvas
   \-resample geometry   change the resolution of an image
   \-resize geometry     resize the image
   \-roll geometry       roll an image vertically or horizontally
@@ -243,7 +248,7 @@ Image Operators:
   \-sketch geometry     simulate a pencil sketch
   \-solarize threshold  negate all pixels above the threshold level
   \-sparse-color method args
-  \                     fill in a image based on a few color points
+                        fill in a image based on a few color points
   \-splice geometry     splice the background color into the image
   \-spread amount       displace image pixels by a random amount
   \-strip               strip image of all profiles and comments
@@ -266,7 +271,6 @@ Image Operators:
                         removes noise from the image using a wavelet transform
   \-white-threshold value
                        force all pixels above the threshold into white
-
 
 Image Channel Operators:
   \-channel-fx expression
@@ -322,4 +326,4 @@ By default, the image format of `file' is determined by its magic number.  To sp
 ImageMagick(1)
 
 .SH COPYRIGHT
-\fBCopyright (C) 1999-2016 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file:///usr/local/share/doc/ImageMagick-7/www/license.html or http://www.imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2019 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file:///usr/local/share/doc/ImageMagick-7/www/license.html or http://imagemagick.org/script/license.php\fP

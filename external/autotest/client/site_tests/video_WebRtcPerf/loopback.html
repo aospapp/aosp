@@ -44,7 +44,7 @@ function gotError(error) {
 }
 
 function gotRemoteStream(event) {
-  remoteVideo.src = URL.createObjectURL(event.stream);
+  remoteVideo.srcObject = event.stream;
 }
 
 function gotLocalDescription(description) {

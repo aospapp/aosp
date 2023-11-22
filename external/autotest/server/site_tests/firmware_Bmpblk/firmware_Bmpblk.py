@@ -8,6 +8,9 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 BIOS_PATH = '/tmp/test.firmware_Bmpblk.bios.bin'
+PRINT_CBFS_CMD = 'cbfstool %s print' % BIOS_PATH
+LAYOUT_CBFS_CMD = 'cbfstool %s layout' % BIOS_PATH
+
 
 class firmware_Bmpblk(FirmwareTest):
     """
@@ -20,12 +23,19 @@ class firmware_Bmpblk(FirmwareTest):
 
     def run_once(self):
         self.faft_client.bios.dump_whole(BIOS_PATH)
+        layout = self.faft_client.system.run_shell_command_get_output(
+                            LAYOUT_CBFS_CMD)
+        layout = '\n'.join(layout)
+        logging.debug('cbfstool layout output:\n\n%s', layout)
+        print_cbfs_cmd_options=''
+        if 'BOOT_STUB' in layout:
+          print_cbfs_cmd_options=' -r BOOT_STUB'
         try:
             files = self.faft_client.system.run_shell_command_get_output(
-                    'cbfstool %s print' % BIOS_PATH)
+                    PRINT_CBFS_CMD + print_cbfs_cmd_options)
             files = '\n'.join(files)
             logging.debug('cbfstool print output:\n\n%s', files)
-            if 'ramstage' not in files:
+            if 'romstage' not in files:
                 raise error.TestError("Sanity check failed: Can't read CBFS")
             if 'vbgfx.bin' not in files:
                 raise error.TestNAError('This board has no firmware screens')

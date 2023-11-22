@@ -12,6 +12,9 @@
 #ifndef __F2FS_FS_H__
 #define __F2FS_FS_H__
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -49,6 +52,8 @@
 # define UNUSED(x) UNUSED_ ## x __attribute__((unused))
 #elif defined(__LCLINT__)
 # define UNUSED(x) x
+#elif defined(__cplusplus)
+# define UNUSED(x)
 #else
 # define UNUSED(x) x
 #endif
@@ -275,7 +280,8 @@ static inline uint64_t bswap_64(uint64_t val)
 #define PAGE_CACHE_SIZE		4096
 #define BITS_PER_BYTE		8
 #define F2FS_SUPER_MAGIC	0xF2F52010	/* F2FS Magic Number */
-#define CHECKSUM_OFFSET		4092
+#define CP_CHKSUM_OFFSET	4092
+#define SB_CHKSUM_OFFSET	3068
 #define MAX_PATH_LEN		64
 #define MAX_DEVICES		8
 
@@ -291,6 +297,8 @@ static inline uint64_t bswap_64(uint64_t val)
 
 #define VERSION_LEN	256
 
+#define LPF "lost+found"
+
 enum f2fs_config_func {
 	MKFS,
 	FSCK,
@@ -298,6 +306,11 @@ enum f2fs_config_func {
 	DEFRAG,
 	RESIZE,
 	SLOAD,
+};
+
+enum default_set {
+	CONF_NONE = 0,
+	CONF_ANDROID,
 };
 
 struct device_info {
@@ -348,7 +361,7 @@ struct f2fs_configuration {
 	int32_t dump_fd;
 	struct device_info devices[MAX_DEVICES];
 	int ndevs;
-	char *extension_list;
+	char *extension_list[2];
 	const char *rootdev_name;
 	int dbg_lv;
 	int show_dentry;
@@ -358,12 +371,28 @@ struct f2fs_configuration {
 	void *private;
 	int dry_run;
 	int fix_on;
+	int force;
+	int defset;
 	int bug_on;
+	int bug_nat_bits;
+	int alloc_failed;
 	int auto_fix;
+	int quota_fix;
 	int preen_mode;
 	int ro;
 	int preserve_limits;		/* preserve quota limits */
+	int large_nat_bitmap;
 	__le32 feature;			/* defined features */
+
+	/* mkfs parameters */
+	u_int32_t next_free_nid;
+	u_int32_t quota_inum;
+	u_int32_t quota_dnum;
+	u_int32_t lpf_inum;
+	u_int32_t lpf_dnum;
+	u_int32_t lpf_ino;
+	u_int32_t root_uid;
+	u_int32_t root_gid;
 
 	/* defragmentation parameters */
 	int defrag_shrink;
@@ -381,6 +410,9 @@ struct f2fs_configuration {
 	struct selinux_opt seopt_file[8];
 	int nr_opt;
 #endif
+
+	/* resize parameters */
+	int safe_resize;
 
 	/* precomputed fs UUID checksum for seeding other checksums */
 	u_int32_t chksum_seed;
@@ -552,7 +584,9 @@ enum {
 #define F2FS_FEATURE_FLEXIBLE_INLINE_XATTR	0x0040
 #define F2FS_FEATURE_QUOTA_INO		0x0080
 #define F2FS_FEATURE_INODE_CRTIME	0x0100
+#define F2FS_FEATURE_LOST_FOUND		0x0200
 #define F2FS_FEATURE_VERITY		0x0400	/* reserved */
+#define F2FS_FEATURE_SB_CHKSUM		0x0800
 
 #define MAX_VOLUME_NAME		512
 
@@ -605,12 +639,17 @@ struct f2fs_super_block {
 	__u8 encrypt_pw_salt[16];	/* Salt used for string2key algorithm */
 	struct f2fs_device devs[MAX_DEVICES];	/* device list */
 	__le32 qf_ino[F2FS_MAX_QUOTAS];	/* quota inode numbers */
-	__u8 reserved[315];		/* valid reserved region */
+	__u8 hot_ext_count;		/* # of hot file extension */
+	__u8 reserved[310];		/* valid reserved region */
+	__le32 crc;			/* checksum of superblock */
 } __attribute__((packed));
 
 /*
  * For checkpoint
  */
+#define CP_DISABLED_FLAG		0x00001000
+#define CP_QUOTA_NEED_FSCK_FLAG		0x00000800
+#define CP_LARGE_NAT_BITMAP_FLAG	0x00000400
 #define CP_NOCRC_RECOVERY_FLAG	0x00000200
 #define CP_TRIMMED_FLAG		0x00000100
 #define CP_NAT_BITS_FLAG	0x00000080
@@ -653,8 +692,10 @@ struct f2fs_checkpoint {
 	unsigned char sit_nat_version_bitmap[1];
 } __attribute__((packed));
 
-#define MAX_SIT_BITMAP_SIZE_IN_CKPT	\
-	(CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1 - 64)
+#define MAX_SIT_BITMAP_SIZE_IN_CKPT    \
+	(CP_CHKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1 - 64)
+#define MAX_BITMAP_SIZE_IN_CKPT	\
+	(CP_CHKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1)
 
 /*
  * For orphan inode management
@@ -758,7 +799,13 @@ struct f2fs_inode {
 	__le32 i_ctime_nsec;		/* change time in nano scale */
 	__le32 i_mtime_nsec;		/* modification time in nano scale */
 	__le32 i_generation;		/* file version (for NFS) */
-	__le32 i_current_depth;		/* only for directory depth */
+	union {
+		__le32 i_current_depth;	/* only for directory depth */
+		__le16 i_gc_failures;	/*
+					 * # of gc failures on pinned file.
+					 * only for regular files.
+					 */
+	};
 	__le32 i_xattr_nid;		/* nid to save xattr */
 	__le32 i_flags;			/* file attributes */
 	__le32 i_pino;			/* parent inode number */
@@ -826,6 +873,8 @@ struct f2fs_node {
 #define NAT_ENTRY_PER_BLOCK (PAGE_CACHE_SIZE / sizeof(struct f2fs_nat_entry))
 #define NAT_BLOCK_OFFSET(start_nid) (start_nid / NAT_ENTRY_PER_BLOCK)
 
+#define DEFAULT_NAT_ENTRY_RATIO		20
+
 struct f2fs_nat_entry {
 	__u8 version;		/* latest version of cached nat entry */
 	__le32 ino;		/* inode number */
@@ -850,6 +899,7 @@ struct f2fs_nat_block {
  * F2FS uses 4 bytes to represent block address. As a result, supported size of
  * disk is 16 TB and it equals to 16 * 1024 * 1024 / 2 segments.
  */
+#define F2FS_MIN_SEGMENT      9 /* SB + 2 (CP + SIT + NAT) + SSA + MAIN */
 #define F2FS_MAX_SEGMENT       ((16 * 1024 * 1024) / 2)
 #define MAX_SIT_BITMAP_SIZE    (SEG_ALIGN(SIZE_ALIGN(F2FS_MAX_SEGMENT, \
 						SIT_ENTRY_PER_BLOCK)) * \
@@ -1021,6 +1071,7 @@ typedef __le32	f2fs_hash_t;
 #define SIZE_OF_RESERVED	(PAGE_SIZE - ((SIZE_OF_DIR_ENTRY + \
 				F2FS_SLOT_LEN) * \
 				NR_DENTRY_IN_BLOCK + SIZE_OF_DENTRY_BITMAP))
+#define MIN_INLINE_DENTRY_SIZE		40	/* just include '.' and '..' entries */
 
 /* One directory entry slot representing F2FS_SLOT_LEN-sized file name */
 struct f2fs_dir_entry {
@@ -1214,8 +1265,6 @@ extern int f2fs_get_zone_blocks(int);
 extern int f2fs_check_zones(int);
 extern int f2fs_reset_zones(int);
 
-extern struct f2fs_configuration c;
-
 #define SIZE_ALIGN(val, size)	((val) + (size) - 1) / (size)
 #define SEG_ALIGN(blks)		SIZE_ALIGN(blks, c.blks_per_seg)
 #define ZONE_ALIGN(blks)	SIZE_ALIGN(blks, c.blks_per_seg * \
@@ -1277,6 +1326,105 @@ static inline int is_qf_ino(struct f2fs_super_block *sb, nid_t ino)
 	for (i = 0; i < F2FS_MAX_QUOTAS; i++)
 		if (sb->qf_ino[i] == ino)
 			return 1;
+	return 0;
+}
+
+static inline void show_version(const char *prog)
+{
+#if defined(F2FS_TOOLS_VERSION) && defined(F2FS_TOOLS_DATE)
+	MSG(0, "%s %s (%s)\n", prog, F2FS_TOOLS_VERSION, F2FS_TOOLS_DATE);
+#else
+	MSG(0, "%s -- version not supported\n", prog);
+#endif
+}
+
+struct feature {
+	char *name;
+	u32  mask;
+};
+
+#define INIT_FEATURE_TABLE						\
+struct feature feature_table[] = {					\
+	{ "encrypt",			F2FS_FEATURE_ENCRYPT },		\
+	{ "extra_attr",			F2FS_FEATURE_EXTRA_ATTR },	\
+	{ "project_quota",		F2FS_FEATURE_PRJQUOTA },	\
+	{ "inode_checksum",		F2FS_FEATURE_INODE_CHKSUM },	\
+	{ "flexible_inline_xattr",	F2FS_FEATURE_FLEXIBLE_INLINE_XATTR },\
+	{ "quota",			F2FS_FEATURE_QUOTA_INO },	\
+	{ "inode_crtime",		F2FS_FEATURE_INODE_CRTIME },	\
+	{ "lost_found",			F2FS_FEATURE_LOST_FOUND },	\
+	{ "verity",			F2FS_FEATURE_VERITY },	/* reserved */ \
+	{ "sb_checksum",		F2FS_FEATURE_SB_CHKSUM },	\
+	{ NULL,				0x0},				\
+};
+
+static inline u32 feature_map(struct feature *table, char *feature)
+{
+	struct feature *p;
+	for (p = table; p->name && strcmp(p->name, feature); p++)
+		;
+	return p->mask;
+}
+
+static inline int set_feature_bits(struct feature *table, char *features)
+{
+	u32 mask = feature_map(table, features);
+	if (mask) {
+		c.feature |= cpu_to_le32(mask);
+	} else {
+		MSG(0, "Error: Wrong features %s\n", features);
+		return -1;
+	}
+	return 0;
+}
+
+static inline int parse_feature(struct feature *table, const char *features)
+{
+	char *buf, *sub, *next;
+
+	buf = strdup(features);
+	if (!buf)
+		return -1;
+
+	for (sub = buf; sub && *sub; sub = next ? next + 1 : NULL) {
+		/* Skip the beginning blanks */
+		while (*sub && *sub == ' ')
+			sub++;
+		next = sub;
+		/* Skip a feature word */
+		while (*next && *next != ' ' && *next != ',')
+			next++;
+
+		if (*next == 0)
+			next = NULL;
+		else
+			*next = 0;
+
+		if (set_feature_bits(table, sub)) {
+			free(buf);
+			return -1;
+		}
+	}
+	free(buf);
+	return 0;
+}
+
+static inline int parse_root_owner(char *ids,
+			u_int32_t *root_uid, u_int32_t *root_gid)
+{
+	char *uid = ids;
+	char *gid = NULL;
+	int i;
+
+	/* uid:gid */
+	for (i = 0; i < strlen(ids) - 1; i++)
+		if (*(ids + i) == ':')
+			gid = ids + i + 1;
+	if (!gid)
+		return -1;
+
+	*root_uid = atoi(uid);
+	*root_gid = atoi(gid);
 	return 0;
 }
 

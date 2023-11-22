@@ -6,10 +6,8 @@
 // It uploads a series of textures initially.  On subsequent iterations, it uses
 // those uploaded textures to draw.
 
-#include "base/logging.h"
-
-#include "texturetest.h"
 #include "main.h"
+#include "texturetest.h"
 
 namespace glbench {
 
@@ -32,8 +30,8 @@ bool TextureReuseTest::TestFunc(uint64_t iterations) {
     glBindTexture(GL_TEXTURE_2D, textures_[i % kNumberOfTextures]);
     switch (flavor_) {
       case TEX_IMAGE:
-        glTexImage2D(GL_TEXTURE_2D, 0, texel_gl_format_, width_, height_,
-                     0, texel_gl_format_, GL_UNSIGNED_BYTE,
+        glTexImage2D(GL_TEXTURE_2D, 0, texel_gl_format_, width_, height_, 0,
+                     texel_gl_format_, GL_UNSIGNED_BYTE,
                      pixels_[i % kNumberOfTextures].get());
         break;
       case TEX_SUBIMAGE:
@@ -60,4 +58,4 @@ TestBase* GetTextureReuseTest() {
   return new TextureReuseTest;
 }
 
-} // namespace glbench
+}  // namespace glbench

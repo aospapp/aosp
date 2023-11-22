@@ -12,9 +12,4 @@ class Values(object):
     ec_boot_to_console = 4
 
     dark_resume_capable = True
-    key_checker = [[0x29, 'press'],
-                   [0x32, 'press'],
-                   [0x32, 'release'],
-                   [0x29, 'release'],
-                   [0x47, 'press'],
-                   [0x47, 'release']]
+    smm_store = False

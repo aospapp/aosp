@@ -12,6 +12,7 @@
 #include "common/ieee802_11_defs.h"
 #include "common/ieee802_11_common.h"
 #include "common/wpa_ctrl.h"
+#include "common/ocv.h"
 #include "rsn_supp/wpa.h"
 #include "config.h"
 #include "wpa_supplicant_i.h"
@@ -20,6 +21,7 @@
 #include "ctrl_iface.h"
 #include "bss.h"
 #include "wnm_sta.h"
+#include "notify.h"
 #include "hs20_supplicant.h"
 
 #define MAX_TFS_IE_LEN  1024
@@ -58,8 +60,8 @@ int ieee802_11_send_wnmsleep_req(struct wpa_supplicant *wpa_s,
 	int res;
 	size_t len;
 	struct wnm_sleep_element *wnmsleep_ie;
-	u8 *wnmtfs_ie;
-	u8 wnmsleep_ie_len;
+	u8 *wnmtfs_ie, *oci_ie;
+	u8 wnmsleep_ie_len, oci_ie_len;
 	u16 wnmtfs_ie_len;  /* possibly multiple IE(s) */
 	enum wnm_oper tfs_oper = action == 0 ? WNM_SLEEP_TFS_REQ_IE_ADD :
 		WNM_SLEEP_TFS_REQ_IE_NONE;
@@ -106,7 +108,41 @@ int ieee802_11_send_wnmsleep_req(struct wpa_supplicant *wpa_s,
 	wpa_hexdump(MSG_DEBUG, "WNM: TFS Request element",
 		    (u8 *) wnmtfs_ie, wnmtfs_ie_len);
 
-	mgmt = os_zalloc(sizeof(*mgmt) + wnmsleep_ie_len + wnmtfs_ie_len);
+	oci_ie = NULL;
+	oci_ie_len = 0;
+#ifdef CONFIG_OCV
+	if (action == WNM_SLEEP_MODE_EXIT && wpa_sm_ocv_enabled(wpa_s->wpa)) {
+		struct wpa_channel_info ci;
+
+		if (wpa_drv_channel_info(wpa_s, &ci) != 0) {
+			wpa_printf(MSG_WARNING,
+				   "Failed to get channel info for OCI element in WNM-Sleep Mode frame");
+			os_free(wnmsleep_ie);
+			os_free(wnmtfs_ie);
+			return -1;
+		}
+
+		oci_ie_len = OCV_OCI_EXTENDED_LEN;
+		oci_ie = os_zalloc(oci_ie_len);
+		if (!oci_ie) {
+			wpa_printf(MSG_WARNING,
+				   "Failed to allocate buffer for for OCI element in WNM-Sleep Mode frame");
+			os_free(wnmsleep_ie);
+			os_free(wnmtfs_ie);
+			return -1;
+		}
+
+		if (ocv_insert_extended_oci(&ci, oci_ie) < 0) {
+			os_free(wnmsleep_ie);
+			os_free(wnmtfs_ie);
+			os_free(oci_ie);
+			return -1;
+		}
+	}
+#endif /* CONFIG_OCV */
+
+	mgmt = os_zalloc(sizeof(*mgmt) + wnmsleep_ie_len + wnmtfs_ie_len +
+			 oci_ie_len);
 	if (mgmt == NULL) {
 		wpa_printf(MSG_DEBUG, "MLME: Failed to allocate buffer for "
 			   "WNM-Sleep Request action frame");
@@ -131,8 +167,16 @@ int ieee802_11_send_wnmsleep_req(struct wpa_supplicant *wpa_s,
 			  wnmsleep_ie_len, wnmtfs_ie, wnmtfs_ie_len);
 	}
 
+#ifdef CONFIG_OCV
+	/* copy OCV OCI here */
+	if (oci_ie_len > 0) {
+		os_memcpy(mgmt->u.action.u.wnm_sleep_req.variable +
+			  wnmsleep_ie_len + wnmtfs_ie_len, oci_ie, oci_ie_len);
+	}
+#endif /* CONFIG_OCV */
+
 	len = 1 + sizeof(mgmt->u.action.u.wnm_sleep_req) + wnmsleep_ie_len +
-		wnmtfs_ie_len;
+		wnmtfs_ie_len + oci_ie_len;
 
 	res = wpa_drv_send_action(wpa_s, wpa_s->assoc_freq, 0, wpa_s->bssid,
 				  wpa_s->own_addr, wpa_s->bssid,
@@ -145,6 +189,7 @@ int ieee802_11_send_wnmsleep_req(struct wpa_supplicant *wpa_s,
 
 	os_free(wnmsleep_ie);
 	os_free(wnmtfs_ie);
+	os_free(oci_ie);
 	os_free(mgmt);
 
 	return res;
@@ -256,6 +301,10 @@ static void ieee802_11_rx_wnmsleep_resp(struct wpa_supplicant *wpa_s,
 	/* multiple TFS Resp IE (assuming consecutive) */
 	const u8 *tfsresp_ie_start = NULL;
 	const u8 *tfsresp_ie_end = NULL;
+#ifdef CONFIG_OCV
+	const u8 *oci_ie = NULL;
+	u8 oci_ie_len = 0;
+#endif /* CONFIG_OCV */
 	size_t left;
 
 	if (!wpa_s->wnmsleep_used) {
@@ -289,6 +338,12 @@ static void ieee802_11_rx_wnmsleep_resp(struct wpa_supplicant *wpa_s,
 			if (!tfsresp_ie_start)
 				tfsresp_ie_start = pos;
 			tfsresp_ie_end = pos;
+#ifdef CONFIG_OCV
+		} else if (*pos == WLAN_EID_EXTENSION && ie_len >= 1 &&
+			   pos[2] == WLAN_EID_EXT_OCV_OCI) {
+			oci_ie = pos + 3;
+			oci_ie_len = ie_len - 1;
+#endif /* CONFIG_OCV */
 		} else
 			wpa_printf(MSG_DEBUG, "EID %d not recognized", *pos);
 		pos += ie_len + 2;
@@ -298,6 +353,26 @@ static void ieee802_11_rx_wnmsleep_resp(struct wpa_supplicant *wpa_s,
 		wpa_printf(MSG_DEBUG, "No WNM-Sleep IE found");
 		return;
 	}
+
+#ifdef CONFIG_OCV
+	if (wnmsleep_ie->action_type == WNM_SLEEP_MODE_EXIT &&
+	    wpa_sm_ocv_enabled(wpa_s->wpa)) {
+		struct wpa_channel_info ci;
+
+		if (wpa_drv_channel_info(wpa_s, &ci) != 0) {
+			wpa_msg(wpa_s, MSG_WARNING,
+				"Failed to get channel info to validate received OCI in WNM-Sleep Mode frame");
+			return;
+		}
+
+		if (ocv_verify_tx_params(oci_ie, oci_ie_len, &ci,
+					 channel_width_to_int(ci.chanwidth),
+					 ci.seg1_idx) != 0) {
+			wpa_msg(wpa_s, MSG_WARNING, "WNM: %s", ocv_errorstr);
+			return;
+		}
+	}
+#endif /* CONFIG_OCV */
 
 	wpa_s->wnmsleep_used = 0;
 
@@ -338,6 +413,9 @@ void wnm_deallocate_memory(struct wpa_supplicant *wpa_s)
 	wpa_s->wnm_num_neighbor_report = 0;
 	os_free(wpa_s->wnm_neighbor_report_elements);
 	wpa_s->wnm_neighbor_report_elements = NULL;
+
+	wpabuf_free(wpa_s->coloc_intf_elems);
+	wpa_s->coloc_intf_elems = NULL;
 }
 
 
@@ -373,6 +451,10 @@ static void wnm_parse_neighbor_report_elem(struct neighbor_report *rep,
 		rep->preference_present = 1;
 		break;
 	case WNM_NEIGHBOR_BSS_TERMINATION_DURATION:
+		if (elen < 10) {
+			wpa_printf(MSG_DEBUG, "WNM: Too short bss_term_tsf");
+			break;
+		}
 		rep->bss_term_tsf = WPA_GET_LE64(pos);
 		rep->bss_term_dur = WPA_GET_LE16(pos + 8);
 		rep->bss_term_present = 1;
@@ -693,7 +775,7 @@ compare_scan_neighbor_results(struct wpa_supplicant *wpa_s, os_time_t age_secs,
 			continue;
 		}
 
-		if (wpa_is_bss_tmp_disallowed(wpa_s, target->bssid)) {
+		if (wpa_is_bss_tmp_disallowed(wpa_s, target)) {
 			wpa_printf(MSG_DEBUG,
 				   "MBO: Candidate BSS " MACSTR
 				   " retry delay is not over yet",
@@ -937,6 +1019,9 @@ static void wnm_send_bss_transition_mgmt_resp(
 			   "WNM: Failed to allocate memory for BTM response");
 		return;
 	}
+
+	wpa_s->bss_tm_status = status;
+	wpas_notify_bss_tm_status(wpa_s);
 
 	wpabuf_put_u8(buf, WLAN_ACTION_WNM);
 	wpabuf_put_u8(buf, WNM_BSS_TRANS_MGMT_RESP);
@@ -1644,6 +1729,32 @@ static void ieee802_11_rx_wnm_notif_req_wfa(struct wpa_supplicant *wpa_s,
 			pos = next;
 			continue;
 		}
+
+		if (ie == WLAN_EID_VENDOR_SPECIFIC && ie_len >= 5 &&
+		    WPA_GET_BE24(pos) == OUI_WFA &&
+		    pos[3] == HS20_WNM_T_C_ACCEPTANCE) {
+			const u8 *ie_end;
+			u8 url_len;
+			char *url;
+
+			ie_end = pos + ie_len;
+			pos += 4;
+			url_len = *pos++;
+			wpa_printf(MSG_DEBUG,
+				   "WNM: HS 2.0 Terms and Conditions Acceptance (URL Length %u)",
+				   url_len);
+			if (url_len > ie_end - pos)
+				break;
+			url = os_malloc(url_len + 1);
+			if (!url)
+				break;
+			os_memcpy(url, pos, url_len);
+			url[url_len] = '\0';
+			hs20_rx_t_c_acceptance(wpa_s, url);
+			os_free(url);
+			pos = next;
+			continue;
+		}
 #endif /* CONFIG_HS20 */
 
 		pos = next;
@@ -1691,6 +1802,46 @@ static void ieee802_11_rx_wnm_notif_req(struct wpa_supplicant *wpa_s,
 }
 
 
+static void ieee802_11_rx_wnm_coloc_intf_req(struct wpa_supplicant *wpa_s,
+					     const u8 *sa, const u8 *frm,
+					     int len)
+{
+	u8 dialog_token, req_info, auto_report, timeout;
+
+	if (!wpa_s->conf->coloc_intf_reporting)
+		return;
+
+	/* Dialog Token [1] | Request Info [1] */
+
+	if (len < 2)
+		return;
+	dialog_token = frm[0];
+	req_info = frm[1];
+	auto_report = req_info & 0x03;
+	timeout = req_info >> 2;
+
+	wpa_dbg(wpa_s, MSG_DEBUG,
+		"WNM: Received Collocated Interference Request (dialog_token %u auto_report %u timeout %u sa " MACSTR ")",
+		dialog_token, auto_report, timeout, MAC2STR(sa));
+
+	if (dialog_token == 0)
+		return; /* only nonzero values are used for request */
+
+	if (wpa_s->wpa_state != WPA_COMPLETED ||
+	    os_memcmp(sa, wpa_s->bssid, ETH_ALEN) != 0) {
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"WNM: Collocated Interference Request frame not from current AP - ignore it");
+		return;
+	}
+
+	wpa_msg(wpa_s, MSG_INFO, COLOC_INTF_REQ "%u %u %u",
+		dialog_token, auto_report, timeout);
+	wpa_s->coloc_intf_dialog_token = dialog_token;
+	wpa_s->coloc_intf_auto_report = auto_report;
+	wpa_s->coloc_intf_timeout = timeout;
+}
+
+
 void ieee802_11_rx_wnm_action(struct wpa_supplicant *wpa_s,
 			      const struct ieee80211_mgmt *mgmt, size_t len)
 {
@@ -1724,8 +1875,75 @@ void ieee802_11_rx_wnm_action(struct wpa_supplicant *wpa_s,
 	case WNM_NOTIFICATION_REQ:
 		ieee802_11_rx_wnm_notif_req(wpa_s, mgmt->sa, pos, end - pos);
 		break;
+	case WNM_COLLOCATED_INTERFERENCE_REQ:
+		ieee802_11_rx_wnm_coloc_intf_req(wpa_s, mgmt->sa, pos,
+						 end - pos);
+		break;
 	default:
 		wpa_printf(MSG_ERROR, "WNM: Unknown request");
 		break;
 	}
+}
+
+
+int wnm_send_coloc_intf_report(struct wpa_supplicant *wpa_s, u8 dialog_token,
+			       const struct wpabuf *elems)
+{
+	struct wpabuf *buf;
+	int ret;
+
+	if (wpa_s->wpa_state < WPA_ASSOCIATED || !elems)
+		return -1;
+
+	wpa_printf(MSG_DEBUG, "WNM: Send Collocated Interference Report to "
+		   MACSTR " (dialog token %u)",
+		   MAC2STR(wpa_s->bssid), dialog_token);
+
+	buf = wpabuf_alloc(3 + wpabuf_len(elems));
+	if (!buf)
+		return -1;
+
+	wpabuf_put_u8(buf, WLAN_ACTION_WNM);
+	wpabuf_put_u8(buf, WNM_COLLOCATED_INTERFERENCE_REPORT);
+	wpabuf_put_u8(buf, dialog_token);
+	wpabuf_put_buf(buf, elems);
+
+	ret = wpa_drv_send_action(wpa_s, wpa_s->assoc_freq, 0, wpa_s->bssid,
+				  wpa_s->own_addr, wpa_s->bssid,
+				  wpabuf_head_u8(buf), wpabuf_len(buf), 0);
+	wpabuf_free(buf);
+	return ret;
+}
+
+
+void wnm_set_coloc_intf_elems(struct wpa_supplicant *wpa_s,
+			      struct wpabuf *elems)
+{
+	wpabuf_free(wpa_s->coloc_intf_elems);
+	if (elems && wpabuf_len(elems) == 0) {
+		wpabuf_free(elems);
+		elems = NULL;
+	}
+	wpa_s->coloc_intf_elems = elems;
+
+	if (wpa_s->conf->coloc_intf_reporting && wpa_s->coloc_intf_elems &&
+	    wpa_s->coloc_intf_dialog_token &&
+	    (wpa_s->coloc_intf_auto_report == 1 ||
+	     wpa_s->coloc_intf_auto_report == 3)) {
+		/* TODO: Check that there has not been less than
+		 * wpa_s->coloc_intf_timeout * 200 TU from the last report.
+		 */
+		wnm_send_coloc_intf_report(wpa_s,
+					   wpa_s->coloc_intf_dialog_token,
+					   wpa_s->coloc_intf_elems);
+	}
+}
+
+
+void wnm_clear_coloc_intf_reporting(struct wpa_supplicant *wpa_s)
+{
+#ifdef CONFIG_WNM
+	wpa_s->coloc_intf_dialog_token = 0;
+	wpa_s->coloc_intf_auto_report = 0;
+#endif /* CONFIG_WNM */
 }

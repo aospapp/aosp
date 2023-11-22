@@ -17,19 +17,24 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
+
+#include <linux/securebits.h>
 
 #include "util.h"
 
-#ifdef HAVE_SECUREBITS_H
-#include <linux/securebits.h>
-#else
-#define SECURE_ALL_BITS 0x55
-#define SECURE_ALL_LOCKS (SECURE_ALL_BITS << 1)
+/*
+ * SECBIT_NO_CAP_AMBIENT_RAISE was added in kernel 4.3, so fill in the
+ * definition if the securebits header doesn't provide it.
+ */
+#ifndef SECBIT_NO_CAP_AMBIENT_RAISE
+#define SECBIT_NO_CAP_AMBIENT_RAISE (issecure_mask(6))
 #endif
 
-#define SECURE_BITS_NO_AMBIENT 0x15
-#define SECURE_LOCKS_NO_AMBIENT (SECURE_BITS_NO_AMBIENT << 1)
+#ifndef SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED
+#define SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED (issecure_mask(7))
+#endif
 
 /*
  * Assert the value of SECURE_ALL_BITS at compile-time.
@@ -43,17 +48,51 @@
 _Static_assert(SECURE_ALL_BITS == 0x55, "SECURE_ALL_BITS == 0x55.");
 #endif
 
-int lock_securebits(uint64_t skip_mask)
+int secure_noroot_set_and_locked(uint64_t mask)
 {
+	return (mask & (SECBIT_NOROOT | SECBIT_NOROOT_LOCKED)) ==
+	       (SECBIT_NOROOT | SECBIT_NOROOT_LOCKED);
+}
+
+int lock_securebits(uint64_t skip_mask, bool require_keep_caps)
+{
+	/* The general idea is to set all bits, subject to exceptions below. */
+	unsigned long securebits = SECURE_ALL_BITS | SECURE_ALL_LOCKS;
+
+	/*
+	 * SECBIT_KEEP_CAPS is special in that it is automatically cleared on
+	 * execve(2). This implies that attempts to set SECBIT_KEEP_CAPS (as is
+	 * the default) in processes that have it locked already (such as nested
+	 * minijail usage) would fail. Thus, unless the caller requires it,
+	 * allow it to remain off if it is already locked.
+	 */
+	if (!require_keep_caps) {
+		int current_securebits = prctl(PR_GET_SECUREBITS);
+		if (current_securebits < 0) {
+			pwarn("prctl(PR_GET_SECUREBITS) failed");
+			return -1;
+		}
+
+		if ((current_securebits & SECBIT_KEEP_CAPS_LOCKED) != 0 &&
+		    (current_securebits & SECBIT_KEEP_CAPS) == 0) {
+			securebits &= ~SECBIT_KEEP_CAPS;
+		}
+	}
+
 	/*
 	 * Ambient capabilities can only be raised if they're already present
 	 * in the permitted *and* inheritable set. Therefore, we don't really
 	 * need to lock the NO_CAP_AMBIENT_RAISE securebit, since we are already
 	 * configuring the permitted and inheritable set.
 	 */
-	unsigned long securebits =
-	    (SECURE_BITS_NO_AMBIENT | SECURE_LOCKS_NO_AMBIENT) & ~skip_mask;
+	securebits &=
+	    ~(SECBIT_NO_CAP_AMBIENT_RAISE | SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED);
+
+	/* Don't set any bits that the user requested not to be touched. */
+	securebits &= ~skip_mask;
+
 	if (!securebits) {
+		warn("not locking any securebits");
 		return 0;
 	}
 	int securebits_ret = prctl(PR_SET_SECUREBITS, securebits);
@@ -89,7 +128,7 @@ int write_proc_file(pid_t pid, const char *content, const char *basename)
 	written = write(fd, content, len);
 	if (written < 0) {
 		pwarn("failed to write '%s'", filename);
-		return -1;
+		return -errno;
 	}
 
 	if ((size_t)written < len) {
@@ -221,17 +260,23 @@ int write_pid_to_path(pid_t pid, const char *path)
  */
 int mkdir_p(const char *path, mode_t mode, bool isdir)
 {
+	int rc;
 	char *dir = strdup(path);
-	if (!dir)
-		return -errno;
+	if (!dir) {
+		rc = errno;
+		pwarn("strdup(%s) failed", path);
+		return -rc;
+	}
 
 	/* Starting from the root, work our way out to the end. */
 	char *p = strchr(dir + 1, '/');
 	while (p) {
 		*p = '\0';
 		if (mkdir(dir, mode) && errno != EEXIST) {
+			rc = errno;
+			pwarn("mkdir(%s, 0%o) failed", dir, mode);
 			free(dir);
-			return -errno;
+			return -rc;
 		}
 		*p = '/';
 		p = strchr(p + 1, '/');
@@ -242,8 +287,11 @@ int mkdir_p(const char *path, mode_t mode, bool isdir)
 	 * of trailing slashes.
 	 */
 	free(dir);
-	if (isdir && mkdir(path, mode) && errno != EEXIST)
-		return -errno;
+	if (isdir && mkdir(path, mode) && errno != EEXIST) {
+		rc = errno;
+		pwarn("mkdir(%s, 0%o) failed", path, mode);
+		return -rc;
+	}
 	return 0;
 }
 
@@ -252,7 +300,7 @@ int mkdir_p(const char *path, mode_t mode, bool isdir)
  * Creates it if needed and possible.
  */
 int setup_mount_destination(const char *source, const char *dest, uid_t uid,
-			    uid_t gid, bool bind)
+			    uid_t gid, bool bind, unsigned long *mnt_flags)
 {
 	int rc;
 	struct stat st_buf;
@@ -273,8 +321,11 @@ int setup_mount_destination(const char *source, const char *dest, uid_t uid,
 	if (source[0] == '/') {
 		/* The source is an absolute path -- it better exist! */
 		rc = stat(source, &st_buf);
-		if (rc)
-			return -errno;
+		if (rc) {
+			rc = errno;
+			pwarn("stat(%s) failed", source);
+			return -rc;
+		}
 
 		/*
 		 * If bind mounting, we only create a directory if the source
@@ -290,12 +341,29 @@ int setup_mount_destination(const char *source, const char *dest, uid_t uid,
 		domkdir = S_ISDIR(st_buf.st_mode) ||
 			  (!bind && (S_ISBLK(st_buf.st_mode) ||
 				     S_ISCHR(st_buf.st_mode)));
+
+		/* If bind mounting, also grab the mount flags of the source. */
+		if (bind && mnt_flags) {
+			struct statvfs stvfs_buf;
+			rc = statvfs(source, &stvfs_buf);
+			if (rc) {
+				rc = errno;
+				pwarn(
+				    "failed to look up mount flags: source=%s",
+				    source);
+				return -rc;
+			}
+			*mnt_flags = stvfs_buf.f_flag;
+		}
 	} else {
 		/* The source is a relative path -- assume it's a pseudo fs. */
 
 		/* Disallow relative bind mounts. */
-		if (bind)
+		if (bind) {
+			warn("relative bind-mounts are not allowed: source=%s",
+			     source);
 			return -EINVAL;
+		}
 
 		domkdir = true;
 	}
@@ -307,15 +375,24 @@ int setup_mount_destination(const char *source, const char *dest, uid_t uid,
 	 * the actual mount will set those perms/ownership on the mount point
 	 * which is all people should need to access it.
 	 */
-	if (mkdir_p(dest, 0755, domkdir))
-		return -errno;
+	rc = mkdir_p(dest, 0755, domkdir);
+	if (rc)
+		return rc;
 	if (!domkdir) {
 		int fd = open(dest, O_RDWR | O_CREAT | O_CLOEXEC, 0700);
-		if (fd < 0)
-			return -errno;
+		if (fd < 0) {
+			rc = errno;
+			pwarn("open(%s) failed", dest);
+			return -rc;
+		}
 		close(fd);
 	}
-	return chown(dest, uid, gid);
+	if (chown(dest, uid, gid)) {
+		rc = errno;
+		pwarn("chown(%s, %u, %u) failed", dest, uid, gid);
+		return -rc;
+	}
+	return 0;
 }
 
 /*

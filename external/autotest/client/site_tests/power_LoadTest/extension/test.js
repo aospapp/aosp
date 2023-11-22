@@ -8,13 +8,14 @@ var time_ratio = 3600 * 1000 / test_time_ms; // default test time is 1 hour
 var preexisting_windows = [];
 var log_lines = [];
 var error_codes = {}; //for each active tabId
-var page_load_times = [];
-var page_load_time_counter = {};
+var page_timestamps = [];
+var page_timestamps_recorder = {};
 var unique_url_salt = 1;
 
 function setupTest() {
   //adding these listeners to track request failure codes
-  chrome.webRequest.onCompleted.addListener(capture_completed_status, {urls: ["<all_urls>"]});
+  chrome.webRequest.onCompleted.addListener(capture_completed_status,
+                                            {urls: ["<all_urls>"]});
   chrome.windows.getAll(null, function(windows) {
     preexisting_windows = windows;
     for (var i = 0; i < tasks.length; i++) {
@@ -22,8 +23,8 @@ function setupTest() {
     }
     var end = 3600 * 1000 / time_ratio;
     log_lines = [];
-    page_load_times = [];
-    page_load_time_counter = {};
+    page_timestamps = [];
+    page_timestamps_recorder = {};
     record_log_entry(dateToString(new Date()) + " Loop started");
     setTimeout(send_summary, end);
   });
@@ -43,13 +44,14 @@ function get_active_url(cycle) {
 
 function testListener(request, sender, sendResponse) {
   end = Date.now()
+  page = page_timestamps_recorder[sender.tab.id];
+  page['end_load_time'] = end;
+  console.log("page_timestamps_recorder:");
+  console.log(JSON.stringify(page_timestamps_recorder));
   if (sender.tab.id in cycle_tabs) {
     cycle = cycle_tabs[sender.tab.id];
     cycle.successful_loads++;
     url = get_active_url(cycle);
-   var page_load_time = end - page_load_time_counter[cycle.id]
-   page_load_times.push({'url': (unique_url_salt++) + url, 'time': page_load_time});
-   console.log(JSON.stringify(page_load_times));
     record_log_entry(dateToString(new Date()) + " [load success] " + url);
     if (request.action == "should_scroll" && cycle.focus) {
       sendResponse({"should_scroll": should_scroll,
@@ -60,6 +62,14 @@ function testListener(request, sender, sendResponse) {
     }
     delete cycle_tabs[sender.tab.id];
   }
+}
+
+function report_page_nav_to_test() {
+  //Sends message to PLT informing that user is navigating to new page.
+  var ping_url = 'http://localhost:8001/pagenav';
+  var req = new XMLHttpRequest();
+  req.open('GET', ping_url, true);
+  req.send("");
 }
 
 function capture_completed_status(details) {
@@ -88,8 +98,16 @@ function cycle_navigate(cycle) {
   error_codes[cycle.id] = [];
   record_log_entry(dateToString(new Date()) + " [load start] " + url)
   var start = Date.now();
-  page_load_time_counter[cycle.id] = start;
+  // start_time of next page is end_browse_time of previous page
+  if (cycle.id in page_timestamps_recorder) {
+    page = page_timestamps_recorder[cycle.id];
+    page['end_browse_time'] = start;
+    page_timestamps.push(page);
+    console.log(JSON.stringify(page_timestamps));
+  }
+  page_timestamps_new_record(cycle.id, url, start);
   chrome.tabs.update(cycle.id, {'url': url, 'selected': true});
+  report_page_nav_to_test()
   cycle.idx = (cycle.idx + 1) % cycle.urls.length;
   if (cycle.timeout < cycle.delay / time_ratio && cycle.timeout > 0) {
     cycle.timer = setTimeout(cycle_check_timeout, cycle.timeout, cycle);
@@ -99,7 +117,8 @@ function cycle_navigate(cycle) {
 }
 
 function record_error_codes(cycle) {
-  var error_report = dateToString(new Date()) + " [load failure details] " + get_active_url(cycle) + "\n";
+  var error_report = dateToString(new Date()) + " [load failure details] "
+                     + get_active_url(cycle) + "\n";
   var reports = error_codes[cycle.id];
   for (var i = 0; i < reports.length; i++) {
     report = reports[i];
@@ -117,7 +136,8 @@ function cycle_check_timeout(cycle) {
   if (cycle.id in cycle_tabs) {
     cycle.failed_loads++;
     record_error_codes(cycle);
-    record_log_entry(dateToString(new Date()) + " [load failure] " + get_active_url(cycle));
+    record_log_entry(dateToString(new Date()) + " [load failure] " +
+                                  get_active_url(cycle));
     cycle_navigate(cycle);
   } else {
     cycle.timer = setTimeout(cycle_navigate,
@@ -131,11 +151,23 @@ function launch_task(task) {
     chrome.windows.create({'url': '/focus.html'}, function (win) {
       close_preexisting_windows();
       chrome.tabs.getSelected(win.id, function(tab) {
-        chrome.tabs.update(tab.id, {'url': task.tabs[0], 'selected': true});
         for (var i = 1; i < task.tabs.length; i++) {
-          chrome.tabs.create({'windowId':win.id, url: task.tabs[i]});
+          chrome.tabs.create({'windowId':win.id, 'url': '/focus.html'});
         }
-        setTimeout(chrome.windows.remove, task.duration / time_ratio, win.id);
+        chrome.tabs.getAllInWindow(win.id, function(tabs) {
+          for (var i = 0; i < tabs.length; i++) {
+            tab = tabs[i];
+            url = task.tabs[i];
+            start = Date.now();
+            page_timestamps_new_record(tab.id, url, start);
+            chrome.tabs.update(tab.id, {'url': url, 'selected': true});
+          }
+          console.log(JSON.stringify(page_timestamps_recorder));
+        });
+        setTimeout(function(win_id) {
+          record_end_browse_time_for_window(win_id);
+          chrome.windows.remove(win_id);
+        }, task.duration / time_ratio, win.id);
       });
     });
   } else if (task.type == 'cycle' && task.urls) {
@@ -158,11 +190,40 @@ function launch_task(task) {
         cycle_navigate(cycle);
         setTimeout(function(cycle, win_id) {
           clearTimeout(cycle.timer);
+          record_end_browse_time_for_window(win_id);
           chrome.windows.remove(win_id);
         }, task.duration / time_ratio, cycle, win.id);
       });
     });
   }
+}
+
+function page_timestamps_new_record(tab_id, url, start) {
+  // sanitize url, make http(s)://www.abc.com/d/e/f into www.abc.com
+  sanitized_url = url.replace(/https?:\/\//, '').split('/')[0];
+  page_timestamps_recorder[tab_id] = {
+    'url': sanitized_url,
+    'start_time': start,
+    'end_load_time': null,
+    'end_browse_time': null
+  }
+}
+
+function record_end_browse_time_for_window(win_id) {
+  chrome.tabs.getAllInWindow(win_id, function(tabs) {
+    end = Date.now();
+    console.log("page_timestamps_recorder:");
+    console.log(JSON.stringify(page_timestamps_recorder));
+    tabs.forEach(function (tab) {
+      if (tab.id in page_timestamps_recorder) {
+        page = page_timestamps_recorder[tab.id];
+        page['end_browse_time'] = end;
+        page_timestamps.push(page);
+      }
+    });
+    console.log(JSON.stringify("page_timestamps:"));
+    console.log(JSON.stringify(page_timestamps));
+  });
 }
 
 function record_log_entry(entry) {
@@ -206,16 +267,17 @@ function send_keyvals() {
   console.log(post.join("&"));
 }
 
-function send_raw_page_load_time_info() {
+function send_raw_page_time_info() {
   var post = [];
-  page_load_times.forEach(function (item, index, array) {
-    var key = encodeURIComponent(item.url);
-    post.push(key + "=" + item.time);
+  page_timestamps.forEach(function (item) {
+    var unique_url = (unique_url_salt++) + item.url;
+    var key = encodeURIComponent(unique_url);
+    post.push(key + "=" + JSON.stringify(item));
   })
 
-  var pagelt_info_url = 'http://localhost:8001/pagelt'
+  var pagetime_info_url = 'http://localhost:8001/pagetime';
   var req = new XMLHttpRequest();
-  req.open('POST', pagelt_info_url, true);
+  req.open('POST', pagetime_info_url, true);
   req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
   req.send(post.join("&"));
   console.log(post.join("&"));
@@ -223,7 +285,7 @@ function send_raw_page_load_time_info() {
 
 function send_summary() {
   send_log_entries();
-  send_raw_page_load_time_info();
+  send_raw_page_time_info();
   send_keyvals();
 }
 

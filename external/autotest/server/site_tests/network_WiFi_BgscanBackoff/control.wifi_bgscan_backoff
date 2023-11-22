@@ -6,8 +6,7 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_BgscanBackoff.wifi_bgscan_backoff'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_matfunc_noservo,'
-              'suite:wifi_matfunc_bcm4371')
+ATTRIBUTES = ('suite:wifi_matfunc')
 DEPENDENCIES = 'wificell'
 
 DOC = """
@@ -15,12 +14,17 @@ This test case verifies that bgscan aborts and/or backs off when
 there is consistent outgoing traffic.
 """
 
+from autotest_lib.server.cros.network import hostap_config
 
 def run(machine):
     host = hosts.create_host(machine)
+    mode = hostap_config.HostapConfig.MODE_11N_MIXED
+    config_first_ap = (hostap_config.HostapConfig(channel=1, mode=mode))
+    config_second_ap = (hostap_config.HostapConfig(channel=36, mode=mode))
+    params = [config_first_ap, config_second_ap]
     job.run_test('network_WiFi_BgscanBackoff',
                  host=host,
-                 raw_cmdline_args=args)
-
+                 raw_cmdline_args=args,
+                 additional_params=params)
 
 parallel_simple(run, machines)

@@ -977,7 +977,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
     }
 
     private static final class KeywordsSink extends UResource.Sink {
-        LinkedList<String> values = new LinkedList<String>();
+        LinkedList<String> values = new LinkedList<>();
         boolean hasDefault = false;
 
         @Override

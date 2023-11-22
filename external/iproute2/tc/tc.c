@@ -51,13 +51,6 @@ static void *BODY;	/* cached handle dlopen(NULL) */
 static struct qdisc_util *qdisc_list;
 static struct filter_util *filter_list;
 
-#ifdef ANDROID
-extern struct qdisc_util cbq_qdisc_util;
-extern struct qdisc_util htb_qdisc_util;
-extern struct qdisc_util ingress_qdisc_util;
-extern struct filter_util u32_filter_util;
-#endif
-
 static int print_noqopt(struct qdisc_util *qu, FILE *f,
 			struct rtattr *opt)
 {
@@ -112,18 +105,6 @@ struct qdisc_util *get_qdisc_kind(const char *str)
 	char buf[256];
 	struct qdisc_util *q;
 
-#ifdef ANDROID
-	if (!strcmp(str, "cbq"))
-		return &cbq_qdisc_util;
-	else if (!strcmp(str, "htb"))
-		return &htb_qdisc_util;
-	else if (!strcmp(str, "ingress"))
-		return &ingress_qdisc_util;
-	else {
-		fprintf(stderr, "Android does not support qdisc '%s'\n", str);
-		return NULL;
-	}
-#endif
 	for (q = qdisc_list; q; q = q->next)
 		if (strcmp(q->id, str) == 0)
 			return q;
@@ -167,14 +148,6 @@ struct filter_util *get_filter_kind(const char *str)
 	void *dlh;
 	char buf[256];
 	struct filter_util *q;
-#ifdef ANDROID
-	if (!strcmp(str, "u32"))
-		return &u32_filter_util;
-	else {
-		fprintf(stderr, "Android does not support filter '%s'\n", str);
-		return NULL;
-	}
-#endif
 
 	for (q = filter_list; q; q = q->next)
 		if (strcmp(q->id, str) == 0)
@@ -214,11 +187,7 @@ noexist:
 static void usage(void)
 {
 	fprintf(stderr, "Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }\n"
-#ifdef ANDROID
-			"       tc [-force]\n"
-#else
 			"       tc [-force] -batch filename\n"
-#endif
 			"where  OBJECT := { qdisc | class | filter | action | monitor | exec }\n"
 	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] | -n[etns] name |\n"
 			"                    -nm | -nam[es] | { -cf | -conf } path }\n");
@@ -248,7 +217,6 @@ static int do_cmd(int argc, char **argv)
 	return -1;
 }
 
-#ifndef ANDROID
 static int batch(const char *name)
 {
 	char *line = NULL;
@@ -293,15 +261,12 @@ static int batch(const char *name)
 	rtnl_close(&rth);
 	return ret;
 }
-#endif
 
 
 int main(int argc, char **argv)
 {
 	int ret;
-#ifndef ANDROID
 	char *batch_file = NULL;
-#endif
 
 	while (argc > 1) {
 		if (argv[1][0] != '-')
@@ -327,13 +292,11 @@ int main(int argc, char **argv)
 			return 0;
 		} else if (matches(argv[1], "-force") == 0) {
 			++force;
-#ifndef ANDROID
 		} else if (matches(argv[1], "-batch") == 0) {
 			argc--;	argv++;
 			if (argc <= 1)
 				usage();
 			batch_file = argv[1];
-#endif
 		} else if (matches(argv[1], "-netns") == 0) {
 			NEXT_ARG();
 			if (netns_switch(argv[1]))
@@ -357,10 +320,8 @@ int main(int argc, char **argv)
 		argc--;	argv++;
 	}
 
-#ifndef ANDROID
 	if (batch_file)
 		return batch(batch_file);
-#endif
 
 	if (argc <= 1) {
 		usage();

@@ -226,6 +226,19 @@ flatbuffers.Builder = function(opt_initial_size) {
   this.force_defaults = false;
 };
 
+flatbuffers.Builder.prototype.clear = function() {
+  this.bb.clear();
+  this.space = this.bb.capacity();
+  this.minalign = 1;
+  this.vtable = null;
+  this.vtable_in_use = 0;
+  this.isNested = false;
+  this.object_start = 0;
+  this.vtables = [];
+  this.vector_num_elems = 0;
+  this.force_defaults = false;
+};
+
 /**
  * In order to save space, fields that are set to their default value
  * don't get serialized into the buffer. Forcing defaults provides a
@@ -816,6 +829,7 @@ flatbuffers.ByteBuffer = function(bytes) {
    * @private
    */
   this.position_ = 0;
+
 };
 
 /**
@@ -826,6 +840,10 @@ flatbuffers.ByteBuffer = function(bytes) {
  */
 flatbuffers.ByteBuffer.allocate = function(byte_size) {
   return new flatbuffers.ByteBuffer(new Uint8Array(byte_size));
+};
+
+flatbuffers.ByteBuffer.prototype.clear = function() {  
+  this.position_ = 0;
 };
 
 /**
@@ -1038,6 +1056,26 @@ flatbuffers.ByteBuffer.prototype.writeFloat64 = function(offset, value) {
   flatbuffers.float64[0] = value;
   this.writeInt32(offset, flatbuffers.int32[flatbuffers.isLittleEndian ? 0 : 1]);
   this.writeInt32(offset + 4, flatbuffers.int32[flatbuffers.isLittleEndian ? 1 : 0]);
+};
+
+/**
+ * Return the file identifier.   Behavior is undefined for FlatBuffers whose
+ * schema does not include a file_identifier (likely points at padding or the
+ * start of a the root vtable).
+ * @returns {string}
+ */
+flatbuffers.ByteBuffer.prototype.getBufferIdentifier = function() {
+  if (this.bytes_.length < this.position_ + flatbuffers.SIZEOF_INT +
+      flatbuffers.FILE_IDENTIFIER_LENGTH) {
+    throw new Error(
+        'FlatBuffers: ByteBuffer is too short to contain an identifier.');
+  }
+  var result = "";
+  for (var i = 0; i < flatbuffers.FILE_IDENTIFIER_LENGTH; i++) {
+    result += String.fromCharCode(
+        this.readInt8(this.position_ + flatbuffers.SIZEOF_INT + i));
+  }
+  return result;
 };
 
 /**

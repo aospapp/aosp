@@ -17,18 +17,23 @@ limitations under the License.
 #define TENSORFLOW_CORE_GRAPPLER_OPTIMIZERS_LOOP_OPTIMIZER_H_
 
 #include <unordered_set>
+#include "tensorflow/core/grappler/costs/graph_properties.h"
 #include "tensorflow/core/grappler/optimizers/graph_optimizer.h"
-#include "tensorflow/core/grappler/utils.h"
+#include "tensorflow/core/grappler/utils/frame.h"
 #include "tensorflow/core/protobuf/rewriter_config.pb.h"
 
 namespace tensorflow {
 namespace grappler {
 
+constexpr char kLoopOptimizer[] = "LoopOptimizer";
+
 class LoopOptimizer : public GraphOptimizer {
  public:
-  LoopOptimizer() : opt_level_(RewriterConfig::ON) {}
-  explicit LoopOptimizer(RewriterConfig::Toggle opt_level)
-      : opt_level_(opt_level) {}
+  LoopOptimizer();
+
+  explicit LoopOptimizer(RewriterConfig::Toggle opt_level,
+                         DeviceBase* cpu_device);
+
   ~LoopOptimizer() override {}
 
   string name() const override { return "loop_optimizer"; };
@@ -40,7 +45,29 @@ class LoopOptimizer : public GraphOptimizer {
                 const GraphDef& optimized_graph, double result) override;
 
  private:
+  friend class LoopOptimizerTest;
+
+  // Granular control for loop optimizer stages.
+  struct LoopOptimizerOptions {
+    bool enable_loop_invariant_node_motion = false;
+    bool enable_stack_push_removal = true;
+    bool enable_dead_branch_removal = true;
+
+    static LoopOptimizerOptions Default(RewriterConfig::Toggle opt_level) {
+      LoopOptimizerOptions options;
+      return options;
+    }
+  };
+
+  Status RemoveDeadBranches(const std::unordered_set<string>& nodes_to_preserve,
+                            const NodeMap& node_map,
+                            const absl::flat_hash_set<string>& feed_nodes,
+                            GraphDef* optimized_graph);
+
   RewriterConfig::Toggle opt_level_;
+  DeviceBase* cpu_device_;
+  LoopOptimizerOptions options_;
+  std::unique_ptr<ResourceMgr> resource_mgr_;
 };
 
 }  // end namespace grappler

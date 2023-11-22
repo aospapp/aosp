@@ -169,7 +169,6 @@ class platform_ExternalUSBStress(test.test):
 
 
         host.servo.switch_usbkey('dut')
-        host.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
 
         # There are some mice that need the data and power connection to both
         # be removed, otherwise they won't come back up.  This means that the

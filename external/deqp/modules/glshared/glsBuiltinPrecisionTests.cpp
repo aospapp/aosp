@@ -2208,7 +2208,7 @@ protected:																\
 	ExprP<TRET>		doExpand		(ExpandContext&,					\
 									 const CLASS::ArgExprs& args_) const \
 	{																	\
-		const ExprP<float>& (ARG0) = args_.a;							\
+		const ExprP<float>& ARG0 = args_.a;								\
 		return EXPANSION;												\
 	}																	\
 };																		\
@@ -2232,8 +2232,8 @@ public:																	\
 protected:																\
 	ExprP<TRET>		doExpand	(ExpandContext&, const ArgExprs& args_) const \
 	{																	\
-		const ExprP<T0>& (Arg0) = args_.a;								\
-		const ExprP<T1>& (Arg1) = args_.b;								\
+		const ExprP<T0>& Arg0 = args_.a;								\
+		const ExprP<T1>& Arg1 = args_.b;								\
 		return EXPANSION;												\
 	}																	\
 };																		\
@@ -2257,9 +2257,9 @@ public:																			\
 protected:																		\
 	ExprP<TRET>		doExpand	(ExpandContext&, const ArgExprs& args_) const	\
 	{																			\
-		const ExprP<T0>& (ARG0) = args_.a;										\
-		const ExprP<T1>& (ARG1) = args_.b;										\
-		const ExprP<T2>& (ARG2) = args_.c;										\
+		const ExprP<T0>& ARG0 = args_.a;										\
+		const ExprP<T1>& ARG1 = args_.b;										\
+		const ExprP<T2>& ARG2 = args_.c;										\
 		return EXPANSION;														\
 	}																			\
 };																				\
@@ -3345,17 +3345,102 @@ protected:
 	}
 };
 
-class Min : public PreciseFunc2 { public: Min (void) : PreciseFunc2("min", deMin) {} };
-class Max : public PreciseFunc2 { public: Max (void) : PreciseFunc2("max", deMax) {} };
+int compare(const EvalContext& ctx, double x, double y)
+{
+	if (ctx.format.hasSubnormal() != tcu::YES)
+	{
+		const int		minExp			= ctx.format.getMinExp();
+		const int		fractionBits	= ctx.format.getFractionBits();
+		const double	minQuantum		= deLdExp(1.0f, minExp - fractionBits);
+		const double	minNormalized	= deLdExp(1.0f, minExp);
+		const double	maxSubnormal	= minNormalized - minQuantum;
+		const double	minSubnormal	= -maxSubnormal;
+
+		if (minSubnormal <= x && x <= maxSubnormal &&
+		    minSubnormal <= y && y <= maxSubnormal)
+			return 0;
+	}
+
+	if (x < y)
+		return -1;
+	if (y < x)
+		return 1;
+	return 0;
+}
+
+class MinMaxFunc : public FloatFunc2
+{
+public:
+	MinMaxFunc	(const string&	name,
+				 int			sign)
+				: m_name(name)
+				, m_sign(sign)
+	{
+	}
+
+	string	getName				(void) const { return m_name; }
+
+protected:
+	Interval applyPoint(const EvalContext& ctx, double x, double y) const
+	{
+		const int cmp = compare(ctx, x, y) * m_sign;
+
+		if (cmp > 0)
+			return x;
+		if (cmp < 0)
+			return y;
+
+		// An implementation without subnormals may not be able to distinguish
+		// between x and y even when they're not equal in host arithmetic.
+		return Interval(x, y);
+	}
+
+	double	precision	(const EvalContext&, double, double, double) const
+	{
+		return 0.0;
+	}
+
+	const string	m_name;
+	const int		m_sign;
+};
+
+class Min : public MinMaxFunc { public: Min (void) : MinMaxFunc("min", -1) {} };
+class Max : public MinMaxFunc { public: Max (void) : MinMaxFunc("max", 1) {} };
 
 class Clamp : public FloatFunc3
 {
 public:
 	string	getName		(void) const { return "clamp"; }
 
-	double	applyExact	(double x, double minVal, double maxVal) const
+protected:
+	Interval applyPoint(const EvalContext& ctx, double x, double minVal, double maxVal) const
 	{
-		return de::min(de::max(x, minVal), maxVal);
+		if (minVal > maxVal)
+			return TCU_NAN;
+
+		const int cmpMin = compare(ctx, x, minVal);
+		const int cmpMax = compare(ctx, x, maxVal);
+		const int cmpMinMax = compare(ctx, minVal, maxVal);
+
+		if (cmpMin < 0) {
+			if (cmpMinMax < 0)
+				return minVal;
+			else
+				return Interval(minVal, maxVal);
+		}
+		if (cmpMax > 0) {
+			if (cmpMinMax < 0)
+				return maxVal;
+			else
+				return Interval(minVal, maxVal);
+		}
+
+		Interval result = x;
+		if (cmpMin == 0)
+			result |= minVal;
+		if (cmpMax == 0)
+			result |= maxVal;
+		return result;
 	}
 
 	double	precision	(const EvalContext&, double, double, double minVal, double maxVal) const
@@ -4553,11 +4638,20 @@ void PrecisionCase::testStatement (const Variables<In, Out>&	variables,
 
 	switch (inCount)
 	{
-		case 4: DE_ASSERT(inputs.in3.size() == numValues);
-		case 3: DE_ASSERT(inputs.in2.size() == numValues);
-		case 2: DE_ASSERT(inputs.in1.size() == numValues);
-		case 1: DE_ASSERT(inputs.in0.size() == numValues);
-		default: break;
+		case 4:
+			DE_ASSERT(inputs.in3.size() == numValues);
+		// Fallthrough
+		case 3:
+			DE_ASSERT(inputs.in2.size() == numValues);
+		// Fallthrough
+		case 2:
+			DE_ASSERT(inputs.in1.size() == numValues);
+		// Fallthrough
+		case 1:
+			DE_ASSERT(inputs.in0.size() == numValues);
+		// Fallthrough
+		default:
+			break;
 	}
 
 	// Print out the statement and its definitions
@@ -4592,18 +4686,27 @@ void PrecisionCase::testStatement (const Variables<In, Out>&	variables,
 
 	switch (inCount)
 	{
-		case 4: spec.inputs[3] = makeSymbol(*variables.in3);
-		case 3:	spec.inputs[2] = makeSymbol(*variables.in2);
-		case 2:	spec.inputs[1] = makeSymbol(*variables.in1);
-		case 1:	spec.inputs[0] = makeSymbol(*variables.in0);
-		default: break;
+		case 4:
+			spec.inputs[3] = makeSymbol(*variables.in3);
+		// Fallthrough
+		case 3:
+			spec.inputs[2] = makeSymbol(*variables.in2);
+		// Fallthrough
+		case 2:
+			spec.inputs[1] = makeSymbol(*variables.in1);
+		// Fallthrough
+		case 1:
+			spec.inputs[0] = makeSymbol(*variables.in0);
+		// Fallthrough
+		default:
+			break;
 	}
 
 	spec.outputs.resize(outCount);
 
 	switch (outCount)
 	{
-		case 2:	spec.outputs[1] = makeSymbol(*variables.out1);
+		case 2:	spec.outputs[1] = makeSymbol(*variables.out1);	// Fallthrough
 		case 1:	spec.outputs[0] = makeSymbol(*variables.out0);
 		default: break;
 	}
@@ -4691,6 +4794,7 @@ void PrecisionCase::testStatement (const Variables<In, Out>&	variables,
 					failStr = "Fail";
 					result = false;
 				}
+			// Fallthrough
 
 			case 1:
 				reference0      = convert<Out0>(highpFmt, env.lookup(*variables.out0));

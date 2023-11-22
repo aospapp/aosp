@@ -27,8 +27,11 @@ class firmware_FlashServoKeyboardMap(test.test):
             servo.set_get_all(['at_hwb:off',
                                'atmega_rst:on',
                                'sleep:%f' % self._ATMEGA_RESET_DELAY,
-                               'atmega_rst:off',
-                               'usb_mux_sel4:on'])
+                               'atmega_rst:off'])
+
+            # Select the chip on the USB mux unless using Servo V4
+            if 'servo_v4' not in servo.get_servo_version():
+                servo.set('usb_mux_sel4', 'on')
 
             # Check the result of lsusb.
             time.sleep(self._USB_PRESENT_DELAY)
@@ -66,4 +69,6 @@ class firmware_FlashServoKeyboardMap(test.test):
 
         finally:
             # Restore the default settings.
-            servo.set('usb_mux_sel4', 'off')
+            # Select the chip on the USB mux unless using Servo V4
+            if 'servo_v4' not in servo.get_servo_version():
+                servo.set('usb_mux_sel4', 'on')

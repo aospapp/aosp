@@ -25,7 +25,6 @@ def copy_private_bucket(host, bucket, filename, destination, timeout_s=30):
     """
 
     assert (bucket.startswith('gs://'))
-    assert (os.path.isdir(destination))
 
     src = os.path.join(bucket, filename)
 

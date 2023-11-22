@@ -36,6 +36,7 @@ class firmware_PDProtocol(FirmwareTest):
     ECTOOL_CMD_DICT = defaultdict(lambda: 'ectool usbpdpower')
 
     def initialize(self, host, cmdline_args):
+        """Initialize the test"""
         super(firmware_PDProtocol, self).initialize(host, cmdline_args)
 
         self.ECTOOL_CMD_DICT['samus'] = 'ectool --dev=1 usbpdpower'
@@ -43,15 +44,18 @@ class firmware_PDProtocol(FirmwareTest):
         self.current_board = self.servo.get_board();
 
         self.check_if_pd_supported()
-        self.assert_test_image_in_usb_disk()
         self.switcher.setup_mode('dev')
-        self.setup_usbkey(usbkey=True, host=False)
+        # The USB disk is used for recovery. But this test wants a fine-grained
+        # control, i.e. swapping the role just before booting into recovery,
+        # not swapping here. So set used_for_recovery=False.
+        self.setup_usbkey(usbkey=True, host=False, used_for_recovery=False)
 
         self.original_dev_boot_usb = self.faft_client.system.get_dev_boot_usb()
         logging.info('Original dev_boot_usb value: %s',
                      str(self.original_dev_boot_usb))
 
     def cleanup(self):
+        """Cleanup the test"""
         self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         super(firmware_PDProtocol, self).cleanup()
 
@@ -68,7 +72,6 @@ class firmware_PDProtocol(FirmwareTest):
     def boot_to_recovery(self):
         """Boot device into recovery mode."""
         logging.info('Reboot into Recovery...')
-        self.assert_test_image_in_usb_disk()
         self.switcher.reboot_to_mode(to_mode='rec')
 
         self.check_state((self.checkers.crossystem_checker,
@@ -107,6 +110,7 @@ class firmware_PDProtocol(FirmwareTest):
 
 
     def run_once(self):
+        """Main test logic"""
         self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         output = self.run_command(self.ECTOOL_CMD_DICT[self.current_board])
 
@@ -116,6 +120,7 @@ class firmware_PDProtocol(FirmwareTest):
                 (output, self.NEGOTIATED_PATTERN))
 
 
+        self.set_servo_v4_role_to_snk()
         self.boot_to_recovery()
         output = self.run_command(self.ECTOOL_CMD_DICT[self.current_board])
 

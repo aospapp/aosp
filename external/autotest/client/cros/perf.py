@@ -8,14 +8,6 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.cros import service_stopper
 
 
-# List of thermal throttling services that should be disabled.
-# - temp_metrics for link.
-# - thermal for daisy, snow, pit etc.
-# TODO(ihf): cpu_quiet on nyan isn't a service. We still need to disable it
-#            on nyan. See crbug.com/357457.
-_THERMAL_SERVICES = ['temp_metrics', 'thermal']
-
-
 class PerfControl(object):
     """
     Provides methods for setting the performance mode of a device.
@@ -116,8 +108,8 @@ class PerfControl(object):
         throttling scripts from running.
         Warning: this risks abnormal behavior if machine runs in high load.
         """
-        self._service_stopper = service_stopper.ServiceStopper(
-                                                    _THERMAL_SERVICES)
+        self._service_stopper = service_stopper.get_thermal_service_stopper()
+        self._service_stopper.stop_services()
 
 
     def _restore_thermal_throttling(self):

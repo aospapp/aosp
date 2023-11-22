@@ -142,7 +142,7 @@ First, download and install JetPack for Android version 3.2 or greater from [Nvi
 git clone https://github.com/tensorflow/tensorflow.git
 cd tensorflow
 JETPACK=$HOME/JetPack_Android_3.2
-TEGRA_LIBS="$JETPACK/cuDNN/aarch64/cuda/lib64/libcudnn.so  $JETPACK/cuda-9.0/extras/CUPTI/lib64/libcupti.so $JETPACK/cuda/targets/aarch64-linux-androideabi/lib64/libcufft.so"
+TEGRA_LIBS="$JETPACK/cuDNN/aarch64/cuda/lib64/libcudnn.so  $JETPACK/cuda/extras/CUPTI/lib64/libcupti.so $JETPACK/cuda/targets/aarch64-linux-androideabi/lib64/libcufft.so"
 ```
 
 #### Building all CUDA-enabled native binaries:
@@ -193,6 +193,8 @@ with:
 ```
 srcs = glob(["libs/arm64-v8a/*.so"]),
 ```
+
+If you are building for Android TV (Shield TV devices), replace "portrait" with "landscape" for android:screenOrientation in all four activities in tensorflow/examples/android/AndroidManifest.xml
 
 Then run:
 ```bash

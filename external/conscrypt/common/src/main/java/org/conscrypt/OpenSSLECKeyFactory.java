@@ -35,11 +35,11 @@ import java.security.spec.X509EncodedKeySpec;
 
 /**
  * An implementation of a {@link KeyFactorySpi} for EC keys based on BoringSSL.
- *
- * @hide
  */
 @Internal
 public final class OpenSSLECKeyFactory extends KeyFactorySpi {
+
+    public OpenSSLECKeyFactory() {}
 
     @Override
     protected PublicKey engineGeneratePublic(KeySpec keySpec) throws InvalidKeySpecException {
@@ -175,7 +175,7 @@ public final class OpenSSLECKeyFactory extends KeyFactorySpi {
             } catch (InvalidKeySpecException e) {
                 throw new InvalidKeyException(e);
             }
-        } else if ((key instanceof PrivateKey) && ("PKCS#8".equals(key.getFormat()))) {
+        } else if ((key instanceof PrivateKey) && "PKCS#8".equals(key.getFormat())) {
             byte[] encoded = key.getEncoded();
             if (encoded == null) {
                 throw new InvalidKeyException("Key does not support encoding");
@@ -185,7 +185,7 @@ public final class OpenSSLECKeyFactory extends KeyFactorySpi {
             } catch (InvalidKeySpecException e) {
                 throw new InvalidKeyException(e);
             }
-        } else if ((key instanceof PublicKey) && ("X.509".equals(key.getFormat()))) {
+        } else if ((key instanceof PublicKey) && "X.509".equals(key.getFormat())) {
             byte[] encoded = key.getEncoded();
             if (encoded == null) {
                 throw new InvalidKeyException("Key does not support encoding");

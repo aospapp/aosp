@@ -7,7 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "chromeos-chameleon"
 NAME = 'audiovideo_AVSync.arc'
 PURPOSE = "Remotely controlled HDMI audio/video test."
-ATTRIBUTES = "suite:chameleon_audio_nightly, suite:chameleon_audio"
+ATTRIBUTES = "suite:chameleon_audio_unstable"
 TIME = 'SHORT'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = 'audiovideo'

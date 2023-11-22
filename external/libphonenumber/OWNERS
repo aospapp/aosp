@@ -1,0 +1,6 @@
+# Default code reviewers picked from top 3 or more developers.
+# Please update this list if you find better candidates.
+paulye@google.com
+tgunn@google.com
+# For problems with srcgen
+paulduffin@google.com

@@ -125,41 +125,44 @@ void addComputeUboMatrixPaddingTest (tcu::TestCaseGroup* group)
 		"                       OpReturn\n"
 		"                       OpFunctionEnd\n";
 
-		vector<tcu::Vec4>		inputData;
-		ComputeShaderSpec		spec;
+	vector<tcu::Vec4>		inputData;
+	ComputeShaderSpec		spec;
 
-		inputData.reserve(numElements);
-		for (deUint32 numIdx = 0; numIdx < numElements; ++numIdx)
-			inputData.push_back(tcu::Vec4(rnd.getFloat(), rnd.getFloat(), rnd.getFloat(), rnd.getFloat()));
+	inputData.reserve(numElements);
+	for (deUint32 numIdx = 0; numIdx < numElements; ++numIdx)
+		inputData.push_back(tcu::Vec4(rnd.getFloat(), rnd.getFloat(), rnd.getFloat(), rnd.getFloat()));
 
-		spec.assembly			= shaderSource;
-		spec.numWorkGroups		= IVec3(numElements, 1, 1);
-		spec.inputTypes[0]		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	spec.assembly			= shaderSource;
+	spec.numWorkGroups		= IVec3(numElements, 1, 1);
 
-		spec.inputs.push_back(BufferSp(new Vec4Buffer(inputData)));
-		// Shader is expected to pass the input data by treating the input vec4 as mat2x2
-		spec.outputs.push_back(BufferSp(new Vec4Buffer(inputData)));
+	spec.inputs.push_back(Resource(BufferSp(new Vec4Buffer(inputData)), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER));
+	// Shader is expected to pass the input data by treating the input vec4 as mat2x2
+	spec.outputs.push_back(Resource(BufferSp(new Vec4Buffer(inputData))));
 
-		group->addChild(new SpvAsmComputeShaderCase(testCtx, "mat2x2", "Tests mat2x2 member in UBO struct without padding (treated as vec4).", spec));
-	}
+	group->addChild(new SpvAsmComputeShaderCase(testCtx, "mat2x2", "Tests mat2x2 member in UBO struct without padding (treated as vec4).", spec));
 }
 
 void addGraphicsUboMatrixPaddingTest (tcu::TestCaseGroup* group)
 {
-	de::Random				rnd					(deStringHash(group->getName()));
-	map<string, string>		fragments;
-	const deUint32			numDataPoints		= 128;
-	RGBA					defaultColors[4];
-	GraphicsResources		resources;
-	vector<tcu::Vec4>		inputData;
+	de::Random					rnd					(deStringHash(group->getName()));
+	map<string, string>			fragments;
+	const deUint32				numDataPoints		= 128;
+	RGBA						defaultColors[4];
+	GraphicsResources			resources;
 
-	inputData.reserve(numDataPoints);
+	SpecConstants				noSpecConstants;
+	PushConstants				noPushConstants;
+	GraphicsInterfaces			noInterfaces;
+	std::vector<std::string>	noExtensions;
+	VulkanFeatures				vulkanFeatures = VulkanFeatures();
+
+	vector<tcu::Vec4> inputData(numDataPoints);
 	for (deUint32 numIdx = 0; numIdx < numDataPoints; ++numIdx)
-		inputData.push_back(tcu::Vec4(rnd.getFloat(), rnd.getFloat(), rnd.getFloat(), rnd.getFloat()));
+		inputData[numIdx] = tcu::Vec4(rnd.getFloat(), rnd.getFloat(), rnd.getFloat(), rnd.getFloat());
 
-	resources.inputs.push_back(std::make_pair(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, BufferSp(new Vec4Buffer(inputData))));
+	resources.inputs.push_back(Resource(BufferSp(new Vec4Buffer(inputData)), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER));
 	// Shader is expected to pass the input data by treating the input vec4 as mat2x2
-	resources.outputs.push_back(std::make_pair(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, BufferSp(new Vec4Buffer(inputData))));
+	resources.outputs.push_back(Resource(BufferSp(new Vec4Buffer(inputData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
 	getDefaultColors(defaultColors);
 
@@ -195,7 +198,7 @@ void addGraphicsUboMatrixPaddingTest (tcu::TestCaseGroup* group)
 	// into output buffer containing floats. The input and output buffer data should match.
 	// The whole array is handled inside a for loop.
 	fragments["testfun"]	=
-		"            %test_code = OpFunction %v4f32 None %v4f32_function\n"
+		"            %test_code = OpFunction %v4f32 None %v4f32_v4f32_function\n"
 		"                %param = OpFunctionParameter %v4f32\n"
 
 		"                %entry = OpLabel\n"
@@ -240,10 +243,29 @@ void addGraphicsUboMatrixPaddingTest (tcu::TestCaseGroup* group)
 
 		"                         OpFunctionEnd\n";
 
-	resources.inputs.back().first	= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	resources.inputs.back().setDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-	createTestsForAllStages("mat2x2", defaultColors, defaultColors, fragments, resources, vector<string>(), group);
+	vulkanFeatures.coreFeatures.vertexPipelineStoresAndAtomics = DE_TRUE;
+	vulkanFeatures.coreFeatures.fragmentStoresAndAtomics = DE_FALSE;
+	createTestForStage(VK_SHADER_STAGE_VERTEX_BIT, "mat2x2_vert", defaultColors, defaultColors, fragments, noSpecConstants,
+					   noPushConstants, resources, noInterfaces, noExtensions, vulkanFeatures, group);
+
+	createTestForStage(VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, "mat2x2_tessc", defaultColors, defaultColors, fragments, noSpecConstants,
+					   noPushConstants, resources, noInterfaces, noExtensions, vulkanFeatures, group);
+
+	createTestForStage(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, "mat2x2_tesse", defaultColors, defaultColors, fragments, noSpecConstants,
+					   noPushConstants, resources, noInterfaces, noExtensions, vulkanFeatures, group);
+
+	createTestForStage(VK_SHADER_STAGE_GEOMETRY_BIT, "mat2x2_geom", defaultColors, defaultColors, fragments, noSpecConstants,
+					   noPushConstants, resources, noInterfaces, noExtensions, vulkanFeatures, group);
+
+	vulkanFeatures.coreFeatures.vertexPipelineStoresAndAtomics = DE_FALSE;
+	vulkanFeatures.coreFeatures.fragmentStoresAndAtomics = DE_TRUE;
+	createTestForStage(VK_SHADER_STAGE_FRAGMENT_BIT, "mat2x2_frag", defaultColors, defaultColors, fragments, noSpecConstants,
+					   noPushConstants, resources, noInterfaces, noExtensions, vulkanFeatures, group);
 }
+
+} // anonymous
 
 tcu::TestCaseGroup* createUboMatrixPaddingComputeGroup (tcu::TestContext& testCtx)
 {

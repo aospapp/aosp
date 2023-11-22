@@ -41,7 +41,7 @@ test_flow_control defines:
                 else, sequence is same for all loops.
 5. recovery_on_fatal_failure: if True, reboot CfM when fatal failure occurs,
                               else, no reboot.
-6. skipcfmc: All working CfM should have speaker, camera connected.
+6. skip_cfm_check: All working CfM should have speaker, camera connected.
              For Bluestreak in addition to speaker/camera, Mimo should be connected.
              If True script checks the above statement before starting test,
              else, no check will be done before test starts.
@@ -228,17 +228,14 @@ test_flow_control = {
                      'abort_on_failure': True,
                      'random_mode': True,
                      'recovery_on_fatal_failure': False,
-                     'skipcfmc': True,
+                     'skip_cfm_check': True,
                      'debug': True,
                      'report': True
 }
 
 
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
-
-
 def run_test(machine):
-    host = hosts.create_host(machine, servo_args=None)
+    host = hosts.create_host(machine)
     run_test_only = test_flow_control['runtestonly']
     job.run_test('enterprise_CFM_Test', host=host,
                   run_test_only=run_test_only,

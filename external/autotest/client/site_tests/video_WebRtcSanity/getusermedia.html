@@ -33,7 +33,7 @@ SanityTest.prototype = {
 
   gotLocalStream: function(stream) {
     console.log('Attaching video stream to video tag, waiting for onplay()');
-    this.localVideo.src = window.URL.createObjectURL(stream);
+    this.localVideo.srcObject = stream;
   },
 
   gotUserMediaError: function(error) {

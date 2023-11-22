@@ -52,7 +52,7 @@ public class LengthTest extends JDWPArrayReferenceTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // obtain classID
-        long classID = getClassIDBySignature("Lorg/apache/harmony/jpda/tests/jdwp/ArrayReference/ArrayReferenceDebuggee;");
+        long classID = getClassIDBySignature(getDebuggeeClassSignature());
 
         // obtain fields
         Field[] fields = debuggeeWrapper.vmMirror.getFieldsInfo(classID);

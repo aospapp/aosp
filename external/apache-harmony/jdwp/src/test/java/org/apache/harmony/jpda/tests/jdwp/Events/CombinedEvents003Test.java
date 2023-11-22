@@ -40,13 +40,11 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class CombinedEvents003Test extends CombinedEventsTestCase {
 
-    private String debuggeeSignature =
-        "Lorg/apache/harmony/jpda/tests/jdwp/Events/CombinedEvents003Debuggee;";
+    private final String debuggeeSignature = getDebuggeeClassSignature();
 
-    private String methodForEvents = "emptyMethod";
+    private final String methodForEvents = "emptyMethod";
 
-    private String methodEntryClassNameRegexp =
-        "org.apache.harmony.jpda.tests.jdwp.Events.CombinedEvents003Debuggee";
+    private final String methodEntryClassNameRegexp = getDebuggeeClassName();
 
     private boolean eventVmDeathReceived = false;
 

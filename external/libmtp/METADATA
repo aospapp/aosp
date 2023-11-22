@@ -1,0 +1,14 @@
+name: "libmtp"
+description: "A library to access MTP (Media Transfer Protocol) Devices."
+third_party {
+  url {
+    type: GIT
+    value: "https://github.com/libmtp/libmtp.git"
+  }
+  version: "libmtp-1-0-1"
+  last_upgrade_date {
+    year: 2017
+    month: 6
+    day: 13
+  }
+}

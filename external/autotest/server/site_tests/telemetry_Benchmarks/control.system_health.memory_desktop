@@ -1,4 +1,4 @@
-# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -6,9 +6,9 @@
 
 from autotest_lib.client.common_lib import utils
 
-AUTHOR = 'sbasi, achuith, rohitbm'
+AUTHOR = 'Chrome OS Team'
 NAME = 'telemetry_Benchmarks.system_health.memory_desktop'
-ATTRIBUTES = 'suite:crosbolt_perf_weekly'
+ATTRIBUTES = 'suite:crosbolt_perf_nightly'
 TIME = 'LONG'
 TEST_CATEGORY = 'Benchmark'
 TEST_CLASS = 'performance'
@@ -24,9 +24,11 @@ Pass local=True to run with local telemetry and no AFE server.
 
 def run_benchmark(machine):
     host = hosts.create_host(machine)
+    dargs = utils.args_to_dict(args)
+    dargs['extra_args'] = '--pageset-repeat=1'.split()
     job.run_test('telemetry_Benchmarks', host=host,
                  benchmark='system_health.memory_desktop',
                  tag='system_health.memory_desktop',
-                 args=utils.args_to_dict(args))
+                 args=dargs)
 
 parallel_simple(run_benchmark, machines)

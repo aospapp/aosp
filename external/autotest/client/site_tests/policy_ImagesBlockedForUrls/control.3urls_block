@@ -4,7 +4,7 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_ImagesBlockedForUrls.3urls_block'
-ATTRIBUTES = 'suite:bvt-perbuild, suite:ent-nightly, suite:policy'
+ATTRIBUTES = 'suite:ent-nightly, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

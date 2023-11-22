@@ -30,12 +30,20 @@ bootstrap_go_package {
 }
 
 bootstrap_go_package {
+    name: "protoc-gen-go_generator_internal_remap",
+    pkgPath: "github.com/golang/protobuf/protoc-gen-go/generator/internal/remap",
+    srcs: ["protoc-gen-go/generator/internal/remap/remap.go"],
+    testSrcs: ["protoc-gen-go/generator/internal/remap/remap_test.go"],
+}
+
+bootstrap_go_package {
     name: "protoc-gen-go_generator",
     pkgPath: "github.com/golang/protobuf/protoc-gen-go/generator",
     deps: [
         "golang-protobuf-proto",
         "protoc-gen-go_descriptor",
         "protoc-gen-go_plugin",
+        "protoc-gen-go_generator_internal_remap",
     ],
     srcs: ["protoc-gen-go/generator/generator.go"],
     testSrcs: ["protoc-gen-go/generator/name_test.go"],
@@ -70,19 +78,19 @@ bootstrap_go_package {
     srcs: [
         "proto/clone.go",
         "proto/decode.go",
+        "proto/discard.go",
         "proto/encode.go",
         "proto/equal.go",
         "proto/extensions.go",
         "proto/lib.go",
         "proto/message_set.go",
+        "proto/table_marshal.go",
+        "proto/table_merge.go",
+        "proto/table_unmarshal.go",
         "proto/pointer_unsafe.go",
         "proto/properties.go",
         "proto/text.go",
         "proto/text_parser.go",
-    ],
-    testSrcs: [
-        "proto/message_set_test.go",
-        "proto/size2_test.go",
     ],
 }
 
@@ -91,7 +99,7 @@ bootstrap_go_package {
     pkgPath: "github.com/golang/protobuf/proto/proto3_proto",
     deps: [
         "golang-protobuf-proto",
-        "golang-protobuf-proto-testdata",
+        "golang-protobuf-proto-test-proto",
         "golang-protobuf-ptypes-any",
     ],
     srcs: ["proto/proto3_proto/proto3.pb.go"],
@@ -106,7 +114,7 @@ bootstrap_go_package {
     deps: [
         "golang-protobuf-proto",
         "golang-protobuf-proto-proto3_proto",
-        "golang-protobuf-proto-testdata",
+        "golang-protobuf-proto-test-proto",
         "golang-protobuf-ptypes",
     ],
     testSrcs: [
@@ -119,18 +127,20 @@ bootstrap_go_package {
         // Requires golang.org/x/sync/errgroup
         //"proto/extensions_test.go",
         "proto/map_test.go",
+        "proto/message_set_test.go",
         "proto/proto3_test.go",
         "proto/size_test.go",
+        "proto/size2_test.go",
         "proto/text_parser_test.go",
         "proto/text_test.go",
     ],
 }
 
 bootstrap_go_package {
-    name: "golang-protobuf-proto-testdata",
-    pkgPath: "github.com/golang/protobuf/proto/testdata",
+    name: "golang-protobuf-proto-test-proto",
+    pkgPath: "github.com/golang/protobuf/proto/test_proto",
     deps: ["golang-protobuf-proto"],
-    srcs: ["proto/testdata/test.pb.go"],
+    srcs: ["proto/test_proto/test.pb.go"],
 }
 
 bootstrap_go_package {

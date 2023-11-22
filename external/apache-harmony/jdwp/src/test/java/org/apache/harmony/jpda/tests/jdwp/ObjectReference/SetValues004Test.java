@@ -43,11 +43,10 @@ public class SetValues004Test extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ObjectReference.SetValues command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/SetValues004Debuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.SetValues004Debuggee";
+        return SetValues004Debuggee.class.getName();
     }
 
     /**
@@ -63,7 +62,7 @@ public class SetValues004Test extends JDWPSyncTestCase {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

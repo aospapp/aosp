@@ -43,11 +43,14 @@ VTerm *vterm_new_with_allocator(int rows, int cols, VTermAllocatorFunctions *fun
   vt->rows = rows;
   vt->cols = cols;
 
-  vt->parser_state = NORMAL;
+  vt->parser.state = NORMAL;
 
-  vt->strbuffer_len = 64;
-  vt->strbuffer_cur = 0;
-  vt->strbuffer = vterm_allocator_malloc(vt, vt->strbuffer_len);
+  vt->parser.callbacks = NULL;
+  vt->parser.cbdata    = NULL;
+
+  vt->parser.strbuffer_len = 64;
+  vt->parser.strbuffer_cur = 0;
+  vt->parser.strbuffer = vterm_allocator_malloc(vt, vt->parser.strbuffer_len);
 
   vt->outbuffer_len = 64;
   vt->outbuffer_cur = 0;
@@ -64,7 +67,7 @@ void vterm_free(VTerm *vt)
   if(vt->state)
     vterm_state_free(vt->state);
 
-  vterm_allocator_free(vt, vt->strbuffer);
+  vterm_allocator_free(vt, vt->parser.strbuffer);
   vterm_allocator_free(vt, vt->outbuffer);
 
   vterm_allocator_free(vt, vt);
@@ -93,17 +96,16 @@ void vterm_set_size(VTerm *vt, int rows, int cols)
   vt->rows = rows;
   vt->cols = cols;
 
-  if(vt->parser_callbacks && vt->parser_callbacks->resize)
-    (*vt->parser_callbacks->resize)(rows, cols, vt->cbdata);
+  if(vt->parser.callbacks && vt->parser.callbacks->resize)
+    (*vt->parser.callbacks->resize)(rows, cols, vt->parser.cbdata);
 }
 
-void vterm_set_parser_callbacks(VTerm *vt, const VTermParserCallbacks *callbacks, void *user)
+int vterm_get_utf8(const VTerm *vt)
 {
-  vt->parser_callbacks = callbacks;
-  vt->cbdata = user;
+  return vt->mode.utf8;
 }
 
-void vterm_parser_set_utf8(VTerm *vt, int is_utf8)
+void vterm_set_utf8(VTerm *vt, int is_utf8)
 {
   vt->mode.utf8 = is_utf8;
 }
@@ -111,7 +113,7 @@ void vterm_parser_set_utf8(VTerm *vt, int is_utf8)
 INTERNAL void vterm_push_output_bytes(VTerm *vt, const char *bytes, size_t len)
 {
   if(len > vt->outbuffer_len - vt->outbuffer_cur) {
-    fprintf(stderr, "vterm_push_output(): buffer overflow; truncating output\n");
+    DEBUG_LOG("vterm_push_output(): buffer overflow; truncating output\n");
     len = vt->outbuffer_len - vt->outbuffer_cur;
   }
 
@@ -119,12 +121,28 @@ INTERNAL void vterm_push_output_bytes(VTerm *vt, const char *bytes, size_t len)
   vt->outbuffer_cur += len;
 }
 
+static int outbuffer_is_full(VTerm *vt)
+{
+  return vt->outbuffer_cur >= vt->outbuffer_len - 1;
+}
+
 INTERNAL void vterm_push_output_vsprintf(VTerm *vt, const char *format, va_list args)
 {
+  if(outbuffer_is_full(vt)) {
+    DEBUG_LOG("vterm_push_output(): buffer overflow; truncating output\n");
+    return;
+  }
+
   int written = vsnprintf(vt->outbuffer + vt->outbuffer_cur,
       vt->outbuffer_len - vt->outbuffer_cur,
       format, args);
-  vt->outbuffer_cur += written;
+
+  if(written == vt->outbuffer_len - vt->outbuffer_cur) {
+    /* output was truncated */
+    vt->outbuffer_cur = vt->outbuffer_len - 1;
+  }
+  else
+    vt->outbuffer_cur += written;
 }
 
 INTERNAL void vterm_push_output_sprintf(VTerm *vt, const char *format, ...)
@@ -137,8 +155,10 @@ INTERNAL void vterm_push_output_sprintf(VTerm *vt, const char *format, ...)
 
 INTERNAL void vterm_push_output_sprintf_ctrl(VTerm *vt, unsigned char ctrl, const char *fmt, ...)
 {
+  size_t orig_cur = vt->outbuffer_cur;
+
   if(ctrl >= 0x80 && !vt->mode.ctrl8bit)
-    vterm_push_output_sprintf(vt, "\e%c", ctrl - 0x40);
+    vterm_push_output_sprintf(vt, ESC_S "%c", ctrl - 0x40);
   else
     vterm_push_output_sprintf(vt, "%c", ctrl);
 
@@ -146,12 +166,17 @@ INTERNAL void vterm_push_output_sprintf_ctrl(VTerm *vt, unsigned char ctrl, cons
   va_start(args, fmt);
   vterm_push_output_vsprintf(vt, fmt, args);
   va_end(args);
+
+  if(outbuffer_is_full(vt))
+    vt->outbuffer_cur = orig_cur;
 }
 
 INTERNAL void vterm_push_output_sprintf_dcs(VTerm *vt, const char *fmt, ...)
 {
+  size_t orig_cur = vt->outbuffer_cur;
+
   if(!vt->mode.ctrl8bit)
-    vterm_push_output_sprintf(vt, "\e%c", C1_DCS - 0x40);
+    vterm_push_output_sprintf(vt, ESC_S "%c", C1_DCS - 0x40);
   else
     vterm_push_output_sprintf(vt, "%c", C1_DCS);
 
@@ -161,11 +186,9 @@ INTERNAL void vterm_push_output_sprintf_dcs(VTerm *vt, const char *fmt, ...)
   va_end(args);
 
   vterm_push_output_sprintf_ctrl(vt, C1_ST, "");
-}
 
-size_t vterm_output_bufferlen(VTerm *vt)
-{
-  return vterm_output_get_buffer_current(vt);
+  if(outbuffer_is_full(vt))
+    vt->outbuffer_cur = orig_cur;
 }
 
 size_t vterm_output_get_buffer_size(const VTerm *vt)
@@ -183,7 +206,7 @@ size_t vterm_output_get_buffer_remaining(const VTerm *vt)
   return vt->outbuffer_len - vt->outbuffer_cur;
 }
 
-size_t vterm_output_bufferread(VTerm *vt, char *buffer, size_t len)
+size_t vterm_output_read(VTerm *vt, char *buffer, size_t len)
 {
   if(len > vt->outbuffer_cur)
     len = vt->outbuffer_cur;
@@ -210,6 +233,8 @@ VTermValueType vterm_get_attr_type(VTermAttr attr)
     case VTERM_ATTR_FONT:       return VTERM_VALUETYPE_INT;
     case VTERM_ATTR_FOREGROUND: return VTERM_VALUETYPE_COLOR;
     case VTERM_ATTR_BACKGROUND: return VTERM_VALUETYPE_COLOR;
+
+    case VTERM_N_ATTRS: return 0;
   }
   return 0; /* UNREACHABLE */
 }
@@ -224,6 +249,9 @@ VTermValueType vterm_get_prop_type(VTermProp prop)
     case VTERM_PROP_ICONNAME:      return VTERM_VALUETYPE_STRING;
     case VTERM_PROP_REVERSE:       return VTERM_VALUETYPE_BOOL;
     case VTERM_PROP_CURSORSHAPE:   return VTERM_VALUETYPE_INT;
+    case VTERM_PROP_MOUSE:         return VTERM_VALUETYPE_INT;
+
+    case VTERM_N_PROPS: return 0;
   }
   return 0; /* UNREACHABLE */
 }

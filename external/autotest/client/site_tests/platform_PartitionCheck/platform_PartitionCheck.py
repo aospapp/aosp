@@ -17,23 +17,6 @@ class platform_PartitionCheck(test.test):
     """
     version = 1
 
-    def get_block_size(self, device):
-        """
-        Check the block size of a block device.
-
-        Args:
-            @param device: string, name of the block device.
-
-        Returns:
-            int, size of block in bytes.
-        """
-
-        # Construct a pathname to find the logic block size for this device
-        sysfs_path = os.path.join('/sys', 'block', device,
-                                  'queue', 'logical_block_size')
-
-        return int(utils.read_one_line(sysfs_path))
-
     def get_partition_size(self, device, partition):
         """
         Get the number of blocks in the partition.
@@ -54,11 +37,12 @@ class platform_PartitionCheck(test.test):
         errors = []
         device = os.path.basename(utils.get_fixed_dst_drive())
         partitions = [utils.concat_partition(device, i) for i in (3, 5)]
-        block_size = self.get_block_size(device)
 
         for p in partitions:
             pblocks = self.get_partition_size(device, p)
-            psize = pblocks * block_size
+            # Linux always considers sectors to be 512 bytes long
+            # independently of the devices real block size.
+            psize = pblocks * 512;
             if psize != ROOTFS_SIZE_2G and psize != ROOTFS_SIZE_4G:
                 errmsg = ('%s is %d bytes, expected %d or %d' %
                           (p, psize, ROOTFS_SIZE_2G, ROOTFS_SIZE_4G))

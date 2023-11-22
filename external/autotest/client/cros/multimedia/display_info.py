@@ -9,14 +9,12 @@ class DisplayInfo(object):
     """
 
     class Bounds(object):
-        """The class match Bounds object from chrome.system.display API.
-
-        @param left: The x-coordinate of the upper-left corner.
-        @param top: The y-coordinate of the upper-left corner.
-        @param width: The width of the display in pixels.
-        @param height: The height of the display in pixels.
-        """
         def __init__(self, d):
+            """The class match Bounds object from chrome.system.display API.
+
+            @param d: Map of display properties.
+            """
+
             self.left = d['left']
             self.top = d['top']
             self.width = d['width']
@@ -24,19 +22,28 @@ class DisplayInfo(object):
 
 
     class Insets(object):
-        """The class match Insets object from chrome.system.display API.
-
-        @param left: The x-axis distance from the left bound.
-        @param left: The y-axis distance from the top bound.
-        @param left: The x-axis distance from the right bound.
-        @param left: The y-axis distance from the bottom bound.
-        """
-
         def __init__(self, d):
+            """The class match Insets object from chrome.system.display API.
+
+            @param d: Map of display properties.
+            """
+
             self.left = d['left']
             self.top = d['top']
             self.right = d['right']
             self.bottom = d['bottom']
+
+
+    class Edid(object):
+        def __init__(self, edid):
+            """The class match the Edid object from chrome.system.display API.
+
+            @param edid: Map of Edid properties.
+            """
+
+            self.manufacturer_id = edid['manufacturerId']
+            self.year_of_manufacture = edid['yearOfManufacture']
+            self.product_id = edid['productId']
 
 
     def __init__(self, d):
@@ -52,3 +59,4 @@ class DisplayInfo(object):
         self.bounds = self.Bounds(d['bounds'])
         self.overscan = self.Insets(d['overscan'])
         self.work_area = self.Bounds(d['workArea'])
+        self.edid = self.Edid(d['edid'])

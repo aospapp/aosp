@@ -126,6 +126,7 @@ class cellular_SuspendResume(test.test):
     # There appears to be an issue after suspend/resume where GetProperties
     # returns with UnknownMethod called until some time later.
     def __get_mobile_device(self, timeout=TIMEOUT):
+        device = None
         properties = None
         start_time = time.time()
         timeout = start_time + timeout
@@ -135,9 +136,11 @@ class cellular_SuspendResume(test.test):
                 properties = device.GetProperties(utf8_strings=True)
             except dbus.exceptions.DBusException:
                 logging.debug('Mobile device not ready yet')
+                device = None
                 properties = None
 
             time.sleep(1)
+
         if not device:
             # If device is not found, spit the output of lsusb for debugging.
             lsusb_output = utils.system_output('lsusb', timeout=self.TIMEOUT)

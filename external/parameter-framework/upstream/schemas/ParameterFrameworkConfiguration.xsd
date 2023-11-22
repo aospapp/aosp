@@ -33,7 +33,7 @@
             	<xs:element name="SettingsConfiguration" type="SettingsConfigurationType" minOccurs="0"/>
             </xs:sequence>
         	<xs:attribute name="SystemClassName" use="required" type="xs:NMTOKEN"/>
-        	<xs:attribute name="ServerPort" use="required" type="xs:positiveInteger"/>
+            <xs:attribute name="ServerPort" use="required" type="xs:string"/>
         	<xs:attribute name="TuningAllowed" use="required" type="xs:boolean"/>
         </xs:complexType>
     </xs:element>

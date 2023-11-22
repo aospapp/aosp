@@ -17,23 +17,20 @@
 package org.conscrypt.javax.net.ssl;
 
 import static org.conscrypt.TestUtils.UTF_8;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.HashSet;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.KeyManager;
@@ -47,9 +44,9 @@ import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.X509ExtendedKeyManager;
-import libcore.java.security.StandardNames;
-import org.conscrypt.Conscrypt;
+import javax.net.ssl.X509ExtendedTrustManager;
 import org.conscrypt.TestUtils;
+import org.conscrypt.java.security.StandardNames;
 import org.conscrypt.java.security.TestKeyStore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,12 +99,33 @@ public class SSLEngineTest {
     @Test
     public void test_SSLEngine_underflowsOnEmptyBuffersAfterHandshake() throws Exception {
         // Note that create performs the handshake.
-        final TestSSLEnginePair engines = TestSSLEnginePair.create(null /* hooks */);
+        final TestSSLEnginePair engines = TestSSLEnginePair.create();
         ByteBuffer input = ByteBuffer.allocate(1024);
         input.flip();
         ByteBuffer output = ByteBuffer.allocate(1024);
         assertEquals(SSLEngineResult.Status.BUFFER_UNDERFLOW,
                 engines.client.unwrap(input, output).getStatus());
+    }
+
+    @Test
+    public void test_SSLEngine_wrap_overflowOnEmptyOutputBuffer() throws Exception {
+        TestSSLEnginePair pair = TestSSLEnginePair.create();
+        ByteBuffer input = ByteBuffer.allocate(10);
+        ByteBuffer output = ByteBuffer.allocate(1024);
+        output.flip();
+        assertEquals(Status.BUFFER_OVERFLOW, pair.client.wrap(input, output).getStatus());
+    }
+
+    @Test
+    public void test_SSLEngine_unwrap_overflowOnEmptyOutputBuffer() throws Exception {
+        TestSSLEnginePair pair = TestSSLEnginePair.create();
+        ByteBuffer input = ByteBuffer.allocate(10);
+        ByteBuffer wrapped = ByteBuffer.allocate(1024);
+        assertEquals(Status.OK, pair.client.wrap(input, wrapped).getStatus());
+        wrapped.flip();
+        ByteBuffer output = ByteBuffer.allocate(1024);
+        output.flip();
+        assertEquals(Status.BUFFER_OVERFLOW, pair.server.unwrap(wrapped, output).getStatus());
     }
 
     private void test_SSLEngine_getSupportedCipherSuites_connect(
@@ -123,6 +141,8 @@ public class SSLEngineTest {
         TestSSLContext c = TestSSLContext.newBuilder()
                                    .client(testKeyStore)
                                    .server(testKeyStore)
+                                   .clientProtocol("TLSv1.2")
+                                   .serverProtocol("TLSv1.2")
                                    .additionalClientKeyManagers(new KeyManager[] {pskKeyManager})
                                    .additionalServerKeyManagers(new KeyManager[] {pskKeyManager})
                                    .build();
@@ -190,11 +210,10 @@ public class SSLEngineTest {
                     continue;
                 }
                 /*
-                 * Kerberos cipher suites require external setup. See "Kerberos Requirements" in
-                 * https://java.sun.com/j2se/1.5.0/docs/guide/security/jsse/JSSERefGuide.html
-                 * #KRBRequire
+                 * This test uses TLS 1.2, and the TLS 1.3 cipher suites aren't customizable
+                 * anyway.
                  */
-                if (cipherSuite.startsWith("TLS_KRB5_")) {
+                if (StandardNames.CIPHER_SUITES_TLS13.contains(cipherSuite)) {
                     continue;
                 }
 
@@ -235,8 +254,8 @@ public class SSLEngineTest {
                 boolean serverAuthenticatedUsingPublicKey = true;
                 if (cipherSuite.contains("_anon_")) {
                     serverAuthenticatedUsingPublicKey = false;
-                } else if ((cipherSuite.startsWith("TLS_PSK_"))
-                        || (cipherSuite.startsWith("TLS_ECDHE_PSK_"))) {
+                } else if (cipherSuite.startsWith("TLS_PSK_")
+                        || cipherSuite.startsWith("TLS_ECDHE_PSK_")) {
                     serverAuthenticatedUsingPublicKey = false;
                 }
                 if (serverAuthenticatedUsingPublicKey) {
@@ -370,9 +389,10 @@ public class SSLEngineTest {
     }
 
     @Test
-    public void test_SSLEngine_setEnabledCipherSuites() throws Exception {
-        TestSSLContext c = TestSSLContext.create();
-        SSLEngine e = c.clientContext.createSSLEngine();
+    public void test_SSLEngine_setEnabledCipherSuites_TLS12() throws Exception {
+        SSLContext context = SSLContext.getInstance("TLSv1.2");
+        context.init(null, null, null);
+        SSLEngine e = context.createSSLEngine();
 
         try {
             e.setEnabledCipherSuites(null);
@@ -398,11 +418,36 @@ public class SSLEngineTest {
         e.setEnabledCipherSuites(e.getSupportedCipherSuites());
 
         // Check that setEnabledCipherSuites affects getEnabledCipherSuites
-        String[] cipherSuites = new String[] {e.getSupportedCipherSuites()[0]};
+        String[] cipherSuites = new String[] {
+                TestUtils.pickArbitraryNonTls13Suite(e.getSupportedCipherSuites())
+        };
         e.setEnabledCipherSuites(cipherSuites);
         assertEquals(Arrays.asList(cipherSuites), Arrays.asList(e.getEnabledCipherSuites()));
+    }
 
-        c.close();
+    @Test
+    public void test_SSLEngine_setEnabledCipherSuites_TLS13() throws Exception {
+        SSLContext context = SSLContext.getInstance("TLSv1.3");
+        context.init(null, null, null);
+        SSLEngine e = context.createSSLEngine();
+        // The TLS 1.3 cipher suites should be enabled by default
+        assertTrue(new HashSet<String>(Arrays.asList(e.getEnabledCipherSuites()))
+                .containsAll(StandardNames.CIPHER_SUITES_TLS13));
+        // Disabling them should be ignored
+        e.setEnabledCipherSuites(new String[0]);
+        assertTrue(new HashSet<String>(Arrays.asList(e.getEnabledCipherSuites()))
+                .containsAll(StandardNames.CIPHER_SUITES_TLS13));
+
+        e.setEnabledCipherSuites(new String[] {
+                TestUtils.pickArbitraryNonTls13Suite(e.getSupportedCipherSuites())
+        });
+        assertTrue(new HashSet<String>(Arrays.asList(e.getEnabledCipherSuites()))
+                .containsAll(StandardNames.CIPHER_SUITES_TLS13));
+
+        // Disabling TLS 1.3 should disable the 1.3 cipher suites
+        e.setEnabledProtocols(new String[] { "TLSv1.2" });
+        assertFalse(new HashSet<String>(Arrays.asList(e.getEnabledCipherSuites()))
+                .containsAll(StandardNames.CIPHER_SUITES_TLS13));
     }
 
     @Test
@@ -489,55 +534,6 @@ public class SSLEngineTest {
         c.close();
     }
 
-    @Test
-    public void test_SSLEngine_beginHandshake() throws Exception {
-        TestSSLContext c = TestSSLContext.create();
-
-        try {
-            c.clientContext.createSSLEngine().beginHandshake();
-            fail();
-        } catch (IllegalStateException expected) {
-            // Ignored.
-        }
-        c.close();
-
-        TestSSLEnginePair p = TestSSLEnginePair.create(null);
-        assertConnected(p);
-        p.close();
-    }
-
-    @Test
-    public void test_SSLEngine_beginHandshake_noKeyStore() throws Exception {
-        TestSSLContext c = TestSSLContext.newBuilder()
-                                   .useDefaults(false)
-                                   .clientContext(SSLContext.getDefault())
-                                   .serverContext(SSLContext.getDefault())
-                                   .build();
-        SSLEngine[] p = null;
-        try {
-            // TODO Fix KnownFailure AlertException "NO SERVER CERTIFICATE FOUND"
-            // ServerHandshakeImpl.selectSuite should not select a suite without a required cert
-            p = TestSSLEnginePair.connect(c, null);
-            fail();
-        } catch (SSLHandshakeException expected) {
-            // Ignored.
-        } finally {
-            if (p != null) {
-                TestSSLEnginePair.close(p);
-            }
-        }
-        c.close();
-    }
-
-    @Test
-    public void test_SSLEngine_beginHandshake_noClientCertificate() throws Exception {
-        TestSSLContext c = TestSSLContext.create();
-        SSLEngine[] engines = TestSSLEnginePair.connect(c, null);
-        assertConnected(engines[0], engines[1]);
-        c.close();
-        TestSSLEnginePair.close(engines);
-    }
-
     // http://b/37078438
     @Test
     public void test_SSLEngine_beginHandshake_redundantCalls() throws Exception {
@@ -547,6 +543,71 @@ public class SSLEngineTest {
         client.beginHandshake();
         client.beginHandshake(); // This call should be ignored
         c.close();
+    }
+
+    @Test
+    public void test_SSLEngine_getHandshakeSession_duringHandshake() throws Exception {
+        // We can't reference the actual context we're using, since we need to pass
+        // the test trust manager in to construct it, so create reference objects that
+        // we can test against.
+        final TestSSLContext referenceContext = TestSSLContext.create();
+        final SSLEngine referenceEngine = referenceContext.clientContext.createSSLEngine();
+
+        TestSSLContext c = TestSSLContext.newBuilder()
+            .clientTrustManager(new X509ExtendedTrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s,
+                    Socket socket) throws CertificateException {
+                    throw new CertificateException("Shouldn't be called");
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s,
+                    Socket socket) throws CertificateException {
+                    throw new CertificateException("Shouldn't be called");
+                }
+
+                @Override
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s,
+                    SSLEngine sslEngine) throws CertificateException {
+                    throw new CertificateException("Shouldn't be called");
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s,
+                    SSLEngine sslEngine) throws CertificateException {
+                    try {
+                        SSLSession session = sslEngine.getHandshakeSession();
+                        assertNotNull(session);
+                        // By the point of the handshake where we're validating certificates,
+                        // the hostname is known and the cipher suite should be agreed
+                        assertEquals(referenceContext.host.getHostName(), session.getPeerHost());
+                        assertEquals(referenceEngine.getEnabledCipherSuites()[0],
+                            session.getCipherSuite());
+                    } catch (Exception e) {
+                        throw new CertificateException("Something broke", e);
+                    }
+                }
+
+                @Override
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s)
+                    throws CertificateException {
+                    throw new CertificateException("Shouldn't be called");
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s)
+                    throws CertificateException {
+                    throw new CertificateException("Shouldn't be called");
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+            }).build();
+        TestSSLEnginePair pair = TestSSLEnginePair.create(c);
+        pair.close();
     }
 
     @Test
@@ -604,7 +665,7 @@ public class SSLEngineTest {
     @Test
     public void test_SSLEngine_setUseClientMode_afterHandshake() throws Exception {
         // can't set after handshake
-        TestSSLEnginePair pair = TestSSLEnginePair.create(null);
+        TestSSLEnginePair pair = TestSSLEnginePair.create();
         try {
             pair.server.setUseClientMode(false);
             fail();
@@ -636,114 +697,6 @@ public class SSLEngineTest {
                 server.setUseClientMode(serverClientMode);
             }
         }, finished);
-    }
-
-    @Test
-    public void test_SSLEngine_clientAuth() throws Exception {
-        TestSSLContext c = TestSSLContext.create();
-        SSLEngine e = c.clientContext.createSSLEngine();
-
-        assertFalse(e.getWantClientAuth());
-        assertFalse(e.getNeedClientAuth());
-
-        // confirm turning one on by itself
-        e.setWantClientAuth(true);
-        assertTrue(e.getWantClientAuth());
-        assertFalse(e.getNeedClientAuth());
-
-        // confirm turning setting on toggles the other
-        e.setNeedClientAuth(true);
-        assertFalse(e.getWantClientAuth());
-        assertTrue(e.getNeedClientAuth());
-
-        // confirm toggling back
-        e.setWantClientAuth(true);
-        assertTrue(e.getWantClientAuth());
-        assertFalse(e.getNeedClientAuth());
-
-        // TODO Fix KnownFailure "init - invalid private key"
-        TestSSLContext clientAuthContext = TestSSLContext.create(
-                TestKeyStore.getClientCertificate(), TestKeyStore.getServer());
-        TestSSLEnginePair p =
-                TestSSLEnginePair.create(clientAuthContext, new TestSSLEnginePair.Hooks() {
-                    @Override
-                    void beforeBeginHandshake(SSLEngine client, SSLEngine server) {
-                        server.setWantClientAuth(true);
-                    }
-                });
-        assertConnected(p);
-        assertNotNull(p.client.getSession().getLocalCertificates());
-        TestKeyStore.assertChainLength(p.client.getSession().getLocalCertificates());
-        TestSSLContext.assertClientCertificateChain(
-                clientAuthContext.clientTrustManager, p.client.getSession().getLocalCertificates());
-        clientAuthContext.close();
-        c.close();
-        p.close();
-    }
-
-    /**
-     * http://code.google.com/p/android/issues/detail?id=31903
-     * This test case directly tests the fix for the issue.
-     */
-    @Test
-    public void test_SSLEngine_clientAuthWantedNoClientCert() throws Exception {
-        TestSSLContext clientAuthContext =
-                TestSSLContext.create(TestKeyStore.getClient(), TestKeyStore.getServer());
-        TestSSLEnginePair p =
-                TestSSLEnginePair.create(clientAuthContext, new TestSSLEnginePair.Hooks() {
-                    @Override
-                    void beforeBeginHandshake(SSLEngine client, SSLEngine server) {
-                        server.setWantClientAuth(true);
-                    }
-                });
-        assertConnected(p);
-        clientAuthContext.close();
-        p.close();
-    }
-
-    /**
-     * http://code.google.com/p/android/issues/detail?id=31903
-     * This test case verifies that if the server requires a client cert
-     * (setNeedClientAuth) but the client does not provide one SSL connection
-     * establishment will fail
-     */
-    @Test
-    public void test_SSLEngine_clientAuthNeededNoClientCert() throws Exception {
-        TestSSLContext clientAuthContext =
-                TestSSLContext.create(TestKeyStore.getClient(), TestKeyStore.getServer());
-        TestSSLEnginePair p = null;
-        try {
-            p = TestSSLEnginePair.create(clientAuthContext, new TestSSLEnginePair.Hooks() {
-                @Override
-                void beforeBeginHandshake(SSLEngine client, SSLEngine server) {
-                    server.setNeedClientAuth(true);
-                }
-            });
-            fail();
-        } catch (SSLHandshakeException expected) {
-            // Ignored.
-        } finally {
-            clientAuthContext.close();
-            if (p != null) {
-                p.close();
-            }
-        }
-    }
-
-    @Test
-    public void test_SSLEngine_endpointVerification_Success() throws Exception {
-        TestUtils.assumeSetEndpointIdentificationAlgorithmAvailable();
-        TestSSLContext c = TestSSLContext.create();
-        TestSSLEnginePair p = TestSSLEnginePair.create(c, new TestSSLEnginePair.Hooks() {
-            @Override
-            void beforeBeginHandshake(SSLEngine client, SSLEngine server) {
-                SSLParameters p = client.getSSLParameters();
-                p.setEndpointIdentificationAlgorithm("HTTPS");
-                client.setSSLParameters(p);
-            }
-        });
-        assertConnected(p);
-        c.close();
     }
 
     @Test
@@ -866,130 +819,6 @@ public class SSLEngineTest {
             assertFalse(e.getWantClientAuth());
         }
         c.close();
-    }
-
-    @Test
-    public void test_TestSSLEnginePair_create() throws Exception {
-        TestSSLEnginePair test = TestSSLEnginePair.create(null);
-        assertNotNull(test.c);
-        assertNotNull(test.server);
-        assertNotNull(test.client);
-        assertConnected(test);
-        test.close();
-    }
-
-    private final int NUM_STRESS_ITERATIONS = 1000;
-
-    @Test
-    public void test_SSLEngine_Multiple_Thread_Success() throws Exception {
-        final TestSSLEnginePair pair = TestSSLEnginePair.create();
-        try {
-            assertConnected(pair);
-
-            final CountDownLatch startUpSync = new CountDownLatch(2);
-            ExecutorService executor = Executors.newFixedThreadPool(2);
-            Future<Void> client = executor.submit(new Callable<Void>() {
-                @Override
-                public Void call() throws Exception {
-                    startUpSync.countDown();
-
-                    for (int i = 0; i < NUM_STRESS_ITERATIONS; i++) {
-                        assertSendsCorrectly("This is the client. Hello!".getBytes(UTF_8),
-                                pair.client, pair.server, false);
-                    }
-
-                    return null;
-                }
-            });
-            Future<Void> server = executor.submit(new Callable<Void>() {
-                @Override
-                public Void call() throws Exception {
-                    startUpSync.countDown();
-
-                    for (int i = 0; i < NUM_STRESS_ITERATIONS; i++) {
-                        assertSendsCorrectly("This is the server. Hi!".getBytes(UTF_8), pair.server,
-                                pair.client, false);
-                    }
-
-                    return null;
-                }
-            });
-            executor.shutdown();
-            client.get();
-            server.get();
-        } finally {
-            pair.close();
-        }
-    }
-
-    @Test
-    public void test_SSLEngine_CloseOutbound() throws Exception {
-        final TestSSLEnginePair pair = TestSSLEnginePair.create();
-        try {
-            assertConnected(pair);
-
-            // Closing the outbound direction should cause a close_notify to be sent
-            pair.client.closeOutbound();
-            ByteBuffer clientOut = ByteBuffer
-                    .allocate(pair.client.getSession().getPacketBufferSize());
-            SSLEngineResult res = pair.client.wrap(ByteBuffer.wrap(new byte[0]), clientOut);
-            assertEquals(Status.CLOSED, res.getStatus());
-            assertEquals(HandshakeStatus.NOT_HANDSHAKING, res.getHandshakeStatus());
-            assertTrue(res.bytesProduced() > 0);
-
-            // Read the close_notify in the server
-            clientOut.flip();
-            ByteBuffer serverIn = ByteBuffer
-                    .allocate(pair.server.getSession().getApplicationBufferSize());
-            res = pair.server.unwrap(clientOut, serverIn);
-            assertEquals(Status.CLOSED, res.getStatus());
-            assertEquals(HandshakeStatus.NEED_WRAP, res.getHandshakeStatus());
-
-            // Reading the close_notify should cause a close_notify to be sent back
-            ByteBuffer serverOut = ByteBuffer
-                    .allocate(pair.server.getSession().getPacketBufferSize());
-            res = pair.server.wrap(ByteBuffer.wrap(new byte[0]), serverOut);
-            assertEquals(Status.CLOSED, res.getStatus());
-            assertEquals(HandshakeStatus.NOT_HANDSHAKING, res.getHandshakeStatus());
-            assertTrue(res.bytesProduced() > 0);
-
-            // Read the close_notify in the client
-            serverOut.flip();
-            ByteBuffer clientIn = ByteBuffer
-                    .allocate(pair.client.getSession().getApplicationBufferSize());
-            res = pair.client.unwrap(serverOut, clientIn);
-            assertEquals(Status.CLOSED, res.getStatus());
-            assertEquals(HandshakeStatus.NOT_HANDSHAKING, res.getHandshakeStatus());
-
-            // Both sides have received close_notify messages, so both peers should have
-            // registered that they're finished
-            assertTrue(pair.client.isInboundDone() && pair.client.isOutboundDone());
-            assertTrue(pair.server.isInboundDone() && pair.server.isOutboundDone());
-        } finally {
-            pair.close();
-        }
-    }
-
-    @Test
-    public void test_SSLEngine_TlsUnique() throws Exception {
-        TestSSLEnginePair pair = TestSSLEnginePair.create(new TestSSLEnginePair.Hooks() {
-            @Override
-            void beforeBeginHandshake(SSLEngine client, SSLEngine server) {
-                assertNull(Conscrypt.getTlsUnique(client));
-                assertNull(Conscrypt.getTlsUnique(server));
-            }
-        });
-        try {
-            assertConnected(pair);
-
-            byte[] clientTlsUnique = Conscrypt.getTlsUnique(pair.client);
-            byte[] serverTlsUnique = Conscrypt.getTlsUnique(pair.server);
-            assertNotNull(clientTlsUnique);
-            assertNotNull(serverTlsUnique);
-            assertArrayEquals(clientTlsUnique, serverTlsUnique);
-        } finally {
-            pair.close();
-        }
     }
 
     private void assertConnected(TestSSLEnginePair e) {

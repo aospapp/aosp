@@ -31,15 +31,18 @@ import android.net.wifi.p2p.WifiP2pGroupList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
+import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pServiceRequest;
 import android.net.wifi.p2p.nsd.WifiP2pUpnpServiceInfo;
+import android.net.wifi.p2p.nsd.WifiP2pUpnpServiceRequest;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 
 import com.android.internal.util.Protocol;
+
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
@@ -47,15 +50,17 @@ import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * WifiP2pManager functions.
@@ -169,7 +174,6 @@ public class WifiP2pManagerFacade extends RpcReceiver {
             msg.putString("SourceDeviceAddress", srcDevice.deviceAddress);
             mEventFacade.postEvent(mEventType + "OnDnsSdTxtRecordAvailable", msg);
         }
-
     }
 
     class WifiP2pGroupInfoListener implements WifiP2pManager.GroupInfoListener {
@@ -225,20 +229,53 @@ public class WifiP2pManagerFacade extends RpcReceiver {
             }
             mEventFacade.postEvent(mEventType + "OnPersistentGroupInfoAvailable", gs);
         }
+    }
 
+    class WifiP2pOngoingPeerConfigListener implements WifiP2pManager.OngoingPeerInfoListener {
+        private final EventFacade mEventFacade;
+        private final String mEventType;
+
+        WifiP2pOngoingPeerConfigListener(EventFacade eventFacade) {
+            mEventType = "WifiP2p";
+            mEventFacade = eventFacade;
+        }
+
+        @Override
+        public void onOngoingPeerAvailable(WifiP2pConfig config) {
+            Bundle msg = new Bundle();
+            mEventFacade.postEvent(mEventType + "OnOngoingPeerAvailable", config);
+        }
+    }
+
+    class WifiP2pUpnpServiceResponseListener implements WifiP2pManager.UpnpServiceResponseListener {
+        private final EventFacade mEventFacade;
+        private final String mEventType;
+
+        WifiP2pUpnpServiceResponseListener(EventFacade eventFacade) {
+            mEventType = "WifiP2p";
+            mEventFacade = eventFacade;
+        }
+
+        @Override
+        public void onUpnpServiceAvailable(List<String> uniqueServiceNames,
+                WifiP2pDevice srcDevice) {
+            Bundle msg = new Bundle();
+            msg.putParcelable("Device", srcDevice);
+            msg.putStringArrayList("ServiceList", new ArrayList(uniqueServiceNames));
+            mEventFacade.postEvent(mEventType + "OnUpnpServiceAvailable", msg);
+        }
     }
 
     class WifiP2pStateChangedReceiver extends BroadcastReceiver {
         private final EventFacade mEventFacade;
-        private final Bundle mResults;
 
         WifiP2pStateChangedReceiver(EventFacade eventFacade) {
             mEventFacade = eventFacade;
-            mResults = new Bundle();
         }
 
         @Override
         public void onReceive(Context c, Intent intent) {
+            Bundle mResults = new Bundle();
             String action = intent.getAction();
             if (action.equals(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION)) {
                 Log.d("Wifi P2p State Changed.");
@@ -267,7 +304,6 @@ public class WifiP2pManagerFacade extends RpcReceiver {
                     mResults.putParcelable("P2pInfo", p2pInfo);
                     mResults.putParcelable("Group", group);
                     mEventFacade.postEvent(mEventType + "Connected", mResults);
-                    mResults.clear();
                 } else {
                     mEventFacade.postEvent(mEventType + "Disconnected", null);
                 }
@@ -277,7 +313,6 @@ public class WifiP2pManagerFacade extends RpcReceiver {
                         .getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
                 mResults.putParcelable("Device", device);
                 mEventFacade.postEvent(mEventType + "ThisDeviceChanged", mResults);
-                mResults.clear();
             } else if (action.equals(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION)) {
                 Log.d("Wifi P2p Discovery Changed.");
                 int state = intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, 0);
@@ -357,6 +392,19 @@ public class WifiP2pManagerFacade extends RpcReceiver {
         m.send(msg);
     }
 
+    /**
+     * Confirm p2p keypad connection invitation.
+     */
+    @Rpc(description = "Confirm p2p keypad connection invitation.")
+    public void wifiP2pConfirmConnection() throws RemoteException {
+        Log.d("Confirm p2p connection.");
+        Messenger m = mP2p.getP2pStateMachineMessenger();
+        int user_confirm = Protocol.BASE_WIFI_P2P_SERVICE + 7;
+        Message msg = Message.obtain();
+        msg.what = user_confirm;
+        m.send(msg);
+    }
+
     @Rpc(description = "Register a local service for service discovery. One of the \"CreateXxxServiceInfo functions needs to be called first.\"")
     public void wifiP2pAddLocalService() {
         mP2p.addLocalService(mChannel, mServiceInfo,
@@ -371,6 +419,51 @@ public class WifiP2pManagerFacade extends RpcReceiver {
         mServiceRequests.put(mServiceRequestCnt, request);
         mP2p.addServiceRequest(mChannel, request, new WifiP2pActionListener(mEventFacade,
                 "AddServiceRequest"));
+        return mServiceRequestCnt;
+    }
+
+    /**
+     * Add a service upnp discovery request.
+     * @param query The part of service specific query
+     */
+    @Rpc(description = "Add a service upnp discovery request.")
+    public Integer wifiP2pAddUpnpServiceRequest(
+            @RpcParameter(name = "query") String query) {
+        WifiP2pUpnpServiceRequest request = WifiP2pUpnpServiceRequest.newInstance(query);
+        mServiceRequestCnt += 1;
+        mServiceRequests.put(mServiceRequestCnt, request);
+        mP2p.addServiceRequest(mChannel, request, new WifiP2pActionListener(mEventFacade,
+                "AddUpnpServiceRequest"));
+        return mServiceRequestCnt;
+    }
+
+    /**
+     * Create a service discovery request to get the TXT data from the specified
+     * Bonjour service.
+     *
+     * @param instanceName instance name. Can be null.
+     * e.g)
+     *  "MyPrinter"
+     * @param serviceType service type. Cannot be null.
+     * e.g)
+     *  "_afpovertcp._tcp."(Apple File Sharing over TCP)
+     *  "_ipp._tcp" (IP Printing over TCP)
+     *  "_http._tcp" (http service)
+     */
+    @Rpc(description = "Add a service dns discovery request.")
+    public Integer wifiP2pAddDnssdServiceRequest(
+            @RpcParameter(name = "serviceType") String serviceType,
+            @RpcParameter(name = "instanceName") String instanceName) {
+        WifiP2pDnsSdServiceRequest request;
+        if (instanceName != null) {
+            request = WifiP2pDnsSdServiceRequest.newInstance(instanceName, serviceType);
+        } else {
+            request = WifiP2pDnsSdServiceRequest.newInstance(serviceType);
+        }
+        mServiceRequestCnt += 1;
+        mServiceRequests.put(mServiceRequestCnt, request);
+        mP2p.addServiceRequest(mChannel, request, new WifiP2pActionListener(mEventFacade,
+                "AddDnssdServiceRequest"));
         return mServiceRequestCnt;
     }
 
@@ -391,17 +484,17 @@ public class WifiP2pManagerFacade extends RpcReceiver {
                 new WifiP2pActionListener(mEventFacade, "ClearServiceRequests"));
     }
 
+    /**
+     * Connects to a discovered wifi p2p device
+     * @param config JSONObject Dictionary of p2p connection parameters
+     * @throws JSONException
+     */
     @Rpc(description = "Connects to a discovered wifi p2p device.")
-    public void wifiP2pConnect(@RpcParameter(name = "deviceId") String deviceId) {
-        for (WifiP2pDevice d : mP2pPeers) {
-            if (wifiP2pDeviceMatches(d, deviceId)) {
-                WifiP2pConfig config = new WifiP2pConfig();
-                config.deviceAddress = d.deviceAddress;
-                config.wps.setup = WpsInfo.PBC;
-                mP2p.connect(mChannel, config,
-                        new WifiP2pActionListener(mEventFacade, "Connect"));
-            }
-        }
+    public void wifiP2pConnect(@RpcParameter(name = "config") JSONObject config)
+            throws JSONException {
+        WifiP2pConfig wifiP2pConfig = genWifiP2pConfig(config);
+        mP2p.connect(mChannel, wifiP2pConfig,
+                new WifiP2pActionListener(mEventFacade, "Connect"));
     }
 
     @Rpc(description = "Create a Bonjour service info object to be used for wifiP2pAddLocalService.")
@@ -410,7 +503,9 @@ public class WifiP2pManagerFacade extends RpcReceiver {
             @RpcParameter(name = "serviceType") String serviceType,
             @RpcParameter(name = "txtMap") JSONObject txtMap) throws JSONException {
         Map<String, String> map = new HashMap<String, String>();
-        for (String key : txtMap.keySet()) {
+        Iterator<String> keyIterator = txtMap.keys();
+        while (keyIterator.hasNext()) {
+            String key = keyIterator.next();
             map.put(key, txtMap.getString(key));
         }
         mServiceInfo = WifiP2pDnsSdServiceInfo.newInstance(instanceName, serviceType, map);
@@ -418,15 +513,34 @@ public class WifiP2pManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Create a wifi p2p group.")
     public void wifiP2pCreateGroup() {
-        mP2p.createGroup(mChannel, new WifiP2pActionListener(mEventFacade, "CreatGroup"));
+        mP2p.createGroup(mChannel, new WifiP2pActionListener(mEventFacade, "CreateGroup"));
+    }
+
+    /**
+     * Create a group with config.
+     *
+     * @param config JSONObject Dictionary of p2p connection parameters
+     * @throws JSONException
+     */
+    @Rpc(description = "Create a wifi p2p group with config.")
+    public void wifiP2pCreateGroupWithConfig(@RpcParameter(name = "config") JSONObject config)
+            throws JSONException {
+        WifiP2pConfig wifiP2pConfig = genWifiP2pConfig(config);
+        mP2p.createGroup(mChannel, wifiP2pConfig,
+                new WifiP2pActionListener(mEventFacade, "CreateGroup"));
     }
 
     @Rpc(description = "Create a Upnp service info object to be used for wifiP2pAddLocalService.")
     public void wifiP2pCreateUpnpServiceInfo(
             @RpcParameter(name = "uuid") String uuid,
             @RpcParameter(name = "device") String device,
-            @RpcParameter(name = "services") List<String> services) {
-        mServiceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
+            @RpcParameter(name = "services") JSONArray services) throws JSONException {
+        List<String> serviceList = new ArrayList<String>();
+        for (int i = 0; i < services.length(); i++) {
+            serviceList.add(services.getString(i));
+            Log.d("wifiP2pCreateUpnpServiceInfo, services: " + services.getString(i));
+        }
+        mServiceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, serviceList);
     }
 
     @Rpc(description = "Delete a stored persistent group from the system settings.")
@@ -454,6 +568,14 @@ public class WifiP2pManagerFacade extends RpcReceiver {
     public void wifiP2pInitialize() {
         mService.registerReceiver(mP2pStateChangedReceiver, mStateChangeFilter);
         mChannel = mP2p.initialize(mService, mService.getMainLooper(), null);
+    }
+
+    @Rpc(description = "Sets the listening channel and operating channel of the current group created with initialize")
+    public void wifiP2pSetChannelsForCurrentGroup(
+            @RpcParameter(name = "listeningChannel") Integer listeningChannel,
+            @RpcParameter(name = "operatingChannel") Integer operatingChannel) {
+        mP2p.setWifiP2pChannels(mChannel, listeningChannel, operatingChannel,
+                new WifiP2pActionListener(mEventFacade, "SetChannels"));
     }
 
     @Rpc(description = "Close the current wifi p2p connection created with initialize.")
@@ -519,10 +641,87 @@ public class WifiP2pManagerFacade extends RpcReceiver {
                 new WifiP2pDnsSdTxtRecordListener(mEventFacade));
     }
 
+    /**
+     * Register a callback to be invoked on receiving
+     * Upnp service discovery response.
+     */
+    @Rpc(description = "Register a callback to be invoked on receiving "
+            + "Upnp service discovery response.")
+    public void wifiP2pSetUpnpResponseListeners() {
+        mP2p.setUpnpServiceResponseListener(mChannel,
+                new WifiP2pUpnpServiceResponseListener(mEventFacade));
+    }
+
     @Rpc(description = "Stop an ongoing peer discovery.")
     public void wifiP2pStopPeerDiscovery() {
         mP2p.stopPeerDiscovery(mChannel,
                 new WifiP2pActionListener(mEventFacade, "StopPeerDiscovery"));
     }
 
+    private WpsInfo genWpsInfo(JSONObject j) throws JSONException {
+        if (j == null) {
+            return null;
+        }
+        WpsInfo wpsInfo = new WpsInfo();
+        if (j.has("setup")) {
+            wpsInfo.setup = j.getInt("setup");
+        }
+        if (j.has("BSSID")) {
+            wpsInfo.BSSID = j.getString("BSSID");
+        }
+        if (j.has("pin")) {
+            wpsInfo.pin = j.getString("pin");
+        }
+        return wpsInfo;
+    }
+
+    private WifiP2pConfig genWifiP2pConfig(JSONObject j) throws JSONException,
+            NumberFormatException {
+        if (j == null) {
+            return null;
+        }
+        WifiP2pConfig config = new WifiP2pConfig();
+        if (j.has("networkName") && j.has("passphrase")) {
+            WifiP2pConfig.Builder b = new WifiP2pConfig.Builder();
+            b.setNetworkName(j.getString("networkName"));
+            b.setPassphrase(j.getString("passphrase"));
+            if (j.has("groupOwnerBand")) {
+                b.setGroupOperatingBand(Integer.parseInt(j.getString("groupOwnerBand")));
+            }
+            config = b.build();
+        }
+        if (j.has("deviceAddress")) {
+            config.deviceAddress = j.getString("deviceAddress");
+        }
+        if (j.has("wpsInfo")) {
+            config.wps = genWpsInfo(j.getJSONObject("wpsInfo"));
+        }
+        if (j.has("groupOwnerIntent")) {
+            config.groupOwnerIntent = j.getInt("groupOwnerIntent");
+        }
+        if (j.has("netId")) {
+            config.netId = j.getInt("netId");
+        }
+        return config;
+    }
+
+    /**
+     * Set saved WifiP2pConfig for an ongoing peer connection
+     * @param wifiP2pConfig JSONObject Dictionary of p2p connection parameters
+     * @throws JSONException
+     */
+    @Rpc(description = "Set saved WifiP2pConfig for an ongoing peer connection")
+    public void setP2pPeerConfigure(@RpcParameter(name = "config") JSONObject wifiP2pConfig)
+            throws JSONException {
+        mP2p.setOngoingPeerConfig(mChannel, genWifiP2pConfig(wifiP2pConfig),
+                new WifiP2pActionListener(mEventFacade, "setP2pPeerConfigure"));
+    }
+
+    /**
+     * Request saved WifiP2pConfig which used for an ongoing peer connection
+     */
+    @Rpc(description = "Request saved WifiP2pConfig which used for an ongoing peer connection")
+    public void requestP2pPeerConfigure() {
+        mP2p.requestOngoingPeerConfig(mChannel, new WifiP2pOngoingPeerConfigListener(mEventFacade));
+    }
 }

@@ -28,6 +28,7 @@
 #include "vktDrawBaseClass.hpp"
 
 #include "vkQueryUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuImageCompare.hpp"
@@ -319,27 +320,16 @@ tcu::TestStatus DrawTest::iterate (void)
 				m_vk.cmdDraw(*m_cmdBuffer, NUM_VERTICES, numInstances, NDX_FIRST_VERTEX, firstInstance);
 		}
 
-		m_vk.cmdEndRenderPass(*m_cmdBuffer);
-		m_vk.endCommandBuffer(*m_cmdBuffer);
+		endRenderPass(m_vk, *m_cmdBuffer);
+		endCommandBuffer(m_vk, *m_cmdBuffer);
 	}
 
 	// Submit
 	{
 		const vk::VkQueue		queue		= m_context.getUniversalQueue();
-		const vk::VkSubmitInfo	submitInfo	=
-		{
-			vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType;
-			DE_NULL,									// const void*				pNext;
-			0,											// deUint32					waitSemaphoreCount;
-			DE_NULL,									// const VkSemaphore*		pWaitSemaphores;
-			(const vk::VkPipelineStageFlags*)DE_NULL,
-			1,											// deUint32					commandBufferCount;
-			&m_cmdBuffer.get(),							// const VkCommandBuffer*	pCommandBuffers;
-			0,											// deUint32					signalSemaphoreCount;
-			DE_NULL										// const VkSemaphore*		pSignalSemaphores;
-		};
-		VK_CHECK(m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL));
-		VK_CHECK(m_vk.queueWaitIdle(queue));
+		const vk::VkDevice		device		= m_context.getDevice();
+
+		submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 	}
 
 	// Validate

@@ -1,103 +1,82 @@
-# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
+import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import tpm_utils
-from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
-class firmware_Cr50Unlock(FirmwareTest):
-    """Verify cr50 unlock using the console and gsctool.
-
-    Enable the lock on cr50, run the different forms of unlock, making sure
-    cr50 can or cannot be unlocked.
-
-    This does not verify unlock with password.
-    """
+class firmware_Cr50Unlock(Cr50Test):
+    """Verify cr50 unlock."""
     version = 1
-
-    def initialize(self, host, cmdline_args):
-        """Initialize servo and check that it has access to cr50 with ccd"""
-        super(firmware_Cr50Unlock, self).initialize(host, cmdline_args)
-
-        if not hasattr(self, 'cr50'):
-            raise error.TestNAError('Test can only be run on devices with '
-                                    'access to the Cr50 console')
-        if self.cr50.using_ccd():
-            raise error.TestNAError('Use a flex cable instead of CCD cable.')
-
-        self.host = host
+    PASSWORD = 'Password'
 
 
-    def gsctool_unlock(self, unlock_allowed):
-        """Unlock cr50 using the gsctool command"""
-        result = self.host.run('gsctool -a -U',
-                ignore_status=not unlock_allowed)
-        if not unlock_allowed and (result.exit_status != 3 or
-            'Error: rv 7, response 7' not in result.stderr):
-            raise error.TestFail('unexpected lockout result %r', result)
-        self.check_unlock(unlock_allowed)
+    def run_once(self):
+        """Check cr50 can see dev mode open works correctly"""
+        # Make sure testlab mode is enabled, so we can guarantee the password
+        # can be cleared.
+        self.fast_open(enable_testlab=True)
+        self.cr50.send_command('ccd reset')
 
+        # Set the password
+        self.set_ccd_password(self.PASSWORD)
+        if self.cr50.get_ccd_info()['Password'] != 'set':
+            raise error.TestFail('Failed to set password')
 
-    def console_unlock(self, unlock_allowed):
-        """Unlock cr50 using the console command"""
-        try:
-            self.cr50.set_ccd_level('unlock')
-        except error.TestFail, e:
-            # The console cannot be used to unlock cr50 unless a password is
-            # is set.
-            if 'Unlock only allowed after password is set' in e.message:
-                logging.info('Unlock unsupported without password')
-            else:
-                raise
-        self.check_unlock(unlock_allowed)
-
-
-    def check_unlock(self, unlock_allowed):
-        """Check that cr50 is unlocked or locked
-
-        Args:
-            unlock_allowed: True or False on whether Cr50 should be able to
-                            be unlocked.
-        Raises:
-            TestFail if the cr50 ccd state does not match unlock_allowed
-        """
-        unlocked = self.cr50.get_ccd_level() == 'unlock'
-        if unlocked and not unlock_allowed:
-            raise error.TestFail("Cr50 was unlocked when it shouldn't have "
-                    "been")
-        elif not unlocked and unlock_allowed:
-            raise error.TestFail('Cr50 was not unlocked when it should have '
-                    'been')
-
-
-    def unlock_test(self, unlock_func, unlock_allowed):
-        """Verify cr50 can or cannot be unlocked with the given unlock_func"""
         self.cr50.set_ccd_level('lock')
 
-        # Clear the TPM owner. The login state can affect unlock abilities
-        tpm_utils.ClearTPMOwnerRequest(self.host)
+        # Verify the password can be used to unlock the console
+        self.cr50.send_command('ccd unlock ' + self.PASSWORD)
+        if self.cr50.get_ccd_level() != 'unlock':
+            raise error.TestFail('Could not unlock cr50 with the password')
 
-        unlock_func(unlock_allowed)
+        self.cr50.set_ccd_level('lock')
+        # Try with the lowercase version of the passsword. Make sure it doesn't
+        # work.
+        self.cr50.send_command('ccd unlock ' + self.PASSWORD.lower())
+        if self.cr50.get_ccd_level() == 'unlock':
+            raise error.TestFail('Unlocked cr50 with incorrect password')
+        # TODO(b/111418310): figure out what's going on. I dont know why, but
+        # for some reason you can't immediately unlock cr50 after a failure on
+        # the command line. 5 seconds should be enough.
+        #
+        # State as of 0.4.8
+        # incorrect unlock from command line
+        # and immediate unlock attempt from AP -> FAILURE
+        #
+        # incorrect unlock from command line,
+        # wait a bit, and unlock attempt from AP -> SUCCESS
 
-        # TODO: set password and try to unlock again. Make sure it succeeds.
-        # no matter how it is being set.
-
-
-    def run_once(self, ccd_lockout):
-        """Verify cr50 lock behavior on v1 images and v0 images"""
-        logging.info('ccd should %sbe locked out',
-                '' if ccd_lockout else 'not ')
-        if self.cr50.has_command('ccdstate'):
-            self.unlock_test(self.gsctool_unlock, not ccd_lockout)
-            self.unlock_test(self.console_unlock, False)
-            logging.info('ccd unlock is %s', 'locked out' if ccd_lockout else
-                    'accessible')
+        # Try Unlock from the AP
+        try:
+            self.ccd_unlock_from_ap(self.PASSWORD, expect_error=True)
+        except:
+            raise error.TestError('Something is different.Check b/111418310. '
+                                  'Is it fixed?')
         else:
-            # pre-v1, cr50 cannot be unlocked. Make sure that's true
-            logging.info(self.cr50.send_command_get_output('lock disable',
-                    ['Access Denied\s+Usage: lock']))
-            logging.info('Cr50 cannot be unlocked with ccd v0')
+            logging.info('Unintentional rate limiting is still happening')
+
+        # Show the same thing works with a 2 second wait
+        self.cr50.set_ccd_level('lock')
+        self.cr50.send_command('ccd unlock ' + self.PASSWORD.lower())
+        if self.cr50.get_ccd_level() != 'lock':
+            raise error.TestFail('Unlocked cr50 from AP with incorrect '
+                    'password')
+        # Unintentional limit. I don't know the exact limit. 3 seconds should
+        # be enough.
+        time.sleep(5)
+        self.ccd_unlock_from_ap(self.PASSWORD)
+
+        # Show the rate limit doesn't apply to Unlocking from the AP.
+        # Try Unlock from the AP with lower case version. Make sure it fails
+        self.cr50.set_ccd_level('lock')
+        self.ccd_unlock_from_ap(self.PASSWORD.lower(), expect_error=True)
+        if self.cr50.get_ccd_level() != 'lock':
+            raise error.TestFail('Unlocked cr50 from AP with incorrect '
+                    'password')
+        # Test immediate unlock from AP
+        self.ccd_unlock_from_ap(self.PASSWORD)

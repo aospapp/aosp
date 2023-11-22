@@ -5,7 +5,10 @@ autotestd_monit
 check_ethernet.
 chrome
 chrome-sandbox
+cras_test_clien
+crash_reporter
 endpoint
+evemu-device
 flock
 grep
 init
@@ -17,6 +20,7 @@ nacl_helper_non
 ping
 ply-image
 ps
+recover_duts
 sleep
 sshd
 sudo

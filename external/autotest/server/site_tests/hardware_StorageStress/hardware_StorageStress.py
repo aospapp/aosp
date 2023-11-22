@@ -25,7 +25,8 @@ class hardware_StorageStress(test.test):
 
     def run_once(self, client_ip, gap=_TEST_GAP, duration=_TEST_DURATION,
                  power_command='reboot', storage_test_command='integrity',
-                 suspend_duration=_SUSPEND_DURATION, storage_test_argument=''):
+                 suspend_duration=_SUSPEND_DURATION, storage_test_argument='',
+                 cq=False):
         """
         Run the Storage stress test
         Use hardwareStorageFio to run some test_command repeatedly for a long
@@ -44,7 +45,19 @@ class hardware_StorageStress(test.test):
                                             to determine which disk to write
         @param suspend_duration: if power_command is suspend, how long the DUT
                               is suspended.
+        @param cq:            Indicates that this test is being run as part of
+                              the cq. This is not used to test a component for
+                              qualification, but to test the storage qual suite
         """
+
+        # in a cq run, do not execute the test, just output
+        # the order that the test would have run in
+        if cq:
+            label = 'suspend' if power_command is 'suspend' else 'soak'
+            self.write_test_keyval(
+                {'storage_qual_cq': ('%f hardware_StorageStress_%s'
+                    % (time.time(), label))})
+            return
 
         # init test
         if not client_ip:

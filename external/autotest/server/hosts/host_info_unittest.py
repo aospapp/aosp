@@ -57,16 +57,13 @@ class HostInfoTest(unittest.TestCase):
 
     def test_build_needs_prefix(self):
         """The build prefix is of the form '<type>-version:'"""
-        self.info.labels = ['cros-version', 'ab-version', 'testbed-version',
-                            'fwrw-version', 'fwro-version']
+        self.info.labels = ['cros-version', 'fwrw-version', 'fwro-version']
         self.assertIsNone(self.info.build)
 
 
     def test_build_prefix_must_be_anchored(self):
         """Ensure that build ignores prefixes occuring mid-string."""
-        self.info.labels = ['not-at-start-cros-version:cros1',
-                            'not-at-start-ab-version:ab1',
-                            'not-at-start-testbed-version:testbed1']
+        self.info.labels = ['not-at-start-cros-version:cros1']
         self.assertIsNone(self.info.build)
 
 
@@ -80,28 +77,14 @@ class HostInfoTest(unittest.TestCase):
         """When multiple labels match, first one should be used as build."""
         self.info.labels = ['cros-version:cros1', 'cros-version:cros2']
         self.assertEqual(self.info.build, 'cros1')
-        self.info.labels = ['ab-version:ab1', 'ab-version:ab2']
-        self.assertEqual(self.info.build, 'ab1')
-        self.info.labels = ['testbed-version:tb1', 'testbed-version:tb2']
-        self.assertEqual(self.info.build, 'tb1')
 
 
     def test_build_prefer_cros_over_others(self):
         """When multiple versions are available, prefer cros."""
-        self.info.labels = ['testbed-version:tb1', 'ab-version:ab1',
-                            'cros-version:cros1']
+        self.info.labels = ['cheets-version:ab1', 'cros-version:cros1']
         self.assertEqual(self.info.build, 'cros1')
-        self.info.labels = ['cros-version:cros1', 'ab-version:ab1',
-                            'testbed-version:tb1']
+        self.info.labels = ['cros-version:cros1', 'cheets-version:ab1']
         self.assertEqual(self.info.build, 'cros1')
-
-
-    def test_build_prefer_ab_over_testbed(self):
-        """When multiple versions are available, prefer ab over testbed."""
-        self.info.labels = ['testbed-version:tb1', 'ab-version:ab1']
-        self.assertEqual(self.info.build, 'ab1')
-        self.info.labels = ['ab-version:ab1', 'testbed-version:tb1']
-        self.assertEqual(self.info.build, 'ab1')
 
 
     def test_os_no_match(self):
@@ -152,9 +135,9 @@ class HostInfoTest(unittest.TestCase):
 
 
     def test_clear_version_labels_no_labels(self):
-        """When no version labels exit, do nothing for clear_version_labels."""
+        """When no version labels exist, do nothing for clear_version_labels."""
         original_labels = ['board:something', 'os:something_else',
-                           'pool:mypool', 'ab-version-corrupted:blah',
+                           'pool:mypool', 'cheets-version-corrupted:blah',
                            'cros-version']
         self.info.labels = list(original_labels)
         self.info.clear_version_labels()
@@ -163,16 +146,15 @@ class HostInfoTest(unittest.TestCase):
 
     def test_clear_all_version_labels(self):
         """Clear each recognized type of version label."""
-        original_labels = ['extra_label', 'cros-version:cr1', 'ab-version:ab1',
-                           'testbed-version:tb1']
+        original_labels = ['extra_label', 'cros-version:cr1',
+                           'cheets-version:ab1']
         self.info.labels = list(original_labels)
         self.info.clear_version_labels()
         self.assertListEqual(self.info.labels, ['extra_label'])
 
     def test_clear_all_version_label_prefixes(self):
         """Clear each recognized type of version label with empty value."""
-        original_labels = ['extra_label', 'cros-version:', 'ab-version:',
-                           'testbed-version:']
+        original_labels = ['extra_label', 'cros-version:', 'cheets-version:']
         self.info.labels = list(original_labels)
         self.info.clear_version_labels()
         self.assertListEqual(self.info.labels, ['extra_label'])
@@ -180,16 +162,16 @@ class HostInfoTest(unittest.TestCase):
 
     def test_set_version_labels_updates_in_place(self):
         """Update version label in place if prefix already exists."""
-        self.info.labels = ['extra', 'cros-version:X', 'ab-version:Y']
+        self.info.labels = ['extra', 'cros-version:X', 'cheets-version:Y']
         self.info.set_version_label('cros-version', 'Z')
         self.assertListEqual(self.info.labels, ['extra', 'cros-version:Z',
-                                                'ab-version:Y'])
+                                                'cheets-version:Y'])
 
     def test_set_version_labels_appends(self):
         """Append a new version label if the prefix doesn't exist."""
-        self.info.labels = ['extra', 'ab-version:Y']
+        self.info.labels = ['extra', 'cheets-version:Y']
         self.info.set_version_label('cros-version', 'Z')
-        self.assertListEqual(self.info.labels, ['extra', 'ab-version:Y',
+        self.assertListEqual(self.info.labels, ['extra', 'cheets-version:Y',
                                                 'cros-version:Z'])
 
 

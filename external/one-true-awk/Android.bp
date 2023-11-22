@@ -1,24 +1,5 @@
 cc_defaults {
-    name: "awk-defaults",
-
-    srcs: [
-        // We remove the upstream ytab.c/ytab.h and let the build system build
-        // awkgram.y for us. Because all the source refers to ytab.h, we have a
-        // one-line ytab.h that includes the generated awkgram.h.
-        "awkgram.y",
-        "b.c",
-        "lex.c",
-        "lib.c",
-        "main.c",
-        "parse.c",
-        // We don't build or run `maketab` because it can't cope with modern
-        // yacc output which generates an enum rather than #defines. Luckily
-        // the upstream prebuilt proctab.c is good enough.
-        "proctab.c",
-        "run.c",
-        "tran.c",
-    ],
-
+    name: "awk-flags",
     cflags: [
         "-Wall",
         "-Werror",
@@ -27,6 +8,41 @@ cc_defaults {
         "-Wno-missing-field-initializers",
         "-Wno-self-assign",
         "-Wno-unused-parameter",
+        // A loop to UCHAR_MAX in `b.c`.
+        "-Wno-sign-compare",
+        // And one less harmless used with strtod(3) in `lex.c`.
+        "-Wno-unused-result",
+        // Also ignore harmless macro redefinitions: glibc 2.17 #defines dprintf
+        // in stdio2.h, and this #defines it in awk.h
+        "-Wno-macro-redefined",
+    ],
+    yaccflags: [
+        "-y",
+    ],
+}
+
+// TODO: we should actually rebuild awkgram.y and pass the output through maketab.
+// For now we just rebuild the checked-in generated files.
+cc_binary {
+    name: "awk-maketab",
+    defaults: ["awk-flags"],
+    srcs: ["maketab.c"]
+}
+
+cc_defaults {
+    name: "awk-defaults",
+    defaults: ["awk-flags"],
+
+    srcs: [
+        "b.c",
+        "lex.c",
+        "lib.c",
+        "main.c",
+        "parse.c",
+        "proctab.c",
+        "run.c",
+        "tran.c",
+        "ytab.c",
     ],
 }
 
@@ -40,4 +56,9 @@ cc_binary {
     defaults: ["awk-defaults"],
     stem: "awk",
     vendor: true,
+}
+
+cc_binary_host {
+    name: "one-true-awk",
+    defaults: ["awk-defaults"],
 }

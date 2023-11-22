@@ -27,11 +27,11 @@ import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 public class MonitorContendedEnteredTest extends JDWPSyncTestCase {
-    String monitorSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/MonitorWaitMockMonitor;";
+    String monitorSignature = getClassSignature(MonitorWaitMockMonitor.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.Events.MonitorContendedEnterAndEnteredDebuggee";
+        return MonitorContendedEnterAndEnteredDebuggee.class.getName();
     }
 
     public void testMonitorContendedEnteredForClassMatch() {

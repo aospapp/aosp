@@ -12,6 +12,7 @@ __author__ = 'asharif@google.com (Ahmad Sharif)'
 
 import argparse
 import filecmp
+import getpass
 import glob
 import os
 import re
@@ -62,6 +63,46 @@ def DisableCrosBeeps(chromeos_root, remote, log_level):
   if ret != 0:
     logger.GetLogger().LogOutput(o)
     logger.GetLogger().LogOutput('Failed to disable beeps.')
+
+
+def FindChromeOSImage(image_file, chromeos_root):
+  """Find path for ChromeOS image inside chroot.
+
+  This function could be called with image paths that are either inside
+  or outside the chroot.  In either case the path needs to be translated
+  to an real/absolute path inside the chroot.
+  Example input paths:
+  /usr/local/google/home/uname/chromeos/chroot/tmp/my-test-images/image
+  ~/trunk/src/build/images/board/latest/image
+  /tmp/peppy-release/R67-1235.0.0/image
+
+  Corresponding example output paths:
+  /tmp/my-test-images/image
+  /home/uname/trunk/src/build/images/board/latest/image
+  /tmp/peppy-release/R67-1235.0,0/image
+  """
+
+  # Get the name of the user, for "/home/<user>" part of the path.
+  whoami = getpass.getuser()
+  # Get the full path for the chroot dir, including 'chroot'
+  real_chroot_dir = os.path.join(os.path.realpath(chromeos_root), 'chroot')
+  # Get the full path for the chromeos root, excluding 'chroot'
+  real_chromeos_root = os.path.realpath(chromeos_root)
+
+  # If path name starts with real_chroot_dir, remove that piece, but assume
+  # the rest of the path is correct.
+  if image_file.find(real_chroot_dir) != -1:
+    chroot_image = image_file[len(real_chroot_dir):]
+  # If path name starts with chromeos_root, excluding 'chroot', replace the
+  # chromeos_root with the prefix: '/home/<username>/trunk'.
+  elif image_file.find(real_chromeos_root) != -1:
+    chroot_image = image_file[len(real_chromeos_root):]
+    chroot_image = '/home/%s/trunk%s' % (whoami, chroot_image)
+  # Else assume the path is already internal, so leave it alone.
+  else:
+    chroot_image = image_file
+
+  return chroot_image
 
 
 def DoImage(argv):
@@ -178,8 +219,10 @@ def DoImage(argv):
         reimage = True
         l.LogOutput('Checksums do not match. Re-imaging...')
 
+        chroot_image = FindChromeOSImage(located_image, options.chromeos_root)
+
         is_test_image = IsImageModdedForTest(options.chromeos_root,
-                                             located_image, log_level)
+                                             chroot_image, log_level)
 
         if not is_test_image and not options.force:
           logger.GetLogger().LogFatal('Have to pass --force to image a '
@@ -199,16 +242,6 @@ def DoImage(argv):
           os.path.realpath(options.chromeos_root), 'src')
       real_chroot_dir = os.path.join(
           os.path.realpath(options.chromeos_root), 'chroot')
-      if local_image:
-        if located_image.find(real_src_dir) != 0:
-          if located_image.find(real_chroot_dir) != 0:
-            raise RuntimeError('Located image: %s not in chromeos_root: %s' %
-                               (located_image, options.chromeos_root))
-          else:
-            chroot_image = located_image[len(real_chroot_dir):]
-        else:
-          chroot_image = os.path.join(
-              '~/trunk/src', located_image[len(real_src_dir):].lstrip('/'))
 
       # Check to see if cros flash will work for the remote machine.
       CheckForCrosFlash(options.chromeos_root, options.remote, log_level)
@@ -247,11 +280,6 @@ def DoImage(argv):
       if log_level == 'average':
         cmd_executer.SetLogLevel(log_level)
 
-      if found == False:
-        temp_dir = os.path.dirname(located_image)
-        l.LogOutput('Deleting temp image dir: %s' % temp_dir)
-        shutil.rmtree(temp_dir)
-
       logger.GetLogger().LogFatalIf(ret, 'Image command failed')
 
       # Unfortunately cros_image_to_target.py sometimes returns early when the
@@ -277,12 +305,17 @@ def DoImage(argv):
             machine=options.remote)
         logger.GetLogger().LogFatalIf(ret, 'Writing checksum failed.')
 
-        successfully_imaged = VerifyChromeChecksum(options.chromeos_root, image,
-                                                   options.remote, log_level)
+        successfully_imaged = VerifyChromeChecksum(
+            options.chromeos_root, chroot_image, options.remote, log_level)
         logger.GetLogger().LogFatalIf(not successfully_imaged,
                                       'Image verification failed!')
         TryRemountPartitionAsRW(options.chromeos_root, options.remote,
                                 log_level)
+
+      if found == False:
+        temp_dir = os.path.dirname(located_image)
+        l.LogOutput('Deleting temp image dir: %s' % temp_dir)
+        shutil.rmtree(temp_dir)
     else:
       l.LogOutput('Checksums match. Skipping reimage')
     return ret
@@ -329,13 +362,12 @@ def LocateOrCopyImage(chromeos_root, image, board=None):
 def GetImageMountCommand(chromeos_root, image, rootfs_mp, stateful_mp):
   image_dir = os.path.dirname(image)
   image_file = os.path.basename(image)
-  mount_command = ('cd %s/src/scripts &&'
+  mount_command = ('cd ~/trunk/src/scripts &&'
                    './mount_gpt_image.sh --from=%s --image=%s'
                    ' --safe --read_only'
                    ' --rootfs_mountpt=%s'
-                   ' --stateful_mountpt=%s' %
-                   (chromeos_root, image_dir, image_file, rootfs_mp,
-                    stateful_mp))
+                   ' --stateful_mountpt=%s' % (image_dir, image_file, rootfs_mp,
+                                               stateful_mp))
   return mount_command
 
 
@@ -344,37 +376,63 @@ def MountImage(chromeos_root,
                rootfs_mp,
                stateful_mp,
                log_level,
-               unmount=False):
+               unmount=False,
+               extra_commands=''):
   cmd_executer = command_executer.GetCommandExecuter(log_level=log_level)
   command = GetImageMountCommand(chromeos_root, image, rootfs_mp, stateful_mp)
   if unmount:
     command = '%s --unmount' % command
-  ret = cmd_executer.RunCommand(command)
+  if extra_commands:
+    command = '%s ; %s' % (command, extra_commands)
+  ret, out, _ = cmd_executer.ChrootRunCommandWOutput(chromeos_root, command)
   logger.GetLogger().LogFatalIf(ret, 'Mount/unmount command failed!')
-  return ret
+  return out
 
 
 def IsImageModdedForTest(chromeos_root, image, log_level):
   if log_level != 'verbose':
     log_level = 'quiet'
-  rootfs_mp = tempfile.mkdtemp()
-  stateful_mp = tempfile.mkdtemp()
-  MountImage(chromeos_root, image, rootfs_mp, stateful_mp, log_level)
+  command = 'mktemp -d'
+  cmd_executer = command_executer.GetCommandExecuter(log_level=log_level)
+  _, rootfs_mp, _ = cmd_executer.ChrootRunCommandWOutput(chromeos_root, command)
+  _, stateful_mp, _ = cmd_executer.ChrootRunCommandWOutput(
+      chromeos_root, command)
+  rootfs_mp = rootfs_mp.strip()
+  stateful_mp = stateful_mp.strip()
   lsb_release_file = os.path.join(rootfs_mp, 'etc/lsb-release')
-  lsb_release_contents = open(lsb_release_file).read()
-  is_test_image = re.search('test', lsb_release_contents, re.IGNORECASE)
+  extra = (
+      'grep CHROMEOS_RELEASE_DESCRIPTION %s | grep -i test' % lsb_release_file)
+  output = MountImage(
+      chromeos_root,
+      image,
+      rootfs_mp,
+      stateful_mp,
+      log_level,
+      extra_commands=extra)
+  is_test_image = re.search('test', output, re.IGNORECASE)
   MountImage(
       chromeos_root, image, rootfs_mp, stateful_mp, log_level, unmount=True)
   return is_test_image
 
 
 def VerifyChromeChecksum(chromeos_root, image, remote, log_level):
+  command = 'mktemp -d'
   cmd_executer = command_executer.GetCommandExecuter(log_level=log_level)
-  rootfs_mp = tempfile.mkdtemp()
-  stateful_mp = tempfile.mkdtemp()
-  MountImage(chromeos_root, image, rootfs_mp, stateful_mp, log_level)
-  image_chrome_checksum = FileUtils().Md5File(
-      '%s/opt/google/chrome/chrome' % rootfs_mp, log_level=log_level)
+  _, rootfs_mp, _ = cmd_executer.ChrootRunCommandWOutput(chromeos_root, command)
+  _, stateful_mp, _ = cmd_executer.ChrootRunCommandWOutput(
+      chromeos_root, command)
+  rootfs_mp = rootfs_mp.strip()
+  stateful_mp = stateful_mp.strip()
+  chrome_file = '%s/opt/google/chrome/chrome' % rootfs_mp
+  extra = 'md5sum %s' % chrome_file
+  out = MountImage(
+      chromeos_root,
+      image,
+      rootfs_mp,
+      stateful_mp,
+      log_level,
+      extra_commands=extra)
+  image_chrome_checksum = out.strip().split()[0]
   MountImage(
       chromeos_root, image, rootfs_mp, stateful_mp, log_level, unmount=True)
 

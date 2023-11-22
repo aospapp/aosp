@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #include "perfetto/tracing/core/data_source_descriptor.h"
@@ -42,10 +42,40 @@ DataSourceDescriptor::DataSourceDescriptor(DataSourceDescriptor&&) noexcept =
 DataSourceDescriptor& DataSourceDescriptor::operator=(DataSourceDescriptor&&) =
     default;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool DataSourceDescriptor::operator==(const DataSourceDescriptor& other) const {
+  return (name_ == other.name_) &&
+         (will_notify_on_stop_ == other.will_notify_on_stop_) &&
+         (will_notify_on_start_ == other.will_notify_on_start_) &&
+         (handles_incremental_state_clear_ ==
+          other.handles_incremental_state_clear_);
+}
+#pragma GCC diagnostic pop
+
 void DataSourceDescriptor::FromProto(
     const perfetto::protos::DataSourceDescriptor& proto) {
   static_assert(sizeof(name_) == sizeof(proto.name()), "size mismatch");
   name_ = static_cast<decltype(name_)>(proto.name());
+
+  static_assert(
+      sizeof(will_notify_on_stop_) == sizeof(proto.will_notify_on_stop()),
+      "size mismatch");
+  will_notify_on_stop_ =
+      static_cast<decltype(will_notify_on_stop_)>(proto.will_notify_on_stop());
+
+  static_assert(
+      sizeof(will_notify_on_start_) == sizeof(proto.will_notify_on_start()),
+      "size mismatch");
+  will_notify_on_start_ = static_cast<decltype(will_notify_on_start_)>(
+      proto.will_notify_on_start());
+
+  static_assert(sizeof(handles_incremental_state_clear_) ==
+                    sizeof(proto.handles_incremental_state_clear()),
+                "size mismatch");
+  handles_incremental_state_clear_ =
+      static_cast<decltype(handles_incremental_state_clear_)>(
+          proto.handles_incremental_state_clear());
   unknown_fields_ = proto.unknown_fields();
 }
 
@@ -55,6 +85,27 @@ void DataSourceDescriptor::ToProto(
 
   static_assert(sizeof(name_) == sizeof(proto->name()), "size mismatch");
   proto->set_name(static_cast<decltype(proto->name())>(name_));
+
+  static_assert(
+      sizeof(will_notify_on_stop_) == sizeof(proto->will_notify_on_stop()),
+      "size mismatch");
+  proto->set_will_notify_on_stop(
+      static_cast<decltype(proto->will_notify_on_stop())>(
+          will_notify_on_stop_));
+
+  static_assert(
+      sizeof(will_notify_on_start_) == sizeof(proto->will_notify_on_start()),
+      "size mismatch");
+  proto->set_will_notify_on_start(
+      static_cast<decltype(proto->will_notify_on_start())>(
+          will_notify_on_start_));
+
+  static_assert(sizeof(handles_incremental_state_clear_) ==
+                    sizeof(proto->handles_incremental_state_clear()),
+                "size mismatch");
+  proto->set_handles_incremental_state_clear(
+      static_cast<decltype(proto->handles_incremental_state_clear())>(
+          handles_incremental_state_clear_));
   *(proto->mutable_unknown_fields()) = unknown_fields_;
 }
 

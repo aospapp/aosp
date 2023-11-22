@@ -40,11 +40,10 @@ public class MethodsTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.Methods command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/MethodsDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.MethodsDebuggee";
+        return MethodsDebuggee.class.getName();
     }
 
     /**
@@ -60,7 +59,7 @@ public class MethodsTest extends JDWPSyncTestCase {
         int testStatus = testStatusPassed;
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

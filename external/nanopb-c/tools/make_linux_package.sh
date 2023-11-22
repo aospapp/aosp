@@ -3,6 +3,8 @@
 # Run this script in the top nanopb directory to create a binary package
 # for Linux users.
 
+# Requires: protobuf, python-protobuf, pyinstaller
+
 set -e
 set -x
 
@@ -18,20 +20,21 @@ git archive HEAD | tar x -C $DEST
 # Rebuild the Python .proto files
 make -BC $DEST/generator/proto
 
-# Make the nanopb generator available as a protoc plugin
-cp $DEST/generator/nanopb_generator.py $DEST/generator/protoc-gen-nanopb.py
-
 # Package the Python libraries
-( cd $DEST/generator; bbfreeze nanopb_generator.py protoc-gen-nanopb.py )
-mv $DEST/generator/dist $DEST/generator-bin
+( cd $DEST/generator; pyinstaller nanopb_generator.py )
+mv $DEST/generator/dist/nanopb_generator $DEST/generator-bin
 
-# Remove temp file
-rm $DEST/generator/protoc-gen-nanopb.py
+# Remove temp files
+rm -rf $DEST/generator/dist $DEST/generator/build $DEST/generator/nanopb_generator.spec
+
+# Make the nanopb generator available as a protoc plugin
+cp $DEST/generator-bin/nanopb_generator $DEST/generator-bin/protoc-gen-nanopb
 
 # Package the protoc compiler
 cp `which protoc` $DEST/generator-bin/protoc.bin
 LIBPROTOC=$(ldd `which protoc` | grep -o '/.*libprotoc[^ ]*')
-cp $LIBPROTOC $DEST/generator-bin/
+LIBPROTOBUF=$(ldd `which protoc` | grep -o '/.*libprotobuf[^ ]*')
+cp $LIBPROTOC $LIBPROTOBUF $DEST/generator-bin/
 cat > $DEST/generator-bin/protoc << EOF
 #!/bin/bash
 SCRIPTDIR=\$(dirname "\$0")
@@ -40,6 +43,9 @@ export PATH=\$SCRIPTDIR:\$PATH
 exec "\$SCRIPTDIR/protoc.bin" "\$@"
 EOF
 chmod +x $DEST/generator-bin/protoc
+
+# Remove debugging symbols to reduce size of package
+( cd $DEST/generator-bin; strip *.so *.so.* )
 
 # Tar it all up
 ( cd dist; tar -czf $VERSION.tar.gz $VERSION )

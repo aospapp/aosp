@@ -12,13 +12,10 @@ TEST_CLASS = "power"
 TEST_TYPE = "client"
 
 DOC = """
-This test enforces the following contraints:
- - Initial battery charge < 5%
- - Device should be plugged in to an AC outlet
- - In 4 hours, the battery charge should increase by at least 94% of maximum
+Device should be plugged into an AC outlet.
 
 This test depends on power_status.py, which is included in
-client/cros/ in AutoTest. power_status.py has many status
+autotest/files/client/cros/power/. power_status.py has many status
 initialization and parsing routines for battery status.
 """
 

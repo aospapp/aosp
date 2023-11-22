@@ -24,7 +24,7 @@ Prerequisites
 **Standalone checkout**:  
 All dependent libraries are self-hosted and pulled through:
 ```
-$ tools/install-build-deps [--no-android]
+$ tools/install-build-deps [--no-android] [--ui]
 ```
 
 **Android tree**:  
@@ -49,6 +49,12 @@ is_debug = true / false
 
 ```
 $ tools/ninja -C out/android
+```
+
+To build the UI (remember to run `tools/install-build-deps --ui` first):
+
+```
+$ tools/ninja -C out/android ui
 ```
 
 **Android tree**:  
@@ -138,4 +144,4 @@ Enables [Thread Sanitizer](https://github.com/google/sanitizers/wiki/ThreadSanit
 Enables [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
 
 
-[gn-quickstart]: https://chromium.googlesource.com/chromium/src/+/master/tools/gn/docs/quick_start.md
+[gn-quickstart]: https://gn.googlesource.com/gn/+/master/docs/quick_start.md

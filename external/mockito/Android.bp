@@ -44,8 +44,14 @@ java_library_static {
             ],
         },
     },
-    sdk_version: "16",
+    sdk_version: "core_current",
     java_version: "1.7",
+
+    errorprone: {
+        javacflags: [
+            "-Xep:CollectionIncompatibleType:WARN",  // b/74213384
+        ],
+    }
 }
 
 // Compatibility library for old name of host target
@@ -60,7 +66,7 @@ java_library_static {
     hostdex: true,
     no_framework_libs: true,
     static_libs: ["mockito"],
-    sdk_version: "16",
+    sdk_version: "core_current",
 }
 
 // Compatibility library for old name of host target
@@ -70,75 +76,15 @@ java_library_host {
     java_resource_dirs: ["subprojects/inline/src/main/resources"],
 }
 
-// Main target for dependent projects. Bundles all the run-time dependencies
-// needed to run Mockito tests on the device.
-java_library_static {
-    name: "mockito-target",
-    no_framework_libs: true,
-    static_libs: [
-        "mockito-target-minus-junit4",
-        "junit",
-    ],
-    sdk_version: "16",
-}
-
-// A mockito target that doesn't pull in junit. This is used to work around
-// issues caused by multiple copies of junit in the classpath, usually when a test
-// using mockito is run using android.test.runner.
-java_library_static {
-    name: "mockito-target-minus-junit4",
-    no_framework_libs: true,
-    static_libs: [
-        "mockito",
-        "dexmaker",
-        "dexmaker-mockmaker",
-        "objenesis",
-    ],
-    libs: ["junit"],
-    sdk_version: "16",
-
-    java_version: "1.7",
-}
-
-// Main target for dependent projects. Bundles all the run-time dependencies
-// needed to run Mockito tests on the device.
-java_library_static {
-    name: "mockito-target-inline",
-    no_framework_libs: true,
-    static_libs: [
-        "mockito-target-inline-minus-junit4",
-        "junit",
-    ],
-    sdk_version: "current",
-}
-
-// A mockito target that doesn't pull in junit. This is used to work around
-// issues caused by multiple copies of junit in the classpath, usually when a test
-// using mockito is run using android.test.runner.
-java_library_static {
-    name: "mockito-target-inline-minus-junit4",
-    no_framework_libs: true,
-    static_libs: [
-        "mockito",
-        "dexmaker",
-        "dexmaker-inline-mockmaker",
-        "objenesis",
-    ],
-    libs: ["junit"],
-    sdk_version: "current",
-
-    java_version: "1.7",
-}
-
 // Host prebuilt dependencies.
 // ============================================================
 java_import_host {
     name: "mockito-byte-buddy",
-    jars: ["lib/byte-buddy-1.7.9.jar"],
+    jars: ["lib/byte-buddy-1.8.15.jar"],
 }
 
 java_import_host {
     name: "mockito-byte-buddy-agent",
-    jars: ["lib/byte-buddy-agent-1.7.9.jar"],
+    jars: ["lib/byte-buddy-agent-1.8.15.jar"],
 }
 

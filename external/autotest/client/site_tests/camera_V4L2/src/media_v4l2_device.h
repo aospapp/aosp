@@ -125,6 +125,8 @@ class V4L2Device {
 
   // Sets to true when buffers are initialized.
   bool initialized_;
+  // Sets to true if stream on.
+  bool stream_on_;
   std::vector<int64_t> frame_timestamps_;
   // The number of frames should be skipped after stream on.
   uint32_t num_skip_frames_;

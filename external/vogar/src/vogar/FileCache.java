@@ -24,7 +24,7 @@ import java.io.File;
 public interface FileCache {
 
     boolean existsInCache(String key);
-    
+
     void copyToCache(File source, String key);
 
     void copyFromCache(String key, File destination);

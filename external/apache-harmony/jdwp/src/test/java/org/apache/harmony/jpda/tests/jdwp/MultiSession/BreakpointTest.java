@@ -39,13 +39,11 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class BreakpointTest extends JDWPSyncTestCase {
 
-    private String DEBUGGEE_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/MultiSessionDebuggee;";
-
     private String METHOD_NAME = "printWord";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.MultiSession.MultiSessionDebuggee";
+        return MultiSessionDebuggee.class.getName();
     }
 
     /**
@@ -59,7 +57,7 @@ public class BreakpointTest extends JDWPSyncTestCase {
         logWriter.println("==> testClearBreakpoint001 started..");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long classID = debuggeeWrapper.vmMirror.getClassID(DEBUGGEE_SIGNATURE);
+        long classID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
 
         //long requestID =
             debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(

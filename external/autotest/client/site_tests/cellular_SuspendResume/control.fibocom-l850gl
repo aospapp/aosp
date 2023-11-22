@@ -11,7 +11,7 @@ CRITERIA = """
     Verify that if autoconnect is turned on that the modem autoconnects
     after resuming.
 """
-ATTRIBUTES = "suite:cellular_ota"
+ATTRIBUTES = "suite:cellular_ota_att, suite:cellular_ota_sprint, suite:cellular_ota_verizon"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

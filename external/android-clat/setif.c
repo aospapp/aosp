@@ -16,8 +16,8 @@
  * setif.c - network interface configuration
  */
 #include <errno.h>
-#include <netinet/in.h>
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include <linux/rtnetlink.h>
 #include <netlink/handlers.h>
@@ -26,7 +26,11 @@
 #include "logging.h"
 #include "netlink_msg.h"
 
-#define DEBUG_OPTNAME(a) case (a): { optname = #a; break; }
+#define DEBUG_OPTNAME(a)                                                                           \
+  case (a): {                                                                                      \
+    optname = #a;                                                                                  \
+    break;                                                                                         \
+  }
 
 /* function: add_address
  * adds an IP address to/from an interface, returns 0 on success and <0 on failure
@@ -36,14 +40,15 @@
  * prefixlen - bitlength of network (example: 24 for AF_INET's 255.255.255.0)
  * broadcast - broadcast address (only for AF_INET, ignored for AF_INET6)
  */
-int add_address(const char *ifname, int family, const void *address, int prefixlen, const void *broadcast) {
+int add_address(const char *ifname, int family, const void *address, int prefixlen,
+                const void *broadcast) {
   int retval;
   size_t addr_size;
   struct ifaddrmsg ifa;
   struct nl_msg *msg = NULL;
 
   addr_size = inet_family_size(family);
-  if(addr_size == 0) {
+  if (addr_size == 0) {
     retval = -EAFNOSUPPORT;
     goto cleanup;
   }
@@ -53,29 +58,30 @@ int add_address(const char *ifname, int family, const void *address, int prefixl
     retval = -ENODEV;
     goto cleanup;
   }
-  ifa.ifa_family = family;
+  ifa.ifa_family    = family;
   ifa.ifa_prefixlen = prefixlen;
-  ifa.ifa_scope = RT_SCOPE_UNIVERSE;
+  ifa.ifa_scope     = RT_SCOPE_UNIVERSE;
 
-  msg = nlmsg_alloc_ifaddr(RTM_NEWADDR, NLM_F_ACK | NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE, &ifa);
-  if(!msg) {
+  msg =
+    nlmsg_alloc_ifaddr(RTM_NEWADDR, NLM_F_ACK | NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE, &ifa);
+  if (!msg) {
     retval = -ENOMEM;
     goto cleanup;
   }
 
-  if(nla_put(msg, IFA_LOCAL, addr_size, address) < 0) {
+  if (nla_put(msg, IFA_LOCAL, addr_size, address) < 0) {
     retval = -ENOMEM;
     goto cleanup;
   }
-  if(family == AF_INET6) {
+  if (family == AF_INET6) {
     // AF_INET6 gets IFA_LOCAL + IFA_ADDRESS
-    if(nla_put(msg, IFA_ADDRESS, addr_size, address) < 0) {
+    if (nla_put(msg, IFA_ADDRESS, addr_size, address) < 0) {
       retval = -ENOMEM;
       goto cleanup;
     }
-  } else if(family == AF_INET) {
+  } else if (family == AF_INET) {
     // AF_INET gets IFA_LOCAL + IFA_BROADCAST
-    if(nla_put(msg, IFA_BROADCAST, addr_size, broadcast) < 0) {
+    if (nla_put(msg, IFA_BROADCAST, addr_size, broadcast) < 0) {
       retval = -ENOMEM;
       goto cleanup;
     }
@@ -87,8 +93,7 @@ int add_address(const char *ifname, int family, const void *address, int prefixl
   retval = netlink_sendrecv(msg);
 
 cleanup:
-  if(msg)
-    nlmsg_free(msg);
+  if (msg) nlmsg_free(msg);
 
   return retval;
 }
@@ -109,15 +114,15 @@ int if_up(const char *ifname, int mtu) {
     goto cleanup;
   }
   ifi.ifi_change = IFF_UP;
-  ifi.ifi_flags = IFF_UP;
+  ifi.ifi_flags  = IFF_UP;
 
   msg = nlmsg_alloc_ifinfo(RTM_SETLINK, NLM_F_ACK | NLM_F_REQUEST | NLM_F_ROOT, &ifi);
-  if(!msg) {
+  if (!msg) {
     retval = -ENOMEM;
     goto cleanup;
   }
 
-  if(nla_put(msg, IFLA_MTU, 4, &mtu) < 0) {
+  if (nla_put(msg, IFLA_MTU, 4, &mtu) < 0) {
     retval = -ENOMEM;
     goto cleanup;
   }
@@ -125,8 +130,7 @@ int if_up(const char *ifname, int mtu) {
   retval = netlink_sendrecv(msg);
 
 cleanup:
-  if(msg)
-    nlmsg_free(msg);
+  if (msg) nlmsg_free(msg);
 
   return retval;
 }

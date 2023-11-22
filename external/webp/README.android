@@ -1,5 +1,5 @@
 URL: https://chromium.googlesource.com/webm/libwebp
-Version: v0.6.1
+Version: v1.0.2
 License: Google BSD like
 
 Local modifications:
@@ -8,9 +8,8 @@ Local modifications:
   (e.g. bits.h) to leak into
 - Removed build files necessary for building via autoconf/automake tools
   These files are not required to build via Android.bp
-- Undefine WEBP_ANDROID_NEON on Android targets and use __ARM_NEON__
-  instead.
-- cherry-pick 7038ca8d demux,StoreFrame: restore hdr size check to min req
+- cherry-pick ab2dc893 Rescaler: fix rounding error
+- cherry-pick aa65f89a HistogramCombineStochastic: fix free of uninit value
 
 The Android.bp file creates WebP decoder and encoder static libraries which
 can be added to any application by adding libwebp-decode and libwebp-encode to

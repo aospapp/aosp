@@ -154,7 +154,7 @@ int main( int /*argc*/, char ** argv)
     //
 
     // Test default value.
-    if ( image.backgroundColor() != ColorRGB("white") )
+    if ( image.backgroundColor() != string(ColorRGB("white")) )
       {
 	++failures;
 	cout << "Line: " << __LINE__ << ", backgroundColor default ("
@@ -789,7 +789,7 @@ int main( int /*argc*/, char ** argv)
 	{
 	  image.geometry();
 	}
-      catch ( Exception )
+      catch ( Exception& )
 	{
 	  caughtException = true;
 	}
@@ -930,28 +930,28 @@ int main( int /*argc*/, char ** argv)
     image.alpha(false);
 
     //
-    // alphaColor
+    // matteColor
     //
     // Test default
-    if ( image.alphaColor() != Color("#BDBDBD") )
+    if ( image.matteColor() != Color("#BDBDBD") )
       {
 	++failures;
 	cout << "Line: " << __LINE__
-             << ", alphaColor default is not #BDBDBD as expected" << endl;
+             << ", matteColor default is not #BDBDBD as expected" << endl;
       }
 
     // Test set/get
-    image.alphaColor(ColorRGB(0.5,0.5,1));
-    if ( image.alphaColor() != ColorRGB(0.5,0.5,1) )
+    image.matteColor(ColorRGB(0.5,0.5,1));
+    if ( image.matteColor() != ColorRGB(0.5,0.5,1) )
       {
 	++failures;
-	cout << "Line: " << __LINE__ << ", alphaColor set/get failed" << endl;
+	cout << "Line: " << __LINE__ << ", matteColor set/get failed" << endl;
       }
 
     // Test unset
-    image.alphaColor( Color() );
+    image.matteColor( Color() );
 
-    image.alphaColor("#BDBDBD");
+    image.matteColor("#BDBDBD");
 
     //
     // meanErrorPerPixel
@@ -972,7 +972,7 @@ int main( int /*argc*/, char ** argv)
 	{
 	  image.montageGeometry();
 	}
-      catch ( Exception )
+      catch ( Exception& )
 	{
 	  caughtException = true;
 	}
@@ -1055,7 +1055,7 @@ int main( int /*argc*/, char ** argv)
     // pixelColor
     //
     // Test default
-    if ( image.pixelColor(40,60) != canvasColor )
+    if ( image.pixelColor(40,60) != string(canvasColor) )
       {
 	++failures;
 	cout << "Line: " << __LINE__ << ", pixelColor default ("
@@ -1269,7 +1269,8 @@ int main( int /*argc*/, char ** argv)
     // signature
     //
 
-    if ( image.signature() != "b89bff8473dd6fe2302bcfd365e7d20daf7bd97ad667fe42d1a87469fce0d138" &&
+    if ( image.signature() !=  "146366a0f4150adc7b28f4f5da750ec2ca2c50ff8b14f894ce1e4d7d4058f465" &&
+	 image.signature() != "b89bff8473dd6fe2302bcfd365e7d20daf7bd97ad667fe42d1a87469fce0d138" &&
 	 image.signature() != "5caa527c00cf9e59345de4aaef4f0c2312d1955c2f391ccafa98f8e11370e6e0" &&
    image.signature() != "b891ddb1d32cd45c6329180e5bd733eebb8dd06c401a9c721841ec43e4a662f8")
       {

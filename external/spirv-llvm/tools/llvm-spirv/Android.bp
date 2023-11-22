@@ -53,6 +53,7 @@ cc_binary {
         "-Werror",
         "-Wno-unused-parameter",
     ],
+    cpp_std: "gnu++11",
 
     product_variables: {
         unbundled_build: {

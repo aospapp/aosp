@@ -22,5 +22,7 @@ This test verifies YouTube video paused state.
 """
 
 _TEST_NAME = 'pausing'
+_TEST_PAGE = 'https://youtube.com/watch?v=zuzaxlddWbk&html5=1'
 job.run_test('video_YouTubePage', subtest_name=_TEST_NAME,
+             test_page=_TEST_PAGE,
              subdir_tag=_TEST_NAME)

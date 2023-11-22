@@ -10,12 +10,12 @@
 
 #include "GrTypes.h"
 #include "GrVkDescriptorSetManager.h"
-
-#include "vk/GrVkDefines.h"
+#include "vk/GrVkTypes.h"
 
 class GrSurface;
 class GrVkCopyPipeline;
 class GrVkGpu;
+class GrVkPipelineLayout;
 class GrVkUniformBuffer;
 class GrVkVertexBuffer;
 struct SkIPoint;
@@ -45,7 +45,7 @@ private:
     VkPipelineShaderStageCreateInfo fShaderStageInfo[2];
 
     GrVkDescriptorSetManager::Handle fSamplerDSHandle;
-    VkPipelineLayout fPipelineLayout;
+    GrVkPipelineLayout* fPipelineLayout;
 
     sk_sp<GrVkVertexBuffer> fVertexBuffer;
     std::unique_ptr<GrVkUniformBuffer> fUniformBuffer;

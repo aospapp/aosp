@@ -30,7 +30,7 @@ class PseudoNetInterface(object):
     NETWORK_CHROOT_CONFIG = {
             'etc/passwd' :
                     'root:x:0:0:root:/root:/bin/bash\n'
-                    'nobody:x:65534:65534:nobody:/var/empty:/bin/false\n',
+                    'nobody:x:65534:65534:nobody:/dev/null:/bin/false\n',
             'etc/group' :
                     'nobody::65534:\n'}
     SHILL_PORTAL_DETECTION_SERVER = 'www.gstatic.com'
@@ -95,14 +95,14 @@ class PseudoNetInterface(object):
         Brings up the pseudo modem network interface.
 
         """
-        utils.run('sudo ifconfig %s up' % self.IFACE_NAME)
+        utils.run('sudo ip link set %s up' % self.IFACE_NAME)
 
     def BringInterfaceDown(self):
         """
         Brings down the pseudo modem network interface.
 
         """
-        utils.run('sudo ifconfig %s down' % self.IFACE_NAME);
+        utils.run('sudo ip link set %s down' % self.IFACE_NAME);
 
     def Setup(self):
         """

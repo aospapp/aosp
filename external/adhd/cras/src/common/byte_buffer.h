@@ -3,6 +3,9 @@
  * found in the LICENSE file.
  */
 
+#ifndef BYTE_BUFFER_H_
+#define BYTE_BUFFER_H_
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/param.h>
@@ -36,12 +39,13 @@ static inline void byte_buffer_set_used_size(struct byte_buffer *buf,
 }
 
 /* Destory a byte_buffer created with byte_buffer_create. */
-static inline void byte_buffer_destroy(struct byte_buffer *buf)
+static inline void byte_buffer_destroy(struct byte_buffer **buf)
 {
-	free(buf);
+	free(*buf);
+	*buf = NULL;
 }
 
-static inline unsigned int buf_writable_bytes(struct byte_buffer *buf)
+static inline unsigned int buf_writable(struct byte_buffer *buf)
 {
 	if (buf->level >= buf->used_size)
 		return 0;
@@ -51,7 +55,7 @@ static inline unsigned int buf_writable_bytes(struct byte_buffer *buf)
 	return buf->used_size - buf->write_idx;
 }
 
-static inline unsigned int buf_readable_bytes(struct byte_buffer *buf)
+static inline unsigned int buf_readable(struct byte_buffer *buf)
 {
 	if (buf->level == 0)
 		return 0;
@@ -62,12 +66,12 @@ static inline unsigned int buf_readable_bytes(struct byte_buffer *buf)
 	return buf->used_size - buf->read_idx;
 }
 
-static inline unsigned int buf_queued_bytes(struct byte_buffer *buf)
+static inline unsigned int buf_queued(struct byte_buffer *buf)
 {
 	return buf->level;
 }
 
-static inline unsigned int buf_available_bytes(const struct byte_buffer *buf)
+static inline unsigned int buf_available(const struct byte_buffer *buf)
 {
 	return buf->used_size - buf->level;
 }
@@ -80,7 +84,7 @@ static inline uint8_t *buf_read_pointer(struct byte_buffer *buf)
 static inline uint8_t *buf_read_pointer_size(struct byte_buffer *buf,
 					     unsigned int *readable)
 {
-	*readable = buf_readable_bytes(buf);
+	*readable = buf_readable(buf);
 	return buf_read_pointer(buf);
 }
 
@@ -100,7 +104,7 @@ static inline uint8_t *buf_write_pointer(struct byte_buffer *buf)
 static inline uint8_t *buf_write_pointer_size(struct byte_buffer *buf,
 					      unsigned int *writeable)
 {
-	*writeable = buf_writable_bytes(buf);
+	*writeable = buf_writable(buf);
 	return buf_write_pointer(buf);
 }
 
@@ -120,3 +124,5 @@ static inline void buf_reset(struct byte_buffer *buf)
 	buf->read_idx = 0;
 	buf->level = 0;
 }
+
+#endif /* BYTE_BUFFER_H_ */

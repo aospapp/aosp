@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -37,8 +37,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "libcommon/common.h"
-#include "libcommon/files.h"
+#include "libhfcommon/common.h"
+#include "libhfcommon/files.h"
+#include "mangle.h"
+#include "subproc.h"
 
 #if defined(_HF_ARCH_LINUX)
 #include <sys/syscall.h>
@@ -47,8 +49,22 @@
 #endif /* defined(__NR_memfd_create) */
 #endif /* defined(_HF_ARCH_LINUX) */
 
-#include "libcommon/log.h"
-#include "libcommon/util.h"
+#include "libhfcommon/log.h"
+#include "libhfcommon/util.h"
+
+void input_setSize(run_t* run, size_t sz) {
+    if (sz > run->global->mutate.maxFileSz) {
+        PLOG_F("Too large size requested: %zu > maxSize: %zu", sz, run->global->mutate.maxFileSz);
+    }
+    /* ftruncate of a mmaped file fails under CygWin */
+#if !defined(__CYGWIN__)
+    /* ftruncate for each change of a dynamic file size might be expensive though */
+    if (TEMP_FAILURE_RETRY(ftruncate(run->dynamicFileFd, sz)) == -1) {
+        PLOG_W("ftruncate(run->dynamicFileFd=%d, sz=%zu)", run->dynamicFileFd, sz);
+    }
+#endif /* !defined(__CYGWIN__) */
+    run->dynamicFileSz = sz;
+}
 
 static bool input_getDirStatsAndRewind(honggfuzz_t* hfuzz) {
     rewinddir(hfuzz->io.inputDirPtr);
@@ -82,9 +98,9 @@ static bool input_getDirStatsAndRewind(honggfuzz_t* hfuzz) {
             LOG_D("'%s' is not a regular file, skipping", fname);
             continue;
         }
-        if (hfuzz->maxFileSz != 0UL && st.st_size > (off_t)hfuzz->maxFileSz) {
-            LOG_W("File '%s' is bigger than maximal defined file size (-F): %" PRId64 " > %" PRId64,
-                fname, (int64_t)st.st_size, (int64_t)hfuzz->maxFileSz);
+        if (hfuzz->mutate.maxFileSz != 0UL && st.st_size > (off_t)hfuzz->mutate.maxFileSz) {
+            LOG_D("File '%s' is bigger than maximal defined file size (-F): %" PRId64 " > %" PRId64,
+                fname, (int64_t)st.st_size, (int64_t)hfuzz->mutate.maxFileSz);
         }
         if ((size_t)st.st_size > maxSize) {
             maxSize = st.st_size;
@@ -93,25 +109,22 @@ static bool input_getDirStatsAndRewind(honggfuzz_t* hfuzz) {
     }
 
     ATOMIC_SET(hfuzz->io.fileCnt, fileCnt);
-    if (hfuzz->maxFileSz == 0U) {
+    if (hfuzz->mutate.maxFileSz == 0U) {
         if (maxSize < 8192) {
-            hfuzz->maxFileSz = 8192;
+            hfuzz->mutate.maxFileSz = 8192;
+        } else if (maxSize > _HF_INPUT_MAX_SIZE) {
+            hfuzz->mutate.maxFileSz = _HF_INPUT_MAX_SIZE;
         } else {
-            hfuzz->maxFileSz = maxSize;
+            hfuzz->mutate.maxFileSz = maxSize;
         }
-    }
-    if (hfuzz->persistent && hfuzz->maxFileSz > (1024U * 128)) {
-        LOG_D("Persistent mode enabled, lowering maximum input size to 128KiB");
-        hfuzz->maxFileSz = 1024U * 128;
     }
 
     if (hfuzz->io.fileCnt == 0U) {
         LOG_W("No usable files in the input directory '%s'", hfuzz->io.inputDir);
-        return false;
     }
 
     LOG_D("Re-read the '%s', maxFileSz:%zu, number of usable files:%zu", hfuzz->io.inputDir,
-        hfuzz->maxFileSz, hfuzz->io.fileCnt);
+        hfuzz->mutate.maxFileSz, hfuzz->io.fileCnt);
 
     rewinddir(hfuzz->io.inputDirPtr);
 
@@ -123,6 +136,7 @@ bool input_getNext(run_t* run, char* fname, bool rewind) {
     MX_SCOPED_LOCK(&input_mutex);
 
     if (run->global->io.fileCnt == 0U) {
+        LOG_W("No useful files in the input directory");
         return false;
     }
 
@@ -190,16 +204,20 @@ bool input_init(honggfuzz_t* hfuzz) {
 }
 
 bool input_parseDictionary(honggfuzz_t* hfuzz) {
-    FILE* fDict = fopen(hfuzz->dictionaryFile, "rb");
+    FILE* fDict = fopen(hfuzz->mutate.dictionaryFile, "rb");
     if (fDict == NULL) {
-        PLOG_W("Couldn't open '%s' - R/O mode", hfuzz->dictionaryFile);
+        PLOG_W("Couldn't open '%s' - R/O mode", hfuzz->mutate.dictionaryFile);
         return false;
     }
-    defer { fclose(fDict); };
+    defer {
+        fclose(fDict);
+    };
 
     char* lineptr = NULL;
     size_t n = 0;
-    defer { free(lineptr); };
+    defer {
+        free(lineptr);
+    };
     for (;;) {
         ssize_t len = getdelim(&lineptr, &n, '\n', fDict);
         if (len == -1) {
@@ -218,70 +236,189 @@ bool input_parseDictionary(honggfuzz_t* hfuzz) {
         if (lineptr[0] == '\0') {
             continue;
         }
-        char bufn[1025] = {0};
-        char bufv[1025] = {0};
+        char bufn[1025] = {};
+        char bufv[1025] = {};
         if (sscanf(lineptr, "\"%1024s", bufv) != 1 &&
             sscanf(lineptr, "%1024[^=]=\"%1024s", bufn, bufv) != 2) {
             LOG_W("Incorrect dictionary entry: '%s'. Skipping", lineptr);
             continue;
         }
 
+        LOG_D("Parsing word: '%s'", bufv);
+
         char* s = util_StrDup(bufv);
         struct strings_t* str = (struct strings_t*)util_Malloc(sizeof(struct strings_t));
         str->len = util_decodeCString(s);
         str->s = s;
-        hfuzz->dictionaryCnt += 1;
-        TAILQ_INSERT_TAIL(&hfuzz->dictq, str, pointers);
+        hfuzz->mutate.dictionaryCnt += 1;
+        TAILQ_INSERT_TAIL(&hfuzz->mutate.dictq, str, pointers);
 
         LOG_D("Dictionary: loaded word: '%s' (len=%zu)", str->s, str->len);
     }
-    LOG_I("Loaded %zu words from the dictionary", hfuzz->dictionaryCnt);
+    LOG_I("Loaded %zu words from the dictionary", hfuzz->mutate.dictionaryCnt);
     return true;
 }
 
 bool input_parseBlacklist(honggfuzz_t* hfuzz) {
-    FILE* fBl = fopen(hfuzz->blacklistFile, "rb");
+    FILE* fBl = fopen(hfuzz->feedback.blacklistFile, "rb");
     if (fBl == NULL) {
-        PLOG_W("Couldn't open '%s' - R/O mode", hfuzz->blacklistFile);
+        PLOG_W("Couldn't open '%s' - R/O mode", hfuzz->feedback.blacklistFile);
         return false;
     }
-    defer { fclose(fBl); };
+    defer {
+        fclose(fBl);
+    };
 
     char* lineptr = NULL;
     /* lineptr can be NULL, but it's fine for free() */
-    defer { free(lineptr); };
+    defer {
+        free(lineptr);
+    };
     size_t n = 0;
     for (;;) {
         if (getline(&lineptr, &n, fBl) == -1) {
             break;
         }
 
-        if ((hfuzz->blacklist = util_Realloc(hfuzz->blacklist,
-                 (hfuzz->blacklistCnt + 1) * sizeof(hfuzz->blacklist[0]))) == NULL) {
-            PLOG_W(
-                "realloc failed (sz=%zu)", (hfuzz->blacklistCnt + 1) * sizeof(hfuzz->blacklist[0]));
+        if ((hfuzz->feedback.blacklist = util_Realloc(hfuzz->feedback.blacklist,
+                 (hfuzz->feedback.blacklistCnt + 1) * sizeof(hfuzz->feedback.blacklist[0]))) ==
+            NULL) {
+            PLOG_W("realloc failed (sz=%zu)",
+                (hfuzz->feedback.blacklistCnt + 1) * sizeof(hfuzz->feedback.blacklist[0]));
             return false;
         }
 
-        hfuzz->blacklist[hfuzz->blacklistCnt] = strtoull(lineptr, 0, 16);
-        LOG_D("Blacklist: loaded %'" PRIu64 "'", hfuzz->blacklist[hfuzz->blacklistCnt]);
+        hfuzz->feedback.blacklist[hfuzz->feedback.blacklistCnt] = strtoull(lineptr, 0, 16);
+        LOG_D("Blacklist: loaded %'" PRIu64 "'",
+            hfuzz->feedback.blacklist[hfuzz->feedback.blacklistCnt]);
 
-        // Verify entries are sorted so we can use interpolation search
-        if (hfuzz->blacklistCnt > 1) {
-            if (hfuzz->blacklist[hfuzz->blacklistCnt - 1] > hfuzz->blacklist[hfuzz->blacklistCnt]) {
-                LOG_F(
-                    "Blacklist file not sorted. Use 'tools/createStackBlacklist.sh' to sort "
-                    "records");
+        /* Verify entries are sorted so we can use interpolation search */
+        if (hfuzz->feedback.blacklistCnt > 1) {
+            if (hfuzz->feedback.blacklist[hfuzz->feedback.blacklistCnt - 1] >
+                hfuzz->feedback.blacklist[hfuzz->feedback.blacklistCnt]) {
+                LOG_F("Blacklist file not sorted. Use 'tools/createStackBlacklist.sh' to sort "
+                      "records");
                 return false;
             }
         }
-        hfuzz->blacklistCnt += 1;
+        hfuzz->feedback.blacklistCnt += 1;
     }
 
-    if (hfuzz->blacklistCnt > 0) {
-        LOG_I("Loaded %zu stack hash(es) from the blacklist file", hfuzz->blacklistCnt);
+    if (hfuzz->feedback.blacklistCnt > 0) {
+        LOG_I("Loaded %zu stack hash(es) from the blacklist file", hfuzz->feedback.blacklistCnt);
     } else {
-        LOG_F("Empty stack hashes blacklist file '%s'", hfuzz->blacklistFile);
+        LOG_F("Empty stack hashes blacklist file '%s'", hfuzz->feedback.blacklistFile);
     }
+    return true;
+}
+
+bool input_prepareDynamicInput(run_t* run) {
+    {
+        MX_SCOPED_RWLOCK_READ(&run->global->io.dynfileq_mutex);
+
+        if (run->global->io.dynfileqCnt == 0) {
+            LOG_F("The dynamic file corpus is empty. This shouldn't happen");
+        }
+
+        if (run->dynfileqCurrent == NULL) {
+            run->dynfileqCurrent = TAILQ_FIRST(&run->global->io.dynfileq);
+        } else {
+            if (run->dynfileqCurrent == TAILQ_LAST(&run->global->io.dynfileq, dyns_t)) {
+                run->dynfileqCurrent = TAILQ_FIRST(&run->global->io.dynfileq);
+            } else {
+                run->dynfileqCurrent = TAILQ_NEXT(run->dynfileqCurrent, pointers);
+            }
+        }
+    }
+
+    input_setSize(run, run->dynfileqCurrent->size);
+    memcpy(run->dynamicFile, run->dynfileqCurrent->data, run->dynfileqCurrent->size);
+    mangle_mangleContent(run);
+
+    return true;
+}
+
+bool input_prepareStaticFile(run_t* run, bool rewind) {
+    char fname[PATH_MAX];
+    if (!input_getNext(run, fname, /* rewind= */ rewind)) {
+        return false;
+    }
+    snprintf(run->origFileName, sizeof(run->origFileName), "%s", fname);
+
+    input_setSize(run, run->global->mutate.maxFileSz);
+    ssize_t fileSz = files_readFileToBufMax(fname, run->dynamicFile, run->global->mutate.maxFileSz);
+    if (fileSz < 0) {
+        LOG_E("Couldn't read contents of '%s'", fname);
+        return false;
+    }
+
+    input_setSize(run, fileSz);
+    mangle_mangleContent(run);
+
+    return true;
+}
+
+bool input_prepareExternalFile(run_t* run) {
+    snprintf(run->origFileName, sizeof(run->origFileName), "[EXTERNAL]");
+
+    int fd = files_writeBufToTmpFile(run->global->io.workDir, (const uint8_t*)"", 0, 0);
+    if (fd == -1) {
+        LOG_E("Couldn't write input file to a temporary buffer");
+        return false;
+    }
+    defer {
+        close(fd);
+    };
+
+    char fname[PATH_MAX];
+    snprintf(fname, sizeof(fname), "/dev/fd/%d", fd);
+
+    const char* const argv[] = {run->global->exe.externalCommand, fname, NULL};
+    if (subproc_System(run, argv) != 0) {
+        LOG_E("Subprocess '%s' returned abnormally", run->global->exe.externalCommand);
+        return false;
+    }
+    LOG_D("Subporcess '%s' finished with success", run->global->exe.externalCommand);
+
+    input_setSize(run, run->global->mutate.maxFileSz);
+    ssize_t sz = files_readFromFdSeek(fd, run->dynamicFile, run->global->mutate.maxFileSz, 0);
+    if (sz == -1) {
+        LOG_E("Couldn't read file from fd=%d", fd);
+        return false;
+    }
+
+    input_setSize(run, (size_t)sz);
+    return true;
+}
+
+bool input_postProcessFile(run_t* run) {
+    int fd =
+        files_writeBufToTmpFile(run->global->io.workDir, run->dynamicFile, run->dynamicFileSz, 0);
+    if (fd == -1) {
+        LOG_E("Couldn't write input file to a temporary buffer");
+        return false;
+    }
+    defer {
+        close(fd);
+    };
+
+    char fname[PATH_MAX];
+    snprintf(fname, sizeof(fname), "/dev/fd/%d", fd);
+
+    const char* const argv[] = {run->global->exe.postExternalCommand, fname, NULL};
+    if (subproc_System(run, argv) != 0) {
+        LOG_E("Subprocess '%s' returned abnormally", run->global->exe.postExternalCommand);
+        return false;
+    }
+    LOG_D("Subporcess '%s' finished with success", run->global->exe.externalCommand);
+
+    input_setSize(run, run->global->mutate.maxFileSz);
+    ssize_t sz = files_readFromFdSeek(fd, run->dynamicFile, run->global->mutate.maxFileSz, 0);
+    if (sz == -1) {
+        LOG_E("Couldn't read file from fd=%d", fd);
+        return false;
+    }
+
+    input_setSize(run, (size_t)sz);
     return true;
 }

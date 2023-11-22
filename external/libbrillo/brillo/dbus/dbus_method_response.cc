@@ -28,7 +28,7 @@ void DBusMethodResponseBase::ReplyWithError(const brillo::Error* error) {
 }
 
 void DBusMethodResponseBase::ReplyWithError(
-    const tracked_objects::Location& location,
+    const base::Location& location,
     const std::string& error_domain,
     const std::string& error_code,
     const std::string& error_message) {

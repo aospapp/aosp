@@ -202,8 +202,9 @@ log_message_end(const char *format, ...)
 #endif
 
 /* Set up the logging with the name of a logging file. */
+/* ANDROID-CHANGED: Added directlog */
 void
-setup_logging(const char *filename, unsigned flags)
+setup_logging(const char *filename, unsigned flags, int directlog)
 {
 #ifdef JDWP_LOGGING
     FILE *fp = NULL;
@@ -217,9 +218,14 @@ setup_logging(const char *filename, unsigned flags)
         return;
 
     /* Create potential filename for logging */
-    processPid = GETPID();
-    (void)snprintf(logging_filename, sizeof(logging_filename),
-                    "%s.%d", filename, (int)processPid);
+    /* ANDROID-CHANGED: Add directlog */
+    if (directlog) {
+      strncpy(logging_filename, filename, sizeof(logging_filename));
+    } else {
+      processPid = GETPID();
+      (void)snprintf(logging_filename, sizeof(logging_filename),
+                      "%s.%d", filename, (int)processPid);
+    }
 
     /* Turn on logging (do this last) */
     logging = 1;

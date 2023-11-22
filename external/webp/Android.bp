@@ -16,14 +16,21 @@
 
 cc_library_static {
     name: "webp-headers",
+    host_supported: true,
     export_include_dirs: ["include"],
     sdk_version: "9",
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 //##############################################
 
 cc_library_static {
     name: "libwebp-encode",
+    host_supported: true,
     srcs: [
         "src/dsp/alpha_processing.c",
         "src/dsp/alpha_processing_mips_dsp_r2.c",
@@ -33,10 +40,10 @@ cc_library_static {
         "src/dsp/cost.c",
         "src/dsp/cost_mips32.c",
         "src/dsp/cost_mips_dsp_r2.c",
+        "src/dsp/cost_neon.c",
         "src/dsp/cost_sse2.c",
         "src/dsp/cpu.c",
         "src/dsp/enc.c",
-        "src/dsp/enc_avx2.c",
         "src/dsp/enc_mips32.c",
         "src/dsp/enc_mips_dsp_r2.c",
         "src/dsp/enc_msa.c",
@@ -58,7 +65,6 @@ cc_library_static {
         "src/enc/backward_references_enc.c",
         "src/enc/config_enc.c",
         "src/enc/cost_enc.c",
-        "src/enc/delta_palettization_enc.c",
         "src/enc/filter_enc.c",
         "src/enc/frame_enc.c",
         "src/enc/histogram_enc.c",
@@ -98,6 +104,7 @@ cc_library_static {
             instruction_set: "arm",
         },
     },
+
     cflags: [
         "-O2",
         "-DANDROID",
@@ -111,12 +118,19 @@ cc_library_static {
     export_static_lib_headers: ["webp-headers"],
 
     sdk_version: "9",
+
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 //##############################################
 
 cc_library_static {
     name: "libwebp-decode",
+    host_supported: true,
     srcs: [
         "src/dec/alpha_dec.c",
         "src/dec/buffer_dec.c",
@@ -163,11 +177,13 @@ cc_library_static {
         "src/dsp/upsampling_msa.c",
         "src/dsp/upsampling_neon.c",
         "src/dsp/upsampling_sse2.c",
+        "src/dsp/upsampling_sse41.c",
         "src/dsp/yuv.c",
         "src/dsp/yuv_mips32.c",
         "src/dsp/yuv_mips_dsp_r2.c",
         "src/dsp/yuv_neon.c",
         "src/dsp/yuv_sse2.c",
+        "src/dsp/yuv_sse41.c",
         "src/utils/bit_reader_utils.c",
         "src/utils/color_cache_utils.c",
         "src/utils/filters_utils.c",
@@ -184,6 +200,7 @@ cc_library_static {
             instruction_set: "arm",
         },
     },
+
     cflags: [
         "-O2",
         "-DANDROID",
@@ -197,4 +214,10 @@ cc_library_static {
     export_static_lib_headers: ["webp-headers"],
 
     sdk_version: "9",
+
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }

@@ -143,3 +143,25 @@ rm test
 # match after NUL byte
 testing "match after NUL byte" "grep -a two" "one\0and two three\n" \
   "" 'one\0and two three'
+
+# BREs versus EREs
+testing "implicit BRE |" "grep 'uno|dos'" "uno|dos\n" \
+  "" "uno\ndos\nuno|dos\n"
+testing "explicit BRE |" "grep -e 'uno|dos'" "uno|dos\n" \
+  "" "uno\ndos\nuno|dos\n"
+testing "explicit ERE |" "grep -E 'uno|dos'" "uno\ndos\nuno|dos\n" \
+  "" "uno\ndos\nuno|dos\n"
+
+testing "" "grep -o -e iss -e ipp" "iss\niss\nipp\n" "" "mississippi"
+testing "" "grep -o -e gum -e rgu" "rgu\n" "" "argument"
+
+testing "early failure" 'grep --what 2>/dev/null || echo $?' "2\n" "" ""
+
+testing "" 'grep abc ; echo $?' "abcdef\n0\n" "" "abcdef\n"
+testing "" 'grep abc doesnotexist input 2>/dev/null; echo $?' \
+  "input:abcdef\n2\n" "abcdef\n" ""
+mkdir sub
+ln -s nope sub/link
+testing "" 'grep -r walrus sub 2>/dev/null; echo $?' "1\n" "" ""
+rm -rf sub
+

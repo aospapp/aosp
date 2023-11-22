@@ -23,7 +23,8 @@ public class ConstantAffixModifier implements Modifier {
      * Constructs an instance with the given strings.
      *
      * <p>
-     * The arguments need to be Strings, not CharSequences, because Strings are immutable but CharSequences are not.
+     * The arguments need to be Strings, not CharSequences, because Strings are immutable but
+     * CharSequences are not.
      *
      * @param prefix
      *            The prefix string.
@@ -73,6 +74,28 @@ public class ConstantAffixModifier implements Modifier {
     @Override
     public boolean isStrong() {
         return strong;
+    }
+
+    @Override
+    public boolean containsField(Field field) {
+        // This method is not currently used.
+        assert false;
+        return false;
+    }
+
+    @Override
+    public Parameters getParameters() {
+        return null;
+    }
+
+    @Override
+    public boolean semanticallyEquivalent(Modifier other) {
+        if (!(other instanceof ConstantAffixModifier)) {
+            return false;
+        }
+        ConstantAffixModifier _other = (ConstantAffixModifier) other;
+        return prefix.equals(_other.prefix) && suffix.equals(_other.suffix) && field == _other.field
+                && strong == _other.strong;
     }
 
     @Override

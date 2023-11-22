@@ -15,30 +15,30 @@ public class ShadowSystemProperties {
   private static Properties buildProperties = null;
 
   @Implementation
-  public static String native_get(String key) {
+  protected static String native_get(String key) {
     return native_get(key, "");
   }
 
   @Implementation
-  public static String native_get(String key, String def) {
+  protected static String native_get(String key, String def) {
     String value = getProperty(key);
     return value == null ? def : value;
   }
 
   @Implementation
-  public static int native_get_int(String key, int def) {
+  protected static int native_get_int(String key, int def) {
     String stringValue = getProperty(key);
     return stringValue == null ? def : Integer.parseInt(stringValue);
   }
 
   @Implementation
-  public static long native_get_long(String key, long def) {
+  protected static long native_get_long(String key, long def) {
     String stringValue = getProperty(key);
     return stringValue == null ? def : Long.parseLong(stringValue);
   }
 
   @Implementation
-  public static boolean native_get_boolean(String key, boolean def) {
+  protected static boolean native_get_boolean(String key, boolean def) {
     String stringValue = getProperty(key);
     if (stringValue == null) {
       return def;
@@ -57,12 +57,23 @@ public class ShadowSystemProperties {
   }
 
   @Implementation
-  public static void native_set(String key, String val) {
+  protected static void native_set(String key, String val) {
     if (val == null) {
       loadProperties().remove(key);
     } else {
       loadProperties().setProperty(key, val);
     }
+  }
+
+  /**
+   * Overrides the system property for testing. Similar to the Android implementation, the value
+   * may be coerced to other types like boolean or long depending on the get method that is used.
+   *
+   * <p>Note: Use {@link org.robolectric.shadows.ShadowBuild} instead for changing fields in
+   * {@link android.os.Build}.
+   */
+  public static void override(String key, String val) {
+    SystemProperties.set(key, val);
   }
 
   // ignored/unimplemented methods
@@ -77,6 +88,7 @@ public class ShadowSystemProperties {
     if (buildProperties == null) {
       // load the prop from classpath
       ClassLoader cl = SystemProperties.class.getClassLoader();
+      URL urlFromCl = cl.getResource("build.prop");
       try (InputStream is = cl.getResourceAsStream("build.prop")) {
         Preconditions.checkNotNull(is, "could not find build.prop");
         buildProperties = new Properties();
@@ -100,7 +112,7 @@ public class ShadowSystemProperties {
     buildProperties.setProperty("ro.hardware", "robolectric");
     buildProperties.setProperty("ro.build.characteristics", "robolectric");
 
-    // for backwards-compatibility reasons, set CPUS to unknown/ARM
+    // for backwards-compatiblity reasons, set CPUS to unknown/ARM
     buildProperties.setProperty("ro.product.cpu.abi", "unknown");
     buildProperties.setProperty("ro.product.cpu.abi2", "unknown");
     buildProperties.setProperty("ro.product.cpu.abilist", "armeabi-v7a");

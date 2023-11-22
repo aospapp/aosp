@@ -71,6 +71,10 @@ class Suspender(object):
         # Hard disk sync and overall just slow
         'parrot': 8,
         'kiev': 9,
+
+        # Temporary increased delay for octopus until suspend time is better
+        # b/79782439/
+        'octopus': 8,
     }
 
     # alarm/not_before value guaranteed to raise SpuriousWakeup in _hwclock_ts
@@ -92,6 +96,9 @@ class Suspender(object):
 
     # File read by powerd to decide on the state to suspend (mem or freeze).
     _SUSPEND_STATE_PREF_FILE = 'suspend_to_idle'
+
+    # (b/79442787) Ignore these uarch for s0ix residency counter checking
+    _IGNORE_S0IX_RESIDENCY_CHECK = ['Skylake']
 
     def __init__(self, logdir, method=sys_power.do_suspend,
                  throw=False, device_times=False, suspend_state=''):
@@ -124,9 +131,9 @@ class Suspender(object):
 
         # prime powerd_suspend RTC timestamp saving and make sure hwclock works
         utils.open_write_close(self.HWCLOCK_FILE, '')
-        hwclock_output = utils.system_output('hwclock -r --debug --utc',
+        hwclock_output = utils.system_output('hwclock -r --verbose --utc',
                                              ignore_status=True)
-        if not re.search('Using.*/dev interface to.*clock', hwclock_output):
+        if not re.search('Using.*rtc interface to.*clock', hwclock_output):
             raise error.TestError('hwclock cannot find rtc: ' + hwclock_output)
 
         # activate device suspend timing debug output
@@ -401,7 +408,8 @@ class Suspender(object):
         warning_regex = re.compile(r' kernel: \[.*WARNING:')
         abort_regex = re.compile(r' kernel: \[.*Freezing of tasks abort'
                 r'| powerd_suspend\[.*Cancel suspend at kernel'
-                r'| kernel: \[.*PM: Wakeup pending, aborting suspend')
+                r'| powerd_suspend\[.*Warning: Device or resource busy on ' \
+                 'write to /sys/power/state')
         # rsyslogd can put this out of order with dmesg, so track in variable
         fail_regex = re.compile(r'powerd_suspend\[\d+\]: Error')
         failed = False
@@ -472,7 +480,6 @@ class Suspender(object):
         for retry in xrange(retries + 1):
             arc_logcat = utils.system_output(command, ignore_status=False)
             arc_logcat = arc_logcat.splitlines()
-            resume_ts = 0
             for line in arc_logcat:
                 match_resume = regex_resume.search(line)
                 # ARC logcat is cleared before suspend so the first ARC resume
@@ -483,6 +490,11 @@ class Suspender(object):
         else:
             logging.error('ARC did not resume correctly.')
             return 'unknown'
+
+
+    def get_suspend_delay(self):
+            return self._SUSPEND_DELAY.get(self._get_board(),
+                                           self._DEFAULT_SUSPEND_DELAY)
 
 
     def suspend(self, duration=10, ignore_kernel_warns=False,
@@ -510,8 +522,7 @@ class Suspender(object):
                 utils.open_write_close(self.HWCLOCK_FILE, '')
                 self._reset_logs()
                 utils.system('sync')
-                board_delay = self._SUSPEND_DELAY.get(self._get_board(),
-                        self._DEFAULT_SUSPEND_DELAY)
+                board_delay = self.get_suspend_delay()
                 # Clear the ARC logcat to make parsing easier.
                 if measure_arc:
                     command = 'android-sh -c "logcat -c"'
@@ -572,9 +583,12 @@ class Suspender(object):
                 s0ix_residency_secs = \
                         self._s0ix_residency_stats.\
                                 get_accumulated_residency_secs()
+                cpu_uarch = utils.get_intel_cpu_uarch()
                 if not s0ix_residency_secs:
-                    raise sys_power.S0ixResidencyNotChanged(
-                        'S0ix residency did not change.')
+                    msg = 'S0ix residency did not change.'
+                    if cpu_uarch not in self._IGNORE_S0IX_RESIDENCY_CHECK:
+                        raise sys_power.S0ixResidencyNotChanged(msg)
+                    logging.warn(msg)
                 logging.info('S0ix residency : %d secs.', s0ix_residency_secs)
 
             successful_suspend = {

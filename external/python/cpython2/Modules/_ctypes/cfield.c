@@ -205,7 +205,11 @@ PyCField_set(CFieldObject *self, PyObject *inst, PyObject *value)
 {
     CDataObject *dst;
     char *ptr;
-    assert(CDataObject_Check(inst));
+    if (!CDataObject_Check(inst)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "not a ctype instance");
+        return -1;
+    }
     dst = (CDataObject *)inst;
     ptr = dst->b_ptr + self->offset;
     if (value == NULL) {
@@ -225,7 +229,11 @@ PyCField_get(CFieldObject *self, PyObject *inst, PyTypeObject *type)
         Py_INCREF(self);
         return (PyObject *)self;
     }
-    assert(CDataObject_Check(inst));
+    if (!CDataObject_Check(inst)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "not a ctype instance");
+        return NULL;
+    }
     src = (CDataObject *)inst;
     return PyCData_get(self->proto, self->getfunc, inst,
                      self->index, self->size, src->b_ptr + self->offset);
@@ -1353,7 +1361,7 @@ z_set(void *ptr, PyObject *value, Py_ssize_t size)
             return NULL;
         *(char **)ptr = PyString_AS_STRING(str);
         return str;
-    } else if (PyInt_Check(value) || PyLong_Check(value)) {
+    } else if (_PyAnyInt_Check(value)) {
 #if SIZEOF_VOID_P == SIZEOF_LONG_LONG
         *(char **)ptr = (char *)PyInt_AsUnsignedLongLongMask(value);
 #else
@@ -1402,7 +1410,7 @@ Z_set(void *ptr, PyObject *value, Py_ssize_t size)
                                             _ctypes_conversion_errors);
         if (!value)
             return NULL;
-    } else if (PyInt_Check(value) || PyLong_Check(value)) {
+    } else if (_PyAnyInt_Check(value)) {
 #if SIZEOF_VOID_P == SIZEOF_LONG_LONG
         *(wchar_t **)ptr = (wchar_t *)PyInt_AsUnsignedLongLongMask(value);
 #else
@@ -1557,7 +1565,7 @@ P_set(void *ptr, PyObject *value, Py_ssize_t size)
         _RET(value);
     }
 
-    if (!PyInt_Check(value) && !PyLong_Check(value)) {
+    if (!_PyAnyInt_Check(value)) {
         PyErr_SetString(PyExc_TypeError,
                         "cannot be converted to pointer");
         return NULL;

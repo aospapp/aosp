@@ -244,9 +244,10 @@ namespace sw
 			OPCODE_INSERT,
 			OPCODE_DISCARD,
 			OPCODE_FWIDTH,
-			OPCODE_LEAVE,   // Return before the end of the function
+			OPCODE_LEAVE,    // Return before the end of the function
 			OPCODE_CONTINUE,
-			OPCODE_TEST,   // Marks the end of the code that can be skipped by 'continue'
+			OPCODE_TEST,     // Marks the end of the code that can be skipped by 'continue'
+			OPCODE_SCALAR,   // Marks the start of code not subject to SIMD lane masking. Ends at WHILE and ENDWHILE.
 			OPCODE_SWITCH,
 			OPCODE_ENDSWITCH,
 
@@ -402,7 +403,7 @@ namespace sw
 			unsigned int index;
 			unsigned int swizzle : 8;
 			unsigned int scale;
-			bool deterministic;   // Equal accross shader instances run in lockstep (e.g. unrollable loop couters)
+			bool dynamic;   // Varies between concurrent shader instances
 		};
 
 		struct Parameter
@@ -433,7 +434,7 @@ namespace sw
 				rel.index = 0;
 				rel.swizzle = 0;
 				rel.scale = 1;
-				rel.deterministic = false;
+				rel.dynamic = true;
 			}
 
 			std::string string(ShaderType shaderType, unsigned short version) const;
@@ -612,9 +613,9 @@ namespace sw
 		unsigned int dirtyConstantsI;
 		unsigned int dirtyConstantsB;
 
-		bool dynamicallyIndexedTemporaries;
-		bool dynamicallyIndexedInput;
-		bool dynamicallyIndexedOutput;
+		bool indirectAddressableTemporaries;
+		bool indirectAddressableInput;
+		bool indirectAddressableOutput;
 
 	protected:
 		void parse(const unsigned long *token);
@@ -627,7 +628,7 @@ namespace sw
 		void analyzeDynamicBranching();
 		void analyzeSamplers();
 		void analyzeCallSites();
-		void analyzeDynamicIndexing();
+		void analyzeIndirectAddressing();
 		void markFunctionAnalysis(unsigned int functionLabel, Analysis flag);
 
 		ShaderType shaderType;

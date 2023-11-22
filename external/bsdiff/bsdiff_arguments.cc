@@ -31,7 +31,7 @@ const struct option OPTIONS[] = {
     {"format", required_argument, nullptr, 0},
     {"minlen", required_argument, nullptr, 0},
     {"type", required_argument, nullptr, 0},
-    {"quality", required_argument, nullptr, 0},
+    {"brotli_quality", required_argument, nullptr, 0},
     {nullptr, 0, nullptr, 0},
 };
 
@@ -41,21 +41,34 @@ const uint32_t kBrotliDefaultQuality = BROTLI_MAX_QUALITY;
 
 namespace bsdiff {
 
+std::vector<CompressorType> BsdiffArguments::compressor_types() const {
+  return std::vector<CompressorType>(compressor_types_.begin(),
+                                     compressor_types_.end());
+}
+
 bool BsdiffArguments::IsValid() const {
-  if (compressor_type_ == CompressorType::kBrotli &&
-      (compression_quality_ < BROTLI_MIN_QUALITY ||
-       compression_quality_ > BROTLI_MAX_QUALITY)) {
+  if (compressor_types_.empty()) {
+    return false;
+  }
+
+  if (IsCompressorSupported(CompressorType::kBrotli) &&
+      (brotli_quality_ < BROTLI_MIN_QUALITY ||
+       brotli_quality_ > BROTLI_MAX_QUALITY)) {
     return false;
   }
 
   if (format_ == BsdiffFormat::kLegacy) {
-    return compressor_type_ == CompressorType::kBZ2;
+    return compressor_types_.size() == 1 &&
+           IsCompressorSupported(CompressorType::kBZ2);
   } else if (format_ == BsdiffFormat::kBsdf2) {
-    return (compressor_type_ == CompressorType::kBZ2 ||
-            compressor_type_ == CompressorType::kBrotli);
-  } else if (format_ == BsdiffFormat::kEndsley) {
-    // All compression options are valid for this format.
+    if (IsCompressorSupported(CompressorType::kNoCompression)) {
+      std::cerr << "no compression is not supported in Bsdf2 format\n";
+      return false;
+    }
     return true;
+  } else if (format_ == BsdiffFormat::kEndsley) {
+    // Only one compressor is supported for this format.
+    return compressor_types_.size() == 1;
   }
   return false;
 }
@@ -78,11 +91,12 @@ bool BsdiffArguments::ParseCommandLine(int argc, char** argv) {
         return false;
       }
     } else if (name == "type") {
-      if (!ParseCompressorType(optarg, &compressor_type_)) {
+      if (!ParseCompressorTypes(optarg, &compressor_types_)) {
         return false;
       }
-    } else if (name == "quality") {
-      if (!ParseQuality(optarg, &compression_quality_)) {
+    } else if (name == "brotli_quality") {
+      if (!ParseQuality(optarg, &brotli_quality_, BROTLI_MIN_QUALITY,
+                        BROTLI_MAX_QUALITY)) {
         return false;
       }
     } else {
@@ -93,35 +107,48 @@ bool BsdiffArguments::ParseCommandLine(int argc, char** argv) {
 
   // If quality is uninitialized for brotli, set it to default value.
   if (format_ != BsdiffFormat::kLegacy &&
-      compressor_type_ == CompressorType::kBrotli &&
-      compression_quality_ == -1) {
-    compression_quality_ = kBrotliDefaultQuality;
-  } else if (compressor_type_ != CompressorType::kBrotli &&
-             compression_quality_ != -1) {
-    std::cerr << "Warning: Compression quality is only used in the brotli"
-                 " compressor." << endl;
+      IsCompressorSupported(CompressorType::kBrotli) && brotli_quality_ == -1) {
+    brotli_quality_ = kBrotliDefaultQuality;
+  } else if (!IsCompressorSupported(CompressorType::kBrotli) &&
+             brotli_quality_ != -1) {
+    std::cerr << "Warning: Brotli quality is only used in the brotli"
+                 " compressor.\n";
   }
 
   return true;
 }
 
-bool BsdiffArguments::ParseCompressorType(const string& str,
-                                          CompressorType* type) {
-  string type_string = str;
-  std::transform(type_string.begin(), type_string.end(), type_string.begin(),
-                 ::tolower);
-  if (type_string == kNoCompressionString) {
-    *type = CompressorType::kNoCompression;
-    return true;
-  } else if (type_string == kBZ2String) {
-    *type = CompressorType::kBZ2;
-    return true;
-  } else if (type_string == kBrotliString) {
-    *type = CompressorType::kBrotli;
-    return true;
+bool BsdiffArguments::ParseCompressorTypes(const string& str,
+                                           std::set<CompressorType>* types) {
+  types->clear();
+  // The expected types string is separated by ":", e.g. bz2:brotli
+  std::vector<std::string> type_list;
+  size_t base = 0;
+  size_t found;
+  while (true) {
+    found = str.find(":", base);
+    type_list.emplace_back(str, base, found - base);
+
+    if (found == str.npos)
+      break;
+    base = found + 1;
   }
-  std::cerr << "Failed to parse compressor type in " << str << endl;
-  return false;
+
+  for (auto& type : type_list) {
+    std::transform(type.begin(), type.end(), type.begin(), ::tolower);
+    if (type == kNoCompressionString) {
+      types->emplace(CompressorType::kNoCompression);
+    } else if (type == kBZ2String) {
+      types->emplace(CompressorType::kBZ2);
+    } else if (type == kBrotliString) {
+      types->emplace(CompressorType::kBrotli);
+    } else {
+      std::cerr << "Failed to parse compressor type in " << str << endl;
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool BsdiffArguments::ParseMinLength(const string& str, size_t* len) {
@@ -161,7 +188,10 @@ bool BsdiffArguments::ParseBsdiffFormat(const string& str,
   return false;
 }
 
-bool BsdiffArguments::ParseQuality(const string& str, int* quality) {
+bool BsdiffArguments::ParseQuality(const string& str,
+                                   int* quality,
+                                   int min,
+                                   int max) {
   errno = 0;
   char* end;
   const char* s = str.c_str();
@@ -170,13 +200,17 @@ bool BsdiffArguments::ParseQuality(const string& str, int* quality) {
     return false;
   }
 
-  if (result < BROTLI_MIN_QUALITY || result > BROTLI_MAX_QUALITY) {
+  if (result < min || result > max) {
     std::cerr << "Compression quality out of range " << str << endl;
     return false;
   }
 
   *quality = result;
   return true;
+}
+
+bool BsdiffArguments::IsCompressorSupported(CompressorType type) const {
+  return compressor_types_.find(type) != compressor_types_.end();
 }
 
 }  // namespace bsdiff

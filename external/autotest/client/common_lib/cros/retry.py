@@ -140,7 +140,7 @@ def timeout(func, args=(), kwargs={}, timeout_sec=60.0, default_result=None):
 
 
 def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
-          exception_to_raise=None, label=None, callback=None):
+          exception_to_raise=None, label=None, callback=None, backoff=1):
     """Retry calling the decorated function using a delay with jitter.
 
     Will raise RPC ValidationError exceptions from the decorated
@@ -157,14 +157,17 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
     @param ExceptionToCheck: the exception to check.  May be a tuple of
                              exceptions to check.
     @param timeout_min: timeout in minutes until giving up.
-    @param delay_sec: pre-jittered delay between retries in seconds.  Actual
-                      delays will be centered around this value, ranging up to
-                      50% off this midpoint.
+    @param delay_sec: pre-jittered base delay between retries in seconds. Actual
+                      delays will be first calculated with exponential backoff,
+                      then randomized around this new value, ranging up to 50%
+                      off this midpoint.
     @param blacklist: a list of exceptions that will be raised without retrying.
     @param exception_to_raise: the exception to raise. Callers can specify the
                                exception they want to raise.
     @param label: a label added to the exception message to help debug.
     @param callback: a function to call before each retry.
+    @param backoff: exponent to calculate exponential backoff for the actual
+                    delay. Set to 1 to disable exponential backoff.
     """
     def deco_retry(func):
         """
@@ -175,11 +178,12 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
         random.seed()
 
 
-        def delay():
+        def delay(delay_with_backoff_sec):
             """
-            'Jitter' the delay, up to 50% in either direction.
+            'Jitter' the delay with backoff, up to 50% in either direction.
             """
-            random_delay = random.uniform(.5 * delay_sec, 1.5 * delay_sec)
+            random_delay = random.uniform(0.5 * delay_with_backoff_sec,
+                                          1.5 * delay_with_backoff_sec)
             logging.warning('Retrying in %f seconds...', random_delay)
             time.sleep(random_delay)
 
@@ -193,6 +197,7 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
             exception_tuple = () if blacklist is None else tuple(blacklist)
             start_time = time.time()
             remaining_time = timeout_min * 60
+            delay_with_backoff_sec = delay_sec
             is_main_thread = isinstance(threading.current_thread(),
                                         threading._MainThread)
             if label:
@@ -207,7 +212,8 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
 
             while remaining_time > 0:
                 if delayed_enabled:
-                    delay()
+                    delay(delay_with_backoff_sec)
+                    delay_with_backoff_sec *= backoff
                 else:
                     delayed_enabled = True
                 try:

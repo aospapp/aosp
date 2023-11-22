@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -117,7 +117,7 @@ static Image *ReadCLIPImage(const ImageInfo *image_info,
         *clip_image;
 
       (void) ClipImage(image,exception);
-      clip_image=GetImageMask(image,ReadPixelMask,exception);
+      clip_image=GetImageMask(image,WritePixelMask,exception);
       if (clip_image == (Image *) NULL)
         ThrowReaderException(CoderError,"ImageDoesNotHaveAClipMask");
       image=DestroyImage(image);
@@ -225,11 +225,11 @@ static MagickBooleanType WriteCLIPImage(const ImageInfo *image_info,
   MagickBooleanType
     status;
 
-  if (image->read_mask == MagickFalse)
-    (void) ClipImage(image,exception);
-  if (image->read_mask == MagickFalse)
+  if ((image->channels & WriteMaskChannel) == 0)
+    status=ClipImage(image,exception);
+  if ((image->channels & WriteMaskChannel) == 0)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAClipMask");
-  clip_image=GetImageMask(image,ReadPixelMask,exception);
+  clip_image=GetImageMask(image,WritePixelMask,exception);
   if (clip_image == (Image *) NULL)
     return(MagickFalse);
   (void) CopyMagickString(clip_image->filename,image->filename,

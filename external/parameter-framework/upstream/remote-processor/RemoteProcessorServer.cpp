@@ -32,15 +32,17 @@
 #include <memory>
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 #include "RequestMessage.h"
 #include "AnswerMessage.h"
 #include "RemoteCommandHandler.h"
 #include "Socket.h"
+#include "convert.hpp"
 
 using std::string;
 
-CRemoteProcessorServer::CRemoteProcessorServer(uint16_t uiPort)
-    : _uiPort(uiPort), _io_service(), _acceptor(_io_service), _socket(_io_service)
+CRemoteProcessorServer::CRemoteProcessorServer(std::string bindAddress)
+    : _bindAddress(bindAddress), _io_service(), _acceptor(_io_service), _socket(_io_service)
 {
 }
 
@@ -55,18 +57,71 @@ bool CRemoteProcessorServer::start(string &error)
     using namespace asio;
 
     try {
-        ip::tcp::endpoint endpoint(ip::tcp::v6(), _uiPort);
+        generic::stream_protocol::endpoint endpoint;
+        uint16_t port;
+        std::string endpointName;
+        bool isInet;
+
+        // For backward compatibility, tcp port referred by its value only
+        if (convertTo(_bindAddress, port)) {
+            isInet = true;
+        } else {
+            // required form is <protocol>://<host:port|port_name>
+            const std::string tcpProtocol{"tcp"};
+            const std::string unixProtocol{"unix"};
+            const std::vector<std::string> supportedProtocols{ tcpProtocol, unixProtocol };
+            const std::string protocolDel{"://"};
+
+            size_t protocolDelPos = _bindAddress.find(protocolDel);
+            if (protocolDelPos == std::string::npos) {
+                error = "bindaddress " + _bindAddress + " ill formed, missing " + protocolDel;
+                return false;
+            }
+            std::string protocol = _bindAddress.substr(0, protocolDelPos);
+
+            if (std::find(begin(supportedProtocols), end(supportedProtocols), protocol) ==
+                    end(supportedProtocols)) {
+                error = "bindaddress " + _bindAddress + " has invalid protocol " + protocol;
+                return false;
+            }
+            isInet = (_bindAddress.find(tcpProtocol) != std::string::npos);
+            if (isInet) {
+                size_t portDelPos = _bindAddress.find(':', protocolDelPos + protocolDel.size());
+                if (portDelPos == std::string::npos) {
+                    error = "bindaddress " + _bindAddress + " ill formed, missing " + ":";
+                    return false;
+                }
+                std::string portLiteral{_bindAddress.substr(portDelPos + 1)};
+                if (!convertTo(portLiteral, port)) {
+                    error = "bindaddress " + _bindAddress + " port " + portLiteral + " ill formed";
+                    return false;
+                }
+            } else {
+                endpointName = _bindAddress.substr(protocolDelPos + protocolDel.size());
+            }
+        }
+
+        if (isInet) {
+            endpoint = ip::tcp::endpoint(ip::tcp::v6(), port);
+        } else {
+            endpoint = local::stream_protocol::endpoint(endpointName);
+        }
 
         _acceptor.open(endpoint.protocol());
 
-        _acceptor.set_option(ip::tcp::acceptor::reuse_address(true));
-        _acceptor.set_option(asio::socket_base::linger(true, 0));
+        if (endpoint.protocol().protocol() == ASIO_OS_DEF(IPPROTO_TCP)) {
+            _acceptor.set_option(ip::tcp::acceptor::reuse_address(true));
+        } else if (endpoint.protocol().protocol() == AF_UNSPEC) {
+            // In case of reuse, remote it first
+            unlink(endpointName.c_str());
+        }
+        _acceptor.set_option(socket_base::linger(true, 0));
         _acceptor.set_option(socket_base::enable_connection_aborted(true));
 
         _acceptor.bind(endpoint);
         _acceptor.listen();
     } catch (std::exception &e) {
-        error = "Unable to listen on port " + std::to_string(_uiPort) + ": " + e.what();
+        error = "Unable to listen on " + _bindAddress + ": " + e.what();
         return false;
     }
 
@@ -88,7 +143,10 @@ void CRemoteProcessorServer::acceptRegister(IRemoteCommandHandler &commandHandle
             return;
         }
 
-        _socket.set_option(asio::ip::tcp::no_delay(true));
+        const auto &endpoint = _socket.local_endpoint();
+        if (endpoint.protocol().protocol() == ASIO_OS_DEF(IPPROTO_TCP)) {
+            _socket.set_option(asio::ip::tcp::no_delay(true));
+        }
         handleNewConnection(commandHandler);
 
         _socket.close();

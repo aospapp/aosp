@@ -1,2 +1,4 @@
 /home/autotest/tests/logging_UserCrash/src/crasher_nobreakpad
 /usr/bin/getent
+# FIXME: Remove this after Intel fixes their parser, crbug.com/887869
+/opt/intel/fw_parser

@@ -13,7 +13,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES='hw_jpeg_acc_enc'
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -28,5 +27,4 @@ test_cases = [
     ('jpeg_test/lake_4160x3120.yuv', 4160, 3120)
 ]
 
-job.run_test('video_JEAPerf', test_cases=test_cases)
-
+job.run_test('video_JEAPerf', test_cases=test_cases, capability='hw_enc_jpeg')

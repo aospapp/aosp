@@ -18,8 +18,6 @@ Addition of classes in android/ :
 All source changes (besides imports) marked with ANDROID-BEGIN and ANDROID-END:
   - Commenting of code that references APIs not present on Android.
   - @Ignore or comment out tests for functionality not supported on Android.
-  - Work around JUnit 4.11 not being available on Android by adding a
-    assertNotEquals() method to affect tests.
 
 okio/ contains a snapshot of the Okio project. See okio/README.android for
 details.

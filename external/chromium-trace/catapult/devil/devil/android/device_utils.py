@@ -13,6 +13,7 @@ import collections
 import fnmatch
 import json
 import logging
+import math
 import os
 import posixpath
 import pprint
@@ -59,6 +60,29 @@ _DEFAULT_RETRIES = 3
 # the timeout_retry decorators.
 DEFAULT = object()
 
+# A sentinel object to require that calls to RunShellCommand force running the
+# command with su even if the device has been rooted. To use, pass into the
+# as_root param.
+_FORCE_SU = object()
+
+_RECURSIVE_DIRECTORY_LIST_SCRIPT = """
+  function list_subdirs() {
+    for f in "$1"/* ;
+    do
+      if [ -d "$f" ] ;
+      then
+        if [ "$f" == "." ] || [ "$f" == ".." ] ;
+        then
+          continue ;
+        fi ;
+        echo "$f" ;
+        list_subdirs "$f" ;
+      fi ;
+    done ;
+  } ;
+  list_subdirs %s
+"""
+
 _RESTART_ADBD_SCRIPT = """
   trap '' HUP
   trap '' TERM
@@ -88,6 +112,7 @@ _PERMISSIONS_BLACKLIST_RE = re.compile('|'.join(fnmatch.translate(p) for p in [
     'android.permission.DISABLE_KEYGUARD',
     'android.permission.DOWNLOAD_WITHOUT_NOTIFICATION',
     'android.permission.EXPAND_STATUS_BAR',
+    'android.permission.FOREGROUND_SERVICE',
     'android.permission.GET_PACKAGE_SIZE',
     'android.permission.INSTALL_SHORTCUT',
     'android.permission.INJECT_EVENTS',
@@ -185,6 +210,7 @@ _SPECIAL_ROOT_DEVICE_LIST = [
     'marlin', # Pixel XL
     'sailfish', # Pixel
     'taimen', # Pixel 2 XL
+    'vega', # Lenovo Mirage Solo
     'walleye', # Pixel 2
 ]
 _IMEI_RE = re.compile(r'  Device ID = (.+)$')
@@ -400,6 +426,20 @@ class DeviceUtils(object):
   @decorators.WithTimeoutAndRetriesFromInstance()
   def HasRoot(self, timeout=None, retries=None):
     """Checks whether or not adbd has root privileges.
+
+    A device is considered to have root if all commands are implicitly run
+    with elevated privileges, i.e. without having to use "su" to run them.
+
+    Note that some devices do not allow this implicit privilige elevation,
+    but _can_ run commands as root just fine when done explicitly with "su".
+    To check if your device can run commands with elevated privileges at all
+    use:
+
+      device.HasRoot() or device.NeedsSU()
+
+    Luckily, for the most part you don't need to worry about this and using
+    RunShellCommand(cmd, as_root=True) will figure out for you the right
+    command incantation to run with elevated privileges.
 
     Args:
       timeout: timeout in seconds
@@ -649,6 +689,22 @@ class DeviceUtils(object):
         'Version name for %s not found on dumpsys output' % package, str(self))
 
   @decorators.WithTimeoutAndRetriesFromInstance()
+  def GetPackageArchitecture(self, package, timeout=None, retries=None):
+    """Get the architecture of a package installed on the device.
+
+    Args:
+      package: Name of the package.
+
+    Returns:
+      A string with the architecture, or None if the package is missing.
+    """
+    lines = self._GetDumpsysOutput(['package', package], 'primaryCpuAbi')
+    if lines:
+      _, _, package_arch = lines[-1].partition('=')
+      return package_arch.strip()
+    return None
+
+  @decorators.WithTimeoutAndRetriesFromInstance()
   def GetApplicationDataDirectory(self, package, timeout=None, retries=None):
     """Get the data directory on the device for the given package.
 
@@ -669,6 +725,31 @@ class DeviceUtils(object):
         return dataDir
     raise device_errors.CommandFailedError(
         'Could not find data directory for %s', package)
+
+  @decorators.WithTimeoutAndRetriesFromInstance()
+  def GetSecurityContextForPackage(self, package, encrypted=False, timeout=None,
+      retries=None):
+    """Gets the SELinux security context for the given package.
+
+    Args:
+      package: Name of the package.
+      encrypted: Whether to check in the encrypted data directory
+          (/data/user_de/0/) or the unencrypted data directory (/data/data/).
+
+    Returns:
+      The package's security context as a string, or None if not found.
+    """
+    directory = '/data/user_de/0/' if encrypted else '/data/data/'
+    for line in self.RunShellCommand(['ls', '-Z', directory],
+                                     as_root=True, check_return=True):
+      split_line = line.split()
+      # ls -Z output differs between Android versions, but the package is
+      # always last and the context always starts with "u:object"
+      if split_line[-1] == package:
+        for column in split_line:
+          if column.startswith('u:object'):
+            return column
+    return None
 
   def TakeBugReport(self, path, timeout=60*5, retries=None):
     """Takes a bug report and dumps it to the specified path.
@@ -939,8 +1020,8 @@ class DeviceUtils(object):
   @decorators.WithTimeoutAndRetriesFromInstance()
   def RunShellCommand(self, cmd, shell=False, check_return=False, cwd=None,
                       env=None, run_as=None, as_root=False, single_line=False,
-                      large_output=False, raw_output=False, timeout=None,
-                      retries=None):
+                      large_output=False, raw_output=False,
+                      ensure_logs_on_timeout=False, timeout=None, retries=None):
     """Run an ADB shell command.
 
     The command to run |cmd| should be a sequence of program arguments
@@ -983,6 +1064,10 @@ class DeviceUtils(object):
         this large output will be truncated.
       raw_output: Whether to only return the raw output
           (no splitting into lines).
+      ensure_logs_on_timeout: If True, will use a slightly smaller timeout for
+          the internal adb command, which allows to retrive logs on timeout.
+          Note that that logs are not guaranteed to be produced with this option
+          as adb command may still hang and fail to respect the reduced timeout.
       timeout: timeout in seconds
       retries: number of retries
 
@@ -1006,7 +1091,7 @@ class DeviceUtils(object):
       return '%s=%s' % (key, cmd_helper.DoubleQuote(value))
 
     def run(cmd):
-      return self.adb.Shell(cmd)
+      return self.adb.Shell(cmd, ensure_logs_on_timeout=ensure_logs_on_timeout)
 
     def handle_check_return(cmd):
       try:
@@ -1064,7 +1149,7 @@ class DeviceUtils(object):
     if run_as:
       cmd = 'run-as %s sh -c %s' % (cmd_helper.SingleQuote(run_as),
                                     cmd_helper.SingleQuote(cmd))
-    if as_root and self.NeedsSU():
+    if (as_root is _FORCE_SU) or (as_root and self.NeedsSU()):
       # "su -c sh -c" allows using shell features in |cmd|
       cmd = self._Su('sh -c %s' % cmd_helper.SingleQuote(cmd))
 
@@ -1196,6 +1281,33 @@ class DeviceUtils(object):
       cmd.extend(['--start-profiler', trace_file_name])
     if force_stop:
       cmd.append('-S')
+    cmd.extend(intent_obj.am_args)
+    for line in self.RunShellCommand(cmd, check_return=True):
+      if line.startswith('Error:'):
+        raise device_errors.CommandFailedError(line, str(self))
+
+  @decorators.WithTimeoutAndRetriesFromInstance()
+  def StartService(self, intent_obj, user_id=None, timeout=None, retries=None):
+    """Start a service on the device.
+
+    Args:
+      intent_obj: An Intent object to send describing the service to start.
+      user_id: A specific user to start the service as, defaults to current.
+      timeout: Timeout in seconds.
+      retries: Number of retries
+
+    Raises:
+      CommandFailedError if the service could not be started.
+      CommandTimeoutError on timeout.
+      DeviceUnreachableError on missing device.
+    """
+    # For whatever reason, startservice was changed to start-service on O and
+    # above.
+    cmd = ['am', 'startservice']
+    if self.build_version_sdk >= version_codes.OREO:
+      cmd[1] = 'start-service'
+    if user_id:
+      cmd.extend(['--user', str(user_id)])
     cmd.extend(intent_obj.am_args)
     for line in self.RunShellCommand(cmd, check_return=True):
       if line.startswith('Error:'):
@@ -1383,7 +1495,7 @@ class DeviceUtils(object):
           missing_dirs.add(posixpath.dirname(d))
 
     if delete_device_stale and all_stale_files:
-      self.RunShellCommand(['rm', '-f'] + all_stale_files, check_return=True)
+      self.RemovePath(all_stale_files, force=True, recursive=True)
 
     if all_changed_files:
       if missing_dirs:
@@ -1483,14 +1595,65 @@ class DeviceUtils(object):
         else:
           to_push.append((host_abs_path, device_abs_path))
       to_delete = device_checksums.keys()
+    # We can't rely solely on the checksum approach since it does not catch
+    # stale directories, which can result in empty directories that cause issues
+    # during copying in efficient_android_directory_copy.sh. So, find any stale
+    # directories here so they can be removed in addition to stale files.
+    if track_stale:
+      to_delete.extend(self._GetStaleDirectories(host_path, device_path))
 
     def cache_commit_func():
-      new_sums = {posixpath.join(device_path, path[len(host_path) + 1:]): val
-                  for path, val in host_checksums.iteritems()}
+      # When host_path is a not a directory, the path.join() call below would
+      # have an '' as the second argument, causing an unwanted / to be appended.
+      if os.path.isfile(host_path):
+        assert len(host_checksums) == 1
+        new_sums = {device_path: host_checksums[host_path]}
+      else:
+        new_sums = {posixpath.join(device_path, path[len(host_path) + 1:]): val
+                    for path, val in host_checksums.iteritems()}
       cache_entry = [ignore_other_files, new_sums]
       self._cache['device_path_checksums'][device_path] = cache_entry
 
     return (to_push, up_to_date, to_delete, cache_commit_func)
+
+  def _GetStaleDirectories(self, host_path, device_path):
+    """Gets a list of stale directories on the device.
+
+    Args:
+      host_path: an absolute path of a directory on the host
+      device_path: an absolute path of a directory on the device
+
+    Returns:
+      A list containing absolute paths to directories on the device that are
+      considered stale.
+    """
+    def get_device_dirs(path):
+      directories = set()
+      command = _RECURSIVE_DIRECTORY_LIST_SCRIPT % cmd_helper.SingleQuote(path)
+      # We use shell=True to evaluate the command as a script through the shell,
+      # otherwise RunShellCommand tries to interpret it as the name of a (non
+      # existent) command to run.
+      for line in self.RunShellCommand(
+          command, shell=True, check_return=True):
+        directories.add(posixpath.relpath(posixpath.normpath(line), path))
+      return directories
+
+    def get_host_dirs(path):
+      directories = set()
+      if not os.path.isdir(path):
+        return directories
+      for root, _, _ in os.walk(path):
+        if root != path:
+          # Strip off the top level directory so we can compare the device and
+          # host.
+          directories.add(
+              os.path.relpath(root, path).replace(os.sep, posixpath.sep))
+      return directories
+
+    host_dirs = get_host_dirs(host_path)
+    device_dirs = get_device_dirs(device_path)
+    stale_dirs = device_dirs - host_dirs
+    return [posixpath.join(device_path, d) for d in stale_dirs]
 
   def _ComputeDeviceChecksumsForApks(self, package_name):
     ret = self._cache['package_apk_checksums'].get(package_name)
@@ -1608,6 +1771,8 @@ class DeviceUtils(object):
       except zip_utils.ZipFailedError:
         return False
 
+      logger.info('Pushing %d files via .zip of size %d', len(files),
+                  os.path.getsize(zip_path))
       self.NeedsSU()
       with device_temp_file.DeviceTempFile(
           self.adb, suffix='.zip') as device_temp:
@@ -2279,9 +2444,8 @@ class DeviceUtils(object):
     """
     try:
       ps_cmd = 'ps'
-      # ps behavior was changed in Android above N, http://crbug.com/686716
-      if (self.build_version_sdk >= version_codes.NOUGAT_MR1
-          and self.build_id[0] > 'N'):
+      # ps behavior was changed in Android O and above, http://crbug.com/686716
+      if self.build_version_sdk >= version_codes.OREO:
         ps_cmd = 'ps -e'
       if pattern:
         return self._RunPipedShellCommand(
@@ -2330,6 +2494,29 @@ class DeviceUtils(object):
         continue
       processes.append(ProcessInfo(**row))
     return processes
+
+  def _GetDumpsysOutput(self, extra_args, pattern=None):
+    """Runs |dumpsys| command on the device and returns its output.
+
+    This private method implements support for filtering the output by a given
+    |pattern|, but does not do any output parsing.
+    """
+    try:
+      cmd = ['dumpsys'] + extra_args
+      if pattern:
+        cmd = ' '.join(cmd_helper.SingleQuote(s) for s in cmd)
+        return self._RunPipedShellCommand(
+            '%s | grep -F %s' % (cmd, cmd_helper.SingleQuote(pattern)))
+      else:
+        cmd = ['dumpsys'] + extra_args
+        return self.RunShellCommand(cmd, check_return=True, large_output=True)
+    except device_errors.AdbShellCommandFailedError as e:
+      if e.status and isinstance(e.status, list) and not e.status[0]:
+        # If dumpsys succeeded but grep failed, there were no lines matching
+        # the given pattern.
+        return []
+      else:
+        raise
 
   # TODO(#4103): Remove after migrating clients to ListProcesses.
   @decorators.WithTimeoutAndRetriesFromInstance()
@@ -2436,6 +2623,30 @@ class DeviceUtils(object):
     self.RunShellCommand(
         ['setenforce', '1' if int(enabled) else '0'], as_root=True,
         check_return=True)
+
+  @decorators.WithTimeoutAndRetriesFromInstance()
+  def SetWebViewImplementation(self, package_name, timeout=None, retries=None):
+    """Select the WebView implementation to the specified package.
+
+    Args:
+      package_name: The package name of a WebView implementation. The package
+        must be already installed on the device.
+      timeout: timeout in seconds
+      retries: number of retries
+
+    Raises:
+      CommandFailedError on failure.
+      CommandTimeoutError on timeout.
+      DeviceUnreachableError on missing device.
+    """
+    output = self.RunShellCommand(
+        ['cmd', 'webviewupdate', 'set-webview-implementation', package_name],
+        single_line=True, check_return=True)
+    if output == 'Success':
+      logging.info('WebView provider set to: %s', package_name)
+    else:
+      raise device_errors.CommandFailedError(
+          'Error setting WebView provider: %s' % output, str(self))
 
   @decorators.WithTimeoutAndRetriesFromInstance()
   def TakeScreenshot(self, host_path=None, timeout=None, retries=None):
@@ -2614,8 +2825,8 @@ class DeviceUtils(object):
       return parallelizer.SyncParallelizer(devices)
 
   @classmethod
-  def HealthyDevices(cls, blacklist=None, device_arg='default', retry=True,
-                     **kwargs):
+  def HealthyDevices(cls, blacklist=None, device_arg='default', retries=1,
+                     abis=None, **kwargs):
     """Returns a list of DeviceUtils instances.
 
     Returns a list of DeviceUtils instances that are attached, not blacklisted,
@@ -2637,8 +2848,11 @@ class DeviceUtils(object):
               blacklisted.
           ['A', 'B', ...] -> Returns instances for the subset that is not
               blacklisted.
-      retry: If true, will attempt to restart adb server and query it again if
-          no devices are found.
+      retries: Number of times to restart adb server and query it again if no
+          devices are found on the previous attempts, with exponential backoffs
+          up to 60s between each retry.
+      abis: A list of ABIs for which the device needs to support at least one of
+          (optional).
       A device serial, or a list of device serials (optional).
 
     Returns:
@@ -2674,14 +2888,23 @@ class DeviceUtils(object):
         return True
       return False
 
+    def supports_abi(abi, serial):
+      if abis and abi not in abis:
+        logger.warning("Device %s doesn't support required ABIs.", serial)
+        return False
+      return True
+
     def _get_devices():
       if device_arg:
         devices = [cls(x, **kwargs) for x in device_arg if not blacklisted(x)]
       else:
         devices = []
         for adb in adb_wrapper.AdbWrapper.Devices():
-          if not blacklisted(adb.GetDeviceSerial()):
-            devices.append(cls(_CreateAdbWrapper(adb), **kwargs))
+          serial = adb.GetDeviceSerial()
+          if not blacklisted(serial):
+            device = cls(_CreateAdbWrapper(adb), **kwargs)
+            if supports_abi(device.GetABI(), serial):
+              devices.append(device)
 
       if len(devices) == 0 and not allow_no_devices:
         raise device_errors.NoDevicesError()
@@ -2689,15 +2912,20 @@ class DeviceUtils(object):
         raise device_errors.MultipleDevicesError(devices)
       return sorted(devices)
 
-    try:
-      return _get_devices()
-    except device_errors.NoDevicesError:
-      if not retry:
-        raise
-      logger.warning(
-          'No devices found. Will try again after restarting adb server.')
-      RestartServer()
-      return _get_devices()
+    for attempt in xrange(retries+1):
+      try:
+        return _get_devices()
+      except device_errors.NoDevicesError:
+        if attempt == retries:
+          logging.error('No devices found after exhausting all retries.')
+          raise
+        # math.pow returns floats, so cast to int for easier testing
+        sleep_s = min(int(math.pow(2, attempt + 1)), 60)
+        logger.warning(
+            'No devices found. Will try again after restarting adb server '
+            'and a short nap of %d s.', sleep_s)
+        time.sleep(sleep_s)
+        RestartServer()
 
   @decorators.WithTimeoutAndRetriesFromInstance()
   def RestartAdbd(self, timeout=None, retries=None):
@@ -2806,3 +3034,39 @@ class DeviceUtils(object):
       return
     self.SendKeyEvent(keyevent.KEYCODE_POWER)
     timeout_retry.WaitFor(screen_test, wait_period=1)
+
+  @decorators.WithTimeoutAndRetriesFromInstance()
+  def ChangeOwner(self, owner_group, paths, timeout=None, retries=None):
+    """Changes file system ownership for permissions.
+
+    Args:
+      owner_group: New owner and group to assign. Note that this should be a
+        string in the form user[.group] where the group is option.
+      paths: Paths to change ownership of.
+
+      Note that the -R recursive option is not supported by all Android
+      versions.
+    """
+    if not paths:
+      return
+    self.RunShellCommand(['chown', owner_group] + paths, check_return=True)
+
+  @decorators.WithTimeoutAndRetriesFromInstance()
+  def ChangeSecurityContext(self, security_context, paths, timeout=None,
+                            retries=None):
+    """Changes the SELinux security context for files.
+
+    Args:
+      security_context: The new security context as a string
+      paths: Paths to change the security context of.
+
+      Note that the -R recursive option is not supported by all Android
+      versions.
+    """
+    if not paths:
+      return
+    command = ['chcon', security_context] + paths
+
+    # Note, need to force su because chcon can fail with permission errors even
+    # if the device is rooted.
+    self.RunShellCommand(command, as_root=_FORCE_SU, check_return=True)

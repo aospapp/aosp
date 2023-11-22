@@ -7,18 +7,26 @@
 #ifndef CAMERA_CHARACTERISTICS_H_
 #define CAMERA_CHARACTERISTICS_H_
 
+#include <map>
+#include <string>
+#include <utility>
+
+#include <base/files/file.h>
+#include <base/macros.h>
+
 #include "common_types.h"
 
-#include <unordered_map>
-
-#include <base/macros.h>
+// /etc/camera/camera_characteristics.conf contains camera information which
+// driver cannot provide.
+static const base::FilePath kCameraCharacteristicsConfigFile(
+    "/etc/camera/camera_characteristics.conf");
 
 // CameraCharacteristics reads the file /etc/camera/camera_characteristics.conf.
 // There are several assumptions of the config file:
-//  1. Each line should be at most 256 characters long.
-//  2. camera id should be in ascending order (i.e., 0, 1, 2, ...).
-//  3. usb_vid_pid should be the first subkey.
-//  4. All configs of a module should be put together.
+//  1. camera/module id should be in ascending order (i.e., 0, 1, 2, ...).
+//  2. All configs of a camera/module should be put together.
+//  3. Module specific characteristics should come after camera specific ones.
+//  4. All usb_vid_pid shuold be distinct.
 //
 // Example of the config file:
 //  camera0.lens_facing=0
@@ -33,26 +41,27 @@
 //  camera0.module1.lens_info_available_focal_lengths=1.69,2
 //  camera1.lens_facing=1
 //  camera1.sensor_orientation=180
+//  ...
 class CameraCharacteristics {
  public:
-  CameraCharacteristics();
-  ~CameraCharacteristics();
+  static bool ConfigFileExists();
 
-  // Parses /etc/camera/camera_characteristics.conf.
-  // Returns DeviceInfos with default characteristics if the config file doesn't
-  // exist.
-  const DeviceInfos GetCharacteristicsFromFile(
-      const std::unordered_map<std::string, std::string>& devices);
+  // Initialize camera characteristics from |kCameraCharacteristicsConfigFile|.
+  // If the file does not exist, |camera_module_infos_| would be empty.
+  CameraCharacteristics();
+
+  // Initialize camera characteristics from |config_file|.
+  explicit CameraCharacteristics(const base::FilePath& config_file);
+
+  // Get the device information by vid and pid. Returns |nullptr| if not found.
+  const DeviceInfo* Find(const std::string& vid, const std::string& pid) const;
 
  private:
-  void AddPerCameraCharacteristic(
-      uint32_t camera_id, const char* characteristic, const char* value,
-      DeviceInfos* device_infos);
-  void AddPerModuleCharacteristic(
-      uint32_t camera_id, const char* characteristic, const char* value,
-      DeviceInfos* device_infos);
-  void AddFloatValue(const char* value, const char* characteristic_name,
-                     float* characteristic);
+  void InitFrom(const base::FilePath& config_file);
+
+  // The key is a pair of usb (vid, pid).
+  std::map<std::pair<std::string, std::string>, DeviceInfo>
+      camera_module_infos_;
 
   DISALLOW_COPY_AND_ASSIGN(CameraCharacteristics);
 };

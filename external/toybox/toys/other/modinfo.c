@@ -4,7 +4,7 @@
  *
  * TODO: cleanup
 
-USE_MODINFO(NEWTOY(modinfo, "<1b:k:F:0", TOYFLAG_BIN))
+USE_MODINFO(NEWTOY(modinfo, "<1b:k:F:0", TOYFLAG_SBIN))
 
 config MODINFO
   bool "modinfo"
@@ -20,17 +20,15 @@ config MODINFO
 #include "toys.h"
 
 GLOBALS(
-  char *field;
-  char *knam;
-  char *base;
+  char *F, *k, *b;
 
   long mod;
 )
 
 static void output_field(char *field, char *value)
 {
-  if (!TT.field) xprintf("%s:%*c", field, 15-(int)strlen(field), ' ');
-  else if (strcmp(TT.field, field)) return;
+  if (!TT.F) xprintf("%s:%*c", field, 15-(int)strlen(field), ' ');
+  else if (strcmp(TT.F, field)) return;
   xprintf("%s", value);
   xputc((toys.optflags & FLAG_0) ? 0 : '\n');
 }
@@ -53,18 +51,18 @@ static void modinfo_file(char *full_name)
   if (!buf) {
     perror_msg_raw(full_name);
     return;
-  } 
+  }
 
   output_field("filename", full_name);
 
   for (pos = buf; pos < buf+len; pos++) {
     if (*pos) continue;
 
-    for (i = 0; i < sizeof(modinfo_tags) / sizeof(*modinfo_tags); i++) {
+    for (i=0; i<ARRAY_LEN(modinfo_tags); i++) {
       char *str = modinfo_tags[i];
       int len = strlen(str);
 
-      if (!strncmp(pos+1, str, len) && pos[len+1] == '=') 
+      if (!strncmp(pos+1, str, len) && pos[len+1] == '=')
         output_field(str, pos+len+2);
     }
   }
@@ -111,8 +109,8 @@ void modinfo_main(void)
 
       if (uname(&uts) < 0) perror_exit("bad uname");
       if (snprintf(toybuf, sizeof(toybuf), "%s/lib/modules/%s",
-          (toys.optflags & FLAG_b) ? TT.base : "",
-          (toys.optflags & FLAG_k) ? TT.knam : uts.release) >= sizeof(toybuf))
+          (toys.optflags & FLAG_b) ? TT.b : "",
+          (toys.optflags & FLAG_k) ? TT.k : uts.release) >= sizeof(toybuf))
             perror_exit("basedir/kernrelease too long");
       dirtree_read(toybuf, check_module);
     }

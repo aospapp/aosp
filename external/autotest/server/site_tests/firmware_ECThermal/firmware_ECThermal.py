@@ -140,6 +140,9 @@ class firmware_ECThermal(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECThermal, self).initialize(host, cmdline_args)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
         self.ec.send_command("chan 0")
         try:
             self.faft_client.system.run_shell_command('stop temp_metrics')
@@ -419,6 +422,8 @@ class firmware_ECThermal(FirmwareTest):
 
 
     def run_once(self):
+        """Execute the main body of the test.
+        """
         if not self.check_ec_capability(['thermal']):
             raise error.TestNAError("Nothing needs to be tested on this device")
         logging.info("Checking host temperature report.")

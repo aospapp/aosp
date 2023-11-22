@@ -30,6 +30,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
+import org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -41,11 +42,11 @@ public class ClassLoaderTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.ClassLoader command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
+    static final String debuggeeSignature = getClassSignature(HelloWorld.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
+        return HelloWorld.class.getName();
     }
 
     /**

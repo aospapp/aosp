@@ -10,6 +10,7 @@ import time
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.input_playback import keyboard, stylus
 from autotest_lib.client.cros.video import helper_logger
 
 
@@ -34,9 +35,12 @@ class video_YouTubePage(test.test):
     PLAYING_STATE = 'playing'
     PAUSED_STATE = 'paused'
     ENDED_STATE = 'ended'
-    TEST_PAGE = 'http://web-release-qa.youtube.com/watch?v=zuzaxlddWbk&html5=1'
 
     DISABLE_COOKIES = False
+
+    DROPPED_FRAMES_PERCENT_THRESHOLD = 1
+    DROPPED_FRAMES_DESCRIPTION = 'video_dropped_frames'
+    DROPPED_FRAMES_PERCENT_DESCRIPTION = 'video_dropped_frames_percent'
 
     tab = None
 
@@ -53,6 +57,8 @@ class video_YouTubePage(test.test):
         self.tab.Navigate(player_page)
         self.tab.WaitForDocumentReadyStateToBeComplete()
         time.sleep(2)
+
+        self.keys = keyboard.Keyboard()
 
         with open(
                 os.path.join(os.path.dirname(__file__),
@@ -113,6 +119,66 @@ class video_YouTubePage(test.test):
 
         """
         return self.tab.EvaluateJavaScript('window.__getCurrentTime();')
+
+
+    def is_currently_fullscreen(self):
+        """Simple wrapper to get the current state of fullscreen.
+
+        @returns: True if an element is currently fullscreen. False otherwise.
+
+        """
+        return self.tab.EvaluateJavaScript('window.__isCurrentlyFullscreen();')
+
+
+    def toggle_fullscreen(self, max_wait_secs=5):
+        """Toggle fullscreen through the YouTube hotkey f.
+
+        @raises: A error.TestError if the fullscreen state does not change.
+
+        """
+        start_state = self.is_currently_fullscreen()
+        start_time = time.time()
+
+        self.keys.press_key('f')
+
+        while True:
+            current_state = self.is_currently_fullscreen()
+            if current_state != start_state:
+                return
+            elif time.time() < start_time + max_wait_secs:
+                time.sleep(0.5)
+            else:
+                msg = 'Fullscreen did not transition from {} to {}.'.format(
+                      start_state, not start_state)
+                raise error.TestError(msg)
+
+
+    def get_frames_statistics(self):
+        """Simple wrapper to get a dictionary of raw video frame states
+
+        @returns: Dict of droppedFrameCount (int), decodedFrameCount (int), and
+                  droppedFramesPercentage (float).
+
+        """
+        return self.tab.EvaluateJavaScript('window.__getFramesStatistics();')
+
+
+    def get_dropped_frame_count(self):
+        """Simple wrapper to get the number of dropped frames.
+
+        @returns: Dropped frame count (int).
+
+        """
+        return self.get_frames_statistics()['droppedFrameCount']
+
+
+    def get_dropped_frames_percentage(self):
+        """Simple wrapper to get the percentage of dropped frames.
+
+        @returns: Drop frame percentage (float).
+
+        """
+        return self.get_frames_statistics()['droppedFramesPercentage']
 
 
     def assert_event_state(self, event, op, error_str):
@@ -280,20 +346,53 @@ class video_YouTubePage(test.test):
         """
         self.assert_player_state(self.PLAYING_STATE, self.NO_DELAY)
         time.sleep(15)
-        dropped_frames_percentage = self.tab.EvaluateJavaScript(
-                'window.__videoElement.webkitDroppedFrameCount /'
-                'window.__videoElement.webkitDecodedFrameCount')
-        if dropped_frames_percentage > 0.01:
+        dropped_frames_percentage = self.get_dropped_frames_percentage()
+        if dropped_frames_percentage > self.DROPPED_FRAMES_PERCENT_THRESHOLD:
             raise error.TestError((
                     'perform_frame_drop_test failed due to too many dropped '
-                    'frames (%f%%)') % (dropped_frames_percentage * 100))
+                    'frames (%f%%)') % (dropped_frames_percentage))
+
+
+    def perform_fullscreen_test(self):
+        """Test to check if there are too many dropped frames.
+
+        """
+        # Number of seconds either fullscreened or not
+        state_duration = 2
+        # Number of fullscreen
+        cycles = 5
+
+        # Wait for the player to start
+        self.assert_player_state(self.PLAYING_STATE, self.NO_DELAY)
+
+        # Focus on the browser tab. The second click hides the Stylus help
+        # dialogue popup
+        with stylus.Stylus() as s:
+            s.click_with_percentage(0, 0.5)
+            time.sleep(2)
+            s.click_with_percentage(0, 0.5)
+
+        for _ in range(cycles):
+            # To fullscreen
+            self.toggle_fullscreen()
+            time.sleep(state_duration)
+
+            # Close fullscreen
+            self.toggle_fullscreen()
+            time.sleep(state_duration)
+
+        dropped_frames_percentage = self.get_dropped_frames_percentage()
+        if dropped_frames_percentage > self.DROPPED_FRAMES_PERCENT_THRESHOLD:
+            raise error.TestError((
+                    'perform_frame_drop_test failed due to too many dropped '
+                    'frames (%f%%)') % (dropped_frames_percentage))
 
 
     def perform_ending_test(self):
         """Test to check if the state is 'ended' at the end of a video.
 
         """
-        ALMOST_END = 0.1
+        ALMOST_END = 0.5
         self.assert_player_state(self.PLAYING_STATE, self.NO_DELAY)
         self.seek_to_almost_end(ALMOST_END)
         self.assert_player_state(self.ENDED_STATE, self.MAX_REBUFFER_DELAY)
@@ -311,8 +410,59 @@ class video_YouTubePage(test.test):
         self.verify_last_second_playback()
 
 
+    def perform_360_test(self):
+        """Test to measure the number of dropped frames while playing a YouTube
+           3D 360 video.
+
+        """
+        # Operations, repetitions, and their post-operation delay. 3D 360
+        # degree video isn't any fun if you don't try moving around :).
+        operations = [('d', 3, 2), ('d', 3, 2), ('d', 5, 5),
+                      ('w', 3, 2), ('w', 3, 2), ('s', 3, 5),
+                      ('a', 4, 10), ('a', 3, 10), ('a', 3, 10)]
+
+        # Wait for the player to start
+        self.assert_player_state(self.PLAYING_STATE, self.NO_DELAY)
+
+        with stylus.Stylus() as s:
+            # Focus on the browser tab.
+            s.click_with_percentage(0, 0.5)
+            time.sleep(2)
+
+            self.toggle_fullscreen()
+            time.sleep(2)
+
+            # Focus on the fullscreen content. Second click unpauses.
+            s.click_with_percentage(0, 0.5)
+            s.click_with_percentage(0, 0.5)
+
+        # Navigating a YouTube 360 degree video is done with GUI interactions
+        # or a combination of WASD and mouse scrolling. W and S pitch the
+        # field of view up and down respectively. A and D then rotate left
+        # and right. Zooming is handled by scrolling up and down. For example,
+        # we might tap D three times to rotate a bit and then pause to watch
+        # the new field of view.
+        for operation, repititions, delay in operations:
+            for _ in range(repititions):
+                self.keys.press_key(operation)
+            time.sleep(delay)
+
+        dropped_frame_count = self.get_dropped_frame_count()
+        dropped_frames_percentage = self.get_dropped_frames_percentage()
+
+        # Record frame stats
+        self.output_perf_value(
+            description=self.DROPPED_FRAMES_DESCRIPTION,
+            value=dropped_frame_count, units='frames', higher_is_better=False,
+            graph=None)
+        self.output_perf_value(
+            description=self.DROPPED_FRAMES_PERCENT_DESCRIPTION,
+            value=dropped_frames_percentage, units='percent',
+            higher_is_better=False, graph=None)
+
+
     @helper_logger.video_log_wrapper
-    def run_once(self, subtest_name):
+    def run_once(self, subtest_name, test_page):
         """Main runner for the test.
 
         @param subtest_name: The name of the test to run, given below.
@@ -327,11 +477,10 @@ class video_YouTubePage(test.test):
                     'files/cookie-disabler')
             extension_paths.append(extension_path)
 
-
         with chrome.Chrome(
                 extra_browser_args=helper_logger.chrome_vmodule_flag(),
                 extension_paths=extension_paths) as cr:
-            self.initialize_test(cr, self.TEST_PAGE)
+            self.initialize_test(cr, test_page)
 
             if subtest_name is 'playing':
                 self.perform_playing_test()
@@ -343,7 +492,11 @@ class video_YouTubePage(test.test):
                 self.perform_seeking_test()
             elif subtest_name is 'frame_drop':
                 self.perform_frame_drop_test()
+            elif subtest_name is 'fullscreen':
+                self.perform_fullscreen_test()
             elif subtest_name is 'ending':
                 self.perform_ending_test()
             elif subtest_name is 'last_second':
                 self.perform_last_second_test()
+            elif subtest_name is '360':
+                self.perform_360_test()

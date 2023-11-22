@@ -5,8 +5,10 @@
 #ifndef LIBBRILLO_POLICY_DEVICE_POLICY_IMPL_H_
 #define LIBBRILLO_POLICY_DEVICE_POLICY_IMPL_H_
 
+#include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <base/files/file_path.h>
@@ -14,6 +16,7 @@
 
 #include "bindings/chrome_device_policy.pb.h"
 #include "bindings/device_management_backend.pb.h"
+#include "install_attributes/libinstallattributes.h"
 #include "policy/device_policy.h"
 
 #pragma GCC visibility push(default)
@@ -30,6 +33,12 @@ class DevicePolicyImpl : public DevicePolicy {
   DevicePolicyImpl();
   ~DevicePolicyImpl() override;
 
+  const enterprise_management::ChromeDeviceSettingsProto& get_device_policy()
+      const {
+    return device_policy_;
+  }
+
+  // DevicePolicy overrides:
   bool LoadPolicy() override;
   bool GetPolicyRefreshRate(int* rate) const override;
   bool GetUserWhitelist(
@@ -50,6 +59,10 @@ class DevicePolicyImpl : public DevicePolicy {
   bool GetUpdateDisabled(bool* update_disabled) const override;
   bool GetTargetVersionPrefix(
       std::string* target_version_prefix) const override;
+  bool GetRollbackToTargetVersion(
+      int* rollback_to_target_version) const override;
+  bool GetRollbackAllowedMilestones(
+      int* rollback_allowed_milestones) const override;
   bool GetScatterFactorInSeconds(
       int64_t* scatter_factor_in_seconds) const override;
   bool GetAllowedConnectionTypesForUpdate(
@@ -64,6 +77,12 @@ class DevicePolicyImpl : public DevicePolicy {
   bool GetUsbDetachableWhitelist(
       std::vector<UsbDeviceId>* usb_whitelist) const override;
   bool GetAutoLaunchedKioskAppId(std::string* app_id_out) const override;
+  bool IsEnterpriseManaged() const override;
+  bool GetSecondFactorAuthenticationMode(int* mode_out) const override;
+  bool GetDisallowedTimeIntervals(
+      std::vector<WeeklyTimeInterval>* intervals_out) const override;
+  bool GetDeviceUpdateStagingSchedule(
+      std::vector<DayPercentagePair> *staging_schedule_out) const override;
 
   // Methods that can be used only for testing.
   void set_policy_data_for_testing(
@@ -77,12 +96,17 @@ class DevicePolicyImpl : public DevicePolicy {
       std::unique_ptr<InstallAttributesReader> install_attributes_reader) {
     install_attributes_reader_ = std::move(install_attributes_reader);
   }
+  void set_policy_for_testing(
+      const enterprise_management::ChromeDeviceSettingsProto& device_policy) {
+    device_policy_ = device_policy;
+  }
   void set_policy_path_for_testing(const base::FilePath& policy_path) {
     policy_path_ = policy_path;
   }
   void set_key_file_path_for_testing(const base::FilePath& keyfile_path) {
     keyfile_path_ = keyfile_path;
   }
+  void set_verify_policy_for_testing(bool value) { verify_policy_ = value; }
 
  private:
   // Verifies that both the policy file and the signature file exist and are
@@ -93,11 +117,14 @@ class DevicePolicyImpl : public DevicePolicy {
   // Verifies that the policy signature is correct.
   bool VerifyPolicySignature() override;
 
-  // Loads the signed policy off of disk from |policy_path| into |policy_|.
-  // Returns true if the |policy_path| is present on disk and loading it is
-  // successful.
+  // Loads policy off of disk from |policy_path| into |policy_|. Returns true if
+  // the |policy_path| is present on disk and loading it is successful.
   bool LoadPolicyFromFile(const base::FilePath& policy_path);
 
+  // Path of the default policy file, e.g. /path/to/policy. In order to make
+  // device policy more resilient against broken files, this class also tries to
+  // load indexed paths /path/to/policy.1, /path/to/policy.2 etc., see
+  // resilient_policy_utils.h.
   base::FilePath policy_path_;
   base::FilePath keyfile_path_;
   std::unique_ptr<InstallAttributesReader> install_attributes_reader_;
@@ -107,7 +134,10 @@ class DevicePolicyImpl : public DevicePolicy {
 
   // If true, verify that policy files are owned by root. True in production
   // but can be set to false by tests.
-  bool verify_root_ownership_;
+  bool verify_root_ownership_ = true;
+  // If false, all types of verification are disabled. True in production
+  // but can be set to false by tests.
+  bool verify_policy_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(DevicePolicyImpl);
 };

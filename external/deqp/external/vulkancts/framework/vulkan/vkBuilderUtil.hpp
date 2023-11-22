@@ -34,59 +34,68 @@ namespace vk
 class DescriptorSetLayoutBuilder
 {
 public:
-												DescriptorSetLayoutBuilder	(void);
+												DescriptorSetLayoutBuilder		(void);
 
-	DescriptorSetLayoutBuilder&					addBinding					(VkDescriptorType	descriptorType,
-																			 deUint32			descriptorCount,
-																			 VkShaderStageFlags	stageFlags,
-																			 const VkSampler*	pImmutableSamplers);
+	DescriptorSetLayoutBuilder&					addBinding						(VkDescriptorType	descriptorType,
+																				 deUint32			descriptorCount,
+																				 VkShaderStageFlags	stageFlags,
+																				 const VkSampler*	pImmutableSamplers);
 
-	DescriptorSetLayoutBuilder&					addIndexedBinding			(VkDescriptorType	descriptorType,
-																			 deUint32			descriptorCount,
-																			 VkShaderStageFlags	stageFlags,
-																			 deUint32			dstBinding,
-																			 const VkSampler*	pImmutableSamplers);
+	DescriptorSetLayoutBuilder&					addIndexedBinding				(VkDescriptorType	descriptorType,
+																				 deUint32			descriptorCount,
+																				 VkShaderStageFlags	stageFlags,
+																				 deUint32			dstBinding,
+																				 const VkSampler*	pImmutableSamplers);
 
-	Move<VkDescriptorSetLayout>					build						(const DeviceInterface& vk, VkDevice device, VkDescriptorSetLayoutCreateFlags extraFlags = 0) const;
+	Move<VkDescriptorSetLayout>					build							(const DeviceInterface& vk, VkDevice device, VkDescriptorSetLayoutCreateFlags extraFlags = 0) const;
 
 	// helpers
 
-	inline DescriptorSetLayoutBuilder&			addSingleBinding			(VkDescriptorType	descriptorType,
-																			 VkShaderStageFlags	stageFlags)
+	inline DescriptorSetLayoutBuilder&			addSingleBinding				(VkDescriptorType	descriptorType,
+																				 VkShaderStageFlags	stageFlags)
 	{
 		return addBinding(descriptorType, 1u, stageFlags, (VkSampler*)DE_NULL);
 	}
-	inline DescriptorSetLayoutBuilder&			addSingleIndexedBinding		(VkDescriptorType	descriptorType,
-																			 VkShaderStageFlags	stageFlags,
-																			 deUint32			dstBinding)
+	inline DescriptorSetLayoutBuilder&			addSingleIndexedBinding			(VkDescriptorType	descriptorType,
+																				 VkShaderStageFlags	stageFlags,
+																				 deUint32			dstBinding)
 	{
 		return addIndexedBinding(descriptorType, 1u, stageFlags, dstBinding, (VkSampler*)DE_NULL);
 	}
-	inline DescriptorSetLayoutBuilder&			addArrayBinding				(VkDescriptorType	descriptorType,
-																			 deUint32			descriptorCount,
-																			 VkShaderStageFlags	stageFlags)
+	inline DescriptorSetLayoutBuilder&			addArrayBinding					(VkDescriptorType	descriptorType,
+																				 deUint32			descriptorCount,
+																				 VkShaderStageFlags	stageFlags)
 	{
 		return addBinding(descriptorType, descriptorCount, stageFlags, (VkSampler*)DE_NULL);
 	}
-	inline DescriptorSetLayoutBuilder&			addSingleSamplerBinding		(VkDescriptorType	descriptorType,
-																			 VkShaderStageFlags	stageFlags,
-																			 const VkSampler*	immutableSampler)	//!< \note: Using pointer to sampler to clarify that handle is not
-																													//!<        copied and argument lifetime is expected to cover build()
-																													//!<        call.
+	inline DescriptorSetLayoutBuilder&			addSingleSamplerBinding			(VkDescriptorType	descriptorType,
+																				 VkShaderStageFlags	stageFlags,
+																				 const VkSampler*	immutableSampler)	//!< \note: Using pointer to sampler to clarify that handle is not
+																														//!<        copied and argument lifetime is expected to cover build()
+																														//!<        call.
 	{
 		return addBinding(descriptorType, 1u, stageFlags, immutableSampler);
 	}
-	inline DescriptorSetLayoutBuilder&			addArraySamplerBinding		(VkDescriptorType	descriptorType,
-																			 deUint32			descriptorCount,
-																			 VkShaderStageFlags	stageFlags,
-																			 const VkSampler*	pImmutableSamplers)
+	inline DescriptorSetLayoutBuilder&			addSingleIndexedSamplerBinding	(VkDescriptorType	descriptorType,
+																				 VkShaderStageFlags	stageFlags,
+																				 deUint32			dstBinding,
+																				 const VkSampler*	immutableSampler)	//!< \note: Using pointer to sampler to clarify that handle is not
+																														//!<        copied and argument lifetime is expected to cover build()
+																														//!<        call.
+	{
+		return addIndexedBinding(descriptorType, 1u, stageFlags, dstBinding, immutableSampler);
+	}
+	inline DescriptorSetLayoutBuilder&			addArraySamplerBinding			(VkDescriptorType	descriptorType,
+																				 deUint32			descriptorCount,
+																				 VkShaderStageFlags	stageFlags,
+																				 const VkSampler*	pImmutableSamplers)
 	{
 		return addBinding(descriptorType, descriptorCount, stageFlags, pImmutableSamplers);
 	}
 
 private:
-												DescriptorSetLayoutBuilder	(const DescriptorSetLayoutBuilder&); // delete
-	DescriptorSetLayoutBuilder&					operator=					(const DescriptorSetLayoutBuilder&); // delete
+												DescriptorSetLayoutBuilder		(const DescriptorSetLayoutBuilder&); // delete
+	DescriptorSetLayoutBuilder&					operator=						(const DescriptorSetLayoutBuilder&); // delete
 
 	std::vector<VkDescriptorSetLayoutBinding>	m_bindings;
 
@@ -106,7 +115,7 @@ public:
 										DescriptorPoolBuilder	(void);
 
 	DescriptorPoolBuilder&				addType					(VkDescriptorType type, deUint32 numDescriptors = 1u);
-	Move<VkDescriptorPool>				build					(const DeviceInterface& vk, VkDevice device, VkDescriptorPoolCreateFlags flags, deUint32 maxSets) const;
+	Move<VkDescriptorPool>				build					(const DeviceInterface& vk, VkDevice device, VkDescriptorPoolCreateFlags flags, deUint32 maxSets, const void *pNext = DE_NULL) const;
 
 private:
 										DescriptorPoolBuilder	(const DescriptorPoolBuilder&); // delete
@@ -165,7 +174,8 @@ public:
 																	 deUint32			count);
 
 	void								update						(const DeviceInterface& vk, VkDevice device) const;
-	void								updateWithPush				(const DeviceInterface& vk, VkCommandBuffer cmd, VkPipelineBindPoint bindPoint, VkPipelineLayout pipelineLayout, deUint32 setIdx) const;
+	void								updateWithPush				(const DeviceInterface& vk, VkCommandBuffer cmd, VkPipelineBindPoint bindPoint, VkPipelineLayout pipelineLayout, deUint32 setIdx, deUint32 descriptorIdx = 0, deUint32 numDescriptors = 0) const;
+	void								clear						(void);
 
 	// helpers
 

@@ -131,7 +131,7 @@ class desktopui_ScreenLocker(test.test):
         """
         logging.debug('unlock_screen')
         self.player.blocking_playback_of_default_file(
-                input_type='keyboard', filename='keyboard_enter')
+                input_type='keyboard', filename='keyboard_g+o+o+d+enter')
         utils.poll_for_condition(
                 lambda: not self.screen_locked,
                 exception=error.TestFail('Failed to unlock screen'),
@@ -144,7 +144,7 @@ class desktopui_ScreenLocker(test.test):
         then unlocks with the right password.
 
         """
-        with chrome.Chrome(autotest_ext=True) as self._chrome:
+        with chrome.Chrome(autotest_ext=True, password='good') as self._chrome:
             try:
                 # Give performance data some initial state that will be reported
                 # if the test times out.

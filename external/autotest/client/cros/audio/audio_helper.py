@@ -899,7 +899,13 @@ class cras_rms_test(_base_rms_test):
 
     def warmup(self):
         super(cras_rms_test, self).warmup()
+        # Stop ui to make sure there are not other streams.
+        utils.stop_service('ui', ignore_status=True)
         cras_rms_test_setup()
+
+    def cleanup(self, *args):
+        # Restart ui.
+        utils.start_service('ui', ignore_status=True)
 
 
 class alsa_rms_test(_base_rms_test):

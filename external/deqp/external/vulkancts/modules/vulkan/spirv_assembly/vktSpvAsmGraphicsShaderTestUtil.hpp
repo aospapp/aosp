@@ -45,13 +45,18 @@ namespace SpirVAssembly
 {
 
 typedef vk::Unique<VkBuffer>										BufferHandleUp;
+typedef vk::Unique<VkImage>											ImageHandleUp;
+typedef vk::Unique<VkImageView>										ImageViewHandleUp;
+typedef vk::Unique<VkSampler>										SamplerHandleUp;
 typedef de::SharedPtr<BufferHandleUp>								BufferHandleSp;
+typedef de::SharedPtr<ImageHandleUp>								ImageHandleSp;
+typedef de::SharedPtr<ImageViewHandleUp>							ImageViewHandleSp;
+typedef de::SharedPtr<SamplerHandleUp>								SamplerHandleSp;
 typedef vk::Unique<vk::VkShaderModule>								ModuleHandleUp;
 typedef de::SharedPtr<ModuleHandleUp>								ModuleHandleSp;
 typedef std::pair<std::string, vk::VkShaderStageFlagBits>			EntryToStage;
 typedef std::map<std::string, std::vector<EntryToStage> >			ModuleMap;
-typedef std::map<vk::VkShaderStageFlagBits, std::vector<deInt32> >	StageToSpecConstantMap;
-typedef std::pair<vk::VkDescriptorType, BufferSp>					Resource;
+typedef std::map<vk::VkShaderStageFlagBits, SpecConstants >			StageToSpecConstantMap;
 
 enum NumberType
 {
@@ -62,6 +67,8 @@ enum NumberType
 	NUMBERTYPE_INT16,
 	NUMBERTYPE_UINT16,
 	NUMBERTYPE_FLOAT16,
+	NUMBERTYPE_END16,		// Marks the end of 16-bit scalar types
+	NUMBERTYPE_FLOAT64,
 };
 
 typedef enum RoundingModeFlags_e
@@ -70,11 +77,6 @@ typedef enum RoundingModeFlags_e
 	ROUNDINGMODE_RTZ = 0x2,	// Round to zero
 } RoundingModeFlags;
 
-typedef bool (*GraphicsVerifyIOFunc) (const std::vector<Resource>&		inputs,
-									  const std::vector<AllocationSp>&	outputAllocations,
-									  const std::vector<Resource>&		expectedOutputs,
-									  tcu::TestLog&						log);
-
 typedef bool (*GraphicsVerifyBinaryFunc) (const ProgramBinary&	binary);
 
 // Resources used by graphics-pipeline-based tests.
@@ -82,6 +84,8 @@ struct GraphicsResources
 {
 	// Resources used as inputs.
 	std::vector<Resource>		inputs;
+	// Input resource format if used
+	VkFormat					inputFormat;
 	// Resources used as outputs. The data supplied will be used as
 	// the expected outputs for the corresponding bindings by default.
 	// If other behaviors are needed, please provide a custom verifyIO.
@@ -92,12 +96,13 @@ struct GraphicsResources
 	// be called. If true is returned, then the test case is assumed to
 	// have passed, if false is returned, then the test case is assumed
 	// to have failed.
-	GraphicsVerifyIOFunc		verifyIO;
+	VerifyIOFunc				verifyIO;
 	GraphicsVerifyBinaryFunc	verifyBinary;
 	SpirvVersion				spirvVersion;
 
 							GraphicsResources()
-								: verifyIO		(DE_NULL)
+								: inputFormat	(VK_FORMAT_R32G32B32A32_SFLOAT)
+								, verifyIO		(DE_NULL)
 								, verifyBinary	(DE_NULL)
 								, spirvVersion	(SPIRV_VERSION_1_0)
 							{}
@@ -111,7 +116,7 @@ struct IFDataType
 							, elementType	(elementT)
 						{
 							DE_ASSERT(numE > 0 && numE < 5);
-							DE_ASSERT(elementT != NUMBERTYPE_END32);
+							DE_ASSERT(elementT != NUMBERTYPE_END32 && elementT != NUMBERTYPE_END16);
 						}
 
 						IFDataType			(const IFDataType& that)
@@ -129,6 +134,8 @@ struct IFDataType
 	std::string			str					(void) const;
 
 	bool				elementIs32bit		(void) const { return elementType < NUMBERTYPE_END32; }
+	bool				elementIs64bit		(void) const { return elementType > NUMBERTYPE_END16; }
+
 	bool				isVector			(void) const { return numElements > 1; }
 
 	deUint32			numElements;
@@ -242,7 +249,7 @@ private:
 };
 
 // Returns the corresponding buffer usage flag bit for the given descriptor type.
-VkBufferUsageFlagBits getMatchingBufferUsageFlagBit(VkDescriptorType dType);
+VkBufferUsageFlagBits getMatchingBufferUsageFlagBit (VkDescriptorType dType);
 
 // Context for a specific test instantiation. For example, an instantiation
 // may test colors yellow/magenta/cyan/mauve in a tesselation shader
@@ -259,7 +266,6 @@ struct InstanceContext
 	bool									hasTessellation;
 	vk::VkShaderStageFlagBits				requiredStages;
 	std::vector<std::string>				requiredDeviceExtensions;
-	std::vector<std::string>				requiredDeviceFeatures;
 	VulkanFeatures							requestedFeatures;
 	PushConstants							pushConstants;
 	// Specifies the (one or more) stages that use a customized shader code.
@@ -278,6 +284,7 @@ struct InstanceContext
 	GraphicsInterfaces						interfaces;
 	qpTestResult							failResult;
 	std::string								failMessageTemplate;	//!< ${reason} in the template will be replaced with a detailed failure message
+	bool									renderFullSquare;		// Forces to render whole render area, though with background color
 
 	InstanceContext (const tcu::RGBA							(&inputs)[4],
 					 const tcu::RGBA							(&outputs)[4],
@@ -287,7 +294,6 @@ struct InstanceContext
 					 const GraphicsResources&					resources_,
 					 const GraphicsInterfaces&					interfaces_,
 					 const std::vector<std::string>&			extensions_,
-					 const std::vector<std::string>&			features_,
 					 VulkanFeatures								vulkanFeatures_,
 					 VkShaderStageFlags							customizedStages_);
 
@@ -319,20 +325,9 @@ const std::string numberToString (T number)
 	return ss.str();
 }
 
-// Performs a bitwise copy of source to the destination type Dest.
-template <typename Dest, typename Src>
-Dest bitwiseCast(Src source)
-{
-  Dest dest;
-  DE_STATIC_ASSERT(sizeof(source) == sizeof(dest));
-  deMemcpy(&dest, &source, sizeof(dest));
-  return dest;
-}
-
 template<typename T>	T			randomScalar	(de::Random& rnd, T minValue, T maxValue);
 template<> inline		float		randomScalar	(de::Random& rnd, float minValue, float maxValue)		{ return rnd.getFloat(minValue, maxValue);	}
 template<> inline		deInt32		randomScalar	(de::Random& rnd, deInt32 minValue, deInt32 maxValue)	{ return rnd.getInt(minValue, maxValue);	}
-
 
 void getDefaultColors (tcu::RGBA (&colors)[4]);
 
@@ -341,13 +336,14 @@ void getHalfColorsFullAlpha (tcu::RGBA (&colors)[4]);
 void getInvertedDefaultColors (tcu::RGBA (&colors)[4]);
 
 // Creates fragments that specialize into a simple pass-through shader (of any kind).
-std::map<std::string, std::string> passthruFragments(void);
+std::map<std::string, std::string> passthruFragments (void);
 
-void createCombinedModule(vk::SourceCollections& dst, InstanceContext);
+// Creates a combined shader module based on VkShaderStageFlagBits defined in InstanceContext
+void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx);
 
 // This has two shaders of each stage. The first
 // is a passthrough, the second inverts the color.
-void createMultipleEntries(vk::SourceCollections& dst, InstanceContext);
+void createMultipleEntries (vk::SourceCollections& dst, InstanceContext);
 
 // Turns a statically sized array of ShaderElements into an instance-context
 // by setting up the mapping of modules to their contained shaders and stages.
@@ -362,13 +358,12 @@ InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
 									   const GraphicsResources&						resources,
 									   const GraphicsInterfaces&					interfaces,
 									   const std::vector<std::string>&				extensions,
-									   const std::vector<std::string>&				features,
 									   VulkanFeatures								vulkanFeatures,
 									   VkShaderStageFlags							customizedStages,
 									   const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
 									   const std::string&							failMessageTemplate	= std::string())
 {
-	InstanceContext ctx (inputColors, outputColors, testCodeFragments, specConstants, pushConstants, resources, interfaces, extensions, features, vulkanFeatures, customizedStages);
+	InstanceContext ctx (inputColors, outputColors, testCodeFragments, specConstants, pushConstants, resources, interfaces, extensions, vulkanFeatures, customizedStages);
 	for (size_t i = 0; i < N; ++i)
 	{
 		ctx.moduleMap[elements[i].moduleName].push_back(std::make_pair(elements[i].entryName, elements[i].stage));
@@ -389,7 +384,7 @@ inline InstanceContext createInstanceContext (const ShaderElement						(&element
 {
 	return createInstanceContext(elements, inputColors, outputColors, testCodeFragments,
 								 StageToSpecConstantMap(), PushConstants(), GraphicsResources(),
-								 GraphicsInterfaces(), std::vector<std::string>(), std::vector<std::string>(),
+								 GraphicsInterfaces(), std::vector<std::string>(),
 								 VulkanFeatures(), vk::VK_SHADER_STAGE_ALL);
 }
 
@@ -403,23 +398,37 @@ InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
 	return createInstanceContext(elements, defaultColors, defaultColors, testCodeFragments);
 }
 
+void addShaderCodeCustomVertex (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
+void addShaderCodeCustomTessControl (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
+void addShaderCodeCustomTessEval (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
+void addShaderCodeCustomGeometry (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
+void addShaderCodeCustomFragment (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
 
-void addShaderCodeCustomVertex(vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
-void addShaderCodeCustomTessControl(vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
-void addShaderCodeCustomTessEval(vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
-void addShaderCodeCustomGeometry(vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
-void addShaderCodeCustomFragment(vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
+void createTestForStage (vk::VkShaderStageFlagBits					stage,
+						 const std::string&							name,
+						 const tcu::RGBA							(&inputColors)[4],
+						 const tcu::RGBA							(&outputColors)[4],
+						 const std::map<std::string, std::string>&	testCodeFragments,
+						 const SpecConstants&						specConstants,
+						 const PushConstants&						pushConstants,
+						 const GraphicsResources&					resources,
+						 const GraphicsInterfaces&					interfaces,
+						 const std::vector<std::string>&			extensions,
+						 VulkanFeatures								vulkanFeatures,
+						 tcu::TestCaseGroup*						tests,
+						 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
+						 const std::string&							failMessageTemplate = std::string(),
+						 const bool									renderFullSquare	= false);
 
 void createTestsForAllStages (const std::string&						name,
 							  const tcu::RGBA							(&inputColors)[4],
 							  const tcu::RGBA							(&outputColors)[4],
 							  const std::map<std::string, std::string>&	testCodeFragments,
-							  const std::vector<deInt32>&				specConstants,
+							  const SpecConstants&						specConstants,
 							  const PushConstants&						pushConstants,
 							  const GraphicsResources&					resources,
 							  const GraphicsInterfaces&					interfaces,
 							  const std::vector<std::string>&			extensions,
-							  const std::vector<std::string>&			features,
 							  VulkanFeatures							vulkanFeatures,
 							  tcu::TestCaseGroup*						tests,
 							  const qpTestResult						failResult			= QP_TEST_RESULT_FAIL,
@@ -433,16 +442,15 @@ inline void createTestsForAllStages (const std::string&							name,
 									 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
 									 const std::string&							failMessageTemplate	= std::string())
 {
-	std::vector<deInt32>		noSpecConstants;
+	SpecConstants				noSpecConstants;
 	PushConstants				noPushConstants;
 	GraphicsResources			noResources;
 	GraphicsInterfaces			noInterfaces;
 	std::vector<std::string>	noExtensions;
-	std::vector<std::string>	noFeatures;
 
 	createTestsForAllStages(
 			name, inputColors, outputColors, testCodeFragments, noSpecConstants, noPushConstants,
-			noResources, noInterfaces, noExtensions, noFeatures, VulkanFeatures(),
+			noResources, noInterfaces, noExtensions, VulkanFeatures(),
 			tests, failResult, failMessageTemplate);
 }
 
@@ -450,7 +458,7 @@ inline void createTestsForAllStages (const std::string&							name,
 									 const tcu::RGBA							(&inputColors)[4],
 									 const tcu::RGBA							(&outputColors)[4],
 									 const std::map<std::string, std::string>&	testCodeFragments,
-									 const std::vector<deInt32>&				specConstants,
+									 const SpecConstants&						specConstants,
 									 tcu::TestCaseGroup*						tests,
 									 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
 									 const std::string&							failMessageTemplate	= std::string())
@@ -459,11 +467,10 @@ inline void createTestsForAllStages (const std::string&							name,
 	GraphicsResources				noResources;
 	GraphicsInterfaces				noInterfaces;
 	std::vector<std::string>		noExtensions;
-	std::vector<std::string>		noFeatures;
 
 	createTestsForAllStages(
 			name, inputColors, outputColors, testCodeFragments, specConstants, noPushConstants,
-			noResources, noInterfaces, noExtensions, noFeatures, VulkanFeatures(),
+			noResources, noInterfaces, noExtensions, VulkanFeatures(),
 			tests, failResult, failMessageTemplate);
 }
 
@@ -478,14 +485,13 @@ inline void createTestsForAllStages (const std::string&							name,
 									 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
 									 const std::string&							failMessageTemplate	= std::string())
 {
-	std::vector<deInt32>		noSpecConstants;
+	SpecConstants				noSpecConstants;
 	PushConstants				noPushConstants;
 	GraphicsInterfaces			noInterfaces;
-	std::vector<std::string>	noFeatures;
 
 	createTestsForAllStages(
 			name, inputColors, outputColors, testCodeFragments, noSpecConstants, noPushConstants,
-			resources, noInterfaces, extensions, noFeatures, vulkanFeatures,
+			resources, noInterfaces, extensions, vulkanFeatures,
 			tests, failResult, failMessageTemplate);
 }
 
@@ -501,13 +507,12 @@ inline void createTestsForAllStages (const std::string& name,
 									 const std::string&							failMessageTemplate	= std::string())
 {
 	GraphicsResources			noResources;
-	std::vector<deInt32>		noSpecConstants;
-	std::vector<std::string>	noFeatures;
+	SpecConstants				noSpecConstants;
 	PushConstants				noPushConstants;
 
 	createTestsForAllStages(
 			name, inputColors, outputColors, testCodeFragments, noSpecConstants, noPushConstants,
-			noResources, interfaces, extensions, noFeatures, vulkanFeatures,
+			noResources, interfaces, extensions, vulkanFeatures,
 			tests, failResult, failMessageTemplate);
 }
 
@@ -523,13 +528,12 @@ inline void createTestsForAllStages (const std::string& name,
 									 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
 									 const std::string&							failMessageTemplate	= std::string())
 {
-	std::vector<deInt32>			noSpecConstants;
+	SpecConstants					noSpecConstants;
 	GraphicsInterfaces				noInterfaces;
-	std::vector<std::string>		noFeatures;
 
 	createTestsForAllStages(
 			name, inputColors, outputColors, testCodeFragments, noSpecConstants, pushConstants,
-			resources, noInterfaces, extensions, noFeatures, vulkanFeatures,
+			resources, noInterfaces, extensions, vulkanFeatures,
 			tests, failResult, failMessageTemplate);
 }
 
@@ -542,7 +546,7 @@ tcu::TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext i
 // Adds a new test to group using custom fragments for the tessellation-control
 // stage and passthrough fragments for all other stages.  Uses default colors
 // for input and expected output.
-void addTessCtrlTest(tcu::TestCaseGroup* group, const char* name, const std::map<std::string, std::string>& fragments);
+void addTessCtrlTest (tcu::TestCaseGroup* group, const char* name, const std::map<std::string, std::string>& fragments);
 
 // Given the original 32-bit float value, computes the corresponding 16-bit
 // float value under the given rounding mode flags and compares with the
@@ -557,6 +561,33 @@ void addTessCtrlTest(tcu::TestCaseGroup* group, const char* name, const std::map
 // * For the rest, require exactly the same bit pattern.
 bool compare16BitFloat (float original, deUint16 returned, RoundingModeFlags flags, tcu::TestLog& log);
 
+// Given the original 16-bit float value, computes the corresponding 32-bit
+// float value and compares with the returned 32-bit float value.
+// Returns true if they are considered as equal.
+//
+// The following equivalence criteria are respected:
+// * Positive and negative zeros are considered equivalent.
+// * Denormalized floats are allowed to be flushed to zeros, including
+//   * Inputted 16bit denormalized float
+//   * Generated 32bit denormalized float
+// * Different bit patterns of NaNs are allowed.
+// * For the rest, require exactly the same bit pattern.
+bool compare16BitFloat (deUint16 returned, float original, tcu::TestLog& log);
+bool compare16BitFloat (deFloat16 original, deFloat16 returned, std::string& error);
+
+// Given the original 64-bit float value, computes the corresponding 16-bit
+// float value under the given rounding mode flags and compares with the
+// returned 16-bit float value. Returns true if they are considered as equal.
+//
+// The following equivalence criteria are respected:
+// * Positive and negative zeros are considered equivalent.
+// * Denormalized floats are allowed to be flushed to zeros, including
+//   * Inputted 64bit denormalized float
+//   * Generated 16bit denormalized float
+// * Different bit patterns of NaNs are allowed.
+// * For the rest, require exactly the same bit pattern.
+bool compare16BitFloat64 (double original, deUint16 returned, RoundingModeFlags flags, tcu::TestLog& log);
+
 // Compare the returned 32-bit float against its expected value.
 //
 // The following equivalence criteria are respected:
@@ -566,6 +597,16 @@ bool compare16BitFloat (float original, deUint16 returned, RoundingModeFlags fla
 // * Different bit patterns of NaNs/Infs are allowed.
 // * For the rest, use C++ float equivalence check.
 bool compare32BitFloat (float expected, float returned, tcu::TestLog& log);
+
+// Compare the returned 64-bit float against its expected value.
+//
+// The following equivalence criteria are respected:
+// * Denormalized floats are allowed to be flushed to zeros, including
+//   * The expected value itself is a denormalized float
+//   * The expected value is a denormalized float if converted to 16bit
+// * Different bit patterns of NaNs/Infs are allowed.
+// * For the rest, use C++ float equivalence check.
+bool compare64BitFloat (double expected, double returned, tcu::TestLog& log);
 
 } // SpirVAssembly
 } // vkt

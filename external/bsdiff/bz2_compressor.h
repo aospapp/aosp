@@ -29,7 +29,7 @@ class BZ2Compressor : public CompressorInterface {
   bool Write(const uint8_t* buf, size_t size) override;
   bool Finish() override;
   const std::vector<uint8_t>& GetCompressedData() override;
-  CompressorType Type() override { return CompressorType::kBZ2; }
+  CompressorType Type() const override { return CompressorType::kBZ2; }
 
  private:
   // The low-level bzip2 stream.

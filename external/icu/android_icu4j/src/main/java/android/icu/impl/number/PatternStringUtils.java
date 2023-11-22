@@ -5,7 +5,9 @@ package android.icu.impl.number;
 
 import java.math.BigDecimal;
 
+import android.icu.impl.StandardPlural;
 import android.icu.impl.number.Padder.PadPosition;
+import android.icu.number.NumberFormatter.SignDisplay;
 import android.icu.text.DecimalFormatSymbols;
 
 /**
@@ -18,8 +20,9 @@ public class PatternStringUtils {
      * Creates a pattern string from a property bag.
      *
      * <p>
-     * Since pattern strings support only a subset of the functionality available in a property bag, a new property bag
-     * created from the string returned by this function may not be the same as the original property bag.
+     * Since pattern strings support only a subset of the functionality available in a property bag, a
+     * new property bag created from the string returned by this function may not be the same as the
+     * original property bag.
      *
      * @param properties
      *            The property bag to serialize.
@@ -63,7 +66,8 @@ public class PatternStringUtils {
 
         // Figure out the grouping sizes.
         int grouping1, grouping2, grouping;
-        if (groupingSize != Math.min(dosMax, -1) && firstGroupingSize != Math.min(dosMax, -1)
+        if (groupingSize != Math.min(dosMax, -1)
+                && firstGroupingSize != Math.min(dosMax, -1)
                 && groupingSize != firstGroupingSize) {
             grouping = groupingSize;
             grouping1 = groupingSize;
@@ -186,7 +190,9 @@ public class PatternStringUtils {
 
         // Negative affixes
         // Ignore if the negative prefix pattern is "-" and the negative suffix is empty
-        if (np != null || ns != null || (npp == null && nsp != null)
+        if (np != null
+                || ns != null
+                || (npp == null && nsp != null)
                 || (npp != null && (npp.length() != 1 || npp.charAt(0) != '-' || nsp.length() != 0))) {
             sb.append(';');
             if (npp != null)
@@ -234,14 +240,15 @@ public class PatternStringUtils {
     }
 
     /**
-     * Converts a pattern between standard notation and localized notation. Localized notation means that instead of
-     * using generic placeholders in the pattern, you use the corresponding locale-specific characters instead. For
-     * example, in locale <em>fr-FR</em>, the period in the pattern "0.000" means "decimal" in standard notation (as it
-     * does in every other locale), but it means "grouping" in localized notation.
+     * Converts a pattern between standard notation and localized notation. Localized notation means that
+     * instead of using generic placeholders in the pattern, you use the corresponding locale-specific
+     * characters instead. For example, in locale <em>fr-FR</em>, the period in the pattern "0.000" means
+     * "decimal" in standard notation (as it does in every other locale), but it means "grouping" in
+     * localized notation.
      *
      * <p>
-     * A greedy string-substitution strategy is used to substitute locale symbols. If two symbols are ambiguous or have
-     * the same prefix, the result is not well-defined.
+     * A greedy string-substitution strategy is used to substitute locale symbols. If two symbols are
+     * ambiguous or have the same prefix, the result is not well-defined.
      *
      * <p>
      * Locale symbols are not allowed to contain the ASCII quote character.
@@ -254,11 +261,14 @@ public class PatternStringUtils {
      * @param symbols
      *            The symbols corresponding to the localized pattern.
      * @param toLocalized
-     *            true to convert from standard to localized notation; false to convert from localized to standard
-     *            notation.
+     *            true to convert from standard to localized notation; false to convert from localized to
+     *            standard notation.
      * @return The pattern expressed in the other notation.
      */
-    public static String convertLocalized(String input, DecimalFormatSymbols symbols, boolean toLocalized) {
+    public static String convertLocalized(
+            String input,
+            DecimalFormatSymbols symbols,
+            boolean toLocalized) {
         if (input == null)
             return null;
 
@@ -390,6 +400,81 @@ public class PatternStringUtils {
             throw new IllegalArgumentException("Malformed localized pattern: unterminated quote");
         }
         return result.toString();
+    }
+
+    /**
+     * This method contains the heart of the logic for rendering LDML affix strings. It handles
+     * sign-always-shown resolution, whether to use the positive or negative subpattern, permille
+     * substitution, and plural forms for CurrencyPluralInfo.
+     */
+    public static void patternInfoToStringBuilder(
+            AffixPatternProvider patternInfo,
+            boolean isPrefix,
+            int signum,
+            SignDisplay signDisplay,
+            StandardPlural plural,
+            boolean perMilleReplacesPercent,
+            StringBuilder output) {
+
+        // Should the output render '+' where '-' would normally appear in the pattern?
+        boolean plusReplacesMinusSign = signum != -1
+                && (signDisplay == SignDisplay.ALWAYS
+                        || signDisplay == SignDisplay.ACCOUNTING_ALWAYS
+                        || (signum == 1
+                                && (signDisplay == SignDisplay.EXCEPT_ZERO
+                                        || signDisplay == SignDisplay.ACCOUNTING_EXCEPT_ZERO)))
+                && patternInfo.positiveHasPlusSign() == false;
+
+        // Should we use the affix from the negative subpattern? (If not, we will use the positive
+        // subpattern.)
+        boolean useNegativeAffixPattern = patternInfo.hasNegativeSubpattern()
+                && (signum == -1 || (patternInfo.negativeHasMinusSign() && plusReplacesMinusSign));
+
+        // Resolve the flags for the affix pattern.
+        int flags = 0;
+        if (useNegativeAffixPattern) {
+            flags |= AffixPatternProvider.Flags.NEGATIVE_SUBPATTERN;
+        }
+        if (isPrefix) {
+            flags |= AffixPatternProvider.Flags.PREFIX;
+        }
+        if (plural != null) {
+            assert plural.ordinal() == (AffixPatternProvider.Flags.PLURAL_MASK & plural.ordinal());
+            flags |= plural.ordinal();
+        }
+
+        // Should we prepend a sign to the pattern?
+        boolean prependSign;
+        if (!isPrefix || useNegativeAffixPattern) {
+            prependSign = false;
+        } else if (signum == -1) {
+            prependSign = signDisplay != SignDisplay.NEVER;
+        } else {
+            prependSign = plusReplacesMinusSign;
+        }
+
+        // Compute the length of the affix pattern.
+        int length = patternInfo.length(flags) + (prependSign ? 1 : 0);
+
+        // Finally, set the result into the StringBuilder.
+        output.setLength(0);
+        for (int index = 0; index < length; index++) {
+            char candidate;
+            if (prependSign && index == 0) {
+                candidate = '-';
+            } else if (prependSign) {
+                candidate = patternInfo.charAt(flags, index - 1);
+            } else {
+                candidate = patternInfo.charAt(flags, index);
+            }
+            if (plusReplacesMinusSign && candidate == '-') {
+                candidate = '+';
+            }
+            if (perMilleReplacesPercent && candidate == '%') {
+                candidate = '‰';
+            }
+            output.append(candidate);
+        }
     }
 
 }

@@ -55,11 +55,14 @@ void error_exit(char *msg, ...)
 // Die with an error message and strerror(errno)
 void perror_exit(char *msg, ...)
 {
-  va_list va;
+  // Die silently if our pipeline exited.
+  if (errno != EPIPE) {
+    va_list va;
 
-  va_start(va, msg);
-  verror_msg(msg, errno, va);
-  va_end(va);
+    va_start(va, msg);
+    verror_msg(msg, errno, va);
+    va_end(va);
+  }
 
   xexit();
 }
@@ -122,6 +125,7 @@ ssize_t readall(int fd, void *buf, size_t len)
 ssize_t writeall(int fd, void *buf, size_t len)
 {
   size_t count = 0;
+
   while (count<len) {
     int i = write(fd, count+(char *)buf, len-count);
     if (i<1) return i;
@@ -204,6 +208,12 @@ int mkpathat(int atfd, char *dir, mode_t lastmode, int flags)
   return 0;
 }
 
+// The common case
+int mkpath(char *dir)
+{
+  return mkpathat(AT_FDCWD, dir, 0, MKPATHAT_MAKE);
+}
+
 // Split a path into linked list of components, tracking head and tail of list.
 // Filters out // entries with no contents.
 struct string_list **splitpath(char *path, struct string_list **list)
@@ -242,7 +252,7 @@ struct string_list *find_in_path(char *path, char *filename)
 
   cwd = xgetcwd();
   for (;;) {
-    char *next = strchr(path, ':');
+    char *res, *next = strchr(path, ':');
     int len = next ? next-path : strlen(path);
     struct string_list *rnext;
     struct stat st;
@@ -251,9 +261,7 @@ struct string_list *find_in_path(char *path, char *filename)
       + (len ? len : strlen(cwd)) + 2);
     if (!len) sprintf(rnext->str, "%s/%s", cwd, filename);
     else {
-      char *res = rnext->str;
-
-      memcpy(res, path, len);
+      memcpy(res = rnext->str, path, len);
       res += len;
       *(res++) = '/';
       strcpy(res, filename);
@@ -301,11 +309,11 @@ long long atolx(char *numstr)
   val = xstrtol(numstr, &c, 0);
   if (c != numstr && *c && (end = strchr(suffixes, tolower(*c)))) {
     int shift = end-suffixes-2;
-
+    ++c;
     if (shift==-1) val *= 2;
-    if (!shift) val *= 512;
+    else if (!shift) val *= 512;
     else if (shift>0) {
-      if (toupper(*++c)=='d') while (shift--) val *= 1000;
+      if (*c && tolower(*c++)=='d') while (shift--) val *= 1000;
       else val *= 1LL<<(shift*10);
     }
   }
@@ -538,13 +546,33 @@ char *readfile(char *name, char *ibuf, off_t len)
 }
 
 // Sleep for this many thousandths of a second
-void msleep(long miliseconds)
+void msleep(long milliseconds)
 {
   struct timespec ts;
 
-  ts.tv_sec = miliseconds/1000;
-  ts.tv_nsec = (miliseconds%1000)*1000000;
+  ts.tv_sec = milliseconds/1000;
+  ts.tv_nsec = (milliseconds%1000)*1000000;
   nanosleep(&ts, &ts);
+}
+
+// Adjust timespec by nanosecond offset
+void nanomove(struct timespec *ts, long long offset)
+{
+  long long nano = ts->tv_nsec + offset, secs = nano/1000000000;
+
+  ts->tv_sec += secs;
+  nano %= 1000000000;
+  if (nano<0) {
+    ts->tv_sec--;
+    nano += 1000000000;
+  }
+  ts->tv_nsec = nano;
+}
+
+// return difference between two timespecs in nanosecs
+long long nanodiff(struct timespec *old, struct timespec *new)
+{
+  return (new->tv_sec - old->tv_sec)*1000000000LL+(new->tv_nsec - old->tv_nsec);
 }
 
 // return 1<<x of highest bit set
@@ -580,24 +608,32 @@ int64_t peek_be(void *ptr, unsigned size)
 
 int64_t peek(void *ptr, unsigned size)
 {
-  return IS_BIG_ENDIAN ? peek_be(ptr, size) : peek_le(ptr, size);
+  return (IS_BIG_ENDIAN ? peek_be : peek_le)(ptr, size);
 }
 
-void poke(void *ptr, uint64_t val, int size)
+void poke_le(void *ptr, long long val, unsigned size)
 {
-  if (size & 8) {
-    volatile uint64_t *p = (uint64_t *)ptr;
-    *p = val;
-  } else if (size & 4) {
-    volatile int *p = (int *)ptr;
-    *p = val;
-  } else if (size & 2) {
-    volatile short *p = (short *)ptr;
-    *p = val;
-  } else {
-    volatile char *p = (char *)ptr;
-    *p = val;
+  char *c = ptr;
+
+  while (size--) {
+    *c++ = val&255;
+    val >>= 8;
   }
+}
+
+void poke_be(void *ptr, long long val, unsigned size)
+{
+  char *c = ptr + size;
+
+  while (size--) {
+    *--c = val&255;
+    val >>=8;
+  }
+}
+
+void poke(void *ptr, long long val, unsigned size)
+{
+  (IS_BIG_ENDIAN ? poke_be : poke_le)(ptr, val, size);
 }
 
 // Iterate through an array of files, opening each one and calling a function
@@ -638,11 +674,11 @@ void loopfiles(char **argv, void (*function)(int fd, char *name))
   loopfiles_rw(argv, O_RDONLY|O_CLOEXEC|WARN_ONLY, 0, function);
 }
 
-// call loopfiles with do_lines()
+// glue to call dl_lines() from loopfiles
 static void (*do_lines_bridge)(char **pline, long len);
 static void loopfile_lines_bridge(int fd, char *name)
 {
-  do_lines(fd, do_lines_bridge);
+  do_lines(fd, '\n', do_lines_bridge);
 }
 
 void loopfiles_lines(char **argv, void (*function)(char **pline, long len))
@@ -700,18 +736,14 @@ static void tempfile_handler(void)
 int copy_tempfile(int fdin, char *name, char **tempname)
 {
   struct stat statbuf;
-  int fd;
-  int ignored __attribute__((__unused__));
+  int fd = xtempfile(name, tempname), ignored __attribute__((__unused__));
 
-  *tempname = xmprintf("%s%s", name, "XXXXXX");
-  if(-1 == (fd = mkstemp(*tempname))) error_exit("no temp file");
+  // Record tempfile for exit cleanup if interrupted
   if (!tempfile2zap) sigatexit(tempfile_handler);
   tempfile2zap = *tempname;
 
-  // Set permissions of output file (ignoring errors, usually due to nonroot)
-
-  fstat(fdin, &statbuf);
-  fchmod(fd, statbuf.st_mode);
+  // Set permissions of output file.
+  if (!fstat(fdin, &statbuf)) fchmod(fd, statbuf.st_mode);
 
   // We chmod before chown, which strips the suid bit. Caller has to explicitly
   // switch it back on if they want to keep suid.
@@ -745,7 +777,7 @@ void replace_tempfile(int fdin, int fdout, char **tempname)
     xclose(fdin);
   }
   xclose(fdout);
-  rename(*tempname, temp);
+  xrename(*tempname, temp);
   tempfile2zap = (char *)1;
   free(*tempname);
   free(temp);
@@ -848,14 +880,22 @@ void exit_signal(int sig)
 // adds the handlers to a list, to be called in order.
 void sigatexit(void *handler)
 {
-  struct arg_list *al = xmalloc(sizeof(struct arg_list));
+  struct arg_list *al;
   int i;
 
   for (i=0; signames[i].num != SIGCHLD; i++)
-    signal(signames[i].num, exit_signal);
-  al->next = toys.xexit;
-  al->arg = handler;
-  toys.xexit = al;
+    if (signames[i].num != SIGKILL)
+      xsignal(signames[i].num, handler ? exit_signal : SIG_DFL);
+
+  if (handler) {
+    al = xmalloc(sizeof(struct arg_list));
+    al->next = toys.xexit;
+    al->arg = handler;
+    toys.xexit = al;
+  } else {
+    llist_traverse(toys.xexit, free);
+    toys.xexit = 0;
+  }
 }
 
 // Convert name to signal number.  If name == NULL print names.
@@ -871,7 +911,7 @@ int sig_to_num(char *pidstr)
 
     if (!strncasecmp(pidstr, "sig", 3)) pidstr+=3;
   }
-  for (i = 0; i < sizeof(signames)/sizeof(struct signame); i++)
+  for (i=0; i<ARRAY_LEN(signames); i++)
     if (!pidstr) xputs(signames[i].name);
     else if (!strcasecmp(pidstr, signames[i].name)) return signames[i].num;
 
@@ -882,7 +922,7 @@ char *num_to_sig(int sig)
 {
   int i;
 
-  for (i=0; i<sizeof(signames)/sizeof(struct signame); i++)
+  for (i=0; i<ARRAY_LEN(signames); i++)
     if (signames[i].num == sig) return signames[i].name;
   return NULL;
 }
@@ -1000,6 +1040,17 @@ void mode_to_string(mode_t mode, char *buf)
   *buf = c;
 }
 
+// dirname() can modify its argument or return a pointer to a constant string
+// This always returns a malloc() copy of everyting before last (run of ) '/'.
+char *getdirname(char *name)
+{
+  char *s = xstrdup(name), *ss = strrchr(s, '/');
+
+  while (*ss && *ss == '/' && s != ss) *ss-- = 0;
+
+  return s;
+}
+
 // basename() can modify its argument or return a pointer to a constant string
 // This just gives after the last '/' or the whole stirng if no /
 char *getbasename(char *name)
@@ -1009,6 +1060,18 @@ char *getbasename(char *name)
   if (s) return s+1;
 
   return name;
+}
+
+// Return pointer to xabspath(file) if file is under dir, else 0
+char *fileunderdir(char *file, char *dir)
+{
+  char *s1 = xabspath(dir, 1), *s2 = xabspath(file, -1), *ss = s2;
+  int rc = s1 && s2 && strstart(&ss, s1) && (!s1[1] || s2[strlen(s1)] == '/');
+
+  free(s1);
+  if (!rc) free(s2);
+
+  return rc ? s2 : 0;
 }
 
 // Execute a callback for each PID that matches a process name from a list.
@@ -1049,7 +1112,7 @@ void names_to_pid(char **names, int (*callback)(pid_t pid, char *name))
         char buf[32];
 
         sprintf(buf, "/proc/%u/exe", u);
-        if (stat(buf, &st1)) continue;
+        if (stat(buf, &st2)) continue;
         if (st1.st_dev != st2.st_dev || st1.st_ino != st2.st_ino) continue;
         goto match;
       }
@@ -1113,29 +1176,20 @@ int qstrcmp(const void *a, const void *b)
   return strcmp(*(char **)a, *(char **)b);
 }
 
-// According to http://www.opengroup.org/onlinepubs/9629399/apdxa.htm
-// we should generate a uuid structure by reading a clock with 100 nanosecond
-// precision, normalizing it to the start of the gregorian calendar in 1582,
-// and looking up our eth0 mac address.
-//
-// On the other hand, we have 128 bits to come up with a unique identifier, of
-// which 6 have a defined value.  /dev/urandom it is.
-
+// See https://tools.ietf.org/html/rfc4122, specifically section 4.4
+// "Algorithms for Creating a UUID from Truly Random or Pseudo-Random
+// Numbers".
 void create_uuid(char *uuid)
 {
-  // Read 128 random bits
-  int fd = xopenro("/dev/urandom");
-  xreadall(fd, uuid, 16);
-  close(fd);
+  // "Set all the ... bits to randomly (or pseudo-randomly) chosen values".
+  xgetrandom(uuid, 16, 0);
 
-  // Claim to be a DCE format UUID.
+  // "Set the four most significant bits ... of the time_hi_and_version
+  // field to the 4-bit version number [4]".
   uuid[6] = (uuid[6] & 0x0F) | 0x40;
+  // "Set the two most significant bits (bits 6 and 7) of
+  // clock_seq_hi_and_reserved to zero and one, respectively".
   uuid[8] = (uuid[8] & 0x3F) | 0x80;
-
-  // rfc2518 section 6.4.1 suggests if we're not using a macaddr, we should
-  // set bit 1 of the node ID, which is the mac multicast bit.  This means we
-  // should never collide with anybody actually using a macaddr.
-  uuid[11] |= 128;
 }
 
 char *show_uuid(char *uuid)
@@ -1167,17 +1221,6 @@ char *next_printf(char *s, char **start)
   return 0;
 }
 
-// Posix inexplicably hasn't got this, so find str in line.
-char *strnstr(char *line, char *str)
-{
-  long len = strlen(str);
-  char *s;
-
-  for (s = line; *s; s++) if (!strncasecmp(s, str, len)) break;
-
-  return *s ? s : 0;
-}
-
 int dev_minor(int dev)
 {
   return ((dev&0xfff00000)>>12)|(dev&0xff);
@@ -1199,51 +1242,59 @@ struct passwd *bufgetpwuid(uid_t uid)
   struct pwuidbuf_list {
     struct pwuidbuf_list *next;
     struct passwd pw;
-  } *list;
+  } *list = 0;
   struct passwd *temp;
   static struct pwuidbuf_list *pwuidbuf;
+  unsigned size = 256;
 
+  // If we already have this one, return it.
   for (list = pwuidbuf; list; list = list->next)
     if (list->pw.pw_uid == uid) return &(list->pw);
 
-  list = xmalloc(512);
-  list->next = pwuidbuf;
+  for (;;) {
+    list = xrealloc(list, size *= 2);
+    errno = getpwuid_r(uid, &list->pw, sizeof(*list)+(char *)list,
+      size-sizeof(*list), &temp);
+    if (errno != ERANGE) break;
+  }
 
-  errno = getpwuid_r(uid, &list->pw, sizeof(*list)+(char *)list,
-    512-sizeof(*list), &temp);
   if (!temp) {
     free(list);
 
     return 0;
   }
+  list->next = pwuidbuf;
   pwuidbuf = list;
 
   return &list->pw;
 }
 
-// Return cached passwd entries.
+// Return cached group entries.
 struct group *bufgetgrgid(gid_t gid)
 {
   struct grgidbuf_list {
     struct grgidbuf_list *next;
     struct group gr;
-  } *list;
+  } *list = 0;
   struct group *temp;
   static struct grgidbuf_list *grgidbuf;
+  unsigned size = 256;
 
   for (list = grgidbuf; list; list = list->next)
     if (list->gr.gr_gid == gid) return &(list->gr);
 
-  list = xmalloc(512);
-  list->next = grgidbuf;
-
-  errno = getgrgid_r(gid, &list->gr, sizeof(*list)+(char *)list,
-    512-sizeof(*list), &temp);
+  for (;;) {
+    list = xrealloc(list, size *= 2);
+    errno = getgrgid_r(gid, &list->gr, sizeof(*list)+(char *)list,
+      size-sizeof(*list), &temp);
+    if (errno != ERANGE) break;
+  }
   if (!temp) {
     free(list);
 
     return 0;
   }
+  list->next = grgidbuf;
   grgidbuf = list;
 
   return &list->gr;
@@ -1326,7 +1377,8 @@ char *getgroupname(gid_t gid)
 // Iterate over lines in file, calling function. Function can write 0 to
 // the line pointer if they want to keep it, or 1 to terminate processing,
 // otherwise line is freed. Passed file descriptor is closed at the end.
-void do_lines(int fd, void (*call)(char **pline, long len))
+// At EOF calls function(0, 0)
+void do_lines(int fd, char delim, void (*call)(char **pline, long len))
 {
   FILE *fp = fd ? xfdopen(fd, "r") : stdin;
 
@@ -1334,13 +1386,14 @@ void do_lines(int fd, void (*call)(char **pline, long len))
     char *line = 0;
     ssize_t len;
 
-    len = getline(&line, (void *)&len, fp);
+    len = getdelim(&line, (void *)&len, delim, fp);
     if (len > 0) {
       call(&line, len);
       if (line == (void *)1) break;
       free(line);
     } else break;
   }
+  call(0, 0);
 
   if (fd) fclose(fp);
 }
@@ -1365,4 +1418,65 @@ long long millitime(void)
 
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return ts.tv_sec*1000+ts.tv_nsec/1000000;
+}
+
+// Formats `ts` in ISO format ("2018-06-28 15:08:58.846386216 -0700").
+char *format_iso_time(char *buf, size_t len, struct timespec *ts)
+{
+  char *s = buf;
+
+  s += strftime(s, len, "%F %T", localtime(&(ts->tv_sec)));
+  s += sprintf(s, ".%09ld ", ts->tv_nsec);
+  s += strftime(s, len-strlen(buf), "%z", localtime(&(ts->tv_sec)));
+
+  return buf;
+}
+
+// reset environment for a user, optionally clearing most of it
+void reset_env(struct passwd *p, int clear)
+{
+  int i;
+
+  if (clear) {
+    char *s, *stuff[] = {"TERM", "DISPLAY", "COLORTERM", "XAUTHORITY"};
+
+    for (i=0; i<ARRAY_LEN(stuff); i++)
+      stuff[i] = (s = getenv(stuff[i])) ? xmprintf("%s=%s", stuff[i], s) : 0;
+    clearenv();
+    for (i=0; i < ARRAY_LEN(stuff); i++) if (stuff[i]) putenv(stuff[i]);
+    if (chdir(p->pw_dir)) {
+      perror_msg("chdir %s", p->pw_dir);
+      xchdir("/");
+    }
+  } else {
+    char **ev1, **ev2;
+
+    // remove LD_*, IFS, ENV, and BASH_ENV from environment
+    for (ev1 = ev2 = environ;;) {
+      while (*ev2 && (strstart(ev2, "LD_") || strstart(ev2, "IFS=") ||
+        strstart(ev2, "ENV=") || strstart(ev2, "BASH_ENV="))) ev2++;
+      if (!(*ev1++ = *ev2++)) break;
+    }
+  }
+
+  setenv("PATH", _PATH_DEFPATH, 1);
+  setenv("HOME", p->pw_dir, 1);
+  setenv("SHELL", p->pw_shell, 1);
+  setenv("USER", p->pw_name, 1);
+  setenv("LOGNAME", p->pw_name, 1);
+}
+
+// Syslog with the openlog/closelog, autodetecting daemon status via no tty
+
+void loggit(int priority, char *format, ...)
+{
+  int i, facility = LOG_DAEMON;
+  va_list va;
+
+  for (i = 0; i<3; i++) if (isatty(i)) facility = LOG_AUTH;
+  openlog(toys.which->name, LOG_PID, facility);
+  va_start(va, format);
+  vsyslog(priority, format, va);
+  va_end(va);
+  closelog();
 }

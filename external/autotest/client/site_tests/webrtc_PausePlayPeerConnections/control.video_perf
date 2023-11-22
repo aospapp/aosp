@@ -6,7 +6,7 @@ AUTHOR = "kerl@google.com, chromeos-meetings@google.com"
 NAME = "webrtc_PausePlayPeerConnections.video_perf"
 PURPOSE = "Performance test of frequent pause and plays of peer connections"
 CRITERIA = "Fails if the tab freezes during the test"
-ATTRIBUTES = "suite:hotrod, suite:bluestreak, suite:bluestreak-perbuild"
+ATTRIBUTES = "suite:hotrod"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
@@ -15,6 +15,7 @@ BUG_TEMPLATE = {
     "labels": ["OS-Chrome"],
     "components": ["OS>Kernel>Video"],
 }
+JOB_RETRIES = 2
 
 DOC = """
 This test starts 10 peer connections with low resolution video

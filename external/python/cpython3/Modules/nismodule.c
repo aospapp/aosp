@@ -169,6 +169,7 @@ nis_match (PyObject *self, PyObject *args, PyObject *kwdict)
         return NULL;
     if ((bkey = PyUnicode_EncodeFSDefault(ukey)) == NULL)
         return NULL;
+    /* check for embedded null bytes */
     if (PyBytes_AsStringAndSize(bkey, &key, &keylen) == -1) {
         Py_DECREF(bkey);
         return NULL;
@@ -411,6 +412,7 @@ nis_maps (PyObject *self, PyObject *args, PyObject *kwdict)
         PyObject *str = PyUnicode_FromString(maps->map);
         if (!str || PyList_Append(list, str) < 0)
         {
+            Py_XDECREF(str);
             Py_DECREF(list);
             list = NULL;
             break;

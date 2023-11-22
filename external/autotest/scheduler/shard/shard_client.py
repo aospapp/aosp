@@ -6,6 +6,7 @@
 # found in the LICENSE file.
 
 import argparse
+import datetime
 import httplib
 import logging
 import os
@@ -26,11 +27,13 @@ from autotest_lib.scheduler import scheduler_lib
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server import utils as server_utils
 from chromite.lib import timeout_util
+from django.core.exceptions import MultipleObjectsReturned
 from django.db import transaction
 
 try:
     from chromite.lib import metrics
     from chromite.lib import ts_mon_config
+    from infra_libs import ts_mon
 except ImportError:
     metrics = server_utils.metrics_mock
     ts_mon_config = server_utils.metrics_mock
@@ -96,8 +99,11 @@ On the client side, this will happen:
 HEARTBEAT_AFE_ENDPOINT = 'shard_heartbeat'
 _METRICS_PREFIX  = 'chromeos/autotest/shard_client/heartbeat/'
 
-RPC_TIMEOUT_MIN = 5
+RPC_TIMEOUT_MIN = 30
 RPC_DELAY_SEC = 5
+
+# The maximum number of jobs to attempt to upload in a single heartbeat.
+MAX_UPLOAD_JOBS = 1000
 
 _heartbeat_client = None
 
@@ -124,11 +130,17 @@ class ShardClient(object):
 
         Deserialize a list of JSON-formatted data to database using Django.
 
-        @param serialized_list: A list of JSON-formatted data.
+        @param serialized_list: A list of JSON-formatted data or python dict
+                                literals.
         @param djmodel: Django model type.
         @param message: A string to be used in a logging message.
         """
+        logging.info('Deserializing %s %ss', len(serialized_list), message)
+        i = 0
         for serialized in serialized_list:
+            i += 1
+            if i % 100 == 1:
+              logging.info('Progress: at entry %s', i)
             with transaction.commit_on_success():
                 try:
                     djmodel.deserialize(serialized)
@@ -138,6 +150,7 @@ class ShardClient(object):
                     metrics.Counter(
                         'chromeos/autotest/shard_client/deserialization_failed'
                         ).increment()
+        logging.info('Done deserializing %ss', message)
 
 
     @metrics.SecondsTimerDecorator(
@@ -207,7 +220,11 @@ class ShardClient(object):
         if not incorrect_host_ids:
             return
 
-        models.Host.objects.filter(id__in=incorrect_host_ids).delete()
+        try:
+            models.Host.objects.filter(id__in=incorrect_host_ids).delete()
+        except MultipleObjectsReturned as e:
+            logging.exception('Failed to remove incorrect hosts %s',
+                              incorrect_host_ids)
 
 
     @property
@@ -275,8 +292,10 @@ class ShardClient(object):
         @returns: Tuple of three lists. The first one contains job ids, the
                   second one host ids, and the third one host statuses.
         """
-        job_ids = list(models.Job.objects.filter(
-                hostqueueentry__complete=False).values_list('id', flat=True))
+        jobs = models.Job.objects.filter(hostqueueentry__complete=False)
+        job_ids = list(jobs.values_list('id', flat=True))
+        self._report_job_time_distribution(jobs)
+
         host_models = models.Host.objects.filter(invalid=0)
         host_ids = []
         host_statuses = []
@@ -295,29 +314,53 @@ class ShardClient(object):
         """
         known_job_ids, known_host_ids, known_host_statuses = (
                 self._get_known_jobs_and_hosts())
-        logging.info('Known jobs: %s', known_job_ids)
+        max_print = 100
+        logging.info('Known jobs (first %s): %s', max_print,
+                     known_job_ids[:max_print])
+        logging.info('Total known jobs: %s', len(known_job_ids))
 
         job_objs = self._get_jobs_to_upload()
         hqes = [hqe.serialize(include_dependencies=False)
                 for hqe in self._get_hqes_for_jobs(job_objs)]
+
         jobs = [job.serialize(include_dependencies=False) for job in job_objs]
+        if len(jobs) > MAX_UPLOAD_JOBS:
+            logging.info('Throttling number of jobs to upload from %s to %s.',
+                         len(jobs), MAX_UPLOAD_JOBS)
+            jobs = jobs[:MAX_UPLOAD_JOBS]
         logging.info('Uploading jobs %s', [j['id'] for j in jobs])
 
         return {'shard_hostname': self.hostname,
                 'known_job_ids': known_job_ids,
                 'known_host_ids': known_host_ids,
                 'known_host_statuses': known_host_statuses,
-                'jobs': jobs, 'hqes': hqes}
+                'jobs': jobs,
+                'hqes': hqes}
 
+
+    def _report_job_time_distribution(self, jobs):
+        """Report distribution of job durations to monarch."""
+        jobs_time_distribution = metrics.Distribution(
+                _METRICS_PREFIX + 'known_jobs_durations')
+        now = datetime.datetime.now()
+
+        # The type expected by the .set(...) of a distribution is a
+        # distribution.
+        dist = ts_mon.Distribution(ts_mon.GeometricBucketer())
+        for job in jobs:
+            duration = int(
+                    max(0, (now - job.created_on).total_seconds()))
+            dist.add(duration)
+        jobs_time_distribution.set(dist)
 
     def _report_packet_metrics(self, packet):
         """Report stats about outgoing packet to monarch."""
         metrics.Gauge(_METRICS_PREFIX + 'known_job_ids_count').set(
-            len(packet['known_job_ids']))
+                len(packet['known_job_ids']))
         metrics.Gauge(_METRICS_PREFIX + 'jobs_upload_count').set(
-            len(packet['jobs']))
+                len(packet['jobs']))
         metrics.Gauge(_METRICS_PREFIX + 'known_host_ids_count').set(
-            len(packet['known_host_ids']))
+                len(packet['known_host_ids']))
 
 
     def _heartbeat_failure(self, log_message, failure_type_str=''):
@@ -346,6 +389,7 @@ class ShardClient(object):
 
         try:
             response = self.afe.run(HEARTBEAT_AFE_ENDPOINT, **packet)
+            logging.info('Finished heartbeat upload.')
         except urllib2.HTTPError as e:
             self._heartbeat_failure('HTTPError %d: %s' % (e.code, e.reason),
                                     'HTTPError')
@@ -369,7 +413,9 @@ class ShardClient(object):
 
         metrics.Gauge(_METRICS_PREFIX + 'response_size').set(
             len(str(response)))
+        logging.info('Marking jobs as uploaded.')
         self._mark_jobs_as_uploaded([job['id'] for job in packet['jobs']])
+        logging.info('Processing heartbeat response.')
         self.process_heartbeat_response(response)
         logging.info("Heartbeat completed.")
         return True

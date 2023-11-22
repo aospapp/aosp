@@ -50,9 +50,9 @@ class build_RootFilesystemSize(test.test):
         if fs_type == 'squashfs':
             return
 
-        # Fail if we are running out of free space on rootfs (15 MiB or
+        # Fail if we are running out of free space on rootfs (11 MiB or
         # 2% free space).
-        required_free_space = min(15 * 1024 * 1024, used * 0.02)
+        required_free_space = min(11 * 1024 * 1024, used * 0.02)
 
         if free < required_free_space:
             raise error.TestFail('%s bytes free is less than the %s required.' %

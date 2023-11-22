@@ -106,7 +106,7 @@ static void show_stats(e2fsck_t	ctx)
 	unsigned int dir_links;
 	unsigned int num_files, num_links;
 	__u32 *mask, m;
-	int frag_percent_file, frag_percent_dir, frag_percent_total;
+	int frag_percent_file = 0, frag_percent_dir = 0, frag_percent_total = 0;
 	int i, j, printed = 0;
 
 	dir_links = 2 * ctx->fs_directory_count - 1;
@@ -119,16 +119,18 @@ static void show_stats(e2fsck_t	ctx)
 	blocks_used = (ext2fs_blocks_count(fs->super) -
 		       ext2fs_free_blocks_count(fs->super));
 
-	frag_percent_file = (10000 * ctx->fs_fragmented) / inodes_used;
-	frag_percent_file = (frag_percent_file + 5) / 10;
+	if (inodes_used > 0) {
+		frag_percent_file = (10000 * ctx->fs_fragmented) / inodes_used;
+		frag_percent_file = (frag_percent_file + 5) / 10;
 
-	frag_percent_dir = (10000 * ctx->fs_fragmented_dir) / inodes_used;
-	frag_percent_dir = (frag_percent_dir + 5) / 10;
+		frag_percent_dir = (10000 * ctx->fs_fragmented_dir) / inodes_used;
+		frag_percent_dir = (frag_percent_dir + 5) / 10;
 
-	frag_percent_total = ((10000 * (ctx->fs_fragmented +
-					ctx->fs_fragmented_dir))
-			      / inodes_used);
-	frag_percent_total = (frag_percent_total + 5) / 10;
+		frag_percent_total = ((10000 * (ctx->fs_fragmented +
+						ctx->fs_fragmented_dir))
+				      / inodes_used);
+		frag_percent_total = (frag_percent_total + 5) / 10;
+	}
 
 	if (!verbose) {
 		log_out(ctx, _("%s: %u/%u files (%0d.%d%% non-contiguous), "
@@ -285,7 +287,7 @@ static int is_on_batt(void)
 {
 	FILE	*f;
 	DIR	*d;
-	char	tmp[80], tmp2[80], fname[80];
+	char	tmp[80], tmp2[80], fname[NAME_MAX+30];
 	unsigned int	acflag;
 	struct dirent*	de;
 
@@ -309,7 +311,8 @@ static int is_on_batt(void)
 		while ((de=readdir(d)) != NULL) {
 			if (!strncmp(".", de->d_name, 1))
 				continue;
-			snprintf(fname, 80, "/proc/acpi/ac_adapter/%s/state",
+			snprintf(fname, sizeof(fname),
+				 "/proc/acpi/ac_adapter/%s/state",
 				 de->d_name);
 			f = fopen(fname, "r");
 			if (!f)
@@ -394,7 +397,12 @@ static void check_if_skip(e2fsck_t ctx)
 		if (batt && ((ctx->now - fs->super->s_lastcheck) <
 			     fs->super->s_checkinterval*2))
 			reason = 0;
+	} else if (broken_system_clock && fs->super->s_checkinterval) {
+		log_out(ctx, "%s: ", ctx->device_name);
+		log_out(ctx, "%s",
+			_("ignoring check interval, broken_system_clock set\n"));
 	}
+
 	if (reason) {
 		log_out(ctx, "%s", ctx->device_name);
 		log_out(ctx, reason, reason_arg);
@@ -609,9 +617,10 @@ static void reserve_stdio_fds(void)
 			fprintf(stderr, _("ERROR: Couldn't open "
 				"/dev/null (%s)\n"),
 				strerror(errno));
-			break;
+			return;
 		}
 	}
+	(void) close(fd);
 }
 
 #ifdef HAVE_SIGNAL_H
@@ -709,6 +718,18 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		} else if (strcmp(token, "nodiscard") == 0) {
 			ctx->options &= ~E2F_OPT_DISCARD;
 			continue;
+		} else if (strcmp(token, "optimize_extents") == 0) {
+			ctx->options &= ~E2F_OPT_NOOPT_EXTENTS;
+			continue;
+		} else if (strcmp(token, "no_optimize_extents") == 0) {
+			ctx->options |= E2F_OPT_NOOPT_EXTENTS;
+			continue;
+		} else if (strcmp(token, "inode_count_fullmap") == 0) {
+			ctx->options |= E2F_OPT_ICOUNT_FULLMAP;
+			continue;
+		} else if (strcmp(token, "no_inode_count_fullmap") == 0) {
+			ctx->options &= ~E2F_OPT_ICOUNT_FULLMAP;
+			continue;
 		} else if (strcmp(token, "log_filename") == 0) {
 			if (!arg)
 				extended_usage++;
@@ -721,6 +742,10 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		} else if (strcmp(token, "fixes_only") == 0) {
 			ctx->options |= E2F_OPT_FIXES_ONLY;
 			continue;
+		} else if (strcmp(token, "unshare_blocks") == 0) {
+			ctx->options |= E2F_OPT_UNSHARE_BLOCKS;
+			ctx->options |= E2F_OPT_FORCE;
+			continue;
 		} else {
 			fprintf(stderr, _("Unknown extended option: %s\n"),
 				token);
@@ -730,17 +755,23 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 	free(buf);
 
 	if (extended_usage) {
-		fputs(("\nExtended options are separated by commas, "
+		fputs(_("\nExtended options are separated by commas, "
 		       "and may take an argument which\n"
 		       "is set off by an equals ('=') sign.  "
-		       "Valid extended options are:\n"), stderr);
-		fputs(("\tea_ver=<ea_version (1 or 2)>\n"), stderr);
-		fputs(("\tfragcheck\n"), stderr);
-		fputs(("\tjournal_only\n"), stderr);
-		fputs(("\tdiscard\n"), stderr);
-		fputs(("\tnodiscard\n"), stderr);
-		fputs(("\treadahead_kb=<buffer size>\n"), stderr);
-		fputs(("\tbmap2extent\n"), stderr);
+		       "Valid extended options are:\n\n"), stderr);
+		fputs(_("\tea_ver=<ea_version (1 or 2)>\n"), stderr);
+		fputs("\tfragcheck\n", stderr);
+		fputs("\tjournal_only\n", stderr);
+		fputs("\tdiscard\n", stderr);
+		fputs("\tnodiscard\n", stderr);
+		fputs("\toptimize_extents\n", stderr);
+		fputs("\tno_optimize_extents\n", stderr);
+		fputs("\tinode_count_fullmap\n", stderr);
+		fputs("\tno_inode_count_fullmap\n", stderr);
+		fputs(_("\treadahead_kb=<buffer size>\n"), stderr);
+		fputs("\tbmap2extent\n", stderr);
+		fputs("\tunshare_blocks\n", stderr);
+		fputs("\tfixes_only\n", stderr);
 		fputc('\n', stderr);
 		exit(1);
 	}
@@ -905,6 +936,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			break;
 		case 'L':
 			replace_bad_blocks++;
+			/* fall through */
 		case 'l':
 			if (bad_blocks_file)
 				free(bad_blocks_file);
@@ -1006,6 +1038,16 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			    &c);
 	if (c)
 		verbose = 1;
+
+	profile_get_boolean(ctx->profile, "options", "no_optimize_extents",
+			    0, 0, &c);
+	if (c)
+		ctx->options |= E2F_OPT_NOOPT_EXTENTS;
+
+	profile_get_boolean(ctx->profile, "options", "inode_count_fullmap",
+			    0, 0, &c);
+	if (c)
+		ctx->options |= E2F_OPT_ICOUNT_FULLMAP;
 
 	if (ctx->readahead_kb == ~0ULL) {
 		profile_get_integer(ctx->profile, "options",
@@ -1188,7 +1230,7 @@ static errcode_t e2fsck_check_mmp(ext2_filsys fs, e2fsck_t ctx)
 	if (retval)
 		goto check_error;
 
-	/* Print warning if e2fck will wait for more than 20 secs. */
+	/* Print warning if e2fsck will wait for more than 20 secs. */
 	if (verbose || wait_time > EXT4_MMP_MIN_CHECK_INTERVAL * 4) {
 		log_out(ctx, _("MMP interval is %u seconds and total wait "
 			       "time is %u seconds. Please wait...\n"),
@@ -1216,7 +1258,8 @@ check_error:
 		dump_mmp_msg(fs->mmp_buf,
 			     _("If you are sure the filesystem is not "
 			       "in use on any node, run:\n"
-			       "'tune2fs -f -E clear_mmp {device}'\n"));
+			       "'tune2fs -f -E clear_mmp %s'\n"),
+			     ctx->device_name);
 	} else if (retval == EXT2_ET_MMP_MAGIC_INVALID) {
 		if (fix_problem(ctx, PR_0_MMP_INVALID_MAGIC, &pctx)) {
 			ext2fs_mmp_clear(fs);
@@ -1330,7 +1373,7 @@ int main (int argc, char *argv[])
 	const char	*lib_ver_date;
 	int		my_ver, lib_ver;
 	e2fsck_t	ctx;
-	blk64_t		orig_superblock;
+	blk64_t		orig_superblock = ~(blk64_t)0;
 	struct problem_context pctx;
 	int flags, run_result, was_changed;
 	int journal_size;
@@ -1338,7 +1381,6 @@ int main (int argc, char *argv[])
 	int old_bitmaps;
 	__u32 features[3];
 	char *cp;
-	unsigned int qtype_bits = 0;
 	enum quota_type qtype;
 
 	clear_problem_context(&pctx);
@@ -1538,6 +1580,27 @@ failure:
 					     "check of the device.\n"));
 #endif
 		else {
+			/*
+			 * Let's try once more will less consistency checking
+			 * so that we are able to recover from more errors
+			 * (e.g. some tool messing up some value in the sb).
+			 */
+			if ((retval == EXT2_ET_CORRUPT_SUPERBLOCK) &&
+			    !(flags & EXT2_FLAG_IGNORE_SB_ERRORS)) {
+				if (fs)
+					ext2fs_close_free(&fs);
+				log_out(ctx, _("%s: Trying to load superblock "
+					"despite errors...\n"),
+					ctx->program_name);
+				flags |= EXT2_FLAG_IGNORE_SB_ERRORS;
+				/*
+				 * If we tried backup sb, revert to the
+				 * original one now.
+				 */
+				if (orig_superblock != ~(blk64_t)0)
+					ctx->superblock = orig_superblock;
+				goto restart;
+			}
 			fix_problem(ctx, PR_0_SB_CORRUPT, &pctx);
 			if (retval == EXT2_ET_BAD_MAGIC)
 				check_plausibility(ctx->filesystem_name,
@@ -1786,14 +1849,8 @@ print_unsupp_features:
 
 	if (ext2fs_has_feature_quota(sb)) {
 		/* Quotas were enabled. Do quota accounting during fsck. */
-		for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
-			if (*quota_sb_inump(sb, qtype) != 0)
-				qtype_bits |= 1 << qtype;
-		}
-
 		clear_problem_context(&pctx);
-		pctx.errcode = quota_init_context(&ctx->qctx, ctx->fs,
-						  qtype_bits);
+		pctx.errcode = quota_init_context(&ctx->qctx, ctx->fs, 0);
 		if (pctx.errcode) {
 			fix_problem(ctx, PR_0_QUOTA_INIT_CTX, &pctx);
 			fatal_error(ctx, 0);
@@ -1842,7 +1899,7 @@ no_journal:
 		int needs_writeout;
 
 		for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
-			if (((1 << qtype) & qtype_bits) == 0)
+			if (*quota_sb_inump(sb, qtype) == 0)
 				continue;
 			needs_writeout = 0;
 			pctx.num = qtype;
@@ -1897,15 +1954,25 @@ no_journal:
 		ext2fs_mark_super_dirty(fs);
 	}
 
-	e2fsck_write_bitmaps(ctx);
-	if (fs->flags & EXT2_FLAG_DIRTY) {
-		pctx.errcode = ext2fs_flush(ctx->fs);
+	if (ext2fs_has_feature_shared_blocks(ctx->fs->super) &&
+	    (ctx->options & E2F_OPT_UNSHARE_BLOCKS) &&
+	    (ctx->options & E2F_OPT_NO))
+		/* Don't try to write or flush I/O, we just wanted to know whether or
+		 * not there were enough free blocks to undo deduplication.
+		 */
+		goto skip_write;
+
+	if (!(ctx->options & E2F_OPT_READONLY)) {
+		e2fsck_write_bitmaps(ctx);
+		if (fs->flags & EXT2_FLAG_DIRTY) {
+			pctx.errcode = ext2fs_flush(ctx->fs);
+			if (pctx.errcode)
+				fix_problem(ctx, PR_6_FLUSH_FILESYSTEM, &pctx);
+		}
+		pctx.errcode = io_channel_flush(ctx->fs->io);
 		if (pctx.errcode)
-			fix_problem(ctx, PR_6_FLUSH_FILESYSTEM, &pctx);
+			fix_problem(ctx, PR_6_IO_FLUSH, &pctx);
 	}
-	pctx.errcode = io_channel_flush(ctx->fs->io);
-	if (pctx.errcode)
-		fix_problem(ctx, PR_6_IO_FLUSH, &pctx);
 
 	if (was_changed) {
 		int fs_fixed = (ctx->flags & E2F_FLAG_PROBLEMS_FIXED);
@@ -1931,6 +1998,8 @@ no_journal:
 			exit_value |= FSCK_REBOOT;
 		}
 	}
+
+skip_write:
 	if (!ext2fs_test_valid(fs) ||
 	    ((exit_value & FSCK_CANCELED) &&
 	     (sb->s_state & EXT2_ERROR_FS))) {
@@ -1958,6 +2027,8 @@ no_journal:
 	ext2fs_close_free(&ctx->fs);
 	free(ctx->journal_name);
 
+	if (ctx->logf)
+		fprintf(ctx->logf, "Exit status: %d\n", exit_value);
 	e2fsck_free_context(ctx);
 	remove_error_table(&et_ext2_error_table);
 	remove_error_table(&et_prof_error_table);

@@ -1,0 +1,4 @@
+# EGL Tests to exclude when Testing ANGLE.
+
+# anglebug.com/3059
+dEQP-EGL.functional.sharing.gles2.multithread.*

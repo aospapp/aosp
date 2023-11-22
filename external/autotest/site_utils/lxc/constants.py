@@ -73,14 +73,12 @@ else:
 # TODO(dshi): If we are adding more logic in how lxc should interact with
 # different systems, we should consider code refactoring to use a setting-style
 # object to store following flags mapping to different systems.
-# TODO(crbug.com/464834): Snapshot clone is disabled until Moblab can
-# support overlayfs or aufs, which requires a newer kernel.
-SUPPORT_SNAPSHOT_CLONE = not IS_MOBLAB
+SUPPORT_SNAPSHOT_CLONE = True
 
 # Number of seconds to wait for network to be up in a container.
 NETWORK_INIT_TIMEOUT = 300
 # Network bring up is slower in Moblab.
-NETWORK_INIT_CHECK_INTERVAL = 2 if IS_MOBLAB else 0.1
+NETWORK_INIT_CHECK_INTERVAL = 1 if IS_MOBLAB else 0.1
 
 # Number of seconds to download files from devserver. We chose a timeout that
 # is on the same order as the permitted CTS runtime for normal jobs (1h). In

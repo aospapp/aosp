@@ -46,20 +46,18 @@ static char long_dir[PATH_MAX + 2] = {[0 ... PATH_MAX + 1] = 'a'};
 static char loop_dir[PATH_MAX] = ".";
 
 struct tcase;
-static void prot_none_pathname(struct tcase *tc);
 
 static struct tcase {
 	char *pathname;
 	int exp_errno;
-	void (*setupfunc)(struct tcase *tc);
 } TC[] = {
-	{NULL, EFAULT, prot_none_pathname},
-	{long_dir, ENAMETOOLONG, NULL},
-	{TST_EEXIST, EEXIST, NULL},
-	{TST_ENOENT, ENOENT, NULL},
-	{TST_ENOTDIR_DIR, ENOTDIR, NULL},
-	{loop_dir, ELOOP, NULL},
-	{TST_EROFS, EROFS, NULL},
+	{NULL, EFAULT},
+	{long_dir, ENAMETOOLONG},
+	{TST_EEXIST, EEXIST},
+	{TST_ENOENT, ENOENT},
+	{TST_ENOTDIR_DIR, ENOTDIR},
+	{loop_dir, ELOOP},
+	{TST_EROFS, EROFS},
 };
 
 static void verify_mkdir(unsigned int n)
@@ -67,25 +65,19 @@ static void verify_mkdir(unsigned int n)
 	struct tcase *tc = TC + n;
 
 	TEST(mkdir(tc->pathname, MODE));
-	if (TEST_RETURN != -1) {
+	if (TST_RET != -1) {
 		tst_res(TFAIL, "mkdir() returned %ld, expected -1, errno=%d",
-			TEST_RETURN, tc->exp_errno);
+			TST_RET, tc->exp_errno);
 		return;
 	}
 
-	if (TEST_ERRNO == tc->exp_errno) {
+	if (TST_ERR == tc->exp_errno) {
 		tst_res(TPASS | TTERRNO, "mkdir() failed as expected");
 	} else {
 		tst_res(TFAIL | TTERRNO,
 			"mkdir() failed unexpectedly; expected: %d - %s",
 			 tc->exp_errno, strerror(tc->exp_errno));
 	}
-}
-
-static void prot_none_pathname(struct tcase *tc)
-{
-	tc->pathname = SAFE_MMAP(0, 1, PROT_NONE,
-		MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 }
 
 static void setup(void)
@@ -95,15 +87,15 @@ static void setup(void)
 	SAFE_TOUCH(TST_EEXIST, MODE, NULL);
 	SAFE_TOUCH(TST_ENOTDIR_FILE, MODE, NULL);
 
+	for (i = 0; i < ARRAY_SIZE(TC); i++) {
+		if (TC[i].exp_errno == EFAULT)
+			TC[i].pathname = tst_get_bad_addr(NULL);
+	}
+
 	SAFE_MKDIR("test_eloop", DIR_MODE);
 	SAFE_SYMLINK("../test_eloop", "test_eloop/test_eloop");
 	for (i = 0; i < 43; i++)
 		strcat(loop_dir, "/test_eloop");
-
-	for (i = 0; i < ARRAY_SIZE(TC); i++) {
-		if (TC[i].setupfunc)
-			TC[i].setupfunc(&TC[i]);
-	}
 }
 
 static struct tst_test test = {

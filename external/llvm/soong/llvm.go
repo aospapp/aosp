@@ -78,7 +78,15 @@ func llvmDefaults(ctx android.LoadHookContext) {
 }
 
 func forceBuildLlvmComponents(ctx android.LoadHookContext) {
-	if !ctx.AConfig().IsEnvTrue("FORCE_BUILD_LLVM_COMPONENTS") {
+	forceBuild := false
+	if ctx.AConfig().IsEnvTrue("FORCE_BUILD_LLVM_COMPONENTS") {
+		forceBuild = true
+	}
+	if len(ctx.AConfig().SanitizeHost()) > 0 {
+		forceBuild = true
+	}
+
+	if !forceBuild {
 		type props struct {
 			Target struct {
 				Host struct {

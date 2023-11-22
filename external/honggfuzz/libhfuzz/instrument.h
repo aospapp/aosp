@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -26,6 +26,7 @@
 
 #include <inttypes.h>
 
-void instrumentUpdateCmpMap(uintptr_t addr, unsigned int n);
+void instrumentUpdateCmpMap(uintptr_t addr, uint32_t v);
+void instrumentClearNewCov();
 
-#endif
+#endif /* ifdef _HF_LIBHFUZZ_INSTRUMENT_H_ */

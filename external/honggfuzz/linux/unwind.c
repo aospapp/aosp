@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -21,7 +21,7 @@
  *
  */
 
-#include "unwind.h"
+#include "linux/unwind.h"
 
 #include <endian.h>
 #include <libunwind-ptrace.h>
@@ -30,8 +30,8 @@
 #include <string.h>
 
 #include "honggfuzz.h"
-#include "libcommon/common.h"
-#include "libcommon/log.h"
+#include "libhfcommon/common.h"
+#include "libhfcommon/log.h"
 
 /*
  * WARNING: Ensure that _UPT-info structs are not shared between threads
@@ -72,7 +72,9 @@ static procMap_t* arch_parsePidMaps(pid_t pid, size_t* mapsCount) {
         PLOG_E("Couldn't open '%s' - R/O mode", fProcMaps);
         return 0;
     }
-    defer { fclose(f); };
+    defer {
+        fclose(f);
+    };
 
     *mapsCount = 0;
     procMap_t* mapsList = malloc(sizeof(procMap_t));
@@ -121,21 +123,27 @@ static char* arch_searchMaps(unsigned long addr, size_t mapsCnt, procMap_t* maps
 size_t arch_unwindStack(pid_t pid, funcs_t* funcs) {
     size_t num_frames = 0, mapsCnt = 0;
     procMap_t* mapsList = arch_parsePidMaps(pid, &mapsCnt);
-    defer { free(mapsList); };
+    defer {
+        free(mapsList);
+    };
 
     unw_addr_space_t as = unw_create_addr_space(&_UPT_accessors, __BYTE_ORDER);
     if (!as) {
         LOG_E("[pid='%d'] unw_create_addr_space failed", pid);
         return num_frames;
     }
-    defer { unw_destroy_addr_space(as); };
+    defer {
+        unw_destroy_addr_space(as);
+    };
 
     void* ui = _UPT_create(pid);
     if (ui == NULL) {
         LOG_E("[pid='%d'] _UPT_create failed", pid);
         return num_frames;
     }
-    defer { _UPT_destroy(ui); };
+    defer {
+        _UPT_destroy(ui);
+    };
 
     unw_cursor_t c;
     int ret = unw_init_remote(&c, as, ui);
@@ -168,21 +176,27 @@ size_t arch_unwindStack(pid_t pid, funcs_t* funcs) {
 size_t arch_unwindStack(pid_t pid, funcs_t* funcs) {
     size_t num_frames = 0, mapsCnt = 0;
     procMap_t* mapsList = arch_parsePidMaps(pid, &mapsCnt);
-    defer { free(mapsList); };
+    defer {
+        free(mapsList);
+    };
 
     unw_addr_space_t as = unw_create_addr_space(&_UPT_accessors, __BYTE_ORDER);
     if (!as) {
         LOG_E("[pid='%d'] unw_create_addr_space failed", pid);
         return num_frames;
     }
-    defer { unw_destroy_addr_space(as); };
+    defer {
+        unw_destroy_addr_space(as);
+    };
 
     struct UPT_info* ui = (struct UPT_info*)_UPT_create(pid);
     if (ui == NULL) {
         LOG_E("[pid='%d'] _UPT_create failed", pid);
         return num_frames;
     }
-    defer { _UPT_destroy(ui); };
+    defer {
+        _UPT_destroy(ui);
+    };
 
     unw_cursor_t cursor;
     int ret = unw_init_remote(&cursor, as, ui);

@@ -11,6 +11,7 @@
 
 #include <errno.h>
 #include <poll.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1015,6 +1016,18 @@ static void profile_switch_delay_cb(struct cras_timer *timer, void *arg)
 	iodev = device->bt_iodevs[CRAS_STREAM_OUTPUT];
 	if (!iodev)
 		return;
+
+	/*
+	 * During the |PROFILE_SWITCH_DELAY_MS| time interval, BT iodev could
+	 * have been enabled by others, and its active profile may have changed.
+	 * If iodev has been enabled, that means it has already picked up a
+	 * reasonable profile to use and audio thread is accessing iodev now.
+	 * We should NOT call into update_active_node from main thread
+	 * because that may mess up the active node content.
+	 */
+	if (cras_iodev_list_dev_is_enabled(iodev))
+		return;
+
 	iodev->update_active_node(iodev, 0, 1);
 	cras_iodev_list_enable_dev(iodev);
 }
@@ -1053,7 +1066,7 @@ static void bt_device_switch_profile(struct cras_bt_device *device,
 		if (!iodev)
 			continue;
 		was_enabled[dir] = cras_iodev_list_dev_is_enabled(iodev);
-		cras_iodev_list_disable_dev(iodev);
+		cras_iodev_list_disable_dev(iodev, false);
 	}
 
 	for (dir = 0; dir < CRAS_NUM_DIRECTIONS; dir++) {
@@ -1116,6 +1129,16 @@ static void bt_device_cancel_suspend(struct cras_bt_device *device)
 static void bt_device_process_msg(struct cras_main_message *msg, void *arg)
 {
 	struct bt_device_msg *bt_msg = (struct bt_device_msg *)msg;
+	struct cras_bt_device *device = NULL;
+
+	DL_FOREACH(devices, device) {
+		if (device == bt_msg->device)
+			break;
+	}
+
+	/* Do nothing if target device no longer exists. */
+	if (device == NULL)
+		return;
 
 	switch (bt_msg->cmd) {
 	case BT_DEVICE_SWITCH_PROFILE:

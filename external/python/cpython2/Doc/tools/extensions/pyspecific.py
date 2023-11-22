@@ -10,14 +10,16 @@
 """
 
 ISSUE_URI = 'https://bugs.python.org/issue%s'
-SOURCE_URI = 'https://hg.python.org/cpython/file/2.7/%s'
+SOURCE_URI = 'https://github.com/python/cpython/tree/2.7/%s'
 
 from docutils import nodes, utils
+from docutils.parsers.rst import Directive
 
+from sphinx.util import status_iterator
 from sphinx.util.nodes import split_explicit_title
-from sphinx.util.compat import Directive
 from sphinx.writers.html import HTMLTranslator
 from sphinx.writers.latex import LaTeXTranslator
+from sphinx.writers.text import TextTranslator
 
 # monkey-patch reST parser to disable alphabetic and roman enumerated lists
 from docutils.parsers.rst.states import Body
@@ -58,7 +60,7 @@ LaTeXTranslator.depart_literal_block = new_depart_literal_block
 
 def issue_role(typ, rawtext, text, lineno, inliner, options={}, content=[]):
     issue = utils.unescape(text)
-    text = 'issue ' + issue
+    text = 'bpo-'+ issue
     refnode = nodes.reference(text, text, refuri=ISSUE_URI % issue)
     return [refnode], []
 
@@ -158,8 +160,11 @@ from sphinx.writers.text import TextWriter
 class PydocTopicsBuilder(Builder):
     name = 'pydoc-topics'
 
+    default_translator_class = TextTranslator
+
     def init(self):
         self.topics = {}
+        self.secnumbers = {}
 
     def get_outdated_docs(self):
         return 'all pydoc topics'
@@ -169,9 +174,9 @@ class PydocTopicsBuilder(Builder):
 
     def write(self, *ignored):
         writer = TextWriter(self)
-        for label in self.status_iterator(pydoc_topic_labels,
-                                          'building topics... ',
-                                          length=len(pydoc_topic_labels)):
+        for label in status_iterator(pydoc_topic_labels,
+                                     'building topics... ',
+                                     length=len(pydoc_topic_labels)):
             if label not in self.env.domaindata['std']['labels']:
                 self.warn('label %r not in documentation' % label)
                 continue

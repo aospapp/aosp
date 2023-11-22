@@ -8,7 +8,7 @@ PURPOSE = "Check whether a stylus is present as an input source."
 CRITERIA = """
 This test will fail if the device does not have stylus input.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
+ATTRIBUTES = "suite:touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

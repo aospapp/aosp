@@ -24,6 +24,8 @@ from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import control_file_getter
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
+from autotest_lib.server.cros.dynamic_suite import suite_common
+
 
 CLIENT = control_data.CONTROL_TYPE_NAMES.CLIENT
 SERVER = control_data.CONTROL_TYPE_NAMES.SERVER
@@ -34,6 +36,7 @@ _hqe_status = models.HostQueueEntry.Status
 class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
 
     _PRIORITY = priorities.Priority.DEFAULT
+
 
     def _do_heartbeat_and_assert_response(self, shard_hostname='shard1',
                                           upload_jobs=(), upload_hqes=(),
@@ -794,18 +797,6 @@ class RpcInterfaceTest(unittest.TestCase,
         self.assertEquals(jobs[0]['keyvals'], keyval_dict)
 
 
-    def test_test_retry(self):
-        job_id = rpc_interface.create_job(name='flake',
-                                          priority=priorities.Priority.DEFAULT,
-                                          control_file='foo',
-                                          control_type=CLIENT,
-                                          hosts=['host1'],
-                                          test_retry=10)
-        jobs = rpc_interface.get_jobs(id=job_id)
-        self.assertEquals(len(jobs), 1)
-        self.assertEquals(jobs[0]['test_retry'], 10)
-
-
     def test_get_jobs_summary(self):
         job = self._create_job(hosts=xrange(1, 4))
         entries = list(job.hostqueueentry_set.all())
@@ -1282,6 +1273,21 @@ class RpcInterfaceTest(unittest.TestCase,
         self.god.check_playback()
 
 
+    def test_delete_shard(self):
+        """Ensure the RPC can delete a shard."""
+        host1 = models.Host.objects.all()[0]
+        shard1 = models.Shard.objects.create(hostname='shard1')
+        host1.shard = shard1
+        host1.save()
+
+        rpc_interface.delete_shard(hostname=shard1.hostname)
+
+        host1 = models.Host.smart_get(host1.id)
+        self.assertIsNone(host1.shard)
+        self.assertRaises(models.Shard.DoesNotExist,
+                          models.Shard.smart_get, shard1.hostname)
+
+
     def test_modify_label(self):
         label1 = models.Label.objects.all()[0]
         self.assertEqual(label1.invalid, 0)
@@ -1407,7 +1413,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
     def setUp(self):
         super(ExtraRpcInterfaceTest, self).setUp()
-        self._SUITE_NAME = rpc_interface.canonicalize_suite_name(
+        self._SUITE_NAME = suite_common.canonicalize_suite_name(
             self._NAME)
         self.dev_server = self.mox.CreateMock(dev_server.ImageServer)
         self._frontend_common_setup(fill_data=False)
@@ -1622,7 +1628,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                  'run_reset': True,
                  'run_verify': False,
                  'synch_count': 0,
-                 'test_retry': 10,
+                 'test_retry': 0,
                  'timeout': 24,
                  'timeout_mins': 1440,
                  'id': 1
@@ -1647,7 +1653,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                 priority=self._PRIORITY,
                 control_file='foo',
                 control_type=SERVER,
-                test_retry=10, hostless=True)
+                hostless=True)
         job = models.Job.objects.get(pk=job_id)
         shard = models.Shard.objects.create(hostname='host1')
         job.shard = shard

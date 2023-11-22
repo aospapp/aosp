@@ -50,3 +50,13 @@
       */
      public static final int TIMEZONE_JDK = 1;
  
+--- android_icu4j/src/main/java/android/icu/util/TimeZone.java	2018-06-13 19:00:05.852112712 +0100
++++ android_icu4j/src/main/java/android/icu/util/TimeZone.java	2018-06-13 18:58:54.540407828 +0100
+@@ -85,7 +85,6 @@
+  *
+  * @see          Calendar
+  * @see          GregorianCalendar
+- * @see          SimpleTimeZone
+  * @author       Mark Davis, Deborah Goldsmith, Chen-Lieh Huang, Alan Liu
+  */
+ abstract public class TimeZone implements Serializable, Cloneable, Freezable<TimeZone> {

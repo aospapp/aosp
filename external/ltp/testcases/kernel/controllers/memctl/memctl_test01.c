@@ -63,7 +63,7 @@ void signal_handler_sigusr1(int signal);
 void signal_handler_sigusr2(int signal);
 int allocate_memory(void);
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	int ret;
 	char mygroup[FILENAME_MAX], mytaskfile[FILENAME_MAX];
@@ -87,18 +87,18 @@ int main(int argc, char *argv[])
 		sprintf(mygroup, "%s", mygroup_p);
 	} else {
 		tst_brkm(TBROK, cleanup,
-			 "invalid parameters recieved from script\n");
+			 "invalid parameters received from script\n");
 	}
 
 	/* XXX (garrcoop): this section really needs error handling. */
 
-	/* Signal handling for SIGUSR1 recieved from script */
+	/* Signal handling for SIGUSR1 received from script */
 	sigemptyset(&newaction1.sa_mask);
 	newaction1.sa_handler = signal_handler_sigusr1;
 	newaction1.sa_flags = 0;
 	sigaction(SIGUSR1, &newaction1, &oldaction1);
 
-	/* Signal handling for SIGUSR2 recieved from script */
+	/* Signal handling for SIGUSR2 received from script */
 	sigemptyset(&newaction2.sa_mask);
 	newaction2.sa_handler = signal_handler_sigusr2;
 	newaction2.sa_flags = 0;
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
  * Function: cleanup()
  * signals for system cleanup in case test breaks
  */
-void cleanup()
+void cleanup(void)
 {
 	if (kill(scriptpid, SIGUSR1) == -1)
 		tst_resm(TWARN | TERRNO, "kill failed");
@@ -134,6 +134,7 @@ void cleanup()
 void signal_handler_sigusr1(int signal)
 {
 	int i;
+	(void) signal;
 	for (i = 0; i < num_of_chunks; ++i)
 		free(array_of_chunks[i]);
 	free(array_of_chunks);
@@ -148,6 +149,7 @@ void signal_handler_sigusr1(int signal)
 void signal_handler_sigusr2(int signal)
 {
 	int i;
+	(void) signal;
 	for (i = 0; i < num_of_chunks; ++i)
 		free(array_of_chunks[i]);
 	free(array_of_chunks);
@@ -159,7 +161,7 @@ void signal_handler_sigusr2(int signal)
 	allocate_memory();
 }
 
-int allocate_memory()
+int allocate_memory(void)
 {
 	int i, j;
 	/*

@@ -56,9 +56,11 @@ InstanceDriver::~InstanceDriver (void)
 {
 }
 
-DeviceDriver::DeviceDriver (const InstanceInterface& instanceInterface, VkDevice device)
+DeviceDriver::DeviceDriver(const PlatformInterface& platformInterface, VkInstance instance, VkDevice device)
 {
-#define GET_PROC_ADDR(NAME) instanceInterface.getDeviceProcAddr(device, NAME)
+	m_vk.getDeviceProcAddr = (GetDeviceProcAddrFunc)platformInterface.getInstanceProcAddr(instance, "vkGetDeviceProcAddr");
+
+#define GET_PROC_ADDR(NAME) m_vk.getDeviceProcAddr(device, NAME)
 #include "vkInitDeviceFunctionPointers.inl"
 #undef GET_PROC_ADDR
 }
@@ -74,6 +76,11 @@ DeviceDriver::~DeviceDriver (void)
 wsi::Display* Platform::createWsiDisplay (wsi::Type) const
 {
 	TCU_THROW(NotSupportedError, "WSI not supported");
+}
+
+bool Platform::hasDisplay (wsi::Type) const
+{
+	return false;
 }
 
 void Platform::describePlatform (std::ostream& dst) const

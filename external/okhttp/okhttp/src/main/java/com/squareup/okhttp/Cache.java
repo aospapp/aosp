@@ -134,7 +134,8 @@ public final class Cache {
   private static final int ENTRY_BODY = 1;
   private static final int ENTRY_COUNT = 2;
 
-  final InternalCache internalCache = new InternalCache() {
+  // Android-changed: internalCache made public so it can be used from Android internalapi package.
+  public final InternalCache internalCache = new InternalCache() {
     @Override public Response get(Request request) throws IOException {
       return Cache.this.get(request);
     }

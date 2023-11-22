@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -133,7 +133,6 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     y;
 
   unsigned char
-    *tim_data,
     *tim_pixels;
 
   unsigned short
@@ -202,7 +201,11 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         count=ReadBlob(image,2*image->colors,tim_colormap);
         if (count != (ssize_t) (2*image->colors))
-          ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+          {
+            tim_colormap=(unsigned char *) RelinquishMagickMemory(tim_colormap);
+            ThrowReaderException(CorruptImageError,
+              "InsufficientImageDataInFile");
+          }
         p=tim_colormap;
         for (i=0; i < (ssize_t) image->colors; i++)
         {
@@ -220,9 +223,6 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if ((image_info->ping != MagickFalse) && (image_info->number_scenes != 0))
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;
-    status=SetImageExtent(image,image->columns,image->rows,exception);
-    if (status == MagickFalse)
-      return(DestroyImageList(image));
     /*
       Read image data.
     */
@@ -232,21 +232,28 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     width=ReadBlobLSBShort(image);
     height=ReadBlobLSBShort(image);
     image_size=2*width*height;
+    if (image_size > GetBlobSize(image))
+      ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
     bytes_per_line=width*2;
     width=(width*16)/bits_per_pixel;
-    tim_data=(unsigned char *) AcquireQuantumMemory(image_size,
-      sizeof(*tim_data));
-    if (tim_data == (unsigned char *) NULL)
-      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-    count=ReadBlob(image,image_size,tim_data);
-    if (count != (ssize_t) (image_size))
-      ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
-    tim_pixels=tim_data;
-    /*
-      Initialize image structure.
-    */
     image->columns=width;
     image->rows=height;
+    status=SetImageExtent(image,image->columns,image->rows,exception);
+    if (status == MagickFalse)
+      return(DestroyImageList(image));
+    status=ResetImagePixels(image,exception);
+    if (status == MagickFalse)
+      return(DestroyImageList(image));
+    tim_pixels=(unsigned char *) AcquireQuantumMemory(image_size,
+      sizeof(*tim_pixels));
+    if (tim_pixels == (unsigned char *) NULL)
+      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    count=ReadBlob(image,image_size,tim_pixels);
+    if (count != (ssize_t) (image_size))
+      {
+        tim_pixels=(unsigned char *) RelinquishMagickMemory(tim_pixels);
+        ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+      }
     /*
       Convert TIM raster image to pixel packets.
     */
@@ -383,7 +390,10 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         break;
       }
       default:
+      {
+        tim_pixels=(unsigned char *) RelinquishMagickMemory(tim_pixels);
         ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+      }
     }
     if (image->storage_class == PseudoClass)
       (void) SyncImage(image,exception);
@@ -397,6 +407,9 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Proceed to next image.
     */
+    if (image_info->number_scenes != 0)
+      if (image->scene >= (image_info->scene+image_info->number_scenes-1))
+        break;
     tim_info.id=ReadBlobLSBLong(image);
     if (tim_info.id == 0x00000010)
       {
@@ -406,8 +419,8 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -417,6 +430,8 @@ static Image *ReadTIMImage(const ImageInfo *image_info,ExceptionInfo *exception)
       }
   } while (tim_info.id == 0x00000010);
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 

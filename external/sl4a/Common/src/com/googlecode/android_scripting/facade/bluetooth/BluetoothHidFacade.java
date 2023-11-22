@@ -28,6 +28,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.ParcelUuid;
 
+import com.googlecode.android_scripting.BaseApplication;
+import com.googlecode.android_scripting.FutureActivityTaskExecutor;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
@@ -46,6 +48,8 @@ public class BluetoothHidFacade extends RpcReceiver {
 
     private final Service mService;
     private final BluetoothAdapter mBluetoothAdapter;
+    private final FutureActivityTaskExecutor mTaskQueue;
+    private BluetoothHidInputCounterTask mInputCounterTask;
 
     private static boolean sIsHidReady = false;
     private static BluetoothHidHost sHidProfile = null;
@@ -55,6 +59,7 @@ public class BluetoothHidFacade extends RpcReceiver {
     public BluetoothHidFacade(FacadeManager manager) {
         super(manager);
         mService = manager.getService();
+        mTaskQueue = ((BaseApplication) mService.getApplication()).getTaskExecutor();
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mBluetoothAdapter.getProfileProxy(mService, new HidServiceListener(),
         BluetoothProfile.HID_HOST);
@@ -430,6 +435,36 @@ public class BluetoothHidFacade extends RpcReceiver {
     }
 
     /**
+     * Start to monitor HID device input count
+     */
+    @Rpc(description = "Start keyboard/mouse input counter")
+    public void bluetoothHidStartInputCounter() throws InterruptedException {
+        mInputCounterTask = new BluetoothHidInputCounterTask();
+        mTaskQueue.execute(mInputCounterTask);
+        mInputCounterTask.getShowLatch().await();
+    }
+
+    /**
+     * Stop to monitor HID device input count
+     */
+    @Rpc(description = "Stop keyboard/mouse input rate checker")
+    public void bluetoothHidStopInputCounter() throws InterruptedException {
+        if (mInputCounterTask != null) {
+            mInputCounterTask.finish();
+            mInputCounterTask = null;
+        }
+    }
+
+    /**
+     * Get HID device input rate
+     * @return The value of HID device input count during the first and the last input.
+     */
+    @Rpc(description = "Get HID keyboard/mouse input count")
+    public double bluetoothHidGetCount() {
+        return mInputCounterTask.getCount();
+    }
+
+    /**
      * Test byte transfer.
      */
     @Rpc(description = "Test byte transfer.")
@@ -440,5 +475,6 @@ public class BluetoothHidFacade extends RpcReceiver {
 
     @Override
     public void shutdown() {
+        mService.unregisterReceiver(mHidServiceBroadcastReceiver);
     }
 }

@@ -37,9 +37,11 @@
 #include "vkDeviceUtil.hpp"
 #include "vkPrograms.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkObjUtil.hpp"
 #include "vkWsiPlatform.hpp"
 #include "vkWsiUtil.hpp"
 #include "vkAllocationCallbackUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuFormatUtil.hpp"
@@ -98,6 +100,17 @@ std::vector<std::string> getRequiredWsiExtensions (const Extensions&	supportedEx
 	if (isExtensionSupported(supportedExtensions, vk::RequiredExtension("VK_EXT_swapchain_colorspace")))
 		extensions.push_back("VK_EXT_swapchain_colorspace");
 
+	// VK_KHR_surface_protected_capabilities adds a way to check if swapchain can be
+	// created for protected VkSurface, so if this extension is enabled then we can
+	// check for that capability.
+	// To check this capability, vkGetPhysicalDeviceSurfaceCapabilities2KHR needs
+	// to be called so add VK_KHR_get_surface_capabilities2 for this.
+	if (isExtensionSupported(supportedExtensions, vk::RequiredExtension("VK_KHR_surface_protected_capabilities")))
+	{
+		extensions.push_back("VK_KHR_get_surface_capabilities2");
+		extensions.push_back("VK_KHR_surface_protected_capabilities");
+	}
+
 	checkAllSupported(supportedExtensions, extensions);
 
 	return extensions;
@@ -113,7 +126,8 @@ de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
 	}
 	catch (const tcu::NotSupportedError& e)
 	{
-		if (isExtensionSupported(supportedExtensions, vk::RequiredExtension(getExtensionName(wsiType))))
+		if (isExtensionSupported(supportedExtensions, vk::RequiredExtension(getExtensionName(wsiType))) &&
+		    platform.hasDisplay(wsiType))
 		{
 			// If VK_KHR_{platform}_surface was supported, vk::Platform implementation
 			// must support creating native display & window for that WSI type.
@@ -202,6 +216,21 @@ struct TestParameters
 	{}
 };
 
+static vk::VkCompositeAlphaFlagBitsKHR firstSupportedCompositeAlpha(const vk::VkSurfaceCapabilitiesKHR& capabilities)
+{
+	deUint32 alphaMode = 1u;
+
+	for (;alphaMode < capabilities.supportedCompositeAlpha;	alphaMode = alphaMode<<1u)
+	{
+		if ((alphaMode & capabilities.supportedCompositeAlpha) != 0)
+		{
+			break;
+		}
+	}
+
+	return (vk::VkCompositeAlphaFlagBitsKHR)alphaMode;
+}
+
 std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (vk::wsi::Type								wsiType,
 																		   TestDimension								dimension,
 																		   const ProtectedContext&						context,
@@ -230,7 +259,7 @@ std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (vk::w
 		0u,
 		(const deUint32*)DE_NULL,
 		defaultTransform,
-		vk::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		firstSupportedCompositeAlpha(capabilities),
 		vk::VK_PRESENT_MODE_FIFO_KHR,
 		VK_FALSE,							// clipped
 		(vk::VkSwapchainKHR)0				// oldSwapchain
@@ -277,7 +306,9 @@ std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (vk::w
 			// Determine the maximum memory heap space available for protected images
 			vk::VkPhysicalDeviceMemoryProperties	memoryProperties	= vk::getPhysicalDeviceMemoryProperties(context.getInstanceDriver(), context.getPhysicalDevice());
 			vk::VkDeviceSize						protectedHeapSize	= 0;
+			vk::VkDeviceSize						maxMemoryUsage		= 0;
 			deUint32								protectedHeapMask	= 0;
+
 			for (deUint32 memType = 0; memType < memoryProperties.memoryTypeCount; memType++)
 			{
 				deUint32 heapIndex	= memoryProperties.memoryTypes[memType].heapIndex;
@@ -286,15 +317,18 @@ std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (vk::w
 					(protectedHeapMask & (1u << heapIndex)) == 0)
 				{
 					protectedHeapSize = de::max(protectedHeapSize, memoryProperties.memoryHeaps[heapIndex].size);
+					maxMemoryUsage    = protectedHeapSize / 4 ; /* Use at maximum 25% of heap */
 					protectedHeapMask |= 1u << heapIndex;
 				}
 			}
 
 			// If the implementation doesn't have a max image count, min+16 means we won't clamp.
-			// Limit it to how many protected images we estimate can be allocated, with one image
-			// worth of slack for alignment, swapchain-specific constraints, etc.
+			// Limit it to how many protected images we estimate can be allocated - 25% of heap size
 			const deUint32	maxImageCount		= de::min((capabilities.maxImageCount > 0) ? capabilities.maxImageCount : capabilities.minImageCount + 16u,
-														  deUint32(protectedHeapSize / memoryRequirements.size) - 1);
+														  deUint32(maxMemoryUsage / memoryRequirements.size));
+			if (maxImageCount < capabilities.minImageCount)
+				TCU_THROW(NotSupportedError, "Memory heap doesn't have enough memory!.");
+
 			const deUint32	maxImageCountToTest	= de::clamp(16u, capabilities.minImageCount, maxImageCount);
 			for (deUint32 imageCount = capabilities.minImageCount; imageCount <= maxImageCountToTest; ++imageCount)
 			{
@@ -307,11 +341,63 @@ std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (vk::w
 
 		case TEST_DIMENSION_IMAGE_FORMAT:
 		{
+			const vk::DeviceInterface&				vkd					= context.getDeviceInterface();
+			vk::VkDevice							device				= context.getDevice();
+			vk::VkPhysicalDeviceMemoryProperties	memoryProperties	= vk::getPhysicalDeviceMemoryProperties(context.getInstanceDriver(), context.getPhysicalDevice());
+			vk::VkDeviceSize						protectedHeapSize	= 0;
+			vk::VkDeviceSize						maxMemoryUsage		= 0;
+
+			for (deUint32 memType = 0; memType < memoryProperties.memoryTypeCount; memType++)
+			{
+				deUint32 heapIndex	= memoryProperties.memoryTypes[memType].heapIndex;
+				if (memoryProperties.memoryTypes[memType].propertyFlags & vk::VK_MEMORY_PROPERTY_PROTECTED_BIT)
+				{
+					protectedHeapSize = de::max(protectedHeapSize, memoryProperties.memoryHeaps[heapIndex].size);
+					maxMemoryUsage	  = protectedHeapSize / 4 ; /* Use at maximum 25% of heap */
+				}
+			}
+
 			for (std::vector<vk::VkSurfaceFormatKHR>::const_iterator curFmt = formats.begin(); curFmt != formats.end(); ++curFmt)
 			{
-				cases.push_back(baseParameters);
-				cases.back().imageFormat		= curFmt->format;
-				cases.back().imageColorSpace	= curFmt->colorSpace;
+			    vk::VkMemoryRequirements memoryRequirements;
+			    {
+					const vk::VkImageCreateInfo imageInfo =
+					{
+						vk::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+						DE_NULL,
+						vk::VK_IMAGE_CREATE_PROTECTED_BIT,
+						vk::VK_IMAGE_TYPE_2D,
+						curFmt->format,
+						{
+							platformProperties.swapchainExtent == vk::wsi::PlatformProperties::SWAPCHAIN_EXTENT_SETS_WINDOW_SIZE
+								? capabilities.minImageExtent.width : capabilities.currentExtent.width,
+							platformProperties.swapchainExtent == vk::wsi::PlatformProperties::SWAPCHAIN_EXTENT_SETS_WINDOW_SIZE
+							? capabilities.minImageExtent.height : capabilities.currentExtent.height,
+							1,
+						},
+						1,	// mipLevels
+						baseParameters.imageArrayLayers,
+						vk::VK_SAMPLE_COUNT_1_BIT,
+						vk::VK_IMAGE_TILING_OPTIMAL,
+						baseParameters.imageUsage,
+						baseParameters.imageSharingMode,
+						baseParameters.queueFamilyIndexCount,
+						baseParameters.pQueueFamilyIndices,
+						vk::VK_IMAGE_LAYOUT_UNDEFINED
+					};
+
+						vk::Move<vk::VkImage> image = vk::createImage(vkd, device, &imageInfo);
+
+						memoryRequirements = vk::getImageMemoryRequirements(vkd, device, *image);
+					}
+
+					// Check for the image size requirement based on double/triple buffering
+					if (memoryRequirements.size  * capabilities.minImageCount < maxMemoryUsage)
+					{
+						cases.push_back(baseParameters);
+						cases.back().imageFormat		= curFmt->format;
+						cases.back().imageColorSpace	= curFmt->colorSpace;
+					}
 			}
 
 			break;
@@ -328,30 +414,154 @@ std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (vk::w
 				{ 117, 998 },
 			};
 
+			const vk::DeviceInterface&				vkd					= context.getDeviceInterface();
+			vk::VkDevice							device				= context.getDevice();
+			vk::VkPhysicalDeviceMemoryProperties	memoryProperties	= vk::getPhysicalDeviceMemoryProperties(context.getInstanceDriver(), context.getPhysicalDevice());
+			vk::VkDeviceSize						protectedHeapSize	= 0;
+			vk::VkDeviceSize						maxMemoryUsage		= 0;
+
+			for (deUint32 memType = 0; memType < memoryProperties.memoryTypeCount; memType++)
+			{
+				deUint32 heapIndex	= memoryProperties.memoryTypes[memType].heapIndex;
+				if (memoryProperties.memoryTypes[memType].propertyFlags & vk::VK_MEMORY_PROPERTY_PROTECTED_BIT)
+				{
+					protectedHeapSize = de::max(protectedHeapSize, memoryProperties.memoryHeaps[heapIndex].size);
+					maxMemoryUsage    = protectedHeapSize / 4 ; /* Use at maximum 25% of heap */
+				}
+			}
+
 			if (platformProperties.swapchainExtent == vk::wsi::PlatformProperties::SWAPCHAIN_EXTENT_SETS_WINDOW_SIZE ||
 				platformProperties.swapchainExtent == vk::wsi::PlatformProperties::SWAPCHAIN_EXTENT_SCALED_TO_WINDOW_SIZE)
 			{
 				for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(s_testSizes); ++ndx)
 				{
-					cases.push_back(baseParameters);
-					cases.back().imageExtent.width	= de::clamp(s_testSizes[ndx].width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-					cases.back().imageExtent.height	= de::clamp(s_testSizes[ndx].height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+					vk::VkMemoryRequirements memoryRequirements;
+					{
+						const vk::VkImageCreateInfo imageInfo =
+						{
+							vk::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+							DE_NULL,
+							vk::VK_IMAGE_CREATE_PROTECTED_BIT,
+							vk::VK_IMAGE_TYPE_2D,
+							baseParameters.imageFormat,
+							{
+								s_testSizes[ndx].width,
+								s_testSizes[ndx].height,
+								1,
+							},
+							1,	// mipLevels
+							baseParameters.imageArrayLayers,
+							vk::VK_SAMPLE_COUNT_1_BIT,
+							vk::VK_IMAGE_TILING_OPTIMAL,
+							baseParameters.imageUsage,
+							baseParameters.imageSharingMode,
+							baseParameters.queueFamilyIndexCount,
+							baseParameters.pQueueFamilyIndices,
+							vk::VK_IMAGE_LAYOUT_UNDEFINED
+						};
+
+						vk::Move<vk::VkImage> image = vk::createImage(vkd, device, &imageInfo);
+
+						memoryRequirements = vk::getImageMemoryRequirements(vkd, device, *image);
+					}
+
+					// Check for the image size requirement based on double/triple buffering
+					if (memoryRequirements.size  * capabilities.minImageCount < maxMemoryUsage)
+					{
+						cases.push_back(baseParameters);
+						cases.back().imageExtent.width	= de::clamp(s_testSizes[ndx].width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+						cases.back().imageExtent.height	= de::clamp(s_testSizes[ndx].height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+					}
 				}
 			}
 
 			if (platformProperties.swapchainExtent != vk::wsi::PlatformProperties::SWAPCHAIN_EXTENT_SETS_WINDOW_SIZE)
 			{
-				cases.push_back(baseParameters);
-				cases.back().imageExtent = capabilities.currentExtent;
+				vk::VkMemoryRequirements memoryRequirements;
+				{
+					const vk::VkImageCreateInfo imageInfo =
+					{
+						vk::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+						DE_NULL,
+						vk::VK_IMAGE_CREATE_PROTECTED_BIT,
+						vk::VK_IMAGE_TYPE_2D,
+						baseParameters.imageFormat,
+						{
+							capabilities.currentExtent.width,
+							capabilities.currentExtent.height,
+							1,
+						},
+						1,	// mipLevels
+						baseParameters.imageArrayLayers,
+						vk::VK_SAMPLE_COUNT_1_BIT,
+						vk::VK_IMAGE_TILING_OPTIMAL,
+						baseParameters.imageUsage,
+						baseParameters.imageSharingMode,
+						baseParameters.queueFamilyIndexCount,
+						baseParameters.pQueueFamilyIndices,
+						vk::VK_IMAGE_LAYOUT_UNDEFINED
+					};
+
+					vk::Move<vk::VkImage> image = vk::createImage(vkd, device, &imageInfo);
+
+					memoryRequirements = vk::getImageMemoryRequirements(vkd, device, *image);
+				}
+
+				// Check for the image size requirement based on double/triple buffering
+				if (memoryRequirements.size  * capabilities.minImageCount < maxMemoryUsage)
+				{
+					cases.push_back(baseParameters);
+					cases.back().imageExtent = capabilities.currentExtent;
+				}
 			}
 
 			if (platformProperties.swapchainExtent != vk::wsi::PlatformProperties::SWAPCHAIN_EXTENT_MUST_MATCH_WINDOW_SIZE)
 			{
-				cases.push_back(baseParameters);
-				cases.back().imageExtent = capabilities.minImageExtent;
+				static const vk::VkExtent2D	s_testExtentSizes[]	=
+				{
+					{ capabilities.minImageExtent.width, capabilities.minImageExtent.height },
+					{ capabilities.maxImageExtent.width, capabilities.maxImageExtent.height },
+				};
 
-				cases.push_back(baseParameters);
-				cases.back().imageExtent = capabilities.maxImageExtent;
+				for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(s_testExtentSizes); ++ndx)
+				{
+					vk::VkMemoryRequirements memoryRequirements;
+					{
+						const vk::VkImageCreateInfo	imageInfo =
+						{
+							vk::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+							DE_NULL,
+							vk::VK_IMAGE_CREATE_PROTECTED_BIT,
+							vk::VK_IMAGE_TYPE_2D,
+							baseParameters.imageFormat,
+							{
+								s_testExtentSizes[ndx].width,
+								s_testExtentSizes[ndx].height,
+								1,
+							},
+							1,	// mipLevels
+							baseParameters.imageArrayLayers,
+							vk::VK_SAMPLE_COUNT_1_BIT,
+							vk::VK_IMAGE_TILING_OPTIMAL,
+							baseParameters.imageUsage,
+							baseParameters.imageSharingMode,
+							baseParameters.queueFamilyIndexCount,
+							baseParameters.pQueueFamilyIndices,
+							vk::VK_IMAGE_LAYOUT_UNDEFINED
+						};
+
+						vk::Move<vk::VkImage> image = vk::createImage(vkd, device, &imageInfo);
+
+						memoryRequirements = vk::getImageMemoryRequirements(vkd, device, *image);
+					}
+
+					// Check for the image size requirement based on double/triple buffering
+					if (memoryRequirements.size  * capabilities.minImageCount < maxMemoryUsage)
+					{
+						cases.push_back(baseParameters);
+						cases.back().imageExtent =s_testExtentSizes[ndx];
+					}
+				}
 			}
 
 			break;
@@ -572,7 +782,7 @@ vk::VkSwapchainCreateInfoKHR getBasicSwapchainParameters (vk::wsi::Type					wsiT
 		0u,
 		(const deUint32*)DE_NULL,
 		transform,
-		vk::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		firstSupportedCompositeAlpha(capabilities),
 		vk::VK_PRESENT_MODE_FIFO_KHR,
 		VK_FALSE,							// clipped
 		(vk::VkSwapchainKHR)0				// oldSwapchain
@@ -735,191 +945,20 @@ vk::Move<vk::VkPipeline> TriangleRenderer::createPipeline (const vk::DeviceInter
 	//		 and can be deleted immediately following that call.
 	const vk::Unique<vk::VkShaderModule>				vertShaderModule		(createShaderModule(vkd, device, binaryCollection.get("tri-vert"), 0));
 	const vk::Unique<vk::VkShaderModule>				fragShaderModule		(createShaderModule(vkd, device, binaryCollection.get("tri-frag"), 0));
+	const std::vector<vk::VkViewport>					viewports				(1, vk::makeViewport(renderSize));
+	const std::vector<vk::VkRect2D>						scissors				(1, vk::makeRect2D(renderSize));
 
-	const vk::VkPipelineShaderStageCreateInfo			shaderStageParams[]		=
-	{
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			(vk::VkPipelineShaderStageCreateFlags)0,
-			vk::VK_SHADER_STAGE_VERTEX_BIT,
-			*vertShaderModule,
-			"main",
-			DE_NULL
-		},
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			(vk::VkPipelineShaderStageCreateFlags)0,
-			vk::VK_SHADER_STAGE_FRAGMENT_BIT,
-			*fragShaderModule,
-			"main",
-			DE_NULL
-		}
-	};
-	const vk::VkPipelineDepthStencilStateCreateInfo		depthStencilParams		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineDepthStencilStateCreateFlags)0,
-		DE_FALSE,									// depthTestEnable
-		DE_FALSE,									// depthWriteEnable
-		vk::VK_COMPARE_OP_ALWAYS,					// depthCompareOp
-		DE_FALSE,									// depthBoundsTestEnable
-		DE_FALSE,									// stencilTestEnable
-		{
-			vk::VK_STENCIL_OP_KEEP,						// failOp
-			vk::VK_STENCIL_OP_KEEP,						// passOp
-			vk::VK_STENCIL_OP_KEEP,						// depthFailOp
-			vk::VK_COMPARE_OP_ALWAYS,					// compareOp
-			0u,											// compareMask
-			0u,											// writeMask
-			0u,											// reference
-		},											// front
-		{
-			vk::VK_STENCIL_OP_KEEP,						// failOp
-			vk::VK_STENCIL_OP_KEEP,						// passOp
-			vk::VK_STENCIL_OP_KEEP,						// depthFailOp
-			vk::VK_COMPARE_OP_ALWAYS,					// compareOp
-			0u,											// compareMask
-			0u,											// writeMask
-			0u,											// reference
-		},											// back
-		-1.0f,										// minDepthBounds
-		+1.0f,										// maxDepthBounds
-	};
-	const vk::VkViewport								viewport0				=
-	{
-		0.0f,										// x
-		0.0f,										// y
-		(float)renderSize.x(),						// width
-		(float)renderSize.y(),						// height
-		0.0f,										// minDepth
-		1.0f,										// maxDepth
-	};
-	const vk::VkRect2D									scissor0				=
-	{
-		{ 0u, 0u, },								// offset
-		{ renderSize.x(), renderSize.y() },			// extent
-	};
-	const vk::VkPipelineViewportStateCreateInfo			viewportParams			=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineViewportStateCreateFlags)0,
-		1u,
-		&viewport0,
-		1u,
-		&scissor0
-	};
-	const vk::VkPipelineMultisampleStateCreateInfo		multisampleParams		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineMultisampleStateCreateFlags)0,
-		vk::VK_SAMPLE_COUNT_1_BIT,					// rasterizationSamples
-		VK_FALSE,									// sampleShadingEnable
-		0.0f,										// minSampleShading
-		(const vk::VkSampleMask*)DE_NULL,			// sampleMask
-		VK_FALSE,									// alphaToCoverageEnable
-		VK_FALSE,									// alphaToOneEnable
-	};
-	const vk::VkPipelineRasterizationStateCreateInfo	rasterParams			=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineRasterizationStateCreateFlags)0,
-		VK_FALSE,										// depthClampEnable
-		VK_FALSE,										// rasterizerDiscardEnable
-		vk::VK_POLYGON_MODE_FILL,						// polygonMode
-		vk::VK_CULL_MODE_NONE,							// cullMode
-		vk::VK_FRONT_FACE_COUNTER_CLOCKWISE,			// frontFace
-		VK_FALSE,										// depthBiasEnable
-		0.0f,											// depthBiasConstantFactor
-		0.0f,											// depthBiasClamp
-		0.0f,											// depthBiasSlopeFactor
-		1.0f,											// lineWidth
-	};
-	const vk::VkPipelineInputAssemblyStateCreateInfo	inputAssemblyParams		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineInputAssemblyStateCreateFlags)0,
-		vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		DE_FALSE,									// primitiveRestartEnable
-	};
-	const vk::VkVertexInputBindingDescription			vertexBinding0			=
-	{
-		0u,											// binding
-		(deUint32)sizeof(tcu::Vec4),				// stride
-		vk::VK_VERTEX_INPUT_RATE_VERTEX,			// inputRate
-	};
-	const vk::VkVertexInputAttributeDescription			vertexAttrib0			=
-	{
-		0u,											// location
-		0u,											// binding
-		vk::VK_FORMAT_R32G32B32A32_SFLOAT,			// format
-		0u,											// offset
-	};
-	const vk::VkPipelineVertexInputStateCreateInfo		vertexInputStateParams	=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineVertexInputStateCreateFlags)0,
-		1u,
-		&vertexBinding0,
-		1u,
-		&vertexAttrib0,
-	};
-	const vk::VkPipelineColorBlendAttachmentState		attBlendParams0			=
-	{
-		VK_FALSE,									// blendEnable
-		vk::VK_BLEND_FACTOR_ONE,					// srcColorBlendFactor
-		vk::VK_BLEND_FACTOR_ZERO,					// dstColorBlendFactor
-		vk::VK_BLEND_OP_ADD,						// colorBlendOp
-		vk::VK_BLEND_FACTOR_ONE,					// srcAlphaBlendFactor
-		vk::VK_BLEND_FACTOR_ZERO,					// dstAlphaBlendFactor
-		vk::VK_BLEND_OP_ADD,						// alphaBlendOp
-		(vk::VK_COLOR_COMPONENT_R_BIT|
-		 vk::VK_COLOR_COMPONENT_G_BIT|
-		 vk::VK_COLOR_COMPONENT_B_BIT|
-		 vk::VK_COLOR_COMPONENT_A_BIT),				// colorWriteMask
-	};
-	const vk::VkPipelineColorBlendStateCreateInfo		blendParams				=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineColorBlendStateCreateFlags)0,
-		VK_FALSE,									// logicOpEnable
-		vk::VK_LOGIC_OP_COPY,
-		1u,
-		&attBlendParams0,
-		{ 0.0f, 0.0f, 0.0f, 0.0f },					// blendConstants[4]
-	};
-	const vk::VkGraphicsPipelineCreateInfo				pipelineParams			=
-	{
-		vk::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		DE_NULL,
-		(vk::VkPipelineCreateFlags)0,
-		(deUint32)DE_LENGTH_OF_ARRAY(shaderStageParams),
-		shaderStageParams,
-		&vertexInputStateParams,
-		&inputAssemblyParams,
-		(const vk::VkPipelineTessellationStateCreateInfo*)DE_NULL,
-		&viewportParams,
-		&rasterParams,
-		&multisampleParams,
-		&depthStencilParams,
-		&blendParams,
-		(const vk::VkPipelineDynamicStateCreateInfo*)DE_NULL,
-		pipelineLayout,
-		renderPass,
-		0u,											// subpass
-		DE_NULL,									// basePipelineHandle
-		0u,											// basePipelineIndex
-	};
-
-	return vk::createGraphicsPipeline(vkd, device, (vk::VkPipelineCache)0, &pipelineParams);
+	return vk::makeGraphicsPipeline(vkd,				// const DeviceInterface&            vk
+									device,				// const VkDevice                    device
+									pipelineLayout,		// const VkPipelineLayout            pipelineLayout
+									*vertShaderModule,	// const VkShaderModule              vertexShaderModule
+									DE_NULL,			// const VkShaderModule              tessellationControlShaderModule
+									DE_NULL,			// const VkShaderModule              tessellationEvalShaderModule
+									DE_NULL,			// const VkShaderModule              geometryShaderModule
+									*fragShaderModule,	// const VkShaderModule              fragmentShaderModule
+									renderPass,			// const VkRenderPass                renderPass
+									viewports,			// const std::vector<VkViewport>&    viewports
+									scissors);			// const std::vector<VkRect2D>&      scissors
 }
 
 TriangleRenderer::TriangleRenderer (ProtectedContext&				context,
@@ -978,26 +1017,9 @@ void TriangleRenderer::recordFrame (vk::VkCommandBuffer	cmdBuffer,
 {
 	const vk::VkFramebuffer	curFramebuffer	= **m_framebuffers[imageNdx];
 
-	beginCommandBuffer(m_vkd, cmdBuffer);
+	beginCommandBuffer(m_vkd, cmdBuffer, 0u);
 
-	{
-		const vk::VkClearValue			clearValue		= vk::makeClearValueColorF32(0.125f, 0.25f, 0.75f, 1.0f);
-		const vk::VkRenderPassBeginInfo	passBeginParams	=
-		{
-			vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			DE_NULL,
-			*m_renderPass,
-			curFramebuffer,
-			{
-				{ 0, 0 },
-				{ (deUint32)m_renderSize.x(), (deUint32)m_renderSize.y() }
-			},													// renderArea
-			1u,													// clearValueCount
-			&clearValue,										// pClearValues
-		};
-		m_vkd.cmdBeginRenderPass(cmdBuffer, &passBeginParams, vk::VK_SUBPASS_CONTENTS_INLINE);
-	}
-
+	beginRenderPass(m_vkd, cmdBuffer, *m_renderPass, curFramebuffer, vk::makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), tcu::Vec4(0.125f, 0.25f, 0.75f, 1.0f));
 	m_vkd.cmdBindPipeline(cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipeline);
 
 	{
@@ -1007,9 +1029,9 @@ void TriangleRenderer::recordFrame (vk::VkCommandBuffer	cmdBuffer,
 
 	m_vkd.cmdPushConstants(cmdBuffer, *m_pipelineLayout, vk::VK_SHADER_STAGE_VERTEX_BIT, 0u, (deUint32)sizeof(deUint32), &frameNdx);
 	m_vkd.cmdDraw(cmdBuffer, 3u, 1u, 0u, 0u);
-	m_vkd.cmdEndRenderPass(cmdBuffer);
+	endRenderPass(m_vkd, cmdBuffer);
 
-	VK_CHECK(m_vkd.endCommandBuffer(cmdBuffer));
+	endCommandBuffer(m_vkd, cmdBuffer);
 }
 
 void TriangleRenderer::getPrograms (vk::SourceCollections& dst)
@@ -1131,6 +1153,32 @@ tcu::TestStatus basicRenderTest (Context& baseCtx, vk::wsi::Type wsiType)
 																								vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 																								maxQueuedFrames));
 
+	if (isExtensionSupported(supportedExtensions, vk::RequiredExtension("VK_KHR_surface_protected_capabilities")))
+	{
+		// Check if swapchain can be created for protected surface
+		const vk::InstanceInterface&			vki			= context.getInstanceDriver();
+		vk::VkSurfaceCapabilities2KHR			extCapabilities;
+		vk::VkSurfaceProtectedCapabilitiesKHR		extProtectedCapabilities;
+		const vk::VkPhysicalDeviceSurfaceInfo2KHR	surfaceInfo =
+		{
+			vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
+			DE_NULL,
+			surface
+		};
+
+		extProtectedCapabilities.sType			= vk::VK_STRUCTURE_TYPE_SURFACE_PROTECTED_CAPABILITIES_KHR;
+		extProtectedCapabilities.pNext			= DE_NULL;
+		extProtectedCapabilities.supportsProtected	= DE_FALSE;
+
+		extCapabilities.sType				= vk::VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
+		extCapabilities.pNext				= &extProtectedCapabilities;
+
+		VK_CHECK(vki.getPhysicalDeviceSurfaceCapabilities2KHR(context.getPhysicalDevice(), &surfaceInfo, &extCapabilities));
+
+		if (extProtectedCapabilities.supportsProtected == DE_FALSE)
+			TCU_THROW(NotSupportedError, "Swapchain creation for Protected VkSurface is not Supported.");
+	}
+
 	try
 	{
 		const deUint32	numFramesToRender	= 60*10;
@@ -1151,7 +1199,7 @@ tcu::TestStatus basicRenderTest (Context& baseCtx, vk::wsi::Type wsiType)
 																			  *swapchain,
 																			  std::numeric_limits<deUint64>::max(),
 																			  imageReadySemaphore,
-																			  imageReadyFence,
+																			  0,
 																			  &imageNdx);
 
 				if (acquireResult == vk::VK_SUBOPTIMAL_KHR)
@@ -1200,8 +1248,8 @@ tcu::TestStatus basicRenderTest (Context& baseCtx, vk::wsi::Type wsiType)
 				};
 
 				renderer.recordFrame(commandBuffer, imageNdx, frameNdx);
-				VK_CHECK(vkd.queueSubmit(context.getQueue(), 1u, &submitInfo, (vk::VkFence)0));
-				VK_CHECK(vkd.queuePresentKHR(context.getQueue(), &presentInfo));
+				VK_CHECK(vkd.queueSubmit(context.getQueue(), 1u, &submitInfo, imageReadyFence));
+				VK_CHECK_WSI(vkd.queuePresentKHR(context.getQueue(), &presentInfo));
 			}
 		}
 

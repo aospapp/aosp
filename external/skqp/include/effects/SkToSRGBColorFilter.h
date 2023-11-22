@@ -8,6 +8,7 @@
 #ifndef SkToSRGBColorFilter_DEFINED
 #define SkToSRGBColorFilter_DEFINED
 
+#include "SkFlattenable.h"
 #include "SkColorFilter.h"
 #include "SkRefCnt.h"
 
@@ -26,10 +27,9 @@ public:
             GrContext*, const GrColorSpaceInfo&) const override;
 #endif
 
-    SK_TO_STRING_OVERRIDE()
-    SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkToSRGBColorFilter)
-
 private:
+    SK_FLATTENABLE_HOOKS(SkToSRGBColorFilter)
+
     void flatten(SkWriteBuffer&) const override;
     SkToSRGBColorFilter(sk_sp<SkColorSpace>);
     void onAppendStages(SkRasterPipeline*, SkColorSpace*, SkArenaAlloc*,

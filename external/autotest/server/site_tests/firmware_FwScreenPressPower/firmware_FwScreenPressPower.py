@@ -4,7 +4,6 @@
 
 import logging
 import time
-import sys
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -49,16 +48,17 @@ class firmware_FwScreenPressPower(FirmwareTest):
         self.wait_longer_fw_screen_and_press_power()
 
     def initialize(self, host, cmdline_args):
+        """Initialize the test"""
         super(firmware_FwScreenPressPower, self).initialize(host, cmdline_args)
-        self.assert_test_image_in_usb_disk()
         self.switcher.setup_mode('dev')
-        self.servo.switch_usbkey('host')
+        self.setup_usbkey(True, host=True)
         usb_dev = self.servo.probe_host_usb_dev()
         # Corrupt the kernel of USB stick. It is needed for triggering a
         # yuck screen later.
         self.corrupt_usb_kernel(usb_dev)
 
     def cleanup(self):
+        """Cleanup the test"""
         try:
             self.servo.switch_usbkey('host')
             usb_dev = self.servo.probe_host_usb_dev()
@@ -69,6 +69,7 @@ class firmware_FwScreenPressPower(FirmwareTest):
         super(firmware_FwScreenPressPower, self).cleanup()
 
     def run_once(self):
+        """Main test logic"""
         if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser'
           and self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
             raise error.TestNAError("This test is only valid on devices with "

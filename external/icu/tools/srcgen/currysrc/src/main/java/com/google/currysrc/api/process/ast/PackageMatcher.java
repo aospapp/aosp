@@ -15,6 +15,7 @@
  */
 package com.google.currysrc.api.process.ast;
 
+import java.util.Objects;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.PackageDeclaration;
@@ -61,5 +62,22 @@ public final class PackageMatcher {
       return "";
     }
     return packageDeclaration.getName().getFullyQualifiedName();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof PackageMatcher)) {
+      return false;
+    }
+    PackageMatcher that = (PackageMatcher) o;
+    return Objects.equals(packageName, that.packageName);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(packageName);
   }
 }

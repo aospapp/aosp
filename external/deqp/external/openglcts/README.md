@@ -212,7 +212,8 @@ add_definitions(-DHKEMBEDDEDFILESYSTEM)
 
 ### Building the Tests
 
-To build the framework, you need first to download sources for zlib, libpng.
+To build the framework, you need first to download sources for zlib, libpng, glslang,
+spirv-headers, and spirv-tools.
 
 To download sources, run:
 
@@ -231,8 +232,12 @@ conformance submission.
 at [Khronos Gitlab](https://gitlab.khronos.org/) to be able to download
 Khronos Confidential CTS.
 It is possible to run and build the CTS without the Khronos Confidential CTS.
-Khronos Confidential CTS is mandatory only if you plan to make a
+For OpenGL CTS releases, and OpenGL ES CTS releases prior to opengl-es-cts-3.2.4.0
+Khronos Confidential CTS is mandatory if you plan to make a
 conformance submission (see [Creating a Submission Package](#creating-a-submission-package)).
+For opengl-es-cts-3.2.4.0 and later OpenGL ES CTS releases Khronos Confidential CTS
+results must not be included in a submission package.
+
 
 With CMake out-of-source builds are always recommended. Create a build directory
 of your choosing, and in that directory generate Makefiles or IDE project
@@ -317,8 +322,8 @@ as well. See CMake help for more details.
 The conformance tests come with native Android support. The following packages
 are needed in order to build an Android binary:
 - Python 2.7.x
-- Android NDK r11c
-- Android SDK with API 24 packages and tools installed
+- Android NDK r15c
+- Android SDK with API 22 packages and tools installed
 - Apache Ant
 
 An Android binary (for ES 3.2) can be built using command:
@@ -422,7 +427,7 @@ Conformance run for OpenGL ES 3.2 on Windows:
 	Debug/cts-runner.exe --type=es32
 	  [For ES 3.1 use --type=es31; ES 3.0 use --type=es3; for ES 2.0, use --type=es2]
 
-Conformance run for OpenGL 3.0 - 4.4 on Windows:
+Conformance run for OpenGL 3.0 - 4.6 on Windows:
 
 	Debug/cts-runner.exe --type=glxy
 	  [x and y are the major and minor specifiction versions]
@@ -431,7 +436,7 @@ Full list of parameters for the `cts-runner` binary:
 ```
 --type=[esN[M]|glNM] Conformance test run type. Choose from
 					 ES: es2, es3, es31, es32
-					 GL: gl30, gl31, gl32, gl33, gl40, gl41, gl42, gl43, gl44, gl45
+					 GL: gl30, gl31, gl32, gl33, gl40, gl41, gl42, gl43, gl44, gl45, gl46
 --logdir=[path]      Destination directory for log files
 --summary            Print summary without running the tests
 --verbose            Print out and log more information
@@ -462,17 +467,18 @@ version that doesn't match the `GLCTS_GTF_TARGET` value used during the build st
 #### Android
 
 Once the CTS binary is built and installed on the device, a new application
-called `ES3.2 CTS`, `ES3.1 CTS`, `ES3 CTS`, `ES2 CTS`, or `GL4.5 CTS` (depending
-on the test version you built) should appear in the launcher. Conformance test
-runs can be done by launching the applications.
+called `ES3.2 CTS`, `ES3.1 CTS`, `ES3 CTS`, `ES2 CTS`, `GL4.5 CTS`, or `GL4.6 CTS`
+(depending on the test version you built) should appear in the launcher.
+Conformance test runs can be done by launching the applications.
 
 Alternatively it is possible to start a conformance run from the command line,
 for example to launch a GLES 3.2 conformance run use:
 
 	am start -n org.khronos.gl_cts/org.khronos.cts.ES32Activity -e logdir "/sdcard/logs"
 
-For GLES 2.0, GLES 3.0, GLES 3.1, or GL 4.5 conformance runs, substitute the following
-activity name (respectively) ES2Activity, ES3Activity, ES31Activity, or GL45Activity.
+For GLES 2.0, GLES 3.0, GLES 3.1, GL 4.5, or GL 4.6 conformance runs, substitute
+the following activity name (respectively) ES2Activity, ES3Activity, ES31Activity,
+GL45Activity, or GL46Activity.
 
 Test logs will be written to `/sdcard` by default. The log path can be
 customized by supplying a `logdir` string extra in launch intent. Verbose mode

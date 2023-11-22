@@ -21,19 +21,21 @@
 // they are actually required
 // Beware: the uniqueID of the TextureRenderTargetProxy will usually be different than
 // the uniqueID of the RenderTarget/Texture it represents!
-class GrTextureRenderTargetProxy : public GrTextureProxy, public GrRenderTargetProxy {
+class GrTextureRenderTargetProxy : public GrRenderTargetProxy, public GrTextureProxy {
 private:
     // DDL TODO: rm the GrSurfaceProxy friending
     friend class GrSurfaceProxy; // for ctors
     friend class GrProxyProvider; // for ctors
 
     // Deferred version
-    GrTextureRenderTargetProxy(const GrCaps&, const GrSurfaceDesc&,
-                               SkBackingFit, SkBudgeted, uint32_t flags);
+    GrTextureRenderTargetProxy(const GrCaps&, const GrBackendFormat&, const GrSurfaceDesc&,
+                               GrSurfaceOrigin, GrMipMapped, SkBackingFit, SkBudgeted,
+                               GrInternalSurfaceFlags);
 
     // Lazy-callback version
-    GrTextureRenderTargetProxy(LazyInstantiateCallback&&, const GrSurfaceDesc& desc, GrMipMapped,
-                               SkBackingFit, SkBudgeted, uint32_t flags);
+    GrTextureRenderTargetProxy(LazyInstantiateCallback&&, LazyInstantiationType,
+                               const GrBackendFormat&, const GrSurfaceDesc& desc, GrSurfaceOrigin,
+                               GrMipMapped, SkBackingFit, SkBudgeted, GrInternalSurfaceFlags);
 
     // Wrapped version
     GrTextureRenderTargetProxy(sk_sp<GrSurface>, GrSurfaceOrigin);
@@ -43,7 +45,7 @@ private:
 
     size_t onUninstantiatedGpuMemorySize() const override;
 
-    SkDEBUGCODE(void validateLazyTexture(const GrTexture*) override;)
+    SkDEBUGCODE(void onValidateSurface(const GrSurface*) override;)
 };
 
 #ifdef SK_BUILD_FOR_WIN

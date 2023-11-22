@@ -23,12 +23,10 @@ This dynamic suite runs the memory qualification tests.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 from autotest_lib.client.common_lib import utils
 
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['timeout_mins'] = 40320 # entire suite timeout after 28 days
 args_dict['max_runtime_mins'] = 40320 # one test timeout after 28 days
 args_dict['name'] = NAME

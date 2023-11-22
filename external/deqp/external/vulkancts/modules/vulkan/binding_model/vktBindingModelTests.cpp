@@ -24,6 +24,8 @@
 #include "vktBindingModelTests.hpp"
 
 #include "vktBindingShaderAccessTests.hpp"
+#include "vktBindingDescriptorUpdateTests.hpp"
+#include "vktBindingDescriptorSetRandomTests.hpp"
 #include "vktTestGroupUtil.hpp"
 
 namespace vkt
@@ -39,6 +41,8 @@ void createChildren (tcu::TestCaseGroup* group)
 	tcu::TestContext&	testCtx		= group->getTestContext();
 
 	group->addChild(createShaderAccessTests(testCtx));
+	group->addChild(createDescriptorUpdateTests(testCtx));
+	group->addChild(createDescriptorSetRandomTests(testCtx));
 
 	// \todo [2015-07-30 jarkko] .change_binding.{between_renderpasses, within_pass}
 	// \todo [2015-07-30 jarkko] .descriptor_set_chain

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -196,7 +196,7 @@ static Image *ReadCALSImage(const ImageInfo *image_info,
   /*
     Read CALS header.
   */
-  (void) ResetMagickMemory(header,0,sizeof(header));
+  (void) memset(header,0,sizeof(header));
   density=0;
   direction=0;
   orientation=1;
@@ -257,7 +257,8 @@ static Image *ReadCALSImage(const ImageInfo *image_info,
   if ((unique_file == -1) || (file == (FILE *) NULL))
     ThrowImageException(FileOpenError,"UnableToCreateTemporaryFile");
   while ((c=ReadBlobByte(image)) != EOF)
-    (void) fputc(c,file);
+    if (fputc(c,file) != c)
+      break;
   (void) fclose(file);
   (void) CloseBlob(image);
   image=DestroyImage(image);
@@ -416,7 +417,7 @@ static ssize_t WriteCALSRecord(Image *image,const char *data)
   if (i < 128)
     {
       i=128-i;
-      (void) ResetMagickMemory(pad,' ',(size_t) i);
+      (void) memset(pad,' ',(size_t) i);
       count=WriteBlob(image,(size_t) i,(const unsigned char *) pad);
     }
   return(count);
@@ -545,7 +546,7 @@ static MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
     (unsigned long) density);
   count=WriteCALSRecord(image,header);
   count=WriteCALSRecord(image,"notes: NONE");
-  (void) ResetMagickMemory(header,' ',128);
+  (void) memset(header,' ',128);
   for (i=0; i < 5; i++)
     (void) WriteBlob(image,128,(unsigned char *) header);
   /*
@@ -557,6 +558,7 @@ static MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
   group4_image=CloneImage(image,0,0,MagickTrue,exception);
   if (group4_image == (Image *) NULL)
     {
+      write_info=DestroyImageInfo(write_info);
       (void) CloseBlob(image);
       return(MagickFalse);
     }
@@ -565,6 +567,7 @@ static MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
   group4_image=DestroyImage(group4_image);
   if (group4 == (unsigned char *) NULL)
     {
+      write_info=DestroyImageInfo(write_info);
       (void) CloseBlob(image);
       return(MagickFalse);
     }

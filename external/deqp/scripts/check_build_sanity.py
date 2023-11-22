@@ -23,9 +23,12 @@
 import os
 import argparse
 import tempfile
+import sys
 
 from build.common import *
 from build.build import *
+
+pythonExecutable = sys.executable or "python"
 
 class Environment:
 	def __init__ (self, srcDir, tmpDir):
@@ -51,7 +54,7 @@ class RunScript(BuildTestStep):
 		return self.scriptPath
 
 	def run (self, env):
-		args = ["python", os.path.join(env.srcDir, self.scriptPath)]
+		args = [pythonExecutable, os.path.join(env.srcDir, self.scriptPath)]
 
 		if self.getExtraArgs != None:
 			args += self.getExtraArgs(env)
@@ -181,7 +184,20 @@ BUILD_TARGETS		= [
 		  ANY_VS_X64_GENERATOR),
 ]
 
-SPECIAL_RECIPES		= [
+EARLY_SPECIAL_RECIPES	= [
+	('gen-inl-files', [
+			RunScript(os.path.join("scripts", "gen_egl.py")),
+			RunScript(os.path.join("scripts", "opengl", "gen_all.py")),
+			RunScript(os.path.join("external", "vulkancts", "scripts", "gen_framework.py")),
+			RunScript(os.path.join("external", "vulkancts", "scripts", "gen_framework_c.py")),
+			RunScript(os.path.join("scripts", "gen_android_bp.py")),
+		]),
+	('gen-ext-deps', [
+			RunScript(os.path.join("external", "vulkancts", "scripts", "gen_ext_deps.py"))
+		]),
+]
+
+LATE_SPECIAL_RECIPES	= [
 	('android-mustpass', [
 			RunScript(os.path.join("scripts", "build_android_mustpass.py"),
 					  lambda env: ["--build-dir", os.path.join(env.tmpDir, "android-mustpass")]),
@@ -192,13 +208,10 @@ SPECIAL_RECIPES		= [
 		]),
 	('spirv-binaries', [
 			RunScript(os.path.join("external", "vulkancts", "scripts", "build_spirv_binaries.py"),
-					  lambda env: ["--build-dir", os.path.join(env.tmpDir, "spirv-binaries")]),
+					  lambda env: ["--build-dir", os.path.join(env.tmpDir, "spirv-binaries"),
+									"--dst-path", os.path.join(env.tmpDir, "spirv-binaries")]),
 		]),
-	('gen-inl-files', [
-			RunScript(os.path.join("scripts", "gen_egl.py")),
-			RunScript(os.path.join("scripts", "opengl", "gen_all.py")),
-			RunScript(os.path.join("external", "vulkancts", "scripts", "gen_framework.py")),
-			RunScript(os.path.join("scripts", "gen_android_mk.py")),
+	('check-all', [
 			RunScript(os.path.join("scripts", "src_util", "check_all.py")),
 		])
 ]
@@ -213,8 +226,7 @@ def getAllRecipe (recipes):
 	return ("all", allSteps)
 
 def getRecipes ():
-	recipes = getBuildRecipes()
-	recipes += SPECIAL_RECIPES
+	recipes = EARLY_SPECIAL_RECIPES + getBuildRecipes() + LATE_SPECIAL_RECIPES
 	return recipes
 
 def getRecipe (recipes, recipeName):

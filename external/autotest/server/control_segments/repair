@@ -37,8 +37,11 @@ def repair(machine):
 
         target.repair()
         logging.debug('Repair with labels list %s', labels_list)
-        provision.run_special_task_actions(job, target, labels_list,
-                                           provision.Repair)
+
+        try:
+            target.labels.update_labels(target, keep_pool=True)
+        except Exception:
+            logging.exception('Exception while updating labels.')
     except Exception:
         logging.exception('Repair failed due to Exception.')
         job.record('END FAIL', None, 'repair')

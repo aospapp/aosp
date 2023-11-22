@@ -20,9 +20,16 @@
  * for use by CTS.
  */
 
-#include "linux/test_harness.h"
-
-// Forward declare from seccomp_bpf_tests.c.
+#ifdef __cplusplus
 extern "C" {
-struct __test_metadata* get_seccomp_test_list();
+#endif
+
+/**
+ * Runs a Seccomp kernel test named |name|. Returns 1 if the test passed
+ * and 0 if the test failed.
+ */
+int run_seccomp_test(const char* name);
+
+#ifdef __cplusplus
 }
+#endif

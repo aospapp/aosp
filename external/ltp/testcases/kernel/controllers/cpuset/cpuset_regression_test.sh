@@ -34,7 +34,7 @@ setup()
 		tst_brkm TCONF "Test must be run with kernel 3.18.0 or newer"
 	fi
 
-	local cpu_num=$(getconf _NPROCESSORS_ONLN)
+	local cpu_num=$(tst_getconf _NPROCESSORS_ONLN)
 	if [ $cpu_num -lt 2 ]; then
 		tst_brkm TCONF "We need 2 cpus at least to have test"
 	fi
@@ -86,7 +86,7 @@ cleanup()
 		rmdir ${root_cpuset_dir}/testdir
 	fi
 
-	if [ -n ${cpu_exclusive_value} -a ${cpu_exclusive_value} -ne 1 ]; then
+	if [ "$cpu_exclusive_value" != 1 ]; then
 		# Need to flush, or may be output:
 		# "write error: Device or resource busy"
 		sync

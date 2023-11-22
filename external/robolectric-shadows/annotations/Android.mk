@@ -7,8 +7,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := Robolectric_annotations
 
 LOCAL_JAVA_LIBRARIES := \
+  Robolectric_shadowapi \
   robolectric-host-android_all \
-  jsr305lib
+  jsr305
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
 

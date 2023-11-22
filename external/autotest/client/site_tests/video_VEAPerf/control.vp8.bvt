@@ -13,7 +13,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES='hw_video_acc_enc_vp8'
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -30,4 +29,5 @@ test_cases = [
     ('media/test/data/bear_320x192_40frames.yuv', False, 320, 192, 200000, 11, 30)
 ]
 
-job.run_test('video_VEAPerf', test_cases=test_cases, tag='vp8')
+job.run_test('video_VEAPerf', test_cases=test_cases,
+             required_cap='hw_enc_vp8_1080_30', tag='vp8')

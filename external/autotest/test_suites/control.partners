@@ -24,7 +24,6 @@ ChromeOS tests for partners.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 args_dict['timeout_mins'] = 480
@@ -32,6 +31,5 @@ args_dict['file_bugs'] = False
 args_dict['name'] = 'partners'
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 
 dynamic_suite.reimage_and_run(**args_dict)

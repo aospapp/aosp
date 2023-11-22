@@ -18,19 +18,17 @@
 #include "clang/AST/Attr.h"
 
 extern const char kNewOperatorName[];
-extern const char* kCreateName;
-extern const char* kTraceName;
-extern const char* kTraceImplName;
-extern const char* kFinalizeName;
-extern const char* kTraceAfterDispatchName;
-extern const char* kTraceAfterDispatchImplName;
-extern const char* kRegisterWeakMembersName;
+extern const char kCreateName[];
+extern const char kTraceName[];
+extern const char kFinalizeName[];
+extern const char kTraceAfterDispatchName[];
+extern const char kRegisterWeakMembersName[];
 extern const char kHeapAllocatorName[];
 extern const char kTraceIfNeededName[];
 extern const char kVisitorDispatcherName[];
 extern const char kVisitorVarName[];
-extern const char* kAdjustAndMarkName;
-extern const char* kIsHeapObjectAliveName;
+extern const char kAdjustAndMarkName[];
+extern const char kIsHeapObjectAliveName[];
 extern const char kIsEagerlyFinalizedName[];
 extern const char kConstIteratorName[];
 extern const char kIteratorName[];
@@ -39,8 +37,6 @@ extern const char kReverseIteratorName[];
 
 class Config {
  public:
-  static void UseLegacyNames();
-
   static bool IsMember(const std::string& name) {
     return name == "Member";
   }
@@ -66,10 +62,6 @@ class Config {
 
   static bool IsRefPtr(const std::string& name) {
     return name == "RefPtr";
-  }
-
-  static bool IsOwnPtr(const std::string& name) {
-    return name == "OwnPtr";
   }
 
   static bool IsUniquePtr(const std::string& name) {
@@ -219,8 +211,6 @@ class Config {
     NOT_TRACE_METHOD,
     TRACE_METHOD,
     TRACE_AFTER_DISPATCH_METHOD,
-    TRACE_IMPL_METHOD,
-    TRACE_AFTER_DISPATCH_IMPL_METHOD
   };
 
   static TraceMethodType GetTraceMethodType(const clang::FunctionDecl* method) {
@@ -228,15 +218,11 @@ class Config {
       return NOT_TRACE_METHOD;
 
     const std::string& name = method->getNameAsString();
-    if (name != kTraceName && name != kTraceAfterDispatchName &&
-        name != kTraceImplName && name != kTraceAfterDispatchImplName)
+    if (name != kTraceName && name != kTraceAfterDispatchName)
       return NOT_TRACE_METHOD;
 
     const clang::QualType& formal_type = method->getParamDecl(0)->getType();
-    if (name == kTraceImplName || name == kTraceAfterDispatchImplName) {
-      if (!IsVisitorDispatcherType(formal_type))
-        return NOT_TRACE_METHOD;
-    } else if (!IsVisitorPtrType(formal_type)) {
+    if (!IsVisitorPtrType(formal_type)) {
       return NOT_TRACE_METHOD;
     }
 
@@ -244,10 +230,6 @@ class Config {
       return TRACE_METHOD;
     if (name == kTraceAfterDispatchName)
       return TRACE_AFTER_DISPATCH_METHOD;
-    if (name == kTraceImplName)
-      return TRACE_IMPL_METHOD;
-    if (name == kTraceAfterDispatchImplName)
-      return TRACE_AFTER_DISPATCH_IMPL_METHOD;
 
     assert(false && "Should not reach here");
     return NOT_TRACE_METHOD;
@@ -257,9 +239,7 @@ class Config {
     return GetTraceMethodType(method) != NOT_TRACE_METHOD;
   }
 
-  static bool IsTraceImplName(const std::string& name) {
-    return name == kTraceImplName || name == kTraceAfterDispatchImplName;
-  }
+  static bool IsTraceWrappersMethod(const clang::FunctionDecl* method);
 
   static bool StartsWith(const std::string& str, const std::string& prefix) {
     if (prefix.size() > str.size())

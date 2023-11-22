@@ -9,18 +9,12 @@ DIRECTION = media_info_metrics_extractor.Direction
 # Delta used to determine if floating point values are equal.
 FLOATING_POINT_COMPARISON_DELTA = 0.00001
 
+
 def _avg(l):
     """
     Returns the average of the list or 0 if the list is empty.
     """
     return sum(l)/len(l) if l else 0
-
-
-def _max(l):
-    """
-    Returns the max of the list or 0 if the list is empty.
-    """
-    return max(l) if l else 0
 
 
 def _get_number_of_incoming_active_video_streams(extractor):
@@ -38,109 +32,98 @@ def _get_number_of_incoming_active_video_streams(extractor):
     return [(x, [len(y)]) for x, y in fps_metrics]
 
 
-# Sum for all received streams per data point.
+ADAPTATION_CHANGES = 'adaptation_changes'
+ADAPTATION_REASON = 'adaptation_reason'
+AVG_ENCODE_MS = 'avg_encode_ms'
 BROWSER_CPU_PERCENT_OF_TOTAL = 'browser_cpu_percent'
 CPU_PERCENT_OF_TOTAL = 'cpu_percent'
 FRAMERATE_CAPTURED = 'framerate_catured'
-# Mean for all received streams per data point.
 FRAMERATE_DECODED = 'framerate_decoded'
-# Max for all received streams per data point.
-FRAMERATE_DECODED_MAX = 'framerate_decoded_max'
-# Mean for all received streams per data point.
-FRAMERATE_RECEIVED = 'framerate_received'
-# Max for all received streams per data point.
-FRAMERATE_RECEIVED_MAX = 'framerate_received_max'
-FRAMERATE_SENT = 'framerate_sent'
+FRAMERATE_ENCODED = 'framerate_encoded'
+FRAMERATE_TO_RENDERER = 'framerate_to_renderer'
+FRAMERATE_NETWORK_RECEIVED = 'framerate_network_received'
 GPU_PERCENT_OF_TOTAL = 'gpu_cpu_percent'
-LEAKY_BUCKET_DELAY = 'leaky_bucket_delay'
 NUMBER_OF_ACTIVE_INCOMING_VIDEO_STREAMS = 'num_active_vid_in_streams'
+PROCESS_JS_MEMORY_USED = 'process_js_memory_used'
 RENDERER_CPU_PERCENT_OF_TOTAL = 'renderer_cpu_percent'
-SPEECH_EXPAND_RATE = 'speech_expand_rate'
 VIDEO_RECEIVED_FRAME_HEIGHT = 'video_received_frame_height'
-VIDEO_RECEIVED_FRAME_HEIGHT_MAX = 'video_received_frame_height_max'
 VIDEO_RECEIVED_FRAME_WIDTH = 'video_received_frame_width'
-VIDEO_RECEIVED_FRAME_WIDTH_MAX = 'video_received_frame_width_max'
 VIDEO_SENT_FRAME_HEIGHT = 'video_sent_frame_height'
 VIDEO_SENT_FRAME_WIDTH = 'video_sent_frame_width'
+VIDEO_SENT_PACKETS = 'video_sent_packets'
 
 
 # Mapping between metric names and how to extract the named metric using the
 # MediaInfoMetricsExtractor.
 METRIC_NAME_TO_EXTRACTOR_FUNC_DICT = {
+    ADAPTATION_CHANGES:
+        lambda x: x.get_media_metric('adaptationChanges',
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
+    ADAPTATION_REASON:
+        lambda x: x.get_media_metric('adaptationReason',
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
+    AVG_ENCODE_MS:
+        lambda x: x.get_media_metric('avgEncodeMs',
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
     BROWSER_CPU_PERCENT_OF_TOTAL:
-      lambda x: x.get_top_level_metric('browserProcessCpuUsage'),
+        lambda x: x.get_top_level_metric('browserProcessCpuUsage'),
     CPU_PERCENT_OF_TOTAL:
         lambda x: x.get_top_level_metric('systemcpuusage'),
     FRAMERATE_CAPTURED:
         lambda x: x.get_media_metric('fps',
-                                   direction=DIRECTION.SENDER,
-                                   media_type=MEDIA_TYPE.VIDEO),
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
     FRAMERATE_DECODED:
         lambda x: x.get_media_metric('fpsdecoded',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_avg),
-    FRAMERATE_DECODED_MAX:
-        lambda x: x.get_media_metric('fpsdecoded',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_max),
-    FRAMERATE_RECEIVED:
+                                     direction=DIRECTION.RECEIVER,
+                                     media_type=MEDIA_TYPE.VIDEO,
+                                     post_process_func=_avg),
+    FRAMERATE_ENCODED:
+       lambda x: x.get_media_metric('fpsnetwork',
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
+    FRAMERATE_NETWORK_RECEIVED:
         lambda x: x.get_media_metric('fpsnetwork',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_avg),
-    FRAMERATE_RECEIVED_MAX:
-        lambda x: x.get_media_metric('fpsnetwork',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_max),
-    FRAMERATE_SENT:
-        lambda x: x.get_media_metric('fpsnetwork',
-                                   direction=DIRECTION.SENDER,
-                                   media_type=MEDIA_TYPE.VIDEO),
+                                     direction=DIRECTION.RECEIVER,
+                                     media_type=MEDIA_TYPE.VIDEO),
+    FRAMERATE_TO_RENDERER:
+        lambda x: x.get_media_metric('fps',
+                                     direction=DIRECTION.RECEIVER,
+                                     media_type=MEDIA_TYPE.VIDEO,
+                                     post_process_func=_avg),
     GPU_PERCENT_OF_TOTAL:
         lambda x: x.get_top_level_metric('gpuProcessCpuUsage'),
-    LEAKY_BUCKET_DELAY:
-        lambda x: x.get_media_metric('leakybucketdelay',
-                                   direction=DIRECTION.BANDWIDTH_ESTIMATION),
     NUMBER_OF_ACTIVE_INCOMING_VIDEO_STREAMS:
         _get_number_of_incoming_active_video_streams,
-    SPEECH_EXPAND_RATE:
-        lambda x: x.get_media_metric('speechExpandRate',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.AUDIO,
-                                   post_process_func=_avg),
+    PROCESS_JS_MEMORY_USED:
+        lambda x: x.get_top_level_metric('processJsMemoryUsed'),
     RENDERER_CPU_PERCENT_OF_TOTAL:
         lambda x: x.get_top_level_metric('processcpuusage'),
     VIDEO_RECEIVED_FRAME_WIDTH:
         lambda x: x.get_media_metric('width',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_avg),
-    VIDEO_RECEIVED_FRAME_WIDTH_MAX:
-        lambda x: x.get_media_metric('width',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_max),
+                                     direction=DIRECTION.RECEIVER,
+                                     media_type=MEDIA_TYPE.VIDEO,
+                                     post_process_func=_avg),
     VIDEO_RECEIVED_FRAME_HEIGHT:
         lambda x: x.get_media_metric('height',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_avg),
-    VIDEO_RECEIVED_FRAME_HEIGHT_MAX:
-        lambda x: x.get_media_metric('height',
-                                   direction=DIRECTION.RECEIVER,
-                                   media_type=MEDIA_TYPE.VIDEO,
-                                   post_process_func=_max),
+                                     direction=DIRECTION.RECEIVER,
+                                     media_type=MEDIA_TYPE.VIDEO,
+                                     post_process_func=_avg),
     VIDEO_SENT_FRAME_HEIGHT:
         lambda x: x.get_media_metric('height',
-                                   direction=DIRECTION.SENDER,
-                                   media_type=MEDIA_TYPE.VIDEO),
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
     VIDEO_SENT_FRAME_WIDTH:
         lambda x: x.get_media_metric('width',
-                                   direction=DIRECTION.SENDER,
-                                   media_type=MEDIA_TYPE.VIDEO),
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
+    VIDEO_SENT_PACKETS:
+        lambda x: x.get_media_metric('packetssent',
+                                     direction=DIRECTION.SENDER,
+                                     media_type=MEDIA_TYPE.VIDEO),
 }
 
 class MetricsCollector(object):
@@ -211,4 +194,3 @@ class DataPointCollector(object):
         Gets all collected data points.
         """
         return self._data_points
-

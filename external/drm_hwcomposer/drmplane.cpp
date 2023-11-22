@@ -17,18 +17,18 @@
 #define LOG_TAG "hwc-drm-plane"
 
 #include "drmplane.h"
-#include "drmresources.h"
+#include "drmdevice.h"
 
-#include <cinttypes>
 #include <errno.h>
 #include <stdint.h>
+#include <cinttypes>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <xf86drmMode.h>
 
 namespace android {
 
-DrmPlane::DrmPlane(DrmResources *drm, drmModePlanePtr p)
+DrmPlane::DrmPlane(DrmDevice *drm, drmModePlanePtr p)
     : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs) {
 }
 
@@ -42,7 +42,7 @@ int DrmPlane::Init() {
   }
 
   uint64_t type;
-  ret = p.value(&type);
+  std::tie(ret, type) = p.value();
   if (ret) {
     ALOGE("Failed to get plane type property value");
     return ret;
@@ -118,6 +118,10 @@ int DrmPlane::Init() {
     return ret;
   }
 
+  ret = drm_->GetPlaneProperty(*this, "zpos", &zpos_property_);
+  if (ret)
+    ALOGE("Could not get zpos property for plane %u", id());
+
   ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
   if (ret)
     ALOGE("Could not get rotation property");
@@ -125,6 +129,14 @@ int DrmPlane::Init() {
   ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
   if (ret)
     ALOGI("Could not get alpha property");
+
+  ret = drm_->GetPlaneProperty(*this, "pixel blend mode", &blend_property_);
+  if (ret)
+    ALOGI("Could not get pixel blend mode property");
+
+  ret = drm_->GetPlaneProperty(*this, "IN_FENCE_FD", &in_fence_fd_property_);
+  if (ret)
+    ALOGI("Could not get IN_FENCE_FD property");
 
   return 0;
 }
@@ -181,6 +193,10 @@ const DrmProperty &DrmPlane::src_h_property() const {
   return src_h_property_;
 }
 
+const DrmProperty &DrmPlane::zpos_property() const {
+  return zpos_property_;
+}
+
 const DrmProperty &DrmPlane::rotation_property() const {
   return rotation_property_;
 }
@@ -188,4 +204,12 @@ const DrmProperty &DrmPlane::rotation_property() const {
 const DrmProperty &DrmPlane::alpha_property() const {
   return alpha_property_;
 }
+
+const DrmProperty &DrmPlane::blend_property() const {
+  return blend_property_;
 }
+
+const DrmProperty &DrmPlane::in_fence_fd_property() const {
+  return in_fence_fd_property_;
+}
+}  // namespace android

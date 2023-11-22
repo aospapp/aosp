@@ -12,16 +12,20 @@ Description of some of the test result output:
             function call to complete.
 """
 
+import functools
 import logging
 import math
 import os
 import sampler
+import system_sampler
 import threading
 import time
 
+from autotest_lib.client.bin import fps_meter
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.common_lib.cros import memory_eater
 from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.power import power_rapl, power_status, power_utils
@@ -59,11 +63,13 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
     }
 
     def setup(self):
+        """Testcase setup."""
         tarball_path = os.path.join(self.bindir,
                                     'webgl_aquarium_static.tar.bz2')
         utils.extract_tarball_to_dir(tarball_path, self.srcdir)
 
     def initialize(self):
+        """Testcase initialization."""
         super(graphics_WebGLAquarium, self).initialize()
         self.sampler_lock = threading.Lock()
         # TODO: Create samplers for other platforms (e.g. x86).
@@ -79,19 +85,19 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
                 self.exynos_output_flip_stats)
 
     def cleanup(self):
+        """Testcase cleanup."""
         if self._backlight:
             self._backlight.restore()
         if self._service_stopper:
             self._service_stopper.restore_services()
         super(graphics_WebGLAquarium, self).cleanup()
 
-    def run_fish_test(self, browser, test_url, num_fishes, perf_log=True):
-        """Run the test with the given number of fishes.
+    def setup_webpage(self, browser, test_url, num_fishes):
+        """Open fish tank in a new tab.
 
         @param browser: The Browser object to run the test with.
         @param test_url: The URL to the aquarium test site.
         @param num_fishes: The number of fishes to run the test with.
-        @param perf_log: Report perf data only if it's set to True.
         """
         # Create tab and load page. Set the number of fishes when page is fully
         # loaded.
@@ -115,6 +121,27 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
             ),
             expected_value=True,
             timeout_sec=30)
+
+        return tab
+
+    def tear_down_webpage(self):
+        """Close the tab containing testing webpage."""
+        # Do not close the tab when the sampler_callback is
+        # doing its work.
+        with self.sampler_lock:
+            self.active_tab.Close()
+            self.active_tab = None
+
+    def run_fish_test(self, browser, test_url, num_fishes, perf_log=True):
+        """Run the test with the given number of fishes.
+
+        @param browser: The Browser object to run the test with.
+        @param test_url: The URL to the aquarium test site.
+        @param num_fishes: The number of fishes to run the test with.
+        @param perf_log: Report perf data only if it's set to True.
+        """
+
+        tab = self.setup_webpage(browser, test_url, num_fishes)
 
         if self.kernel_sampler:
             self.kernel_sampler.start_sampling_thread()
@@ -280,12 +307,135 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
                                                stats['wait_kds'][1],
                                                stats['flipped'][1]))
 
+    def write_samples(self, samples, filename):
+        """Writes all samples to result dir with the file name "samples'.
+
+        @param samples: A list of all collected samples.
+        @param filename: The file name to save under result directory.
+        """
+        out_file = os.path.join(self.resultsdir, filename)
+        with open(out_file, 'w') as f:
+            for sample in samples:
+                print >> f, sample
+
+    def run_fish_test_with_memory_pressure(
+        self, browser, test_url, num_fishes, memory_pressure):
+        """Measure fps under memory pressure.
+
+        It measure FPS of WebGL aquarium while adding memory pressure. It runs
+        in 2 phases:
+          1. Allocate non-swappable memory until |memory_to_reserve_mb| is
+          remained. The memory is not accessed after allocated.
+          2. Run "active" memory consumer in the background. After allocated,
+          Its content is accessed sequentially by page and looped around
+          infinitely.
+        The second phase is opeared in two possible modes:
+          1. "single" mode, which means only one "active" memory consumer. After
+          running a single memory consumer with a given memory size, it waits
+          for a while to see if system can afford current memory pressure
+          (definition here is FPS > 5). If it does, kill current consumer and
+          launch another consumer with a larger memory size. The process keeps
+          going until system couldn't afford the load.
+          2. "multiple"mode. It simply launch memory consumers with a given size
+          one by one until system couldn't afford the load (e.g., FPS < 5).
+          In "single" mode, CPU load is lighter so we expect swap in/swap out
+          rate to be correlated to FPS better. In "multiple" mode, since there
+          are multiple busy loop processes, CPU pressure is another significant
+          cause of frame drop. Frame drop can happen easily due to busy CPU
+          instead of memory pressure.
+
+        @param browser: The Browser object to run the test with.
+        @param test_url: The URL to the aquarium test site.
+        @param num_fishes: The number of fishes to run the test with.
+        @param memory_pressure: Memory pressure parameters.
+        """
+        consumer_mode = memory_pressure.get('consumer_mode', 'single')
+        memory_to_reserve_mb = memory_pressure.get('memory_to_reserve_mb', 500)
+        # Empirical number to quickly produce memory pressure.
+        if consumer_mode == 'single':
+            default_consumer_size_mb = memory_to_reserve_mb + 100
+        else:
+            default_consumer_size_mb = memory_to_reserve_mb / 2
+        consumer_size_mb = memory_pressure.get(
+            'consumer_size_mb', default_consumer_size_mb)
+
+        # Setup fish tank.
+        self.setup_webpage(browser, test_url, num_fishes)
+
+        # Drop all file caches.
+        utils.drop_caches()
+
+        def fps_near_zero(fps_sampler):
+            """Returns whether recent fps goes down to near 0.
+
+            @param fps_sampler: A system_sampler.Sampler object.
+            """
+            last_fps = fps_sampler.get_last_avg_fps(6)
+            if last_fps:
+                logging.info('last fps %f', last_fps)
+                if last_fps <= 5:
+                    return True
+            return False
+
+        max_allocated_mb = 0
+        # Consume free memory and release them by the end.
+        with memory_eater.consume_free_memory(memory_to_reserve_mb):
+            fps_sampler = system_sampler.SystemSampler(
+                memory_eater.MemoryEater.get_active_consumer_pids)
+            end_condition = functools.partial(fps_near_zero, fps_sampler)
+            with fps_meter.FPSMeter(fps_sampler.sample):
+                # Collects some samples before running memory pressure.
+                time.sleep(5)
+                try:
+                    if consumer_mode == 'single':
+                        # A single run couldn't generate samples representative
+                        # enough.
+                        # First runs squeeze more inactive anonymous memory into
+                        # zram so in later runs we have a more stable memory
+                        # stat.
+                        max_allocated_mb = max(
+                            memory_eater.run_single_memory_pressure(
+                                consumer_size_mb, 100, end_condition, 10, 3,
+                                900),
+                            memory_eater.run_single_memory_pressure(
+                                consumer_size_mb, 20, end_condition, 10, 3,
+                                900),
+                            memory_eater.run_single_memory_pressure(
+                                consumer_size_mb, 10, end_condition, 10, 3,
+                                900))
+                    elif consumer_mode == 'multiple':
+                        max_allocated_mb = (
+                            memory_eater.run_multi_memory_pressure(
+                                consumer_size_mb, end_condition, 10, 900))
+                    else:
+                        raise error.TestFail(
+                            'Failed: Unsupported consumer mode.')
+                except memory_eater.TimeoutException as e:
+                    raise error.TestFail(e)
+
+        samples = fps_sampler.get_samples()
+        self.write_samples(samples, 'memory_pressure_fps_samples.txt')
+
+        self.perf_keyval['num_samples'] = len(samples)
+        self.perf_keyval['max_allocated_mb'] = max_allocated_mb
+
+        logging.info(self.perf_keyval)
+
+        self.output_perf_value(
+            description='max_allocated_mb_%d_fishes_reserved_%d_mb' % (
+                num_fishes, memory_to_reserve_mb),
+            value=max_allocated_mb,
+            units='MB',
+            higher_is_better=True)
+
+
     @graphics_utils.GraphicsTest.failure_report_decorator('graphics_WebGLAquarium')
     def run_once(self,
                  test_duration_secs=30,
                  test_setting_num_fishes=(50, 1000),
                  power_test=False,
-                 ac_ok=False):
+                 ac_ok=False,
+                 memory_pressure=None):
         """Find a browser with telemetry, and run the test.
 
         @param test_duration_secs: The duration in seconds to run each scenario
@@ -294,6 +444,19 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
                 enable in the test.
         @param power_test: Boolean on whether to run power_test
         @param ac_ok: Boolean on whether its ok to have AC power supplied.
+        @param memory_pressure: A dictionay which specifies memory pressure
+                parameters:
+                'consumer_mode': 'single' or 'multiple' to have one or moultiple
+                concurrent memory consumers.
+                'consumer_size_mb': Amount of memory to allocate. In 'single'
+                mode, a single memory consumer would allocate memory by the
+                specific size. It then gradually allocates more memory until
+                FPS down to near 0. In 'multiple' mode, memory consumers of
+                this size would be spawn one by one until FPS down to near 0.
+                'memory_to_reserve_mb': Amount of memory to reserve before
+                running memory consumer. In practical we allocate mlocked
+                memory (i.e., not swappable) to consume free memory until this
+                amount of free memory remained.
         """
         self.test_duration_secs = test_duration_secs
         self.test_setting_num_fishes = test_setting_num_fishes
@@ -307,19 +470,18 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
                 if not utils.wait_for_idle_cpu(20.0, 0.2):
                     raise error.TestFail('Failed: Could not get idle CPU.')
             if not utils.wait_for_cool_machine():
-                raise error.TestFail('Failed: Could not get cold machine.')
-            if power_test:
+               raise error.TestFail('Failed: Could not get cold machine.')
+            if memory_pressure:
+                self.run_fish_test_with_memory_pressure(
+                    cr.browser, test_url, num_fishes=1000,
+                    memory_pressure=memory_pressure)
+                self.tear_down_webpage()
+            elif power_test:
                 self._test_power = True
                 self.run_power_test(cr.browser, test_url, ac_ok)
-                with self.sampler_lock:
-                    self.active_tab.Close()
-                    self.active_tab = None
+                self.tear_down_webpage()
             else:
                 for n in self.test_setting_num_fishes:
                     self.run_fish_test(cr.browser, test_url, n)
-                    # Do not close the tab when the sampler_callback is
-                    # doing his work.
-                    with self.sampler_lock:
-                        self.active_tab.Close()
-                        self.active_tab = None
+                    self.tear_down_webpage()
         self.write_perf_keyval(self.perf_keyval)

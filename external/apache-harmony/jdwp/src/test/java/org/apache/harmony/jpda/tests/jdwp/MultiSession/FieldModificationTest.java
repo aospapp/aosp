@@ -55,8 +55,7 @@ public class FieldModificationTest extends JDWPEventTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String classSignature = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/FieldDebuggee;";
-        debuggeeWrapper.vmMirror.setFieldModification(classSignature,
+        debuggeeWrapper.vmMirror.setFieldModification(getDebuggeeClassSignature(),
                 JDWPConstants.TypeTag.CLASS, "testIntField");
 
         logWriter.println("");

@@ -7,6 +7,7 @@ import os
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
@@ -20,7 +21,8 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
 
     @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self, videos, use_cr_source_dir=True, gtest_filter=None):
+    def run_once(self, videos, capability, import_mode=False,
+                 use_cr_source_dir=True):
         """
         Runs video_decode_accelerator_unittest on the videos.
 
@@ -30,6 +32,7 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
 
         @raises: error.TestFail for video_decode_accelerator_unittest failures.
         """
+        device_capability.DeviceCapability().ensure_capability(capability)
         logging.debug('Starting video_VideoDecodeAccelerator: %s', videos)
 
         if use_cr_source_dir:
@@ -49,8 +52,9 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
             cmd_line_list.append(helper_logger.chrome_vmodule_flag())
             cmd_line_list.append('--ozone-platform=gbm')
 
-            if gtest_filter:
-                cmd_line_list.append('--gtest_filter="%s"' % gtest_filter)
+            if import_mode:
+                cmd_line_list.append('--test_import')
+                cmd_line_list.append('--frame_validator=check')
 
             cmd_line = ' '.join(cmd_line_list)
             try:

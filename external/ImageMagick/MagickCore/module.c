@@ -17,13 +17,13 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -52,6 +52,7 @@
 #include "MagickCore/magic.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/module.h"
 #include "MagickCore/module-private.h"
 #include "MagickCore/nt-base-private.h"
@@ -140,10 +141,8 @@ MagickExport ModuleInfo *AcquireModuleInfo(const char *path,const char *tag)
   ModuleInfo
     *module_info;
 
-  module_info=(ModuleInfo *) AcquireMagickMemory(sizeof(*module_info));
-  if (module_info == (ModuleInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(module_info,0,sizeof(*module_info));
+  module_info=(ModuleInfo *) AcquireCriticalMemory(sizeof(*module_info));
+  (void) memset(module_info,0,sizeof(*module_info));
   if (path != (const char *) NULL)
     module_info->path=ConstantString(path);
   if (tag != (const char *) NULL)
@@ -374,7 +373,7 @@ static int ModuleCompare(const void *x,const void *y)
     **p,
     **q;
 
-   p=(const char **) x;
+  p=(const char **) x;
   q=(const char **) y;
   return(LocaleCompare(*p,*q));
 }
@@ -382,19 +381,6 @@ static int ModuleCompare(const void *x,const void *y)
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif
-
-static inline int MagickReadDirectory(DIR *directory,struct dirent *entry,
-  struct dirent **result)
-{
-#if defined(MAGICKCORE_HAVE_READDIR_R)
-  return(readdir_r(directory,entry,result));
-#else
-  (void) entry;
-  errno=0;
-  *result=readdir(directory);
-  return(errno);
-#endif
-}
 
 MagickExport char **GetModuleList(const char *pattern,
   const MagickModuleType type,size_t *number_modules,ExceptionInfo *exception)
@@ -595,6 +581,15 @@ static MagickBooleanType GetMagickModulePath(const char *filename,
           (void) ConcatenateMagickString(path,DirectorySeparator,
             MagickPathExtent);
         (void) ConcatenateMagickString(path,filename,MagickPathExtent);
+#if defined(MAGICKCORE_HAVE_REALPATH)
+        {
+          char
+            resolved_path[PATH_MAX+1];
+
+          if (realpath(path,resolved_path) != (char *) NULL)
+            (void) CopyMagickString(path,resolved_path,MagickPathExtent);
+        }
+#endif
         if (IsPathAccessible(path) != MagickFalse)
           {
             module_path=DestroyString(module_path);
@@ -883,20 +878,21 @@ static MagickBooleanType IsModuleTreeInstantiated()
           ModuleInfo
             *module_info;
 
-          module_list=NewSplayTree(CompareSplayTreeString,
+          SplayTreeInfo
+            *splay_tree;
+
+          splay_tree=NewSplayTree(CompareSplayTreeString,
             (void *(*)(void *)) NULL,DestroyModuleNode);
-          if (module_list == (SplayTreeInfo *) NULL)
-            ThrowFatalException(ResourceLimitFatalError,
-              "MemoryAllocationFailed");
           module_info=AcquireModuleInfo((const char *) NULL,"[boot-strap]");
           module_info->stealth=MagickTrue;
-          status=AddValueToSplayTree(module_list,module_info->tag,module_info);
+          status=AddValueToSplayTree(splay_tree,module_info->tag,module_info);
           if (status == MagickFalse)
             ThrowFatalException(ResourceLimitFatalError,
               "MemoryAllocationFailed");
           if (lt_dlinit() != 0)
             ThrowFatalException(ModuleFatalError,
               "UnableToInitializeModuleLoader");
+          module_list=splay_tree;
         }
       UnlockSemaphoreInfo(module_semaphore);
     }
@@ -963,6 +959,14 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
   if ((*images)->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       (*images)->filename);
+  rights=ReadPolicyRights;
+  if (IsRightsAuthorized(FilterPolicyDomain,rights,tag) == MagickFalse)
+    {
+      errno=EPERM;
+      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
+        "NotAuthorized","`%s'",tag);
+      return(MagickFalse);
+    }
 #if !defined(MAGICKCORE_BUILD_MODULES)
   {
     MagickBooleanType
@@ -973,14 +977,6 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
       return(status);
   }
 #endif
-  rights=ReadPolicyRights;
-  if (IsRightsAuthorized(FilterPolicyDomain,rights,tag) == MagickFalse)
-    {
-      errno=EPERM;
-      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
-        "NotAuthorized","`%s'",tag);
-      return(MagickFalse);
-    }
   TagToFilterModuleName(tag,name);
   status=GetMagickModulePath(name,MagickImageFilterModule,path,exception);
   if (status == MagickFalse)
@@ -1006,7 +1002,7 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
   (void) FormatLocaleString(name,MagickPathExtent,"%sImage",tag);
 #else
   (void) FormatLocaleString(name,MagickPathExtent,"%s%sImage",
-    MAGICKCORE_NAMESPACE_PREFIX,tag);
+    MAGICKCORE_NAMESPACE_PREFIX_TAG,tag);
 #endif
   /*
     Execute the module.
@@ -1238,6 +1234,9 @@ MagickPrivate MagickBooleanType OpenModule(const char *module,
   ModuleInfo
     *module_info;
 
+  PolicyRights
+    rights;
+
   register const CoderInfo
     *p;
 
@@ -1251,6 +1250,14 @@ MagickPrivate MagickBooleanType OpenModule(const char *module,
   module_info=(ModuleInfo *) GetModuleInfo(module,exception);
   if (module_info != (ModuleInfo *) NULL)
     return(MagickTrue);
+  rights=ReadPolicyRights;
+  if (IsRightsAuthorized(ModulePolicyDomain,rights,module) == MagickFalse)
+    {
+      errno=EPERM;
+      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
+        "NotAuthorized","`%s'",module);
+      return(MagickFalse);
+    }
   (void) CopyMagickString(module_name,module,MagickPathExtent);
   p=GetCoderInfo(module,exception);
   if (p != (CoderInfo *) NULL)
@@ -1563,7 +1570,7 @@ static void TagToModuleName(const char *tag,const char *format,char *module)
       prefix_format[MagickPathExtent];
 
     (void) FormatLocaleString(prefix_format,MagickPathExtent,"%s%s",
-      MAGICKCORE_NAMESPACE_PREFIX,format);
+      MAGICKCORE_NAMESPACE_PREFIX_TAG,format);
     (void) FormatLocaleString(module,MagickPathExtent,prefix_format,name);
   }
 #endif

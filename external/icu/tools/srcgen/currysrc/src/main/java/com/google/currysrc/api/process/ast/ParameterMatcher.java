@@ -17,6 +17,7 @@ package com.google.currysrc.api.process.ast;
 
 import com.google.common.base.Joiner;
 
+import java.util.Objects;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 
@@ -57,8 +58,11 @@ public final class ParameterMatcher {
         (List<SingleVariableDeclaration>) methodDeclaration.parameters();
     List<String> toReturn = new ArrayList<>(parameters.size());
     for (SingleVariableDeclaration singleVariableDeclaration : parameters) {
-      // toString() does the right thing in all cases.
       String actualTypeName = singleVariableDeclaration.getType().toString();
+      if (singleVariableDeclaration.isVarargs()) {
+        // toString() does the right thing in most cases but doesn't do varargs properly.
+        actualTypeName += "...";
+      }
       toReturn.add(actualTypeName);
     }
     return toReturn;
@@ -69,6 +73,23 @@ public final class ParameterMatcher {
    */
   public String toStringForm() {
     return Joiner.on(",").join(parameterTypes);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof ParameterMatcher)) {
+      return false;
+    }
+    ParameterMatcher that = (ParameterMatcher) o;
+    return Objects.equals(parameterTypes, that.parameterTypes);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(parameterTypes);
   }
 
   @Override

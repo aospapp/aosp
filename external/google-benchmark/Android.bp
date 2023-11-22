@@ -17,21 +17,19 @@
 cc_library_static {
     name: "libgoogle-benchmark",
     host_supported: true,
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
     local_include_dirs: ["include"],
     cflags: [
         "-DBENCHMARK_ANDROID",
         "-DHAVE_POSIX_REGEX",
         "-Werror",
+        "-Wno-deprecated-declarations",
     ],
 
     srcs: [
+        "src/benchmark_api_internal.cc",
         "src/benchmark.cc",
         "src/benchmark_register.cc",
+        "src/benchmark_runner.cc",
         "src/colorprint.cc",
         "src/commandlineflags.cc",
         "src/complexity.cc",
@@ -49,3 +47,8 @@ cc_library_static {
     export_include_dirs: ["include"],
 }
 
+cc_test {
+    name: "google-benchmark-test",
+    srcs: ["test/basic_test.cc"],
+    static_libs: ["libgoogle-benchmark"],
+}

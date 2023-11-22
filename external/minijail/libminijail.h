@@ -30,6 +30,7 @@ enum {
 };
 
 struct minijail;
+struct sock_fprog;
 
 /*
  * A hook that can be used to execute code at various events during minijail
@@ -52,7 +53,7 @@ typedef enum {
 	/* The hook will run just before calling execve(2). */
 	MINIJAIL_HOOK_EVENT_PRE_EXECVE,
 
-        /* The hook will run just before calling chroot(2) / pivot_root(2). */
+	/* The hook will run just before calling chroot(2) / pivot_root(2). */
 	MINIJAIL_HOOK_EVENT_PRE_CHROOT,
 
 	/* Sentinel for error checking. Must be last. */
@@ -81,6 +82,9 @@ void minijail_use_seccomp(struct minijail *j);
 void minijail_no_new_privs(struct minijail *j);
 void minijail_use_seccomp_filter(struct minijail *j);
 void minijail_set_seccomp_filter_tsync(struct minijail *j);
+/* Does not take ownership of |filter|. */
+void minijail_set_seccomp_filters(struct minijail *j,
+				  const struct sock_fprog *filter);
 void minijail_parse_seccomp_filters(struct minijail *j, const char *path);
 void minijail_parse_seccomp_filters_from_fd(struct minijail *j, int fd);
 void minijail_log_seccomp_filter_failures(struct minijail *j);
@@ -90,6 +94,7 @@ void minijail_capbset_drop(struct minijail *j, uint64_t capmask);
 /* 'minijail_set_ambient_caps' requires 'minijail_use_caps'. */
 void minijail_set_ambient_caps(struct minijail *j);
 void minijail_reset_signal_mask(struct minijail *j);
+void minijail_reset_signal_handlers(struct minijail *j);
 void minijail_namespace_vfs(struct minijail *j);
 void minijail_namespace_enter_vfs(struct minijail *j, const char *ns_path);
 void minijail_new_session_keyring(struct minijail *j);
@@ -115,6 +120,15 @@ void minijail_close_open_fds(struct minijail *j);
  * WARNING: this is NOT THREAD SAFE. See the block comment in </libminijail.c>.
  */
 void minijail_namespace_pids(struct minijail *j);
+/*
+ * Implies namespace_vfs.
+ * WARNING: this is NOT THREAD SAFE. See the block comment in </libminijail.c>.
+ * Minijail will by default remount /proc read-only when using a PID namespace.
+ * Certain complex applications expect to be able to do their own sandboxing
+ * which might require writing to /proc, so support a weaker version of PID
+ * namespacing with a RW /proc.
+ */
+void minijail_namespace_pids_rw_proc(struct minijail *j);
 void minijail_namespace_user(struct minijail *j);
 void minijail_namespace_user_disable_setgroups(struct minijail *j);
 int minijail_uidmap(struct minijail *j, const char *uidmap);
@@ -204,6 +218,9 @@ void minijail_mount_dev(struct minijail *j);
  *
  * This may be called multiple times; all mounts will be applied in the order
  * of minijail_mount() calls.
+ * If @flags is 0, then MS_NODEV | MS_NOEXEC | MS_NOSUID will be used instead.
+ * If @data is NULL or "", and @type is tmpfs, then "mode=0755,size=10M" will
+ * be used instead.
  */
 int minijail_mount_with_data(struct minijail *j, const char *src,
 			     const char *dest, const char *type,
@@ -261,6 +278,12 @@ int minijail_add_hook(struct minijail *j,
 int minijail_preserve_fd(struct minijail *j, int parent_fd, int child_fd);
 
 /*
+ * minijail_set_preload_path: overrides the default path for
+ * libminijailpreload.so.
+ */
+int minijail_set_preload_path(struct minijail *j, const char *preload_path);
+
+/*
  * Lock this process into the given minijail. Note that this procedure cannot
  * fail, since there is no way to undo privilege-dropping; therefore, if any
  * part of the privilege-drop fails, minijail_enter() will abort the entire
@@ -281,7 +304,8 @@ int minijail_run(struct minijail *j, const char *filename,
 
 /*
  * Run the specified command in the given minijail, execve(2)-style.
- * Used with static binaries, or on systems without support for LD_PRELOAD.
+ * Don't use LD_PRELOAD to do privilege dropping. This is useful when sandboxing
+ * static binaries, or on systems without support for LD_PRELOAD.
  */
 int minijail_run_no_preload(struct minijail *j, const char *filename,
 			    char *const argv[]);
@@ -324,12 +348,33 @@ int minijail_run_pid_pipes(struct minijail *j, const char *filename,
  * standard output.
  * Update |*pstderr_fd| with a fd that allows reading from the child's
  * standard error.
- * Used with static binaries, or on systems without support for LD_PRELOAD.
+ * Don't use LD_PRELOAD to do privilege dropping. This is useful when sandboxing
+ * static binaries, or on systems without support for LD_PRELOAD.
  */
 int minijail_run_pid_pipes_no_preload(struct minijail *j, const char *filename,
 				      char *const argv[], pid_t *pchild_pid,
 				      int *pstdin_fd, int *pstdout_fd,
 				      int *pstderr_fd);
+
+/*
+ * Run the specified command in the given minijail, execve(2)-style.
+ * Pass |envp| as the full environment for the child.
+ * Update |*pchild_pid| with the pid of the child.
+ * Update |*pstdin_fd| with a fd that allows writing to the child's
+ * standard input.
+ * Update |*pstdout_fd| with a fd that allows reading from the child's
+ * standard output.
+ * Update |*pstderr_fd| with a fd that allows reading from the child's
+ * standard error.
+ * Don't use LD_PRELOAD to do privilege dropping. This is useful when sandboxing
+ * static binaries, or on systems without support for LD_PRELOAD.
+ */
+int minijail_run_env_pid_pipes_no_preload(struct minijail *j,
+					  const char *filename,
+					  char *const argv[],
+					  char *const envp[], pid_t *pchild_pid,
+					  int *pstdin_fd, int *pstdout_fd,
+					  int *pstderr_fd);
 
 /*
  * Fork, jail the child, and return. This behaves similar to fork(2), except it

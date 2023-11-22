@@ -10,7 +10,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_jpeg_acc_dec"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,4 +24,4 @@ job.run_test('video_ChromeRTCHWDecodeUsed',
              video_name='crowd720_25frames.mjpeg',
              histogram_name='Media.VideoCaptureGpuJpegDecoder.InitDecodeSuccess',
              histogram_bucket_val=1,
-             tag='mjpeg')
+             tag='mjpeg', capability='hw_dec_jpeg')

@@ -1,0 +1,16 @@
+name: "uritemplate"
+description:
+    "Simple python library to deal with URI Templates."
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://pypi.org/project/uritemplate"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/python-hyper/uritemplate"
+  }
+  version: "3.0.0"
+  last_upgrade_date { year: 2018 month: 6 day: 4 }
+}

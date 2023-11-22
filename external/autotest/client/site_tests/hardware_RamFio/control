@@ -8,7 +8,7 @@ PURPOSE = 'test ram speed'
 TIME = 'SHORT'
 TEST_CLASS = 'hardware'
 TEST_TYPE = 'client'
-ATTRIBUTES = "suite:bvt-cq"
+ATTRIBUTES = "suite:bvt-perbuild, suite:crosbolt_perf_weekly"
 JOB_RETRIES = 2
 
 DOC = """

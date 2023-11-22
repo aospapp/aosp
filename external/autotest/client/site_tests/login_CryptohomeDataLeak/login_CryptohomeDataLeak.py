@@ -30,7 +30,7 @@ class login_CryptohomeDataLeak(test.test):
             test_file =  '/home/.shadow/%s/mount/hello' \
                          % cryptohome.get_user_hash(username)
 
-            logging.info("Test file: ", test_file)
+            logging.info("Test file: %s", test_file)
             open(test_file, 'w').close()
 
         if cryptohome.is_vault_mounted(user=username, allow_fail=True):

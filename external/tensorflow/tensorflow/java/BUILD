@@ -56,13 +56,15 @@ java_library(
     srcs = glob(["src/gen/java/org/tensorflow/processor/**/*.java"]),
     javacopts = JAVACOPTS,
     resources = glob(["src/gen/resources/META-INF/services/javax.annotation.processing.Processor"]),
+    deps = [
+        "@com_google_guava",
+        "@com_squareup_javapoet",
+    ],
 )
 
 filegroup(
     name = "java_op_sources",
-    srcs = glob(["src/main/java/org/tensorflow/op/**/*.java"]) + [
-        ":java_op_gen_sources",
-    ],
+    srcs = glob(["src/main/java/org/tensorflow/op/**/*.java"]) + [":java_op_gen_sources"],
     visibility = [
         "//tensorflow/java:__pkg__",
     ],
@@ -70,40 +72,31 @@ filegroup(
 
 tf_java_op_gen_srcjar(
     name = "java_op_gen_sources",
-    gen_base_package = "org.tensorflow.op",
-    gen_tool = "java_op_gen_tool",
-    ops_libs = [
-        "array_ops",
-        "candidate_sampling_ops",
-        "control_flow_ops",
-        "data_flow_ops",
-        "image_ops",
-        "io_ops",
-        "linalg_ops",
-        "logging_ops",
-        "math_ops",
-        "nn_ops",
-        "no_op",
-        "parsing_ops",
-        "random_ops",
-        "sparse_ops",
-        "state_ops",
-        "string_ops",
-        "training_ops",
-        "user_ops",
+    api_def_srcs = [
+        "//tensorflow/core/api_def:base_api_def",
+        "//tensorflow/core/api_def:java_api_def",
     ],
+    base_package = "org.tensorflow.op",
+    gen_tool = ":java_op_gen_tool",
 )
 
-# Build the gen tool as a library, as it will be linked to a core/ops binary
-# file before making it an executable. See tf_java_op_gen_srcjar().
-cc_library(
+tf_cc_binary(
     name = "java_op_gen_tool",
     srcs = [
         "src/gen/cc/op_gen_main.cc",
     ],
     copts = tf_copts(),
+    linkopts = select({
+        "//tensorflow:windows": [],
+        "//conditions:default": ["-lm"],
+    }),
+    linkstatic = 1,
     deps = [
         ":java_op_gen_lib",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:framework_internal",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:ops",
     ],
 )
 
@@ -111,11 +104,13 @@ cc_library(
     name = "java_op_gen_lib",
     srcs = [
         "src/gen/cc/op_generator.cc",
+        "src/gen/cc/op_specs.cc",
         "src/gen/cc/source_writer.cc",
     ],
     hdrs = [
         "src/gen/cc/java_defs.h",
         "src/gen/cc/op_generator.h",
+        "src/gen/cc/op_specs.h",
         "src/gen/cc/source_writer.h",
     ],
     copts = tf_copts(),
@@ -124,6 +119,9 @@ cc_library(
         "//tensorflow/core:framework_internal",
         "//tensorflow/core:lib",
         "//tensorflow/core:lib_internal",
+        "//tensorflow/core:op_gen_lib",
+        "//tensorflow/core:protos_all_cc",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -297,6 +295,45 @@ tf_java_test(
     ],
 )
 
+tf_java_test(
+    name = "GeneratedOperationsTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/op/core/GeneratedOperationsTest.java"],
+    javacopts = JAVACOPTS,
+    test_class = "org.tensorflow.op.core.GeneratedOperationsTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+    ],
+)
+
+tf_java_test(
+    name = "GradientsTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/op/core/GradientsTest.java"],
+    javacopts = JAVACOPTS,
+    test_class = "org.tensorflow.op.core.GradientsTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+    ],
+)
+
+tf_java_test(
+    name = "ZerosTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/op/core/ZerosTest.java"],
+    javacopts = JAVACOPTS,
+    test_class = "org.tensorflow.op.core.ZerosTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+    ],
+)
+
 filegroup(
     name = "processor_test_resources",
     srcs = glob([
@@ -311,6 +348,9 @@ tf_cc_test(
     srcs = [
         "src/gen/cc/source_writer_test.cc",
     ],
+    data = [
+        "src/gen/resources/test.java.snippet",
+    ],
     deps = [
         ":java_op_gen_lib",
         "//tensorflow/core:lib",
@@ -322,7 +362,8 @@ tf_cc_test(
 filegroup(
     name = "libtensorflow_jni",
     srcs = select({
-        "//tensorflow:darwin": [":libtensorflow_jni.dylib"],
+        "//tensorflow:windows": [":tensorflow_jni.dll"],
+        "//tensorflow:macos": [":libtensorflow_jni.dylib"],
         "//conditions:default": [":libtensorflow_jni.so"],
     }),
     visibility = ["//visibility:public"],
@@ -333,28 +374,27 @@ LINKER_VERSION_SCRIPT = ":config/version_script.lds"
 LINKER_EXPORTED_SYMBOLS = ":config/exported_symbols.lds"
 
 tf_cc_binary(
-    name = "libtensorflow_jni.so",
+    name = "tensorflow_jni",
     # Set linker options to strip out anything except the JNI
     # symbols from the library. This reduces the size of the library
     # considerably (~50% as of January 2017).
     linkopts = select({
         "//tensorflow:debug": [],  # Disable all custom linker options in debug mode
-        "//tensorflow:darwin": [
-            "-Wl,-exported_symbols_list",  # This line must be directly followed by LINKER_EXPORTED_SYMBOLS
-            LINKER_EXPORTED_SYMBOLS,
+        "//tensorflow:macos": [
+            "-Wl,-exported_symbols_list,$(location {})".format(LINKER_EXPORTED_SYMBOLS),
         ],
         "//tensorflow:windows": [],
-        "//tensorflow:windows_msvc": [],
         "//conditions:default": [
             "-z defs",
             "-s",
-            "-Wl,--version-script",  #  This line must be directly followed by LINKER_VERSION_SCRIPT
-            LINKER_VERSION_SCRIPT,
+            "-Wl,--version-script,$(location {})".format(LINKER_VERSION_SCRIPT),
         ],
     }),
     linkshared = 1,
     linkstatic = 1,
+    per_os_targets = True,
     deps = [
+        "//tensorflow/core/distributed_runtime/rpc:grpc_server_lib",
         "//tensorflow/java/src/main/native",
         LINKER_VERSION_SCRIPT,
         LINKER_EXPORTED_SYMBOLS,
@@ -373,27 +413,4 @@ tf_cc_binary(
     name = "generate_pom",
     srcs = ["generate_pom.cc"],
     deps = ["//tensorflow/c:c_api"],
-)
-
-# System.loadLibrary() on OS X looks for ".dylib" or ".jnilib"
-# and no ".so". If and when https://github.com/bazelbuild/bazel/issues/914
-# is resolved, perhaps this workaround rule can be removed.
-genrule(
-    name = "darwin-compat",
-    srcs = [":libtensorflow_jni.so"],
-    outs = ["libtensorflow_jni.dylib"],
-    cmd = "cp $< $@",
-    output_to_bindir = 1,
-)
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
-    visibility = ["//tensorflow:__subpackages__"],
 )

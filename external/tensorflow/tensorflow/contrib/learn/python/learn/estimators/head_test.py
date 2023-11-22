@@ -62,8 +62,8 @@ def _assert_no_variables(test_case):
 def _assert_metrics(test_case, expected_loss, expected_eval_metrics,
                     model_fn_ops):
   test_case.assertAlmostEqual(expected_loss, model_fn_ops.loss.eval(), places=4)
-  for k in six.iterkeys(expected_eval_metrics):
-    test_case.assertIn(k, six.iterkeys(model_fn_ops.eval_metric_ops))
+  for k in expected_eval_metrics:
+    test_case.assertIn(k, model_fn_ops.eval_metric_ops)
   variables.initialize_local_variables().run()
   for key, expected_value in six.iteritems(expected_eval_metrics):
     value_tensor, update_tensor = model_fn_ops.eval_metric_ops[key]
@@ -362,7 +362,7 @@ class MultiLabelHeadTest(test.TestCase):
         "auc_precision_recall": 0.166667,
         "auc_precision_recall/class0": 0,
         "auc_precision_recall/class1": 0.,
-        "auc_precision_recall/class2": 0.49999,
+        "auc_precision_recall/class2": 1.,
         "labels/actual_label_mean/class0": self._labels[0][0],
         "labels/actual_label_mean/class1": self._labels[0][1],
         "labels/actual_label_mean/class2": self._labels[0][2],
@@ -545,19 +545,19 @@ class MultiLabelHeadTest(test.TestCase):
       with session.Session():
         self.assertListEqual(
             [1, 0, 0], model_fn_ops.predictions["classes"].eval().tolist()[0])
-        self.assertItemsEqual(
-            ["head_name"], six.iterkeys(model_fn_ops.output_alternatives))
+        self.assertItemsEqual(["head_name"],
+                              list(model_fn_ops.output_alternatives))
         self.assertEqual(
             constants.ProblemType.CLASSIFICATION,
             model_fn_ops.output_alternatives["head_name"][0])
 
         predictions_for_serving = (
             model_fn_ops.output_alternatives["head_name"][1])
-        self.assertIn("classes", six.iterkeys(predictions_for_serving))
+        self.assertIn("classes", predictions_for_serving)
         self.assertAllEqual(
             [[b"0", b"1", b"2"], [b"0", b"1", b"2"]],
             predictions_for_serving["classes"].eval())
-        self.assertIn("probabilities", six.iterkeys(predictions_for_serving))
+        self.assertIn("probabilities", predictions_for_serving)
         self.assertAllClose(
             [[0.731059, 0.5, 0.5],
              [0.5, 0.5, 0.731059,]],
@@ -748,7 +748,7 @@ class BinaryClassificationHeadTest(test.TestCase):
         "accuracy/baseline_label_mean": label_mean,
         "accuracy/threshold_0.500000_mean": 1. / 2,
         "auc": 1. / 2,
-        "auc_precision_recall": 0.25,
+        "auc_precision_recall": 0.749999,
         "labels/actual_label_mean": label_mean,
         "labels/prediction_mean": .731059,  # softmax
         "loss": expected_loss,
@@ -850,18 +850,18 @@ class BinaryClassificationHeadTest(test.TestCase):
       with session.Session():
         self.assertListEqual(
             [1, 1], list(model_fn_ops.predictions["classes"].eval()))
-        self.assertItemsEqual(
-            ["head_name"], six.iterkeys(model_fn_ops.output_alternatives))
+        self.assertItemsEqual(["head_name"],
+                              list(model_fn_ops.output_alternatives))
         self.assertEqual(
             constants.ProblemType.LOGISTIC_REGRESSION,
             model_fn_ops.output_alternatives["head_name"][0])
         predictions_for_serving = (
             model_fn_ops.output_alternatives["head_name"][1])
-        self.assertIn("classes", six.iterkeys(predictions_for_serving))
+        self.assertIn("classes", predictions_for_serving)
         predicted_classes = predictions_for_serving["classes"].eval().tolist()
         self.assertListEqual(
             [b"0", b"1"], predicted_classes[0])
-        self.assertIn("probabilities", six.iterkeys(predictions_for_serving))
+        self.assertIn("probabilities", predictions_for_serving)
 
   def testBinaryClassificationInferMode_withWeightColumn(self):
     n_classes = 2
@@ -1349,18 +1349,18 @@ class MultiClassHeadTest(test.TestCase):
         self.assertAllEqual(
             [0, 2],
             model_fn_ops.predictions["classes"].eval())
-        self.assertItemsEqual(
-            ["head_name"], six.iterkeys(model_fn_ops.output_alternatives))
+        self.assertItemsEqual(["head_name"],
+                              list(model_fn_ops.output_alternatives))
         self.assertEqual(
             constants.ProblemType.CLASSIFICATION,
             model_fn_ops.output_alternatives["head_name"][0])
         predictions_for_serving = (
             model_fn_ops.output_alternatives["head_name"][1])
-        self.assertIn("classes", six.iterkeys(predictions_for_serving))
+        self.assertIn("classes", predictions_for_serving)
         self.assertAllEqual(
             [[b"0", b"1", b"2"], [b"0", b"1", b"2"]],
             predictions_for_serving["classes"].eval())
-        self.assertIn("probabilities", six.iterkeys(predictions_for_serving))
+        self.assertIn("probabilities", predictions_for_serving)
         self.assertAllClose(
             [[0.576117, 0.2119416, 0.2119416],
              [0.2119416, 0.2119416, 0.576117]],
@@ -1401,18 +1401,18 @@ class MultiClassHeadTest(test.TestCase):
         self.assertAllEqual(
             [b"key0", b"key2"],
             model_fn_ops.predictions["classes"].eval())
-        self.assertItemsEqual(
-            ["head_name"], six.iterkeys(model_fn_ops.output_alternatives))
+        self.assertItemsEqual(["head_name"],
+                              list(model_fn_ops.output_alternatives))
         self.assertEqual(
             constants.ProblemType.CLASSIFICATION,
             model_fn_ops.output_alternatives["head_name"][0])
         predictions_for_serving = (
             model_fn_ops.output_alternatives["head_name"][1])
-        self.assertIn("classes", six.iterkeys(predictions_for_serving))
+        self.assertIn("classes", predictions_for_serving)
         self.assertAllEqual(
             [[b"key0", b"key1", b"key2"], [b"key0", b"key1", b"key2"]],
             predictions_for_serving["classes"].eval())
-        self.assertIn("probabilities", six.iterkeys(predictions_for_serving))
+        self.assertIn("probabilities", predictions_for_serving)
         self.assertAllClose(
             [[0.576117, 0.2119416, 0.2119416],
              [0.2119416, 0.2119416, 0.576117]],

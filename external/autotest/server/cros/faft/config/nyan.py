@@ -13,5 +13,4 @@ class Values(object):
     ec_boot_to_console = 0.2
     ec_has_powerbtn_cmd = False
     firmware_screen = 4
-    wp_voltage = 'off'
     has_eventlog = False        # Shipped without RTC support in firmware

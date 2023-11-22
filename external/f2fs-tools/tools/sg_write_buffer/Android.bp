@@ -24,4 +24,5 @@ cc_binary {
         "sg_pt_linux.c",
         "sg_pt_linux_nvme.c",
     ],
+    product_specific: true,
 }

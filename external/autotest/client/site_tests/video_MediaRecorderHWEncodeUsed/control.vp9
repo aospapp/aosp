@@ -13,7 +13,6 @@ ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_enc_vp9"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -24,4 +23,5 @@ This test verifies VP9 video encode acceleration is used when MediaRecorder
 records a video.
 """
 
-job.run_test('video_MediaRecorderHWEncodeUsed', codec='vp9', tag='vp9')
+job.run_test('video_MediaRecorderHWEncodeUsed', codec='vp9', tag='vp9',
+             capability='hw_enc_vp9_1080_30')

@@ -15,9 +15,11 @@ class firmware_TPMKernelVersion(FirmwareTest):
     version = 1
 
     def initialize(self, host, cmdline_args):
+        """Initialize the test"""
         super(firmware_TPMKernelVersion, self).initialize(host, cmdline_args)
         self.switcher.setup_mode('dev')
-        self.setup_usbkey(usbkey=True, host=False)
+        # Use the USB key for Ctrl-U dev boot, not recovery.
+        self.setup_usbkey(usbkey=True, host=False, used_for_recovery=False)
         self.original_dev_boot_usb = self.faft_client.system.get_dev_boot_usb()
         logging.info('Original dev_boot_usb value: %s',
                      str(self.original_dev_boot_usb))
@@ -43,6 +45,7 @@ class firmware_TPMKernelVersion(FirmwareTest):
         super(firmware_TPMKernelVersion, self).cleanup()
 
     def run_once(self):
+        """Main test logic"""
         # Get the kernel version and its datakey version.
         # TODO(twreid): Verify the results.
         version = self.faft_client.tpm.get_kernel_version()

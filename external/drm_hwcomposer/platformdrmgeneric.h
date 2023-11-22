@@ -17,7 +17,7 @@
 #ifndef ANDROID_PLATFORM_DRM_GENERIC_H_
 #define ANDROID_PLATFORM_DRM_GENERIC_H_
 
-#include "drmresources.h"
+#include "drmdevice.h"
 #include "platform.h"
 
 #include <hardware/gralloc.h>
@@ -26,22 +26,23 @@ namespace android {
 
 class DrmGenericImporter : public Importer {
  public:
-  DrmGenericImporter(DrmResources *drm);
+  DrmGenericImporter(DrmDevice *drm);
   ~DrmGenericImporter() override;
 
   int Init();
 
-  EGLImageKHR ImportImage(EGLDisplay egl_display, buffer_handle_t handle) override;
   int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
   int ReleaseBuffer(hwc_drm_bo_t *bo) override;
+  bool CanImportBuffer(buffer_handle_t handle) override;
+
+  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
+  uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
 
  private:
-  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
-
-  DrmResources *drm_;
+  DrmDevice *drm_;
 
   const gralloc_module_t *gralloc_;
 };
-}
+}  // namespace android
 
 #endif

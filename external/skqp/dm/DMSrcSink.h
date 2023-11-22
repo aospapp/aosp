@@ -8,20 +8,18 @@
 #ifndef DMSrcSink_DEFINED
 #define DMSrcSink_DEFINED
 
-#include "DMGpuSupport.h"
 #include "SkBBHFactory.h"
 #include "SkBBoxHierarchy.h"
 #include "SkBitmap.h"
 #include "SkBitmapRegionDecoder.h"
 #include "SkCanvas.h"
+#include "SkCommonFlagsConfig.h"
 #include "SkData.h"
 #include "SkMultiPictureDocument.h"
 #include "SkPicture.h"
 #include "gm.h"
 
 //#define TEST_VIA_SVG
-
-namespace skottie { class Animation; }
 
 namespace DM {
 
@@ -102,7 +100,7 @@ struct Sink {
 
 class GMSrc : public Src {
 public:
-    explicit GMSrc(skiagm::GMRegistry::Factory);
+    explicit GMSrc(skiagm::GMFactory);
 
     Error draw(SkCanvas*) const override;
     SkISize size() const override;
@@ -110,7 +108,7 @@ public:
     void modifyGrContextOptions(GrContextOptions* options) const override;
 
 private:
-    skiagm::GMRegistry::Factory fFactory;
+    skiagm::GMFactory fFactory;
 };
 
 class CodecSrc : public Src {
@@ -250,19 +248,23 @@ private:
     Path fPath;
 };
 
-// DeferredDisplayList flavor
-class DDLSKPSrc : public Src {
+// This class extracts all the paths from an SKP and then removes unwanted paths according to the
+// provided l/r trail. It then just draws the remaining paths. (Non-path draws are thrown out.) It
+// is useful for finding a reduced repo case for path drawing bugs.
+class BisectSrc : public SKPSrc {
 public:
-    explicit DDLSKPSrc(Path path);
+    explicit BisectSrc(Path path, const char* trail);
 
     Error draw(SkCanvas*) const override;
-    SkISize size() const override;
-    Name name() const override;
+
 private:
-    Path fPath;
+    SkString fTrail;
+
+    typedef SKPSrc INHERITED;
 };
 
-#if !defined(SK_BUILD_FOR_GOOGLE3)
+
+#if defined(SK_ENABLE_SKOTTIE)
 class SkottieSrc final : public Src {
 public:
     explicit SkottieSrc(Path path);
@@ -274,11 +276,13 @@ public:
 
 private:
     // Generates a kTileCount x kTileCount filmstrip with evenly distributed frames.
-    static constexpr int               kTileCount = 5;
+    static constexpr int      kTileCount = 5;
 
-    Name                               fName;
-    SkISize                            fTileSize = SkISize::MakeEmpty();
-    std::unique_ptr<skottie::Animation> fAnimation;
+    // Fit kTileCount x kTileCount frames to a 1000x1000 film strip.
+    static constexpr SkScalar kTargetSize = 1000;
+    static constexpr SkScalar kTileSize = kTargetSize / kTileCount;
+
+    Path                      fPath;
 };
 #endif
 
@@ -335,11 +339,11 @@ public:
     SinkFlags flags() const override { return SinkFlags{ SinkFlags::kNull, SinkFlags::kDirect }; }
 };
 
-
 class GPUSink : public Sink {
 public:
     GPUSink(sk_gpu_test::GrContextFactory::ContextType,
-            sk_gpu_test::GrContextFactory::ContextOverrides, int samples, bool diText,
+            sk_gpu_test::GrContextFactory::ContextOverrides,
+            SkCommandLineConfigGpu::SurfType surfType, int samples, bool diText,
             SkColorType colorType, SkAlphaType alphaType, sk_sp<SkColorSpace> colorSpace,
             bool threaded, const GrContextOptions& grCtxOptions);
 
@@ -347,6 +351,12 @@ public:
     Error onDraw(const Src&, SkBitmap*, SkWStream*, SkString*,
                  const GrContextOptions& baseOptions) const;
 
+    sk_gpu_test::GrContextFactory::ContextType contextType() const { return fContextType; }
+    const sk_gpu_test::GrContextFactory::ContextOverrides& contextOverrides() {
+        return fContextOverrides;
+    }
+    SkCommandLineConfigGpu::SurfType surfType() const { return fSurfType; }
+    bool useDIText() const { return fUseDIText; }
     bool serial() const override { return !fThreaded; }
     const char* fileExtension() const override { return "png"; }
     SinkFlags flags() const override {
@@ -359,6 +369,7 @@ public:
 private:
     sk_gpu_test::GrContextFactory::ContextType        fContextType;
     sk_gpu_test::GrContextFactory::ContextOverrides   fContextOverrides;
+    SkCommandLineConfigGpu::SurfType                  fSurfType;
     int                                               fSampleCount;
     bool                                              fUseDIText;
     SkColorType                                       fColorType;
@@ -371,7 +382,8 @@ private:
 class GPUThreadTestingSink : public GPUSink {
 public:
     GPUThreadTestingSink(sk_gpu_test::GrContextFactory::ContextType,
-                         sk_gpu_test::GrContextFactory::ContextOverrides, int samples, bool diText,
+                         sk_gpu_test::GrContextFactory::ContextOverrides,
+                         SkCommandLineConfigGpu::SurfType surfType, int samples, bool diText,
                          SkColorType colorType, SkAlphaType alphaType,
                          sk_sp<SkColorSpace> colorSpace, bool threaded,
                          const GrContextOptions& grCtxOptions);
@@ -386,6 +398,26 @@ public:
 private:
     std::unique_ptr<SkExecutor> fExecutor;
 
+    typedef GPUSink INHERITED;
+};
+
+class GPUPersistentCacheTestingSink : public GPUSink {
+public:
+    GPUPersistentCacheTestingSink(sk_gpu_test::GrContextFactory::ContextType,
+                                  sk_gpu_test::GrContextFactory::ContextOverrides,
+                                  SkCommandLineConfigGpu::SurfType surfType, int samples,
+                                  bool diText, SkColorType colorType, SkAlphaType alphaType,
+                                  sk_sp<SkColorSpace> colorSpace, bool threaded,
+                                  const GrContextOptions& grCtxOptions);
+
+    Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
+
+    const char* fileExtension() const override {
+        // Suppress writing out results from this config - we just want to do our matching test
+        return nullptr;
+    }
+
+private:
     typedef GPUSink INHERITED;
 };
 
@@ -408,15 +440,6 @@ public:
     SinkFlags flags() const override { return SinkFlags{ SinkFlags::kVector, SinkFlags::kDirect }; }
 };
 
-class PipeSink : public Sink {
-public:
-    PipeSink();
-
-    Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
-    const char* fileExtension() const override { return "skpipe"; }
-    SinkFlags flags() const override { return SinkFlags{ SinkFlags::kVector, SinkFlags::kDirect }; }
-};
-
 class RasterSink : public Sink {
 public:
     explicit RasterSink(SkColorType, sk_sp<SkColorSpace> = nullptr);
@@ -424,9 +447,16 @@ public:
     Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
     const char* fileExtension() const override { return "png"; }
     SinkFlags flags() const override { return SinkFlags{ SinkFlags::kRaster, SinkFlags::kDirect }; }
+
 private:
     SkColorType         fColorType;
     sk_sp<SkColorSpace> fColorSpace;
+};
+
+class ThreadedSink : public RasterSink {
+public:
+    explicit ThreadedSink(SkColorType, sk_sp<SkColorSpace> = nullptr);
+    Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
 };
 
 class SKPSink : public Sink {
@@ -447,11 +477,14 @@ public:
 
 class SVGSink : public Sink {
 public:
-    SVGSink();
+    SVGSink(int pageIndex = 0);
 
     Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
     const char* fileExtension() const override { return "svg"; }
     SinkFlags flags() const override { return SinkFlags{ SinkFlags::kVector, SinkFlags::kDirect }; }
+
+private:
+    int fPageIndex;
 };
 
 
@@ -499,12 +532,6 @@ public:
     Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
 };
 
-class ViaPipe : public Via {
-public:
-    explicit ViaPipe(Sink* sink) : Via(sink) {}
-    Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
-};
-
 class ViaTiles : public Via {
 public:
     ViaTiles(int w, int h, SkBBHFactory*, Sink*);
@@ -512,6 +539,15 @@ public:
 private:
     const int                   fW, fH;
     std::unique_ptr<SkBBHFactory> fFactory;
+};
+
+class ViaDDL : public Via {
+public:
+    ViaDDL(int numReplays, int numDivisions, Sink* sink);
+    Error draw(const Src&, SkBitmap*, SkWStream*, SkString*) const override;
+private:
+    const int fNumReplays;
+    const int fNumDivisions;
 };
 
 class ViaSVG : public Via {

@@ -2,7 +2,6 @@ cc_defaults {
     name: "puffin_defaults",
     host_supported: true,
     shared_libs: [
-        "libbrillo",
         "libchrome",
         "libprotobuf-cpp-lite",
     ],
@@ -14,10 +13,10 @@ cc_defaults {
     cflags: [
         "-DUSE_BRILLO=1",
         "-D_FILE_OFFSET_BITS=64",
-        "-DZLIB_CONST",
         "-Wall",
         "-Werror",
         "-Wextra",
+        "-Wimplicit-fallthrough",
     ],
     target: {
         darwin: {
@@ -29,6 +28,7 @@ cc_defaults {
 cc_library_static {
     name: "libpuffpatch",
     defaults: ["puffin_defaults"],
+    recovery_available: true,
     srcs: [
         "puffin/src/puffin.proto",
         "src/bit_reader.cc",
@@ -62,7 +62,6 @@ cc_library_static {
     static_libs: [
         "libbsdiff",
         "libpuffpatch",
-        "libz",
     ],
 }
 
@@ -73,6 +72,9 @@ cc_binary {
         "src/extent_stream.cc",
         "src/main.cc",
     ],
+    shared_libs: [
+        "libbrillo",
+    ],
     static_libs: [
         "libbsdiff",
         "libbspatch",
@@ -80,7 +82,6 @@ cc_binary {
         "libdivsufsort64",
         "libpuffdiff",
         "libpuffpatch",
-        "libz",
     ],
 }
 
@@ -95,14 +96,13 @@ cc_test {
         "src/patching_unittest.cc",
         "src/puff_io_unittest.cc",
         "src/puffin_unittest.cc",
-        "src/sample_generator.cc",
         "src/stream_unittest.cc",
         "src/testrunner.cc",
         "src/unittest_common.cc",
         "src/utils_unittest.cc",
     ],
     shared_libs: [
-        "libz",
+        "libbrillo",
     ],
     static_libs: [
         "libbsdiff",

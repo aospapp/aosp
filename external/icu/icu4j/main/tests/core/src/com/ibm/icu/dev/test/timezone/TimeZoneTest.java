@@ -21,13 +21,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import com.ibm.icu.dev.test.TestUtil;  // Android patch (ticket #13483).
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.ICUData;
+import com.ibm.icu.impl.TimeZoneAdapter;
 import com.ibm.icu.text.SimpleDateFormat;
 import com.ibm.icu.util.BasicTimeZone;
 import com.ibm.icu.util.Calendar;
@@ -495,8 +495,10 @@ public class TimeZoneTest extends TestFmwk
 
     @Test
     public void TestGenericAPI() {
-        String id = "NewGMT";
-        int offset = 12345;
+        // It's necessary to use a real existing time zone here, some systems (Android) will not
+        // accept any arbitrary TimeZone object to be used as the default.
+        String id = "GMT-12:00";
+        int offset = -12 * 60 * 60 * 1000;
 
         SimpleTimeZone zone = new SimpleTimeZone(offset, id);
         if (zone.useDaylightTime()) errln("FAIL: useDaylightTime should return false");
@@ -510,10 +512,6 @@ public class TimeZoneTest extends TestFmwk
         if (!zoneclone.equals(zone)) errln("FAIL: clone or operator== failed");
         zoneclone.setRawOffset(45678);
         if (zoneclone.equals(zone)) errln("FAIL: clone or operator!= failed");
-
-        // Android patch (ticket #13483) begin.
-        if (TestUtil.getJavaVendor() == TestUtil.JavaVendor.Android) return;
-        // Android patch (ticket #13483) end.
 
         // set/getDefault
         TimeZone saveDefault = TimeZone.getDefault();
@@ -547,12 +545,9 @@ public class TimeZoneTest extends TestFmwk
         }
 
         TimeZone.setDefault(saveDefault);
-    // Android patch (ticket #13483) begin.
-    }
 
-    @Test
-    public void TestTZDataVersion() {
-    // Android patch (ticket #13483) end.
+
+
         String tzver = TimeZone.getTZDataVersion();
         if (tzver.length() != 5 /* 4 digits + 1 letter */) {
             errln("FAIL: getTZDataVersion returned " + tzver);
@@ -2315,6 +2310,19 @@ public class TimeZoneTest extends TestFmwk
             assertEquals("Fail: Windows ID=" + data[0] + ", Region=" + data[1],
                     data[2], id);
         }
+    }
+
+    @Test
+    public void TestTimeZoneAdapterEquals() {
+        String idChicago = "America/Chicago";
+        TimeZone icuChicago = TimeZone.getTimeZone(idChicago);
+        TimeZone icuChicago2 = TimeZone.getTimeZone(idChicago);
+        java.util.TimeZone icuChicagoWrapped = TimeZoneAdapter.wrap(icuChicago);
+        java.util.TimeZone icuChicagoWrapped2 = TimeZoneAdapter.wrap(icuChicago2);
+
+        assertFalse("Compare TimeZone and TimeZoneAdapter", icuChicago.equals(icuChicagoWrapped));
+        assertFalse("Compare TimeZoneAdapter with TimeZone", icuChicagoWrapped.equals(icuChicago));
+        assertTrue("Compare two TimeZoneAdapters", icuChicagoWrapped.equals(icuChicagoWrapped2));
     }
 }
 

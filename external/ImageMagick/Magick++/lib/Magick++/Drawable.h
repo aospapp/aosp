@@ -1,7 +1,7 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
 // Copyright Bob Friesenhahn, 1999, 2000, 2001, 2002
-// Copyright Dirk Lemstra 2014-2015
+// Copyright Dirk Lemstra 2014-2017
 //
 // Definition of Drawable (Graphic objects)
 //
@@ -94,8 +94,7 @@ namespace Magick
   //
   // Base class for all drawable objects
   //
-  class MagickPPExport DrawableBase:
-    public std::unary_function<MagickCore::DrawingWand,void>
+  class MagickPPExport DrawableBase
   {
   public:
 
@@ -204,20 +203,6 @@ public:
 private:
   VPathBase* dp;
 };
-
-// Compare two VPath objects regardless of LHS/RHS
-extern MagickPPExport int operator == ( const VPath& left_,
-                                      const VPath& right_ );
-extern MagickPPExport int operator != ( const VPath& left_,
-                                      const VPath& right_ );
-extern MagickPPExport int operator >  ( const VPath& left_,
-                                      const VPath& right_ );
-extern MagickPPExport int operator <  ( const VPath& left_,
-                                      const VPath& right_ );
-extern MagickPPExport int operator >= ( const VPath& left_,
-                                      const VPath& right_ );
-extern MagickPPExport int operator <= ( const VPath& left_,
-                                      const VPath& right_ );
 
 typedef std::vector<Magick::VPath> VPathList;
 
@@ -1506,13 +1491,13 @@ private:
 class MagickPPExport DrawableRoundRectangle : public DrawableBase
 {
 public:
-  DrawableRoundRectangle ( double centerX_, double centerY_,
-                           double width_, double hight_,
+  DrawableRoundRectangle ( double upperLeftX_, double upperLeftY_,
+                           double lowerRightX_, double lowerRightY_,
                            double cornerWidth_, double cornerHeight_ )
-    : _centerX(centerX_),
-      _centerY(centerY_),
-      _width(width_),
-      _hight(hight_),
+    : _upperLeftX(upperLeftX_),
+      _upperLeftY(upperLeftY_),
+      _lowerRightX(lowerRightX_),
+      _lowerRightY(lowerRightY_),
       _cornerWidth(cornerWidth_),
       _cornerHeight(cornerHeight_)
     { }
@@ -1525,40 +1510,80 @@ public:
   // Return polymorphic copy of object
   /*virtual*/ DrawableBase* copy() const;
 
+#if !defined(MAGICKCORE_EXCLUDE_DEPRECATED)
+
   void centerX( double centerX_ )
     {
-      _centerX = centerX_;
+      _upperLeftX = centerX_;
     }
   double centerX( void ) const
     {
-      return _centerX;
+      return _upperLeftX;
     }
 
   void centerY( double centerY_ )
     {
-      _centerY = centerY_;
+      _upperLeftY = centerY_;
     }
   double centerY( void ) const
     {
-      return _centerY;
+      return _upperLeftY;
     }
 
   void width( double width_ )
     {
-      _width = width_;
+      _lowerRightX = width_;
     }
   double width( void ) const
     {
-      return _width;
+      return _lowerRightX;
     }
 
   void hight( double hight_ )
     {
-      _hight = hight_;
+      _lowerRightY = hight_;
     }
   double hight( void ) const
     {
-      return _hight;
+      return _lowerRightY;
+    }
+
+#endif
+
+  void upperLeftX( double upperLeftX_ )
+    {
+      _upperLeftX = upperLeftX_;
+    }
+  double upperLeftX( void ) const
+    {
+      return _upperLeftX;
+    }
+
+  void upperLeftY( double upperLeftY_ )
+    {
+      _upperLeftY = upperLeftY_;
+    }
+  double upperLeftY( void ) const
+    {
+      return _upperLeftY;
+    }
+
+  void lowerRightX( double lowerRightX_ )
+    {
+      _lowerRightX = lowerRightX_;
+    }
+  double lowerRightX( void ) const
+    {
+      return _lowerRightX;
+    }
+
+  void lowerRightY( double lowerRightY_ )
+    {
+      _lowerRightY = lowerRightY_;
+    }
+  double lowerRightY( void ) const
+    {
+      return _lowerRightY;
     }
 
   void cornerWidth( double cornerWidth_ )
@@ -1580,10 +1605,10 @@ public:
     }
 
 private:
-  double _centerX;
-  double _centerY;
-  double _width;
-  double _hight;
+  double _upperLeftX;
+  double _upperLeftY;
+  double _lowerRightX;
+  double _lowerRightY;
   double _cornerWidth;
   double _cornerHeight;
 };

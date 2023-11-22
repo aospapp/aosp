@@ -27,15 +27,15 @@ targetdir="${tmpdir}"
 goroot="$(go_${target} env GOROOT)"
 if [[ "${PWD}" == ${goroot}/src/* ]]
 then
-	targetdir="${tmpdir}/go/src/${PWD#${goroot}/src/}"
+	targetdir="${tmpdir}/goroot/src/${PWD#${goroot}/src/}"
 fi
 
 # Set GOROOT, and forward some environment variables to the remote shell.
-vars="GOROOT=${tmpdir}/go"
+vars="GOROOT=${tmpdir}/goroot"
 vars+="${GOOS:+ GOOS=${GOOS}}"
 vars+="${GOARCH:+ GOARCH=${GOARCH}}"
 vars+="${GOMAXPROCS:+ GOMAXPROCS=${GOMAXPROCS}}"
 vars+="${GOTRACEBACK:+ GOTRACEBACK=${GOTRACEBACK}}"
 
 # Remotely execute the binary using ssh (for ChromeOS) or adb (for Android).
-target_sh ${target} "cd ${targetdir} && ${vars} ${tmpdir}/a.out $*"
+target_sh ${target} "cd ${targetdir} && ${vars} ${GOLOADER} ${tmpdir}/a.out $*"

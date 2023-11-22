@@ -173,14 +173,32 @@ static struct wpabuf * eap_tls_failure(struct eap_sm *sm,
 static void eap_tls_success(struct eap_sm *sm, struct eap_tls_data *data,
 			    struct eap_method_ret *ret)
 {
+	const char *label;
+
 	wpa_printf(MSG_DEBUG, "EAP-TLS: Done");
 
-	ret->methodState = METHOD_DONE;
-	ret->decision = DECISION_UNCOND_SUCC;
+	if (data->ssl.tls_out) {
+		wpa_printf(MSG_DEBUG, "EAP-TLS: Fragment(s) remaining");
+		return;
+	}
+
+	if (data->ssl.tls_v13) {
+		label = "EXPORTER_EAP_TLS_Key_Material";
+
+		/* A possible NewSessionTicket may be received before
+		 * EAP-Success, so need to allow it to be received. */
+		ret->methodState = METHOD_MAY_CONT;
+		ret->decision = DECISION_COND_SUCC;
+	} else {
+		label = "client EAP encryption";
+
+		ret->methodState = METHOD_DONE;
+		ret->decision = DECISION_UNCOND_SUCC;
+	}
 
 	eap_tls_free_key(data);
-	data->key_data = eap_peer_tls_derive_key(sm, &data->ssl,
-						 "client EAP encryption",
+	data->key_data = eap_peer_tls_derive_key(sm, &data->ssl, label,
+						 NULL, 0,
 						 EAP_TLS_KEY_LEN +
 						 EAP_EMSK_LEN);
 	if (data->key_data) {

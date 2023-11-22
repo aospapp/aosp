@@ -770,7 +770,7 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 				       "Failed to add mixer control '%s'"
 				       " with type '%d'",
 				       control->name, control->type);
-				return rc;
+				goto out;
 			}
 			found = 1;
 		}
@@ -806,7 +806,7 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 				       "Failed to add mixer control '%s'"
 				       " with type '%d'",
 				       control->name, control->type);
-				return rc;
+				goto out;
 			}
 			found = 1;
 		}
@@ -836,7 +836,7 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 				"Speaker", coupled_controls);
 		if (rc) {
 			syslog(LOG_ERR, "Could not add coupled output");
-			return rc;
+			goto out;
 		}
 	}
 
@@ -848,10 +848,12 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 		rc = add_main_volume_control(cmix, other_elem);
 		if (rc) {
 			syslog(LOG_ERR, "Could not add other volume control");
-			return rc;
+			goto out;
 		}
 	}
 
+out:
+	mixer_name_free(default_controls);
 	return rc;
 }
 

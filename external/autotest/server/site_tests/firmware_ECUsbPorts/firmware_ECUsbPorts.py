@@ -33,6 +33,9 @@ class firmware_ECUsbPorts(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECUsbPorts, self).initialize(host, cmdline_args)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability(['usb']):
+            raise error.TestNAError("Nothing needs to be tested on this device")
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.ec.send_command("chan 0")
@@ -69,22 +72,27 @@ class firmware_ECUsbPorts(FirmwareTest):
         self.faft_client.system.run_shell_command(cmd)
         self.faft_client.disconnect()
 
+    def __get_usb_enable_name(self, idx):
+      """Returns the USB enable signal name for a given index"""
+      if hasattr(self.faft_config, 'custom_usb_enable_names'):
+        if idx >= len(self.faft_config.custom_usb_enable_names):
+          raise error.TestFail('No USB enable for index %d' % idx)
+        return self.faft_config.custom_usb_enable_names[idx]
+      else:
+        return "USB%d_ENABLE" % (idx + 1)
 
     def get_port_count(self):
-        """
-        Get the number of USB ports by checking the number of GPIO named
-        USB*_ENABLE.
-        """
+        """Get the number of USB ports."""
         cnt = 0
         limit = 10
         while limit > 0:
             try:
-                gpio_name = "USB%d_ENABLE" % (cnt + 1)
-                self.ec.send_command_get_output(
-                        "gpioget %s" % gpio_name,
-                        ["[01].\s*%s" % gpio_name])
-                cnt = cnt + 1
-                limit = limit - 1
+              gpio_name = self.__get_usb_enable_name(cnt)
+              self.ec.send_command_get_output(
+                      "gpioget %s" % gpio_name,
+                      ["[01].\s*%s" % gpio_name])
+              cnt = cnt + 1
+              limit = limit - 1
             except error.TestFail:
                 logging.info("Found %d USB ports", cnt)
                 return cnt
@@ -106,8 +114,8 @@ class firmware_ECUsbPorts(FirmwareTest):
         while timeout > 0:
             try:
                 timeout = timeout - 1
-                for idx in xrange(1, port_count+1):
-                    gpio_name = "USB%d_ENABLE" % idx
+                for idx in xrange(0, port_count):
+                    gpio_name = self.__get_usb_enable_name(idx)
                     self.ec.send_command_get_output(
                             "gpioget %s" % gpio_name,
                             ["0.\s*%s" % gpio_name])
@@ -135,9 +143,8 @@ class firmware_ECUsbPorts(FirmwareTest):
 
 
     def run_once(self):
-        if not self.check_ec_capability(['usb']):
-            raise error.TestNAError("Nothing needs to be tested on this device")
-
+        """Execute the main body of the test.
+        """
         self._smart_usb_charge = (
             'smart_usb_charge' in self.faft_config.ec_capability)
         self._port_count = self.get_port_count()

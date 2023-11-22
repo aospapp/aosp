@@ -42,10 +42,10 @@ static void decode_utf8(VTermEncoding *enc, void *data_,
     printf(" pos=%zd c=%02x rem=%d\n", *pos, c, data->bytes_remaining);
 #endif
 
-    if(c < 0x20)
+    if(c < 0x20) // C0
       return;
 
-    else if(c >= 0x20 && c < 0x80) {
+    else if(c >= 0x20 && c < 0x7f) {
       if(data->bytes_remaining)
         cp[(*cpi)++] = UNICODE_INVALID;
 
@@ -55,6 +55,9 @@ static void decode_utf8(VTermEncoding *enc, void *data_,
 #endif
       data->bytes_remaining = 0;
     }
+
+    else if(c == 0x7f) // DEL
+      return;
 
     else if(c >= 0x80 && c < 0xc0) {
       if(!data->bytes_remaining) {
@@ -73,15 +76,20 @@ static void decode_utf8(VTermEncoding *enc, void *data_,
         // Check for overlong sequences
         switch(data->bytes_total) {
         case 2:
-          if(data->this_cp <  0x0080) data->this_cp = UNICODE_INVALID; break;
+          if(data->this_cp <  0x0080) data->this_cp = UNICODE_INVALID;
+          break;
         case 3:
-          if(data->this_cp <  0x0800) data->this_cp = UNICODE_INVALID; break;
+          if(data->this_cp <  0x0800) data->this_cp = UNICODE_INVALID;
+          break;
         case 4:
-          if(data->this_cp < 0x10000) data->this_cp = UNICODE_INVALID; break;
+          if(data->this_cp < 0x10000) data->this_cp = UNICODE_INVALID;
+          break;
         case 5:
-          if(data->this_cp < 0x200000) data->this_cp = UNICODE_INVALID; break;
+          if(data->this_cp < 0x200000) data->this_cp = UNICODE_INVALID;
+          break;
         case 6:
-          if(data->this_cp < 0x4000000) data->this_cp = UNICODE_INVALID; break;
+          if(data->this_cp < 0x4000000) data->this_cp = UNICODE_INVALID;
+          break;
         }
         // Now look for plain invalid ones
         if((data->this_cp >= 0xD800 && data->this_cp <= 0xDFFF) ||
@@ -160,7 +168,7 @@ static void decode_usascii(VTermEncoding *enc, void *data,
   for(; *pos < bytelen && *cpi < cplen; (*pos)++) {
     unsigned char c = bytes[*pos] ^ is_gr;
 
-    if(c < 0x20 || c >= 0x80)
+    if(c < 0x20 || c == 0x7f || c >= 0x80)
       return;
 
     cp[(*cpi)++] = c;
@@ -186,7 +194,7 @@ static void decode_table(VTermEncoding *enc, void *data,
   for(; *pos < bytelen && *cpi < cplen; (*pos)++) {
     unsigned char c = bytes[*pos] ^ is_gr;
 
-    if(c < 0x20 || c >= 0x80)
+    if(c < 0x20 || c == 0x7f || c >= 0x80)
       return;
 
     if(table->chars[c])

@@ -7,8 +7,6 @@
 
 #include <memory>
 
-#include "base/logging.h"
-
 #include "glx_stuff.h"
 #include "main.h"
 #include "xlib_window.h"
@@ -20,8 +18,8 @@ LIST_PROC_FUNCTIONS(F)
 };
 
 #ifndef GLX_MESA_swap_control
-typedef GLint (* PFNGLXSWAPINTERVALMESAPROC) (unsigned interval);
-typedef GLint (* PFNGLXGETSWAPINTERVALMESAPROC) (void);
+typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)(unsigned interval);
+typedef GLint (*PFNGLXGETSWAPINTERVALMESAPROC)(void);
 #endif
 PFNGLXSWAPINTERVALMESAPROC _glXSwapIntervalMESA = NULL;
 
@@ -44,18 +42,19 @@ bool GLXInterface::Init() {
     return false;
   }
 
-  const GLubyte *str = glGetString(GL_EXTENSIONS);
-  if (!str || !strstr(reinterpret_cast<const char *>(str),
+  const GLubyte* str = glGetString(GL_EXTENSIONS);
+  if (!str || !strstr(reinterpret_cast<const char*>(str),
                       "GL_ARB_vertex_buffer_object"))
     return false;
 
-#define F(fun, type) fun = reinterpret_cast<type>( \
-    glXGetProcAddress(reinterpret_cast<const GLubyte *>(#fun)));
+#define F(fun, type)            \
+  fun = reinterpret_cast<type>( \
+      glXGetProcAddress(reinterpret_cast<const GLubyte*>(#fun)));
   LIST_PROC_FUNCTIONS(F)
 #undef F
-  _glXSwapIntervalMESA = reinterpret_cast<PFNGLXSWAPINTERVALMESAPROC>(
-    glXGetProcAddress(reinterpret_cast<const GLubyte *>(
-        "glXSwapIntervalMESA")));
+  _glXSwapIntervalMESA =
+      reinterpret_cast<PFNGLXSWAPINTERVALMESAPROC>(glXGetProcAddress(
+          reinterpret_cast<const GLubyte*>("glXSwapIntervalMESA")));
 
   return true;
 }
@@ -68,19 +67,17 @@ void GLXInterface::Cleanup() {
 XVisualInfo* GLXInterface::GetXVisual() {
   if (!fb_config_) {
     int screen = DefaultScreen(g_xlib_display);
-    int attrib[] = {
-      GLX_DOUBLEBUFFER, True,
-      GLX_RED_SIZE, 1,
-      GLX_GREEN_SIZE, 1,
-      GLX_BLUE_SIZE, 1,
-      GLX_DEPTH_SIZE, 1,
-      GLX_STENCIL_SIZE, 1,
-      GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-      None
-    };
+    int attrib[] = {GLX_DOUBLEBUFFER, True,
+                    GLX_RED_SIZE, 1,
+                    GLX_GREEN_SIZE, 1,
+                    GLX_BLUE_SIZE, 1,
+                    GLX_DEPTH_SIZE, 1,
+                    GLX_STENCIL_SIZE, 1,
+                    GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+                    None};
     int nelements;
-    GLXFBConfig *fb_configs = glXChooseFBConfig(g_xlib_display, screen,
-                                                attrib, &nelements);
+    GLXFBConfig* fb_configs =
+        glXChooseFBConfig(g_xlib_display, screen, attrib, &nelements);
     CHECK(nelements >= 1);
     fb_config_ = fb_configs[0];
     XFree(fb_configs);

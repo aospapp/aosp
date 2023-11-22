@@ -1,6 +1,6 @@
 #!/bin/sh
+# Copyright (c) 2017-2018 Petr Vorel <pvorel@suse.cz>
 # Copyright (c) International Business Machines  Corp., 2006
-# Copyright (c) 2017 Petr Vorel <pvorel@suse.cz>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -19,16 +19,11 @@
 #
 # Setup script for multicast stress tests.
 
-TST_TOTAL=1
+TST_SETUP="do_setup"
 TST_CLEANUP="mcast_cleanup"
-
-. test_net_stress.sh
-
-MCAST_LCMD="ns-mcast_join -f $ipver -I $(tst_iface)"
-
-MCAST_RCMD="ns-igmp_querier"
-[ "$TST_IPV6" ] && MCAST_RCMD="ns-icmpv6_sender"
-MCAST_RCMD="$MCAST_RCMD -I $(tst_iface rhost)"
+TST_TESTFUNC="do_test"
+TST_NEEDS_TMPDIR=1
+. tst_net_stress.sh
 
 mcast_setup4()
 {
@@ -39,13 +34,13 @@ mcast_setup4()
 	SYSFS_FORCE_IGMP_VERSION=$(sysctl -b net.ipv4.conf.$(tst_iface).force_igmp_version)
 	SYSFS_ALL_FORCE_IGMP_VERSION=$(sysctl -b net.ipv4.conf.all.force_igmp_version)
 
-	[ "$igmp_max_memberships" -gt 5459 ] && tst_resm TWARN \
+	[ "$igmp_max_memberships" -gt 5459 ] && tst_res TWARN \
 		"\$1 shouldn't be set higher than 5459 as it's used to set /proc/sys/net/ipv4/igmp_max_memberships"
 
-	ROD sysctl -qw net.ipv4.igmp_max_memberships=$igmp_max_memberships
-	ROD sysctl -qw net.ipv4.igmp_max_msf=10
-	ROD sysctl -qw net.ipv4.conf.$(tst_iface).force_igmp_version=0
-	ROD sysctl -qw net.ipv4.conf.all.force_igmp_version=0
+	ROD sysctl -q -w net.ipv4.igmp_max_memberships=$igmp_max_memberships
+	ROD sysctl -q -w net.ipv4.igmp_max_msf=10
+	ROD sysctl -q -w net.ipv4.conf.$(tst_iface).force_igmp_version=0
+	ROD sysctl -q -w net.ipv4.conf.all.force_igmp_version=0
 }
 
 mcast_setup6()
@@ -57,34 +52,39 @@ mcast_setup6()
 	SYSCTL_FORCE_MLD_VERSION=$(sysctl -b net.ipv6.conf.$(tst_iface).force_mld_version)
 	SYSCTL_MLD_MAX_MSF=$(sysctl -b net.ipv6.mld_max_msf)
 
-	ROD sysctl -qw net.ipv6.conf.all.force_mld_version=0
-	ROD sysctl -qw net.ipv6.conf.$(tst_iface).force_mld_version=0
-	ROD sysctl -qw net.ipv6.mld_max_msf=$default_mld_max_msf
+	ROD sysctl -q -w net.ipv6.conf.all.force_mld_version=0
+	ROD sysctl -q -w net.ipv6.conf.$(tst_iface).force_mld_version=0
+	ROD sysctl -q -w net.ipv6.mld_max_msf=$default_mld_max_msf
 }
 
 mcast_setup()
 {
 	local max="$1"
 
+	MCAST_LCMD="ns-mcast_join -f $TST_IPVER -I $(tst_iface)"
+
+	local cmd="ns-igmp_querier"
+	[ "$TST_IPV6" ] && cmd="ns-icmpv6_sender"
+	MCAST_RCMD="$cmd -I $(tst_iface rhost)"
+
 	netstress_setup
-	tst_tmpdir
 
 	[ "$TST_IPV6" ] && mcast_setup6 || mcast_setup4 $max
 }
 
 mcast_cleanup4()
 {
-	[ -n "$SYSFS_IGMP_MAX_MEMBERSHIPS" ] && sysctl -qw net.ipv4.igmp_max_memberships=$SYSFS_IGMP_MAX_MEMBERSHIPS
-	[ -n "$SYSFS_IGMP_MAX_MSF" ] && sysctl -qw net.ipv4.igmp_max_msf=$SYSFS_IGMP_MAX_MSF
-	[ -n "$SYSFS_FORCE_IGMP_VERSION" ] && sysctl -qw net.ipv4.conf.$(tst_iface).force_igmp_version=$SYSFS_FORCE_IGMP_VERSION
-	[ -n "$SYSFS_ALL_FORCE_IGMP_VERSION" ] && sysctl -qw net.ipv4.conf.all.force_igmp_version=$SYSFS_ALL_FORCE_IGMP_VERSION
+	[ -n "$SYSFS_IGMP_MAX_MEMBERSHIPS" ] && sysctl -q -w net.ipv4.igmp_max_memberships=$SYSFS_IGMP_MAX_MEMBERSHIPS
+	[ -n "$SYSFS_IGMP_MAX_MSF" ] && sysctl -q -w net.ipv4.igmp_max_msf=$SYSFS_IGMP_MAX_MSF
+	[ -n "$SYSFS_FORCE_IGMP_VERSION" ] && sysctl -q -w net.ipv4.conf.$(tst_iface).force_igmp_version=$SYSFS_FORCE_IGMP_VERSION
+	[ -n "$SYSFS_ALL_FORCE_IGMP_VERSION" ] && sysctl -q -w net.ipv4.conf.all.force_igmp_version=$SYSFS_ALL_FORCE_IGMP_VERSION
 }
 
 mcast_cleanup6()
 {
-	[ -n "$SYSCTL_ALL_FORCE_MLD_VERSION" ] && sysctl -qw net.ipv6.conf.all.force_mld_version=$SYSCTL_ALL_FORCE_MLD_VERSION
-	[ -n "$SYSCTL_FORCE_MLD_VERSION" ] && sysctl -qw net.ipv6.conf.$(tst_iface).force_mld_version=$SYSCTL_FORCE_MLD_VERSION
-	[ -n "$SYSCTL_MLD_MAX_MSF" ] && sysctl -qw net.ipv6.mld_max_msf=$SYSCTL_MLD_MAX_MSF
+	[ -n "$SYSCTL_ALL_FORCE_MLD_VERSION" ] && sysctl -q -w net.ipv6.conf.all.force_mld_version=$SYSCTL_ALL_FORCE_MLD_VERSION
+	[ -n "$SYSCTL_FORCE_MLD_VERSION" ] && sysctl -q -w net.ipv6.conf.$(tst_iface).force_mld_version=$SYSCTL_FORCE_MLD_VERSION
+	[ -n "$SYSCTL_MLD_MAX_MSF" ] && sysctl -q -w net.ipv6.mld_max_msf=$SYSCTL_MLD_MAX_MSF
 }
 
 mcast_cleanup()
@@ -110,7 +110,7 @@ do_multicast_test_multiple_join()
 	# Run a multicast join tool
 	tmpfile=$$
 	EXPECT_PASS $MCAST_LCMD $param_multi_socket -n $num -p $mprefix \> $tmpfile
-	tst_resm TINFO "joined $(grep groups $tmpfile)"
+	tst_res TINFO "joined $(grep groups $tmpfile)"
 
 	# Send MLD / IGMP General Query from the remote host
 	if [ "$TST_IPV6" ]; then
@@ -150,5 +150,5 @@ do_multicast_test_join_leave()
 
 	wait
 
-	tst_resm TPASS "test is finished successfully"
+	tst_res TPASS "test is finished successfully"
 }

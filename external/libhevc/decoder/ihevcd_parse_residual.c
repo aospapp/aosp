@@ -721,7 +721,7 @@ WORD32 ihevcd_parse_residual_coding(codec_t *ps_codec,
                 /* If there are zero coeffs, then shift by as many zero coeffs and decrement n */
                 clz = CLZ(u4_sig_coeff_map_shift);
                 u4_sig_coeff_map_shift <<= clz;
-                n -= clz;
+                n -= (WORD32)clz;
             }while(u4_sig_coeff_map_shift);
         }
         /* At this level u4_sig_coeff_map is non-zero i.e. has atleast one non-zero coeff */
@@ -883,7 +883,7 @@ WORD32 ihevcd_parse_residual_coding(codec_t *ps_codec,
                 /* If there are zero coeffs, then shift by as many zero coeffs and decrement n */
                 clz = CLZ(u4_sig_coeff_map_shift);
                 u4_sig_coeff_map_shift <<= clz;
-                n -= clz;
+                n -= (WORD32)clz;
 
 
             }while(u4_sig_coeff_map_shift);

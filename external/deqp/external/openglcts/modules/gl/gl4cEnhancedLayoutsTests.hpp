@@ -1018,9 +1018,9 @@ protected:
 	glw::GLuint calculateStride(const Utils::Interface& interface) const;
 	void generateData(const Utils::Interface& interface, glw::GLuint offset, std::vector<glw::GLubyte>& out_data) const;
 
-	glw::GLint getLastInputLocation(Utils::Shader::STAGES stage, const Utils::Type& type, glw::GLuint array_lenth);
+	glw::GLint getLastInputLocation(Utils::Shader::STAGES stage, const Utils::Type& type, glw::GLuint array_lenth, bool ignore_prev_stage);
 
-	glw::GLint getLastOutputLocation(Utils::Shader::STAGES stage, const Utils::Type& type, glw::GLuint array_lenth);
+	glw::GLint getLastOutputLocation(Utils::Shader::STAGES stage, const Utils::Type& type, glw::GLuint array_lenth, bool ignore_next_stage);
 
 	Utils::Type getType(glw::GLuint index) const;
 	std::string getTypeName(glw::GLuint index) const;
@@ -1081,7 +1081,7 @@ protected:
 
 	virtual void getBufferDescriptors(glw::GLuint test_case_index, bufferDescriptor::Vector& out_descriptors);
 
-	virtual void getCapturedVaryings(glw::GLuint test_case_index, Utils::Program::NameVector& captured_varyings);
+	virtual void getCapturedVaryings(glw::GLuint test_case_index, Utils::Program::NameVector& captured_varyings, glw::GLint* xfb_components);
 
 	virtual void getShaderBody(glw::GLuint test_case_index, Utils::Shader::STAGES stage, std::string& out_assignments,
 							   std::string& out_calculations);
@@ -3381,8 +3381,8 @@ private:
 
 /** Implementation of test XFBStrideOfEmptyList. Description follows:
  *
- * Test verifies that xfb_stride directive is respected even if there are no
- * variables qualified with xfb_offset.
+ * Test verifies correct behavior when xfb_stride qualifier is specified
+ * but no variables are qualified with xfb_offset.
  *
  * Test implements Buffer algorithm. Rasterization can be discarded.
  *
@@ -3398,10 +3398,10 @@ private:
  *     3 Provide buffer to XFB at index 0, index 1 should be missing
  *
  * It is expected that:
- *     - BeginTransformFeedback operation will report GL_INVALID_OPERATION in cases
- *     2 and 3,
- *     - XFB at index 1 will not be modified in case 1.
+ *     - BeginTransformFeedback operation will report GL_INVALID_OPERATION in case 2
+ *     - XFB at index 1 will not be modified in cases 1 and 3.
  **/
+
 class XFBStrideOfEmptyListTest : public BufferTestBase
 {
 public:
@@ -3479,7 +3479,7 @@ protected:
 	virtual bool executeDrawCall(bool tesEnabled, glw::GLuint test_case_index);
 	virtual void getBufferDescriptors(glw::GLuint test_case_index, bufferDescriptor::Vector& out_descriptors);
 
-	virtual void getCapturedVaryings(glw::GLuint test_case_index, Utils::Program::NameVector& captured_varyings);
+	virtual void getCapturedVaryings(glw::GLuint test_case_index, Utils::Program::NameVector& captured_varyings, glw::GLint* xfb_components);
 
 	virtual void getShaderBody(glw::GLuint test_case_index, Utils::Shader::STAGES stage, std::string& out_assignments,
 							   std::string& out_calculations);
@@ -3924,7 +3924,7 @@ protected:
 	/* Protected methods */
 	virtual void getBufferDescriptors(glw::GLuint test_case_index, bufferDescriptor::Vector& out_descriptors);
 
-	virtual void getCapturedVaryings(glw::GLuint test_case_index, Utils::Program::NameVector& captured_varyings);
+	virtual void getCapturedVaryings(glw::GLuint test_case_index, Utils::Program::NameVector& captured_varyings, glw::GLint* xfb_components);
 
 	virtual void getShaderBody(glw::GLuint test_case_index, Utils::Shader::STAGES stage, std::string& out_assignments,
 							   std::string& out_calculations);

@@ -255,7 +255,7 @@ class Zygote(Container):
         associated with the container can be reconstructed.  This enables proper
         cleanup later.
         """
-        for info in lxc_utils.get_mount_info():
+        for info in utils.get_mount_info():
             # Check for bind mounts in the host and host_ro directories, and
             # re-add them to self.mounts.
             if lxc_utils.is_subdir(self.host_path, info.mount_point):

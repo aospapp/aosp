@@ -15,6 +15,8 @@
  */
 package com.squareup.okhttp;
 
+import com.android.okhttp.internalandroidapi.HasCacheHolder;
+import com.android.okhttp.internalandroidapi.HasCacheHolder.CacheHolder;
 import com.squareup.okhttp.internal.huc.CacheAdapter;
 
 import java.net.ResponseCache;
@@ -38,6 +40,15 @@ public class AndroidInternal {
       // This means that Cache stats will be correctly updated.
       OkCacheContainer okCacheContainer = (OkCacheContainer) responseCache;
       client.setCache(okCacheContainer.getCache());
+    // BEGIN Android-added: Recognize internalapi.HasCacheHolder.
+    } else if (responseCache instanceof HasCacheHolder) {
+      // Avoid adding layers of wrappers. Rather than wrap the ResponseCache in yet another layer to
+      // make the ResponseCache look like an InternalCache using CacheAdapter, we can unwrap the
+      // held Cache instead. This means that Cache stats will be correctly updated by OkHttp.
+      HasCacheHolder hasCacheHolder = (HasCacheHolder) responseCache;
+      CacheHolder cacheHolder = hasCacheHolder.getCacheHolder();
+      client.setCache(cacheHolder.getCache());
+    // END Android-added: Recognize internalapi.HasCacheHolder.
     } else {
       client.setInternalCache(responseCache != null ? new CacheAdapter(responseCache) : null);
     }

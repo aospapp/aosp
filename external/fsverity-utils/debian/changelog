@@ -1,0 +1,5 @@
+fsverity-utils (0.1-1) experimental; urgency=low
+
+  * Experimental: debian package for xfstests test appliances
+
+ -- Eric Biggers <ebiggers@google.com>  Mon, 02 Apr 2018 10:18:21 -0700

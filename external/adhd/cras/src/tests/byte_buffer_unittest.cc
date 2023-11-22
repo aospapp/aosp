@@ -14,8 +14,8 @@ TEST(ByteBuffer, ReadWrite) {
   unsigned int data_size;
 
   b = byte_buffer_create(100);
-  EXPECT_EQ(100, buf_available_bytes(b));
-  EXPECT_EQ(0, buf_queued_bytes(b));
+  EXPECT_EQ(100, buf_available(b));
+  EXPECT_EQ(0, buf_queued(b));
 
   data = buf_read_pointer_size(b, &data_size);
   EXPECT_NE((void *)NULL, data);
@@ -31,8 +31,8 @@ TEST(ByteBuffer, ReadWrite) {
   EXPECT_EQ(50, data_size);
 
   buf_increment_read(b, 40);
-  EXPECT_EQ(10, buf_queued_bytes(b));
-  EXPECT_EQ(90, buf_available_bytes(b));
+  EXPECT_EQ(10, buf_queued(b));
+  EXPECT_EQ(90, buf_available(b));
 
   /* Test write to the end of ring buffer. */
   data = buf_write_pointer_size(b, &data_size);
@@ -44,7 +44,7 @@ TEST(ByteBuffer, ReadWrite) {
   EXPECT_NE((void *)NULL, data);
   EXPECT_EQ(40, data_size);
 
-  byte_buffer_destroy(b);
+  byte_buffer_destroy(&b);
 }
 
 TEST(ByteBuffer, SetUsedSizeReadWrite) {
@@ -53,12 +53,12 @@ TEST(ByteBuffer, SetUsedSizeReadWrite) {
   unsigned int data_size;
 
   b = byte_buffer_create(100);
-  EXPECT_EQ(100, buf_available_bytes(b));
-  EXPECT_EQ(0, buf_queued_bytes(b));
+  EXPECT_EQ(100, buf_available(b));
+  EXPECT_EQ(0, buf_queued(b));
 
   /* Test set used_size to limit the initial allocated max size. */
   byte_buffer_set_used_size(b, 90);
-  EXPECT_EQ(90, buf_available_bytes(b));
+  EXPECT_EQ(90, buf_available(b));
 
   data = buf_write_pointer_size(b, &data_size);
   EXPECT_NE((void *)NULL, data);
@@ -70,8 +70,8 @@ TEST(ByteBuffer, SetUsedSizeReadWrite) {
   EXPECT_EQ(90, data_size);
 
   buf_increment_read(b, 50);
-  EXPECT_EQ(50, buf_available_bytes(b));
-  EXPECT_EQ(40, buf_queued_bytes(b));
+  EXPECT_EQ(50, buf_available(b));
+  EXPECT_EQ(40, buf_queued(b));
 
   data = buf_write_pointer_size(b, &data_size);
   EXPECT_NE((void *)NULL, data);
@@ -92,7 +92,7 @@ TEST(ByteBuffer, SetUsedSizeReadWrite) {
   EXPECT_NE((void *)NULL, data);
   EXPECT_EQ(50, data_size);
 
-  byte_buffer_destroy(b);
+  byte_buffer_destroy(&b);
 }
 
 } // namespace

@@ -18,6 +18,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.MissingResourceException;
 
+import android.icu.impl.CalType;
 import android.icu.impl.CalendarUtil;
 import android.icu.impl.ICUCache;
 import android.icu.impl.ICUData;
@@ -1709,42 +1710,12 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         return region;
     }
 
-    private enum CalType {
-        GREGORIAN("gregorian"),
-        ISO8601("iso8601"),
-
-        BUDDHIST("buddhist"),
-        CHINESE("chinese"),
-        COPTIC("coptic"),
-        DANGI("dangi"),
-        ETHIOPIC("ethiopic"),
-        ETHIOPIC_AMETE_ALEM("ethiopic-amete-alem"),
-        HEBREW("hebrew"),
-        INDIAN("indian"),
-        ISLAMIC("islamic"),
-        ISLAMIC_CIVIL("islamic-civil"),
-        ISLAMIC_RGSA("islamic-rgsa"),
-        ISLAMIC_TBLA("islamic-tbla"),
-        ISLAMIC_UMALQURA("islamic-umalqura"),
-        JAPANESE("japanese"),
-        PERSIAN("persian"),
-        ROC("roc"),
-
-        UNKNOWN("unknown");
-
-        String id;
-
-        CalType(String id) {
-            this.id = id;
-        }
-    }
-
     private static CalType getCalendarTypeForLocale(ULocale l) {
         String s = CalendarUtil.getCalendarType(l);
         if (s != null) {
             s = s.toLowerCase(Locale.ENGLISH);
             for (CalType type : CalType.values()) {
-                if (s.equals(type.id)) {
+                if (s.equals(type.getId())) {
                     return type;
                 }
             }
@@ -1864,7 +1835,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         String prefRegion = ULocale.getRegionForSupplementalData(locale, true);
 
         // Read preferred calendar values from supplementalData calendarPreferences
-        ArrayList<String> values = new ArrayList<String>();
+        ArrayList<String> values = new ArrayList<>();
 
         UResourceBundle rb = UResourceBundle.getBundleInstance(
                 ICUData.ICU_BASE_NAME,
@@ -1891,8 +1862,8 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         }
         // then, add other available clanedars
         for (CalType t : CalType.values()) {
-            if (!values.contains(t.id)) {
-                values.add(t.id);
+            if (!values.contains(t.getId())) {
+                values.add(t.getId());
             }
         }
         return values.toArray(new String[values.size()]);
@@ -2107,7 +2078,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         CalType type = CalType.GREGORIAN;
         String typeString = getType();
         for (CalType testType : CalType.values()) {
-            if (typeString.equals(testType.id)) {
+            if (typeString.equals(testType.getId())) {
                 type = testType;
                 break;
             }
@@ -2182,7 +2153,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         CalType type = CalType.GREGORIAN;
         String typeString = getType();
         for (CalType testType : CalType.values()) {
-            if (typeString.equals(testType.id)) {
+            if (typeString.equals(testType.getId())) {
                 type = testType;
                 break;
             }
@@ -3419,7 +3390,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
 
     // date format pattern cache
     private static final ICUCache<String, PatternData> PATTERN_CACHE =
-            new SimpleCache<String, PatternData>();
+            new SimpleCache<>();
     // final fallback patterns
     private static final String[] DEFAULT_PATTERNS = {
         "HH:mm:ss z",
@@ -3672,6 +3643,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      * SimpleDateFormat factory method.
      *
      * @deprecated This API is ICU internal only.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide original deprecated declaration
      * @hide draft / provisional / internal are hidden on Android
      */
@@ -4504,8 +4476,6 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      * @param date the date and time
      * @return true if the given date and time is part of the
      * weekend
-     * @see #getDayOfWeekType
-     * @see #getWeekendTransition
      * @see #isWeekend()
      */
     public boolean isWeekend(Date date) {
@@ -4518,8 +4488,6 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      * this calendar system.
      * @return true if the given date and time is part of the
      * weekend
-     * @see #getDayOfWeekType
-     * @see #getWeekendTransition
      * @see #isWeekend(Date)
      */
     public boolean isWeekend() {
@@ -5827,12 +5795,12 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
 
         int year;
 
-        if (bestField == WEEK_OF_YEAR) {
+        if (bestField == WEEK_OF_YEAR && newerField(YEAR_WOY, YEAR) == YEAR_WOY) {
             // Nota Bene!  It is critical that YEAR_WOY be used as the year here, if it is
             // set.  Otherwise, when WOY is the best field, the year may be wrong at the
             // extreme limits of the year.  If YEAR_WOY is not set then it will fall back.
             // TODO: Should resolveField(YEAR_PRECEDENCE) be brought to bear?
-            year = internalGet(YEAR_WOY, handleGetExtendedYear());
+            year = internalGet(YEAR_WOY);
         } else {
             year = handleGetExtendedYear();
         }
@@ -6337,6 +6305,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      * @see android.icu.util.ULocale#ACTUAL_LOCALE
      * @hide draft / provisional / internal are hidden on Android
      */
+    @dalvik.annotation.compat.UnsupportedAppUsage
     public final ULocale getLocale(ULocale.Type type) {
         return type == ULocale.ACTUAL_LOCALE ?
                 this.actualLocale : this.validLocale;

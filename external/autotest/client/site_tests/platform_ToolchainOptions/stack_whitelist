@@ -4,3 +4,5 @@
 # FIXME: Remove this once the bug is fixed.
 # https://crbug.com/659234
 /opt/google/containers/android/rootfs/root/vendor/bin/houdini
+# FIXME: Remove this after Intel fixes their parser, crbug.com/887869
+/opt/intel/fw_parser

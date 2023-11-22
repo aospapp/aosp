@@ -24,6 +24,7 @@
 
 #include "vktTessellationUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "deMath.h"
 
 namespace vkt
@@ -48,50 +49,6 @@ VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
 		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
 	};
 	return bufferCreateInfo;
-}
-
-VkBufferMemoryBarrier makeBufferMemoryBarrier (const VkAccessFlags	srcAccessMask,
-											   const VkAccessFlags	dstAccessMask,
-											   const VkBuffer		buffer,
-											   const VkDeviceSize	offset,
-											   const VkDeviceSize	bufferSizeBytes)
-{
-	const VkBufferMemoryBarrier barrier =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType	sType;
-		DE_NULL,									// const void*		pNext;
-		srcAccessMask,								// VkAccessFlags	srcAccessMask;
-		dstAccessMask,								// VkAccessFlags	dstAccessMask;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32			srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,					// deUint32			destQueueFamilyIndex;
-		buffer,										// VkBuffer			buffer;
-		offset,										// VkDeviceSize		offset;
-		bufferSizeBytes,							// VkDeviceSize		size;
-	};
-	return barrier;
-}
-
-VkImageMemoryBarrier makeImageMemoryBarrier	(const VkAccessFlags			srcAccessMask,
-											 const VkAccessFlags			dstAccessMask,
-											 const VkImageLayout			oldLayout,
-											 const VkImageLayout			newLayout,
-											 const VkImage					image,
-											 const VkImageSubresourceRange	subresourceRange)
-{
-	const VkImageMemoryBarrier barrier =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType			sType;
-		DE_NULL,										// const void*				pNext;
-		srcAccessMask,									// VkAccessFlags			outputMask;
-		dstAccessMask,									// VkAccessFlags			inputMask;
-		oldLayout,										// VkImageLayout			oldLayout;
-		newLayout,										// VkImageLayout			newLayout;
-		VK_QUEUE_FAMILY_IGNORED,						// deUint32					srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,						// deUint32					destQueueFamilyIndex;
-		image,											// VkImage					image;
-		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
-	};
-	return barrier;
 }
 
 Move<VkCommandPool> makeCommandPool (const DeviceInterface& vk, const VkDevice device, const deUint32 queueFamilyIndex)
@@ -244,151 +201,12 @@ VkBufferImageCopy makeBufferImageCopy (const VkExtent3D					extent,
 	return copyParams;
 }
 
-void beginCommandBuffer (const DeviceInterface& vk, const VkCommandBuffer commandBuffer)
-{
-	const VkCommandBufferBeginInfo info =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType                          sType;
-		DE_NULL,										// const void*                              pNext;
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags                flags;
-		DE_NULL,										// const VkCommandBufferInheritanceInfo*    pInheritanceInfo;
-	};
-	VK_CHECK(vk.beginCommandBuffer(commandBuffer, &info));
-}
-
-void endCommandBuffer (const DeviceInterface& vk, const VkCommandBuffer commandBuffer)
-{
-	VK_CHECK(vk.endCommandBuffer(commandBuffer));
-}
-
-void submitCommandsAndWait (const DeviceInterface&	vk,
-							const VkDevice			device,
-							const VkQueue			queue,
-							const VkCommandBuffer	commandBuffer)
-{
-	const Unique<VkFence> fence(createFence(vk, device));
-
-	const VkSubmitInfo submitInfo =
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,		// VkStructureType                sType;
-		DE_NULL,							// const void*                    pNext;
-		0u,									// uint32_t                       waitSemaphoreCount;
-		DE_NULL,							// const VkSemaphore*             pWaitSemaphores;
-		DE_NULL,							// const VkPipelineStageFlags*    pWaitDstStageMask;
-		1u,									// uint32_t                       commandBufferCount;
-		&commandBuffer,						// const VkCommandBuffer*         pCommandBuffers;
-		0u,									// uint32_t                       signalSemaphoreCount;
-		DE_NULL,							// const VkSemaphore*             pSignalSemaphores;
-	};
-	VK_CHECK(vk.queueSubmit(queue, 1u, &submitInfo, *fence));
-	VK_CHECK(vk.waitForFences(device, 1u, &fence.get(), DE_TRUE, ~0ull));
-}
-
-void beginRenderPass (const DeviceInterface&	vk,
-					  const VkCommandBuffer		commandBuffer,
-					  const VkRenderPass		renderPass,
-					  const VkFramebuffer		framebuffer,
-					  const VkRect2D&			renderArea,
-					  const tcu::Vec4&			clearColor)
-{
-	const VkClearValue clearValue = makeClearValueColor(clearColor);
-
-	const VkRenderPassBeginInfo renderPassBeginInfo = {
-		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,		// VkStructureType         sType;
-		DE_NULL,										// const void*             pNext;
-		renderPass,										// VkRenderPass            renderPass;
-		framebuffer,									// VkFramebuffer           framebuffer;
-		renderArea,										// VkRect2D                renderArea;
-		1u,												// uint32_t                clearValueCount;
-		&clearValue,									// const VkClearValue*     pClearValues;
-	};
-
-	vk.cmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-}
-
 void beginRenderPassWithRasterizationDisabled (const DeviceInterface&	vk,
 											   const VkCommandBuffer	commandBuffer,
 											   const VkRenderPass		renderPass,
 											   const VkFramebuffer		framebuffer)
 {
-	const VkRect2D renderArea = {{ 0, 0 }, { 0, 0 }};
-
-	const VkRenderPassBeginInfo renderPassBeginInfo = {
-		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,		// VkStructureType         sType;
-		DE_NULL,										// const void*             pNext;
-		renderPass,										// VkRenderPass            renderPass;
-		framebuffer,									// VkFramebuffer           framebuffer;
-		renderArea,										// VkRect2D                renderArea;
-		0u,												// uint32_t                clearValueCount;
-		DE_NULL,										// const VkClearValue*     pClearValues;
-	};
-
-	vk.cmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-}
-
-void endRenderPass (const DeviceInterface&	vk,
-					const VkCommandBuffer	commandBuffer)
-{
-	vk.cmdEndRenderPass(commandBuffer);
-}
-
-Move<VkRenderPass> makeRenderPass (const DeviceInterface&	vk,
-								   const VkDevice			device,
-								   const VkFormat			colorFormat)
-{
-	const VkAttachmentDescription colorAttachmentDescription =
-	{
-		(VkAttachmentDescriptionFlags)0,					// VkAttachmentDescriptionFlags		flags;
-		colorFormat,										// VkFormat							format;
-		VK_SAMPLE_COUNT_1_BIT,								// VkSampleCountFlagBits			samples;
-		VK_ATTACHMENT_LOAD_OP_CLEAR,						// VkAttachmentLoadOp				loadOp;
-		VK_ATTACHMENT_STORE_OP_STORE,						// VkAttachmentStoreOp				storeOp;
-		VK_ATTACHMENT_LOAD_OP_DONT_CARE,					// VkAttachmentLoadOp				stencilLoadOp;
-		VK_ATTACHMENT_STORE_OP_DONT_CARE,					// VkAttachmentStoreOp				stencilStoreOp;
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,			// VkImageLayout					initialLayout;
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// VkImageLayout					finalLayout;
-	};
-
-	const VkAttachmentReference colorAttachmentReference =
-	{
-		0u,													// deUint32			attachment;
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// VkImageLayout	layout;
-	};
-
-	const VkAttachmentReference depthAttachmentReference =
-	{
-		VK_ATTACHMENT_UNUSED,								// deUint32			attachment;
-		VK_IMAGE_LAYOUT_UNDEFINED							// VkImageLayout	layout;
-	};
-
-	const VkSubpassDescription subpassDescription =
-	{
-		(VkSubpassDescriptionFlags)0,						// VkSubpassDescriptionFlags		flags;
-		VK_PIPELINE_BIND_POINT_GRAPHICS,					// VkPipelineBindPoint				pipelineBindPoint;
-		0u,													// deUint32							inputAttachmentCount;
-		DE_NULL,											// const VkAttachmentReference*		pInputAttachments;
-		1u,													// deUint32							colorAttachmentCount;
-		&colorAttachmentReference,							// const VkAttachmentReference*		pColorAttachments;
-		DE_NULL,											// const VkAttachmentReference*		pResolveAttachments;
-		&depthAttachmentReference,							// const VkAttachmentReference*		pDepthStencilAttachment;
-		0u,													// deUint32							preserveAttachmentCount;
-		DE_NULL												// const deUint32*					pPreserveAttachments;
-	};
-
-	const VkRenderPassCreateInfo renderPassInfo =
-	{
-		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,			// VkStructureType					sType;
-		DE_NULL,											// const void*						pNext;
-		(VkRenderPassCreateFlags)0,							// VkRenderPassCreateFlags			flags;
-		1u,													// deUint32							attachmentCount;
-		&colorAttachmentDescription,						// const VkAttachmentDescription*	pAttachments;
-		1u,													// deUint32							subpassCount;
-		&subpassDescription,								// const VkSubpassDescription*		pSubpasses;
-		0u,													// deUint32							dependencyCount;
-		DE_NULL												// const VkSubpassDependency*		pDependencies;
-	};
-
-	return createRenderPass(vk, device, &renderPassInfo);
+	beginRenderPass(vk, commandBuffer, renderPass, framebuffer, makeRect2D(0, 0, 0u, 0u));
 }
 
 Move<VkRenderPass> makeRenderPassWithoutAttachments (const DeviceInterface&	vk,
@@ -605,15 +423,8 @@ Move<VkPipeline> GraphicsPipelineBuilder::build (const DeviceInterface&	vk,
 		m_patchControlPoints,											// uint32_t                                    patchControlPoints;
 	};
 
-	const VkViewport viewport = makeViewport(
-		0.0f, 0.0f,
-		static_cast<float>(m_renderSize.x()), static_cast<float>(m_renderSize.y()),
-		0.0f, 1.0f);
-
-	const VkRect2D scissor = {
-		makeOffset2D(0, 0),
-		makeExtent2D(m_renderSize.x(), m_renderSize.y()),
-	};
+	const VkViewport	viewport	= makeViewport(m_renderSize);
+	const VkRect2D		scissor		= makeRect2D(m_renderSize);
 
 	const bool haveRenderSize = m_renderSize.x() > 0 && m_renderSize.y() > 0;
 

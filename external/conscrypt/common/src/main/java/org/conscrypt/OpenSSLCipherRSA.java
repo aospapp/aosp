@@ -48,9 +48,6 @@ import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
 
-/**
- * @hide
- */
 @Internal
 abstract class OpenSSLCipherRSA extends CipherSpi {
     /**
@@ -539,11 +536,11 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
             }
 
             NativeCrypto.EVP_PKEY_CTX_set_rsa_padding(
-                    pkeyCtx.context, NativeConstants.RSA_PKCS1_OAEP_PADDING);
-            NativeCrypto.EVP_PKEY_CTX_set_rsa_oaep_md(pkeyCtx.context, oaepMd);
-            NativeCrypto.EVP_PKEY_CTX_set_rsa_mgf1_md(pkeyCtx.context, mgf1Md);
+                    pkeyCtx.address, NativeConstants.RSA_PKCS1_OAEP_PADDING);
+            NativeCrypto.EVP_PKEY_CTX_set_rsa_oaep_md(pkeyCtx.address, oaepMd);
+            NativeCrypto.EVP_PKEY_CTX_set_rsa_mgf1_md(pkeyCtx.address, mgf1Md);
             if (label != null && label.length > 0) {
-                NativeCrypto.EVP_PKEY_CTX_set_rsa_oaep_label(pkeyCtx.context, label);
+                NativeCrypto.EVP_PKEY_CTX_set_rsa_oaep_label(pkeyCtx.address, label);
             }
         }
 

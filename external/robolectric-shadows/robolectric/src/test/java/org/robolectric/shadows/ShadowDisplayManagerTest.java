@@ -2,8 +2,10 @@ package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.JELLY_BEAN;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static android.os.Build.VERSION_CODES.P;
+import static android.os.Build.VERSION_CODES.Q;
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 import static org.robolectric.shadows.ShadowDisplayManagerTest.HideFromJB.getGlobal;
 
 import android.content.Context;
@@ -13,32 +15,36 @@ import android.hardware.display.DisplayManagerGlobal;
 import android.view.Display;
 import android.view.DisplayInfo;
 import android.view.Surface;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowDisplayManagerTest {
 
   private DisplayManager instance;
 
   @Before
   public void setUp() throws Exception {
-    instance = (DisplayManager) RuntimeEnvironment.application
-        .getSystemService(Context.DISPLAY_SERVICE);
+    instance =
+        (DisplayManager)
+            ApplicationProvider.getApplicationContext().getSystemService(Context.DISPLAY_SERVICE);
   }
 
   @Test @Config(maxSdk = JELLY_BEAN)
   public void notSupportedInJellyBean() throws Exception {
-    assertThatThrownBy(() -> ShadowDisplayManager.removeDisplay(0))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("displays not supported in Jelly Bean");
+    try {
+      ShadowDisplayManager.removeDisplay(0);
+      fail("Expected Exception thrown");
+    } catch (UnsupportedOperationException e) {
+      assertThat(e).hasMessageThat().contains("displays not supported in Jelly Bean");
+    }
   }
 
   @Test
@@ -60,15 +66,23 @@ public class ShadowDisplayManagerTest {
   @Test
   @Config(minSdk = JELLY_BEAN_MR1)
   public void forNonexistentDisplay_changeDisplay_shouldThrow() throws Exception {
-    assertThatThrownBy(() -> ShadowDisplayManager.changeDisplay(3, ""))
-        .hasMessageContaining("no display 3");
+    try {
+      ShadowDisplayManager.changeDisplay(3, "");
+      fail("Expected Exception thrown");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().contains("no display 3");
+    }
   }
 
   @Test
   @Config(minSdk = JELLY_BEAN_MR1)
   public void forNonexistentDisplay_removeDisplay_shouldThrow() throws Exception {
-    assertThatThrownBy(() -> ShadowDisplayManager.removeDisplay(3))
-        .hasMessageContaining("no display 3");
+    try {
+      ShadowDisplayManager.removeDisplay(3);
+      fail("Expected Exception thrown");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().contains("no display 3");
+    }
   }
 
   @Test @Config(minSdk = JELLY_BEAN_MR1)
@@ -165,6 +179,42 @@ public class ShadowDisplayManagerTest {
     assertThat(events).containsExactly(
         "Added " + displayId,
         "Changed " + displayId);
+  }
+
+  @Test
+  @Config(minSdk = P)
+  public void getSaturationLevel_zero_noExceptionThrown() {
+    instance.setSaturationLevel(0.0f);
+  }
+
+  @Test
+  @Config(minSdk = P)
+  public void getSaturationLevel_decimalValueBetweenZeroAndOne_noExceptionThrown() {
+    instance.setSaturationLevel(0.56789f);
+  }
+
+  @Test
+  @Config(minSdk = P)
+  public void getSaturationLevel_one_noExceptionThrown() {
+    instance.setSaturationLevel(1.0f);
+  }
+
+  @Test
+  @Config(minSdk = Q)
+  public void setSaturationLevel_valueGreaterThanOne_shouldThrow() {
+    try {
+      instance.setSaturationLevel(1.1f);
+      fail("Expected IllegalArgumentException thrown");
+    } catch (IllegalArgumentException expected) {}
+  }
+
+  @Test
+  @Config(minSdk = Q)
+  public void setSaturationLevel_valueLessThanZero_shouldThrow() {
+    try {
+      instance.setSaturationLevel(-0.1f);
+      fail("Expected IllegalArgumentException thrown");
+    } catch (IllegalArgumentException expected) {}
   }
 
   // because DisplayInfo and DisplayManagerGlobal don't exist in Jelly Bean,

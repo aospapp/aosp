@@ -73,7 +73,7 @@ title_str	= None
 type		= None
 verbose		= False
 
-types		= [ 'aqd', 'q2d', 'd2c', 'q2c', 'bnos' ]
+types		= [ 'aqd', 'q2d', 'd2c', 'q2c', 'live', 'bnos' ]
 progs		= [ 'btt_plot_%s.py' % t for t in types ]
 
 get_base 	= lambda file: file[file.find('_')+1:file.rfind('_')]
@@ -84,6 +84,14 @@ def fatal(msg):
 
 	print >>sys.stderr, 'FATAL: %s' % msg
 	sys.exit(1)
+
+#------------------------------------------------------------------------------
+def gen_legends(ax, legends):
+	leg = ax.legend(legends, 'best', shadow=True)
+	frame = leg.get_frame()
+	frame.set_facecolor('0.80')
+	for t in leg.get_texts():
+		t.set_fontsize('xx-small')
 
 #----------------------------------------------------------------------
 def get_data(files):
@@ -298,14 +306,6 @@ def generate_output(type, db):
 		return '%s%s' % (color, style)
 
 	#----------------------------------------------------------------------
-	def gen_legends(a, legends):
-		leg = ax.legend(legends, 'best', shadow=True)
-		frame = leg.get_frame()
-		frame.set_facecolor('0.80')
-		for t in leg.get_texts():
-			t.set_fontsize('xx-small')
-
-	#----------------------------------------------------------------------
 	global add_legend, output_file, title_str, verbose
 
 	if output_file != None:
@@ -369,6 +369,79 @@ def get_files(type):
 	return files
 
 #------------------------------------------------------------------------------
+def do_bnos(files):
+	for file in files:
+		base = get_base(file)
+		title_str = 'Block Numbers Accessed: %s' % base
+		output_file = 'bnos_%s.png' % base
+		generate_output(t, get_data([file]))
+
+#------------------------------------------------------------------------------
+def do_live(files):
+	global plot_size
+
+	#----------------------------------------------------------------------
+	def get_live_data(fn):
+		xs = []
+		ys = []
+		for line in open(fn, 'r'):
+			f = line.rstrip().split()
+			if f[0] != '#' and len(f) == 2:
+				xs.append(float(f[0]))
+				ys.append(float(f[1]))
+		return xs, ys
+
+	#----------------------------------------------------------------------
+	def live_sort(a, b):
+		if a[0] == 'sys' and b[0] == 'sys':
+			return 0
+		elif a[0] == 'sys' or a[2][0] < b[2][0]:
+			return -1
+		elif b[0] == 'sys' or a[2][0] > b[2][0]:
+			return  1
+		else:
+			return  0
+
+	#----------------------------------------------------------------------
+	def turn_off_ticks(ax):
+		for tick in ax.xaxis.get_major_ticks():
+			tick.tick1On = tick.tick2On = False
+		for tick in ax.yaxis.get_major_ticks():
+			tick.tick1On = tick.tick2On = False
+		for tick in ax.xaxis.get_minor_ticks():
+			tick.tick1On = tick.tick2On = False
+		for tick in ax.yaxis.get_minor_ticks():
+			tick.tick1On = tick.tick2On = False
+
+	#----------------------------------------------------------------------
+	fig = plt.figure(figsize=plot_size)
+	ax = fig.add_subplot(111)
+
+	db = []
+	for fn in files:
+		if not os.path.exists(fn):
+			continue
+		(xs, ys) = get_live_data(fn)
+		db.append([fn[:fn.find('_live.dat')], xs, ys])
+	db.sort(live_sort)
+
+	for rec in db:
+		ax.plot(rec[1], rec[2])
+
+	gen_title(fig, 'live', 'Active I/O Per Device')
+	ax.set_xlabel('Runtime (seconds)')
+	ax.set_ylabel('Device')
+	ax.grid(False)
+
+	ax.set_xlim(-0.1, db[0][1][-1]+1)
+	ax.set_yticks([idx for idx in range(0, len(db))])
+	ax.yaxis.set_ticklabels([rec[0] for rec in db])
+	turn_off_ticks(ax)
+
+	plt.savefig('live.png')
+	plt.savefig('live.eps')
+
+#------------------------------------------------------------------------------
 if __name__ == '__main__':
 	files = parse_args(sys.argv)
 
@@ -378,15 +451,14 @@ if __name__ == '__main__':
 			files = get_files(t)
 			if len(files) == 0:
 				continue
-			elif t != 'bnos':
+			elif t == 'bnos':
+				do_bnos(files)
+			elif t == 'live':
+				do_live(files)
+			else:
 				generate_output(t, get_data(files))
 				continue
 
-			for file in files:
-				base = get_base(file)
-				title_str = 'Block Numbers Accessed: %s' % base
-				output_file = 'bnos_%s.png' % base
-				generate_output(t, get_data([file]))
 	elif len(files) < 1:
 		fatal('Need data files to process')
 	else:

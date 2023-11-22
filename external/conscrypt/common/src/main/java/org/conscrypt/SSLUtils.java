@@ -48,11 +48,11 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLSession;
 import javax.security.cert.CertificateException;
 
 /**
@@ -155,19 +155,19 @@ final class SSLUtils {
     /**
      * This is the maximum overhead when encrypting plaintext as defined by
      * <a href="https://www.ietf.org/rfc/rfc5246.txt">rfc5264</a>,
-     * <a href="https://www.ietf.org/rfc/rfc5289.txt">rfc5289</a> and openssl implementation itself.
+     * <a href="https://www.ietf.org/rfc/rfc5289.txt">rfc5289</a>, and the BoringSSL
+     * implementation itself.
      *
-     * Please note that we use a padding of 16 here as openssl uses PKC#5 which uses 16 bytes
-     * whilethe spec itself allow up to 255 bytes. 16 bytes is the max for PKC#5 (which handles it
-     * the same way as PKC#7) as we use a block size of 16. See <a
+     * Please note that we use a padding of 16 here as BoringSSL uses PKCS#5 which uses 16 bytes
+     * while the spec itself allow up to 255 bytes. 16 bytes is the max for PKCS#5 (which handles it
+     * the same way as PKCS#7) as we use a block size of 16. See <a
      * href="https://tools.ietf.org/html/rfc5652#section-6.3">rfc5652#section-6.3</a>.
      *
-     * 16 (IV) + 48 (MAC) + 1 (Padding_length field) + 15 (Padding) + 1 (ContentType) + 2
-     * (ProtocolVersion) + 2 (Length)
-     *
-     * TODO: We may need to review this calculation once TLS 1.3 becomes available.
+     * 16 (IV) + 48 (MAC) + 1 (Padding_length field) + 15 (Padding)
+     * + 1 (ContentType in TLSCiphertext) + 2 (ProtocolVersion) + 2 (Length)
+     * + 1 (ContentType in TLSInnerPlaintext)
      */
-    private static final int MAX_ENCRYPTION_OVERHEAD_LENGTH = 15 + 48 + 1 + 16 + 1 + 2 + 2;
+    private static final int MAX_ENCRYPTION_OVERHEAD_LENGTH = 15 + 48 + 1 + 16 + 1 + 2 + 2 + 1;
 
     private static final int MAX_ENCRYPTION_OVERHEAD_DIFF =
             Integer.MAX_VALUE - MAX_ENCRYPTION_OVERHEAD_LENGTH;
@@ -177,17 +177,6 @@ final class SSLUtils {
 
     /** Key type: Elliptic Curve certificate. */
     private static final String KEY_TYPE_EC = "EC";
-
-    /**
-     * If the given session is a {@link SessionDecorator}, unwraps the session and returns the
-     * underlying (non-decorated) session. Otherwise, returns the provided session.
-     */
-    static SSLSession unwrapSession(SSLSession session) {
-        while (session instanceof SessionDecorator) {
-            session = ((SessionDecorator) session).getDelegate();
-        }
-        return session;
-    }
 
     static X509Certificate[] decodeX509CertificateChain(byte[][] certChain)
             throws java.security.cert.CertificateException {
@@ -242,7 +231,8 @@ final class SSLUtils {
      * Visible for testing.
      */
     static String getClientKeyType(byte clientCertificateType) {
-        // See also http://www.ietf.org/assignments/tls-parameters/tls-parameters.xml
+        // See also
+        // https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-2
         switch (clientCertificateType) {
             case NativeConstants.TLS_CT_RSA_SIGN:
                 return KEY_TYPE_RSA; // RFC rsa_sign
@@ -253,35 +243,75 @@ final class SSLUtils {
         }
     }
 
+    static String getClientKeyTypeFromSignatureAlg(int signatureAlg) {
+        // See also
+        // https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml#tls-signaturescheme
+        switch (NativeCrypto.SSL_get_signature_algorithm_key_type(signatureAlg)) {
+            case NativeConstants.EVP_PKEY_RSA:
+                return KEY_TYPE_RSA;
+            case NativeConstants.EVP_PKEY_EC:
+                return KEY_TYPE_EC;
+            default:
+                return null;
+        }
+    }
+
     /**
      * Gets the supported key types for client certificates based on the
      * {@code ClientCertificateType} values provided by the server.
      *
-     * @param clientCertificateTypes {@code ClientCertificateType} values provided by the server.
-     *        See https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml.
+     * @param clientCertificateTypes
+     *         {@code ClientCertificateType} values provided by the server.
+     *         See https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-2.
+     * @param signatureAlgs
+     *         {@code SignatureScheme} values provided by the server.
+     *         See https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml#tls-signaturescheme
      * @return supported key types that can be used in {@code X509KeyManager.chooseClientAlias} and
-     *         {@code X509ExtendedKeyManager.chooseEngineClientAlias}.
+     * {@code X509ExtendedKeyManager.chooseEngineClientAlias}.  If the inputs imply a preference
+     * order, the returned set will have an iteration order that respects that preference order,
+     * otherwise it will be in an arbitrary order.
      *
      * Visible for testing.
      */
-    static Set<String> getSupportedClientKeyTypes(byte[] clientCertificateTypes) {
-        Set<String> result = new HashSet<String>(clientCertificateTypes.length);
+    static Set<String> getSupportedClientKeyTypes(byte[] clientCertificateTypes,
+            int[] signatureAlgs) {
+        Set<String> fromClientCerts = new HashSet<String>(clientCertificateTypes.length);
         for (byte keyTypeCode : clientCertificateTypes) {
             String keyType = SSLUtils.getClientKeyType(keyTypeCode);
             if (keyType == null) {
                 // Unsupported client key type -- ignore
                 continue;
             }
-            result.add(keyType);
+            fromClientCerts.add(keyType);
         }
-        return result;
+        // Signature algorithms are listed in preference order
+        Set<String> fromSigAlgs = new LinkedHashSet<String>(signatureAlgs.length);
+        for (int signatureAlg : signatureAlgs) {
+            String keyType = SSLUtils.getClientKeyTypeFromSignatureAlg(signatureAlg);
+            if (keyType == null) {
+                // Unsupported client key type -- ignore
+                continue;
+            }
+            fromSigAlgs.add(keyType);
+        }
+        // If both are specified, the key needs to meet both sets of requirements.  Otherwise,
+        // just meet the set of requirements that were specified.  See RFC 5246, section 7.4.4.
+        // (In TLS 1.3, certificate_types is no longer used and is never present.)
+        if (clientCertificateTypes.length > 0 && signatureAlgs.length > 0) {
+            fromSigAlgs.retainAll(fromClientCerts);
+            return fromSigAlgs;
+        } else if (signatureAlgs.length > 0) {
+            return fromSigAlgs;
+        } else {
+            return fromClientCerts;
+        }
     }
 
-    static byte[][] encodeIssuerX509Principals(X509Certificate[] certificates)
+    static byte[][] encodeSubjectX509Principals(X509Certificate[] certificates)
             throws CertificateEncodingException {
         byte[][] principalBytes = new byte[certificates.length][];
         for (int i = 0; i < certificates.length; i++) {
-            principalBytes[i] = certificates[i].getIssuerX500Principal().getEncoded();
+            principalBytes[i] = certificates[i].getSubjectX500Principal().getEncoded();
         }
         return principalBytes;
     }
@@ -531,6 +561,20 @@ final class SSLUtils {
 
     private static int unsignedShort(short s) {
         return s & 0xFFFF;
+    }
+
+    static String[] concat(String[]... arrays) {
+        int resultLength = 0;
+        for (String[] array : arrays) {
+            resultLength += array.length;
+        }
+        String[] result = new String[resultLength];
+        int resultOffset = 0;
+        for (String[] array : arrays) {
+            System.arraycopy(array, 0, result, resultOffset, array.length);
+            resultOffset += array.length;
+        }
+        return result;
     }
 
     private SSLUtils() {}

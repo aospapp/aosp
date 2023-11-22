@@ -6,6 +6,7 @@ import collections
 import logging
 import math
 import numbers
+import re
 import time
 import os.path
 
@@ -27,6 +28,13 @@ class NetperfResult(object):
 
         """
         lines = results.splitlines()
+
+        # Include only results lines, which should start with a number. This
+        # helps eliminate inconsistent output, e.g., from benign warnings
+        # like:
+        #   catcher: timer popped with times_up != 0
+        lines = [l for l in lines if re.match('[0-9]+', l.strip())]
+
         if test_type in NetperfConfig.TCP_STREAM_TESTS:
             """Parses the following (works for both TCP_STREAM, TCP_MAERTS and
             TCP_SENDFILE) and returns a singleton containing throughput.
@@ -40,11 +48,11 @@ class NetperfResult(object):
 
             87380  16384  16384    2.00      941.28
             """
-            if len(lines) < 7:
+            if len(lines) < 1:
                 return None
 
             result = NetperfResult(test_type, duration_seconds,
-                                   throughput=float(lines[6].split()[4]))
+                                   throughput=float(lines[0].split()[4]))
         elif test_type in NetperfConfig.UDP_STREAM_TESTS:
             """Parses the following and returns a tuple containing throughput
             and the number of errors.
@@ -58,10 +66,10 @@ class NetperfResult(object):
             129024   65507   2.00         3673      0     961.87
             131072           2.00         3673            961.87
             """
-            if len(lines) < 6:
+            if len(lines) < 1:
                 return None
 
-            udp_tokens = lines[5].split()
+            udp_tokens = lines[0].split()
             result = NetperfResult(test_type, duration_seconds,
                                    throughput=float(udp_tokens[5]),
                                    errors=float(udp_tokens[4]))
@@ -79,11 +87,11 @@ class NetperfResult(object):
             16384  87380  1        1       2.00     14118.53
             16384  87380
             """
-            if len(lines) < 7:
+            if len(lines) < 1:
                 return None
 
             result = NetperfResult(test_type, duration_seconds,
-                                   transaction_rate=float(lines[6].split()[5]))
+                                   transaction_rate=float(lines[0].split()[5]))
         else:
             raise error.TestFail('Invalid netperf test type: %r.' % test_type)
 
@@ -517,7 +525,7 @@ class NetperfRunner(object):
     def _restart_netserv(self):
         logging.info('Starting netserver...')
         self._kill_netserv()
-        self._server_host.run('%s -p %d >/dev/null 2>&1' %
+        self._server_host.run('%s -p %d' %
                               (self._command_netserv, self.NETPERF_PORT))
         startup_time = time.time()
         self._client_proxy.firewall_open('tcp', self._server_proxy.wifi_ip)
@@ -548,7 +556,7 @@ class NetperfRunner(object):
         logging.debug('Running netperf client.')
         logging.info('Running netperf for %d seconds.', self._config.test_time)
         timeout = self._config.test_time + self.NETPERF_COMMAND_TIMEOUT_MARGIN
-        for attempt in range(retry_count):
+        for _ in range(retry_count):
             start_time = time.time()
             result = self._client_host.run(netperf, ignore_status=True,
                                            ignore_timeout=ignore_failures,

@@ -9,7 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:au-perbuild"
 DOC = """
 This tests the forced autoupdate flow at OOBE.
 

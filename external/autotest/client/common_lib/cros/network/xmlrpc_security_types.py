@@ -34,6 +34,7 @@ class SecurityConfig(xmlrpc_types.XmlRpcStruct):
 
     """
     SERVICE_PROPERTY_PASSPHRASE = 'Passphrase'
+    SERVICE_PROPERTY_FT_ENABLED = 'WiFi.FTEnabled'
 
     def __init__(self, security='none'):
         super(SecurityConfig, self).__init__()
@@ -190,10 +191,16 @@ class WPAConfig(SecurityConfig):
     CIPHER_CCMP = 'CCMP'
     CIPHER_TKIP = 'TKIP'
 
+    # Fast Transition (FT) mode for WPA network.
+    FT_MODE_NONE = 1
+    FT_MODE_PURE = 2
+    FT_MODE_MIXED = FT_MODE_NONE | FT_MODE_PURE
+    FT_MODE_DEFAULT = FT_MODE_NONE
+
     def __init__(self, psk='', wpa_mode=MODE_DEFAULT, wpa_ciphers=[],
                  wpa2_ciphers=[], wpa_ptk_rekey_period=None,
                  wpa_gtk_rekey_period=None, wpa_gmk_rekey_period=None,
-                 use_strict_rekey=None):
+                 use_strict_rekey=None, ft_mode=FT_MODE_NONE):
         """Construct a WPAConfig.
 
         @param psk string a passphrase (64 hex characters or an ASCII phrase up
@@ -210,6 +217,7 @@ class WPAConfig(SecurityConfig):
                 It is the 'master' key.
         @param use_strict_rekey bool True iff hostapd should refresh the GTK
                 whenever any client leaves the group.
+        @param ft_mode int one of the FT_MODE_* in SecurityConfig.
 
         """
         super(WPAConfig, self).__init__(security='psk')
@@ -221,6 +229,7 @@ class WPAConfig(SecurityConfig):
         self.wpa_gtk_rekey_period = wpa_gtk_rekey_period
         self.wpa_gmk_rekey_period = wpa_gmk_rekey_period
         self.use_strict_rekey = use_strict_rekey
+        self.ft_mode = ft_mode
         if len(psk) > 64:
             raise error.TestFail('WPA passphrases can be no longer than 63 '
                                  'characters (or 64 hex digits).')
@@ -247,10 +256,14 @@ class WPAConfig(SecurityConfig):
 
         ret = {'wpa': self.wpa_mode,
                'wpa_key_mgmt': 'WPA-PSK'}
+        if self.ft_mode == self.FT_MODE_PURE:
+            ret['wpa_key_mgmt'] = 'FT-PSK'
+        elif self.ft_mode == self.FT_MODE_MIXED:
+            ret['wpa_key_mgmt'] = 'WPA-PSK FT-PSK'
         if len(self.psk) == 64:
-           ret['wpa_psk'] = self.psk
+            ret['wpa_psk'] = self.psk
         else:
-           ret['wpa_passphrase'] = self.psk
+            ret['wpa_passphrase'] = self.psk
 
         if self.wpa_ciphers:
             ret['wpa_pairwise'] = ' '.join(self.wpa_ciphers)
@@ -269,7 +282,10 @@ class WPAConfig(SecurityConfig):
 
     def get_shill_service_properties(self):
         """@return dict of shill service properties."""
-        return {self.SERVICE_PROPERTY_PASSPHRASE: self.psk}
+        ret = {self.SERVICE_PROPERTY_PASSPHRASE: self.psk}
+        if self.ft_mode & self.FT_MODE_PURE:
+            ret[self.SERVICE_PROPERTY_FT_ENABLED] = True
+        return ret
 
 
     def get_wpa_cli_properties(self):
@@ -283,6 +299,10 @@ class WPAConfig(SecurityConfig):
         properties.update({'psk': '\\"%s\\"' % self.psk,
                            'key_mgmt': 'WPA-PSK',
                            'proto': ' '.join(protos)})
+        if self.ft_mode == self.FT_MODE_PURE:
+            properties['key_mgmt'] = 'FT-PSK'
+        elif self.ft_mode == self.FT_MODE_MIXED:
+            properties['key_mgmt'] = 'WPA-PSK FT-PSK'
         return properties
 
 
@@ -318,7 +338,7 @@ class EAPConfig(SecurityConfig):
                  server_eap_users=None,
                  client_ca_cert=None, client_cert=None, client_key=None,
                  client_cert_id=None, client_key_id=None,
-                 eap_identity=None):
+                 eap_identity=None, ft_mode=WPAConfig.FT_MODE_DEFAULT):
         """Construct an EAPConfig.
 
         @param file_suffix string unique file suffix on DUT.
@@ -333,6 +353,7 @@ class EAPConfig(SecurityConfig):
         @param client_cert_id string identifier for client certificate in TPM.
         @param client_key_id string identifier for client private key in TPM.
         @param eap_identity string user to authenticate as during EAP.
+        @param ft_mode int one of the FT_MODE_* in SecurityConfig.
 
         """
         super(EAPConfig, self).__init__(security=security)
@@ -363,6 +384,7 @@ class EAPConfig(SecurityConfig):
         self.client_cert_slot_id = None
         self.client_key_slot_id = None
         self.eap_identity = eap_identity or self.DEFAULT_EAP_IDENTITY
+        self.ft_mode = ft_mode
 
 
     def install_router_credentials(self, host):
@@ -426,6 +448,8 @@ class EAPConfig(SecurityConfig):
                     '%s:%s' % (self.client_key_slot_id, self.client_key_id))
         if self.use_system_cas is not None:
             ret[self.SERVICE_PROPERTY_USE_SYSTEM_CAS] = self.use_system_cas
+        if self.ft_mode & WPAConfig.FT_MODE_PURE:
+            ret[self.SERVICE_PROPERTY_FT_ENABLED] = True
         return ret
 
 
@@ -507,7 +531,8 @@ class WPAEAPConfig(EAPConfig):
                  client_ca_cert=None, client_cert=None, client_key=None,
                  client_cert_id=None, client_key_id=None,
                  eap_identity=None, server_eap_users=None,
-                 wpa_mode=WPAConfig.MODE_PURE_WPA):
+                 wpa_mode=WPAConfig.MODE_PURE_WPA,
+                 ft_mode=WPAConfig.FT_MODE_DEFAULT):
         """Construct a DynamicWEPConfig.
 
         @param file_suffix string unique file suffix on DUT.
@@ -522,6 +547,7 @@ class WPAEAPConfig(EAPConfig):
         @param client_key_id string identifier for client private key in TPM.
         @param eap_identity string user to authenticate as during EAP.
         @param server_eap_users string contents of server EAP users file.
+        @param ft_mode int one of the FT_MODE_* in SecurityConfig
 
         """
         super(WPAEAPConfig, self).__init__(
@@ -530,7 +556,8 @@ class WPAEAPConfig(EAPConfig):
                 server_key=server_key, client_ca_cert=client_ca_cert,
                 client_cert=client_cert, client_key=client_key,
                 client_cert_id=client_cert_id, client_key_id=client_key_id,
-                eap_identity=eap_identity, server_eap_users=server_eap_users)
+                eap_identity=eap_identity, server_eap_users=server_eap_users,
+                ft_mode=ft_mode)
         self.wpa_mode = wpa_mode
 
 
@@ -543,6 +570,10 @@ class WPAEAPConfig(EAPConfig):
         ret.update({'wpa': self.wpa_mode,
                     'wpa_pairwise': WPAConfig.CIPHER_CCMP,
                     'wpa_key_mgmt':'WPA-EAP'})
+        if self.ft_mode == WPAConfig.FT_MODE_PURE:
+            ret['wpa_key_mgmt'] = 'FT-EAP'
+        elif self.ft_mode == WPAConfig.FT_MODE_MIXED:
+            ret['wpa_key_mgmt'] = 'WPA-EAP FT-EAP'
         return ret
 
 

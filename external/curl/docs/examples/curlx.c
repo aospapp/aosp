@@ -159,7 +159,7 @@ static char *ia5string(ASN1_IA5STRING *ia5)
   return tmp;
 }
 
-/* A conveniance routine to get an access URI. */
+/* A convenience routine to get an access URI. */
 static unsigned char *my_get_ext(X509 *cert, const int type,
                                  int extensiontype)
 {
@@ -183,7 +183,7 @@ static unsigned char *my_get_ext(X509 *cert, const int type,
 
 /* This is an application verification call back, it does not
    perform any addition verification but tries to find a URL
-   in the presented certificat. If found, this will become
+   in the presented certificate. If found, this will become
    the URL to be used in the POST.
 */
 
@@ -515,12 +515,20 @@ int main(int argc, char **argv)
   curl_easy_setopt(p.curl, CURLOPT_SSL_CTX_DATA, &p);
 
   {
+    char *ptr;
     int lu; int i = 0;
     while((lu = BIO_read(in, &binaryptr[i], tabLength-i)) >0) {
       i += lu;
       if(i == tabLength) {
         tabLength += 100;
-        binaryptr = realloc(binaryptr, tabLength); /* should be more careful */
+        ptr = realloc(binaryptr, tabLength); /* should be more careful */
+        if(!ptr) {
+          /* out of memory */
+          BIO_printf(p.errorbio, "out of memory (realloc returned NULL)\n");
+          goto fail;
+        }
+        binaryptr = ptr;
+        ptr = NULL;
       }
     }
     tabLength = i;
@@ -551,7 +559,7 @@ int main(int argc, char **argv)
   /*** code d'erreur si accept mime ***, egalement code return HTTP != 200 ***/
 
 /* free the header list*/
-
+fail:
   curl_slist_free_all(headers);
 
   /* always cleanup */

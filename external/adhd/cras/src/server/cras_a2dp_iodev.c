@@ -8,6 +8,7 @@
 #include <sys/param.h>
 #include <linux/sockios.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <syslog.h>
 #include <time.h>
 
@@ -128,14 +129,14 @@ static int frames_queued(const struct cras_iodev *iodev,
 	int estimate_queued_frames = bt_queued_frames(iodev, 0);
 	int local_queued_frames =
 			a2dp_queued_frames(&a2dpio->a2dp) +
-			buf_queued_bytes(a2dpio->pcm_buf) /
+			buf_queued(a2dpio->pcm_buf) /
 				cras_get_format_bytes(iodev->format);
 	clock_gettime(CLOCK_MONOTONIC_RAW, tstamp);
 	return MIN(iodev->buffer_size,
 		   MAX(estimate_queued_frames, local_queued_frames));
 }
 
-static int open_dev(struct cras_iodev *iodev)
+static int configure_dev(struct cras_iodev *iodev)
 {
 	struct a2dp_io *a2dpio = (struct a2dp_io *)iodev;
 	int sock_depth;
@@ -214,7 +215,7 @@ static int close_dev(struct cras_iodev *iodev)
 	if (device)
 		cras_bt_device_cancel_suspend(device);
 	a2dp_drain(&a2dpio->a2dp);
-	byte_buffer_destroy(a2dpio->pcm_buf);
+	byte_buffer_destroy(&a2dpio->pcm_buf);
 	cras_iodev_free_format(iodev);
 	cras_iodev_free_audio_area(iodev);
 	return 0;
@@ -279,17 +280,17 @@ static int flush_data(void *arg)
 		return -EINVAL;
 
 encode_more:
-	while (buf_queued_bytes(a2dpio->pcm_buf)) {
+	while (buf_queued(a2dpio->pcm_buf)) {
 		processed = a2dp_encode(
 				&a2dpio->a2dp,
 				buf_read_pointer(a2dpio->pcm_buf),
-				buf_readable_bytes(a2dpio->pcm_buf),
+				buf_readable(a2dpio->pcm_buf),
 				format_bytes,
 				cras_bt_transport_write_mtu(a2dpio->transport));
 		ATLOG(atlog, AUDIO_THREAD_A2DP_ENCODE,
 					    processed,
-					    buf_queued_bytes(a2dpio->pcm_buf),
-					    buf_readable_bytes(a2dpio->pcm_buf)
+					    buf_queued(a2dpio->pcm_buf),
+					    buf_readable(a2dpio->pcm_buf)
 					    );
 		if (processed == -ENOSPC || processed == 0)
 			break;
@@ -328,7 +329,7 @@ encode_more:
 	 * encode more. But avoid the case when PCM buffer level is too close
 	 * to min_buffer_level so that another A2DP write could causes underrun.
 	 */
-	queued_frames = buf_queued_bytes(a2dpio->pcm_buf) / format_bytes;
+	queued_frames = buf_queued(a2dpio->pcm_buf) / format_bytes;
 	if (written && (iodev->min_buffer_level + written < queued_frames))
 		goto encode_more;
 
@@ -362,7 +363,7 @@ static int get_buffer(struct cras_iodev *iodev,
 	if (iodev->direction != CRAS_STREAM_OUTPUT)
 		return 0;
 
-	*frames = MIN(*frames, buf_writable_bytes(a2dpio->pcm_buf) /
+	*frames = MIN(*frames, buf_writable(a2dpio->pcm_buf) /
 					format_bytes);
 	iodev->area->frames = *frames;
 	cras_audio_area_config_buf_pointers(
@@ -381,7 +382,7 @@ static int put_buffer(struct cras_iodev *iodev, unsigned nwritten)
 	format_bytes = cras_get_format_bytes(iodev->format);
 	written_bytes = nwritten * format_bytes;
 
-	if (written_bytes > buf_writable_bytes(a2dpio->pcm_buf))
+	if (written_bytes > buf_writable(a2dpio->pcm_buf))
 		return -EINVAL;
 
 	buf_increment_write(a2dpio->pcm_buf, written_bytes);
@@ -437,6 +438,7 @@ void free_resources(struct a2dp_io *a2dpio)
 	}
 	free(a2dpio->base.supported_channel_counts);
 	free(a2dpio->base.supported_rates);
+	free(a2dpio->base.supported_formats);
 	destroy_a2dp(&a2dpio->a2dp);
 }
 
@@ -484,7 +486,7 @@ struct cras_iodev *a2dp_iodev_create(struct cras_bt_transport *transport)
 			strlen(cras_bt_device_object_path(device)));
 	iodev->info.stable_id_new = iodev->info.stable_id;
 
-	iodev->open_dev = open_dev;
+	iodev->configure_dev = configure_dev;
 	iodev->frames_queued = frames_queued;
 	iodev->delay_frames = delay_frames;
 	iodev->get_buffer = get_buffer;

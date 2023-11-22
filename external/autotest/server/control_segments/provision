@@ -49,8 +49,7 @@ def provision_machine(machine):
     try:
         job.sysinfo.add_logdir(
                 sysinfo.logdir(constants.AUTOUPDATE_PRESERVE_LOG))
-        provision.run_special_task_actions(job, host, labels_list,
-                                           provision.Provision)
+        provision.Provision.run_task_actions(job, host, labels_list)
         host.verify()
 
         # Let's update the labels on the host and track how long it takes.
@@ -59,7 +58,7 @@ def provision_machine(machine):
         label_update_success = True
         start_time = datetime.datetime.now()
         try:
-            host.update_labels()
+            host.labels.update_labels(host, keep_pool=True)
         except Exception:
             logging.exception('Exception while updating labels.')
             label_update_success = False
@@ -68,10 +67,7 @@ def provision_machine(machine):
         duration = (end_time - start_time).total_seconds()
 
         fields = {'success': label_update_success,
-                  # TODO(kevcheng): Need a better way of classifying testbeds.
-                  'board': (host.get_board()
-                            if not utils.machine_is_testbed(machine)
-                            else host.get_platform())}
+                  'board': host.get_board()}
         _LABEL_UPDATE_DURATION_METRIC.add(duration, fields=fields)
     except Exception:
         logging.exception('Provision failed due to Exception.')

@@ -11,6 +11,7 @@ except django.core.exceptions.ImproperlyConfigured:
                        'setup_django_lite_environment from '
                        'autotest_lib.frontend before any imports that '
                        'depend on django models.')
+from django.db import utils as django_utils
 from xml.sax import saxutils
 import common
 from autotest_lib.frontend.afe import model_logic, model_attributes
@@ -543,6 +544,9 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
 
     @classmethod
     def classify_label_objects(cls, label_objects):
+        if not RESPECT_STATIC_LABELS:
+            return [], label_objects
+
         replaced_labels = ReplacedLabel.objects.filter(label__in=label_objects)
         replaced_ids = [l.label.id for l in replaced_labels]
         non_static_labels = [
@@ -851,7 +855,9 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
                 boards += [label.name for label in host.staticlabel_list
                            if label.name.startswith('board:')]
 
-            if not server_utils.board_labels_allowed(boards + new_labels):
+            new_boards = [name for name in new_labels
+                          if name.startswith('board:')]
+            if len(boards) + len(new_boards) > 1:
                 # do a join, just in case this host has multiple boards,
                 # we'll be able to see it
                 errors.append('Host %s already has board labels: %s' % (
@@ -1485,8 +1491,13 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
     DEFAULT_MAX_RUNTIME_MINS = global_config.global_config.get_config_value(
         'AUTOTEST_WEB', 'job_max_runtime_mins_default', default=72*60)
     DEFAULT_PARSE_FAILED_REPAIR = global_config.global_config.get_config_value(
-        'AUTOTEST_WEB', 'parse_failed_repair_default', type=bool,
-        default=False)
+        'AUTOTEST_WEB', 'parse_failed_repair_default', type=bool, default=False)
+    FETCH_READONLY_JOBS = global_config.global_config.get_config_value(
+        'AUTOTEST_WEB','readonly_heartbeat', type=bool, default=False)
+    CHECK_MASTER_IF_EMPTY = global_config.global_config.get_config_value(
+        'AUTOTEST_WEB','heartbeat_fall_back_to_master',
+        type=bool, default=False)
+
 
     owner = dbmodels.CharField(max_length=255)
     name = dbmodels.CharField(max_length=255)
@@ -1660,10 +1671,26 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
             check_known_jobs_exclude = 'AND NOT ' + check_known_jobs
             check_known_jobs_include = 'OR ' + check_known_jobs
 
-        query = Job.objects.raw(cls.SQL_SHARD_JOBS % {
-                'check_known_jobs': check_known_jobs_exclude,
-                'shard_id': shard.id})
-        job_ids |= set([j.id for j in query])
+        raw_sql = cls.SQL_SHARD_JOBS % {
+            'check_known_jobs': check_known_jobs_exclude,
+            'shard_id': shard.id
+        }
+
+
+        if cls.FETCH_READONLY_JOBS:
+            #TODO(jkop): Get rid of this kludge when we update Django to >=1.7
+            #correct usage would be .raw(..., using='readonly')
+            old_db = Job.objects._db
+            try:
+                Job.objects._db = 'readonly'
+                job_ids = set([j.id for j in Job.objects.raw(raw_sql)])
+            except django_utils.DatabaseError:
+                logging.exception(
+                    'Error attempting to query slave db, will retry on master')
+            finally:
+                Job.objects._db = old_db
+        else:
+            job_ids = set([j.id for j in Job.objects.raw(raw_sql)])
 
         static_labels, non_static_labels = Host.classify_label_objects(
                 shard.labels.all())

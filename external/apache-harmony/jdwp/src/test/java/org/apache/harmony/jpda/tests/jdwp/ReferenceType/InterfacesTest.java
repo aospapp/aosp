@@ -40,11 +40,10 @@ public class InterfacesTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.Interfaces command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/InterfacesDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.InterfacesDebuggee";
+        return InterfacesDebuggee.class.getName();
     }
 
     /**
@@ -59,7 +58,7 @@ public class InterfacesTest extends JDWPSyncTestCase {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String checkedClassSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/CheckedClass_Interfaces001;";
+        String checkedClassSignature = getClassSignature(CheckedClass_Interfaces001.class);
         long refTypeID = getClassIDBySignature(checkedClassSignature);
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
@@ -80,8 +79,8 @@ public class InterfacesTest extends JDWPSyncTestCase {
         logWriter.println("=> Returned interfaces number = " + returnedInterfacesNumber);
 
         String interfacesSignatures[] = {
-                "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/Interface_1_Interfaces001;",
-                "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/Interface_2_Interfaces001;",
+                getClassSignature(Interface_1_Interfaces001.class),
+                getClassSignature(Interface_2_Interfaces001.class),
         };
 
         boolean interfacesFound[] = {

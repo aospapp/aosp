@@ -22,6 +22,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vktSpvAsmComputeShaderTestUtil.hpp"
+#include "tcuStringTemplate.hpp"
 
 namespace vkt
 {
@@ -29,7 +30,7 @@ namespace SpirVAssembly
 {
 namespace
 {
-bool verifyOutputWithEpsilon (const std::vector<AllocationSp>& outputAllocs, const std::vector<BufferSp>& expectedOutputs, tcu::TestLog& log, const float epsilon)
+bool verifyOutputWithEpsilon (const std::vector<AllocationSp>& outputAllocs, const std::vector<Resource>& expectedOutputs, tcu::TestLog& log, const float epsilon)
 {
 	DE_ASSERT(outputAllocs.size() != 0);
 	DE_ASSERT(outputAllocs.size() == expectedOutputs.size());
@@ -37,7 +38,7 @@ bool verifyOutputWithEpsilon (const std::vector<AllocationSp>& outputAllocs, con
 	for (size_t outputNdx = 0; outputNdx < outputAllocs.size(); ++outputNdx)
 	{
 		std::vector<deUint8>	expectedBytes;
-		expectedOutputs[outputNdx]->getBytes(expectedBytes);
+		expectedOutputs[outputNdx].getBytes(expectedBytes);
 
 		std::vector<float>	expectedFloats	(expectedBytes.size() / sizeof (float));
 		std::vector<float>	actualFloats	(expectedBytes.size() / sizeof (float));
@@ -59,13 +60,24 @@ bool verifyOutputWithEpsilon (const std::vector<AllocationSp>& outputAllocs, con
 }
 }
 
-const char* getComputeAsmShaderPreamble (void)
+std::string getComputeAsmShaderPreamble (const std::string& capabilities, const std::string& extensions, const std::string& exeModes)
+{
+	return
+		std::string("OpCapability Shader\n") +
+		capabilities +
+		extensions +
+		"OpMemoryModel Logical GLSL450\n"
+		"OpEntryPoint GLCompute %main \"main\" %id\n"
+		"OpExecutionMode %main LocalSize 1 1 1\n"+
+		exeModes;
+}
+
+const char* getComputeAsmShaderPreambleWithoutLocalSize (void)
 {
 	return
 		"OpCapability Shader\n"
 		"OpMemoryModel Logical GLSL450\n"
-		"OpEntryPoint GLCompute %main \"main\" %id\n"
-		"OpExecutionMode %main LocalSize 1 1 1\n";
+		"OpEntryPoint GLCompute %main \"main\" %id\n";
 }
 
 std::string getComputeAsmCommonTypes (std::string blockStorageClass)
@@ -115,10 +127,73 @@ const char* getComputeAsmInputOutputBufferTraits (void)
 		"OpMemberDecorate %buf 0 Offset 0\n";
 }
 
-bool verifyOutput (const std::vector<BufferSp>&, const std::vector<AllocationSp>& outputAllocs, const std::vector<BufferSp>& expectedOutputs, tcu::TestLog& log)
+bool verifyOutput (const std::vector<Resource>&, const std::vector<AllocationSp>& outputAllocs, const std::vector<Resource>& expectedOutputs, tcu::TestLog& log)
 {
 	const float	epsilon	= 0.001f;
 	return verifyOutputWithEpsilon(outputAllocs, expectedOutputs, log, epsilon);
+}
+
+// Creates compute-shader assembly by specializing a boilerplate StringTemplate
+// on fragments, which must (at least) map "testfun" to an OpFunction definition
+// for %test_code that takes and returns a %v4f32.  Boilerplate IDs are prefixed
+// with "BP_" to avoid collisions with fragments.
+//
+// It corresponds roughly to this GLSL:
+//;
+// void main (void) { test_func(vec4(gl_GlobalInvocationID)); }
+std::string makeComputeShaderAssembly(const std::map<std::string, std::string>& fragments)
+{
+	static const char computeShaderBoilerplate[] =
+		"OpCapability Shader\n"
+
+		"${capability:opt}\n"
+		"${extension:opt}\n"
+
+		"OpMemoryModel Logical GLSL450\n"
+		"OpEntryPoint GLCompute %BP_main \"main\" %BP_id3u\n"
+		"OpExecutionMode %BP_main LocalSize 1 1 1\n"
+		"${execution_mode:opt}\n"
+		"OpSource GLSL 430\n"
+		"OpDecorate %BP_id3u BuiltIn GlobalInvocationId\n"
+
+		"${decoration:opt}\n"
+
+		SPIRV_ASSEMBLY_TYPES
+		SPIRV_ASSEMBLY_CONSTANTS
+		SPIRV_ASSEMBLY_ARRAYS
+
+		"%ip_v3u32  = OpTypePointer Input %v3u32\n"
+		"%BP_id3u   = OpVariable %ip_v3u32 Input\n"
+
+		"${pre_main:opt}\n"
+
+		"%BP_main   = OpFunction %void None %fun\n"
+		"%BP_label  = OpLabel\n"
+		"%BP_id3ul  = OpLoad %v3u32 %BP_id3u\n"
+		"%BP_id4u   = OpCompositeConstruct %v4u32 %BP_id3ul %c_u32_0\n"
+		"%BP_id4f   = OpConvertUToF %v4f32 %BP_id4u\n"
+		"%BP_result = OpFunctionCall %v4f32 %test_code %BP_id4f\n"
+		"             OpReturn\n"
+		"             OpFunctionEnd\n"
+		"\n"
+		"${testfun}\n"
+		"\n"
+
+		"%isUniqueIdZero = OpFunction %bool None %bool_function\n"
+		"%BP_getId_label = OpLabel\n"
+		"%BP_id_0_ptr = OpAccessChain %ip_u32 %BP_id3u %c_u32_0\n"
+		"%BP_id_1_ptr = OpAccessChain %ip_u32 %BP_id3u %c_u32_1\n"
+		"%BP_id_2_ptr = OpAccessChain %ip_u32 %BP_id3u %c_u32_2\n"
+		"%BP_id_0_val = OpLoad %u32 %BP_id_0_ptr\n"
+		"%BP_id_1_val = OpLoad %u32 %BP_id_1_ptr\n"
+		"%BP_id_2_val = OpLoad %u32 %BP_id_2_ptr\n"
+		"%BP_id_uni_0 = OpBitwiseOr %u32 %BP_id_0_val %BP_id_1_val\n"
+		"  %BP_id_uni = OpBitwiseOr %u32 %BP_id_2_val %BP_id_uni_0\n"
+		" %is_id_zero = OpIEqual %bool %BP_id_uni %c_u32_0\n"
+		"               OpReturnValue %is_id_zero\n"
+		"               OpFunctionEnd\n";
+
+	return tcu::StringTemplate(computeShaderBoilerplate).specialize(fragments);
 }
 
 } // SpirVAssembly

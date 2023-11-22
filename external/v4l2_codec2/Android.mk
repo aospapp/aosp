@@ -29,16 +29,20 @@ LOCAL_SHARED_LIBRARIES := libbinder \
                           liblog \
                           libmedia \
                           libstagefright \
+                          libstagefright_bufferqueue_helper \
+                          libstagefright_ccodec_ext \
+                          libstagefright_ccodec_utils \
                           libstagefright_codec2 \
                           libstagefright_codec2_vndk \
                           libstagefright_simple_c2component \
                           libstagefright_foundation \
                           libutils \
                           libv4l2_codec2_vda \
+                          libvda_c2_pixelformat \
                           libvda_c2componentstore \
 
 # -Wno-unused-parameter is needed for libchrome/base codes
-LOCAL_CFLAGS += -Werror -Wall -Wno-unused-parameter -std=c++14
+LOCAL_CFLAGS += -Werror -Wall -Wno-unused-parameter
 LOCAL_CFLAGS += -Wno-unused-lambda-capture -Wno-unknown-warning-option
 LOCAL_CLANG := true
 LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow
@@ -54,8 +58,8 @@ LOCAL_SRC_FILES += \
 LOCAL_SRC_FILES := $(filter-out C2VDAAdaptor.cpp, $(LOCAL_SRC_FILES))
 LOCAL_SHARED_LIBRARIES += libarcbridge \
                           libarcbridgeservice \
+                          libcodec2_arcva_factory \
                           libmojo \
-                          libv4l2_codec2_arcva_factory \
 
 endif # ifneq (,$(findstring cheets_,$(TARGET_PRODUCT)))
 

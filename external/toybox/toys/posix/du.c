@@ -6,7 +6,7 @@
  *
  * TODO: cleanup
 
-USE_DU(NEWTOY(du, "d#<0hmlcaHkKLsx[-HL][-kKmh]", TOYFLAG_USR|TOYFLAG_BIN))
+USE_DU(NEWTOY(du, "d#<0=-1hmlcaHkKLsx[-HL][-kKmh]", TOYFLAG_USR|TOYFLAG_BIN))
 
 config DU
   bool "du"
@@ -19,25 +19,25 @@ config DU
     Size in:
     -k	1024 byte blocks (default)
     -K	512 byte blocks (posix)
-    -m	megabytes
-    -h	human readable format (e.g., 1K 243M 2G )
+    -m	Megabytes
+    -h	Human readable (e.g., 1K 243M 2G)
 
     What to show:
-    -a	all files, not just directories
-    -H	follow symlinks on cmdline
-    -L	follow all symlinks
-    -s	only total size of each argument
-    -x	don't leave this filesystem
-    -c	cumulative total
-    -d N	only depth < N
-    -l	disable hardlink filter
+    -a	All files, not just directories
+    -H	Follow symlinks on cmdline
+    -L	Follow all symlinks
+    -s	Only total size of each argument
+    -x	Don't leave this filesystem
+    -c	Cumulative total
+    -d N	Only depth < N
+    -l	Disable hardlink filter
 */
 
 #define FOR_du
 #include "toys.h"
 
 GLOBALS(
-  long maxdepth;
+  long d;
 
   unsigned long depth, total;
   dev_t st_dev;
@@ -54,7 +54,7 @@ static void print(long long size, struct dirtree *node)
 {
   char *name = "total";
 
-  if (TT.maxdepth && TT.depth > TT.maxdepth) return;
+  if (TT.depth > TT.d) return;
 
   if (toys.optflags & FLAG_h) {
     human_readable(toybuf, size, 0);

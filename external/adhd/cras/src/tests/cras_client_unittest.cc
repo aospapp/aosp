@@ -164,6 +164,7 @@ TEST_F(CrasClientTestSuite, HandleCaptureDataReady) {
   handle_capture_data_ready(&stream_, 480);
   EXPECT_EQ(1, samples_ready_called);
   EXPECT_EQ(0, shm->area->read_buf_idx);
+  FreeShm(shm);
 }
 
 void CrasClientTestSuite::StreamConnected(CRAS_STREAM_DIRECTION direction) {
@@ -171,6 +172,7 @@ void CrasClientTestSuite::StreamConnected(CRAS_STREAM_DIRECTION direction) {
   int shm_fds[2] = {0, 1};
   int shm_max_size = 600;
   size_t format_bytes;
+  size_t effects = 123;
   struct cras_audio_shm_area area;
 
   stream_.direction = direction;
@@ -192,7 +194,8 @@ void CrasClientTestSuite::StreamConnected(CRAS_STREAM_DIRECTION direction) {
       0,
       stream_.id,
       &server_format,
-      shm_max_size);
+      shm_max_size,
+      effects);
 
   stream_connected(&stream_, &msg, shm_fds, 2);
 
@@ -222,6 +225,7 @@ void CrasClientTestSuite::StreamConnectedFail(
   int shm_fds[2] = {0, 1};
   int shm_max_size = 600;
   size_t format_bytes;
+  size_t effects = 123;
   struct cras_audio_shm_area area;
   int rc;
 
@@ -250,7 +254,8 @@ void CrasClientTestSuite::StreamConnectedFail(
       1,
       stream_.id,
       &server_format,
-      shm_max_size);
+      shm_max_size,
+      effects);
 
   stream_connected(&stream_, &msg, shm_fds, 2);
 
@@ -367,4 +372,16 @@ void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
   return mmap_return_value;
 }
+
+struct cras_audio_format *cras_audio_format_create(snd_pcm_format_t format,
+                                                   size_t frame_rate,
+                                                   size_t num_channels)
+{
+  return reinterpret_cast<struct cras_audio_format*>(0x123);
+}
+
+void cras_audio_format_destroy(struct cras_audio_format *fmt)
+{
+}
+
 }

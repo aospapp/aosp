@@ -108,7 +108,7 @@ AC_DEFUN(
         [CHECK_GNU_MAKE], [ AC_CACHE_CHECK( for GNU make,_cv_gnu_make_command,
                 _cv_gnu_make_command='' ;
 dnl Search all the common names for GNU make
-                if test -z "$FORCE_NATIVE_MAKE" ; then
+                if test -n "$FORCE_NATIVE_MAKE" ; then
                    MAKES="make"
                 else
                    MAKES="make gmake gnumake"
@@ -133,21 +133,3 @@ dnl If there was a GNU version, then set @ifGNUmake@ to the empty string, '#' ot
         AC_SUBST(ifGNUmake)
         AC_SUBST(ifNotGNUmake)
 ] )
-# was originally from nls.m4 serial 1 (gettext-0.12)
-AC_DEFUN([AM_MKINSTALLDIRS],
-[
-  dnl If the AC_CONFIG_AUX_DIR macro for autoconf is used we possibly
-  dnl find the mkinstalldirs script in another subdir but $(top_srcdir).
-  dnl Try to locate it.
-  MKINSTALLDIRS=
-  if test -n "$ac_aux_dir"; then
-    case "$ac_aux_dir" in
-      /*) MKINSTALLDIRS="$ac_aux_dir/mkinstalldirs" ;;
-      *) MKINSTALLDIRS="\$(top_builddir)/$ac_aux_dir/mkinstalldirs" ;;
-    esac
-  fi
-  if test -z "$MKINSTALLDIRS"; then
-    MKINSTALLDIRS="\$(top_srcdir)/mkinstalldirs"
-  fi
-  AC_SUBST(MKINSTALLDIRS)
-])

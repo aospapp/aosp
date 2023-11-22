@@ -6,14 +6,12 @@
 
 #include <string>
 
-#include "camera_characteristics.h"
-#include "common_types.h"
 #include "media_v4l2_device.h"
 
 /* Test lists */
 static const char kDefaultTestList[] = "default";
 static const char kHalv3TestList[] = "halv3";
-static const char kExternalCameraTestList[] = "external-camera";
+static const char kCertificationTestList[] = "certification";
 
 bool ExerciseControl(V4L2Device* v4l2_dev, uint32_t id, const char* control) {
   v4l2_queryctrl query_ctrl;
@@ -299,7 +297,7 @@ static void PrintUsage(int argc, char** argv) {
          "--test-list=TEST     Select different test list\n"
          "                     [%s | %s | %s]\n",
          argv[0], kDefaultTestList, kHalv3TestList,
-         kExternalCameraTestList);
+         kCertificationTestList);
 }
 
 static const char short_options[] = "?d:u:t:";
@@ -344,23 +342,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::unordered_map<std::string, std::string> mapping = {{usb_info, dev_name}};
-  CameraCharacteristics characteristics;
-  DeviceInfos device_infos =
-      characteristics.GetCharacteristicsFromFile(mapping);
-  if (device_infos.size() > 1) {
-    printf("[Error] One device should not have multiple configs.\n");
-    return EXIT_FAILURE;
-  }
-
-  bool constant_framerate = false;
-  if (test_list == kDefaultTestList) {
-    if (device_infos.size() == 1) {
-      constant_framerate = !device_infos[0].constant_framerate_unsupported;
-    }
-  } else {
-    constant_framerate = true;
-  }
+  bool constant_framerate = (test_list != kDefaultTestList);
   printf("[Info] constant framerate: %d\n", constant_framerate);
 
   TestMultipleOpen(dev_name.c_str());

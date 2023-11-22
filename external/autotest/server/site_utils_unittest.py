@@ -6,14 +6,13 @@ import unittest
 
 import common
 from autotest_lib.frontend import setup_django_lite_environment
-from autotest_lib.frontend.afe import rpc_interface
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import tools
+from autotest_lib.server.cros.dynamic_suite import suite_common
 
 
 class SiteUtilsUnittests(unittest.TestCase):
-    """Test functions in site_utils.py
-    """
+    """Test functions in site_utils.py"""
 
     def testParseJobName(self):
         """Test method parse_job_name.
@@ -42,7 +41,7 @@ class SiteUtilsUnittests(unittest.TestCase):
             else:
                 expected_info['build_version'] = build_parts[2]
             suite_job_name = ('%s-%s' %
-                    (build, rpc_interface.canonicalize_suite_name(suite)))
+                    (build, suite_common.canonicalize_suite_name(suite)))
             info = site_utils.parse_job_name(suite_job_name)
             self.assertEqual(info, expected_info, '%s failed to be parsed to '
                              '%s' % (suite_job_name, expected_info))
@@ -50,20 +49,6 @@ class SiteUtilsUnittests(unittest.TestCase):
             info = site_utils.parse_job_name(test_job_name)
             self.assertEqual(info, expected_info, '%s failed to be parsed to '
                              '%s' % (test_job_name, expected_info))
-
-
-    def test_board_labels_allowed(self):
-        """Test method board_labels_allowed."""
-        boards = ['board:name']
-        self.assertEquals(True, site_utils.board_labels_allowed(boards))
-        boards = ['board:name', 'board:another']
-        self.assertEquals(False, site_utils.board_labels_allowed(boards))
-        boards = ['board:name-1', 'board:name-2']
-        self.assertEquals(True, site_utils.board_labels_allowed(boards))
-        boards = ['board:name-1', 'board:another-2']
-        self.assertEquals(True, site_utils.board_labels_allowed(boards))
-        boards = ['board:name', 'board:another-1']
-        self.assertEquals(False, site_utils.board_labels_allowed(boards))
 
 
 if __name__ == '__main__':

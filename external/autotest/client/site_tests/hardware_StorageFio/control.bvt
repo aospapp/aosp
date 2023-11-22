@@ -22,8 +22,8 @@ Use following test over 64 MB area.
 job.run_test(url=NAME.split('.')[0], filesize=64 * 1024 * 1024,
              tag=NAME.split('.')[1], requirements = [('bvt_job', [])],
              constraints=[
-                 '_64k_read_read_clat_max <= 2000000',
-                 '_64k_write_write_clat_max <= 2000000',
+                 '_64k_read_read_clat_ns_max <= 2000000000',
+                 '_64k_write_write_clat_ns_max <= 2000000000',
                  '_seq_read_read_bw >= 5 * 1024',
                  '_seq_write_write_bw >= 5 * 1024'
              ])

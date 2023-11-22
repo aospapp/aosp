@@ -88,11 +88,6 @@ std::string						getShaderImageCoordinates			(const ImageType					imageType,
 																	 const std::string&					xy,
 																	 const std::string&					xyz);
 
-//!< Create instance with specific extensions
-vk::Move<vk::VkInstance>		createInstanceWithExtensions		(const vk::PlatformInterface&		vkp,
-																	 const deUint32						version,
-																	 const std::vector<std::string>		enableExtensions);
-
 //!< Size used for addresing image in a compute shader
 tcu::UVec3						getShaderGridSize					(const ImageType					imageType,
 																	 const tcu::UVec3&					imageSize,
@@ -121,12 +116,6 @@ bool							isImageSizeSupported				(const vk::InstanceInterface&		instance,
 																	 const vk::VkPhysicalDevice			physicalDevice,
 																	 const ImageType					imageType,
 																	 const tcu::UVec3&					imageSize);
-
-vk::VkExtent3D					mipLevelExtents						(const vk::VkExtent3D&				baseExtents,
-																	 const deUint32						mipLevel);
-
-tcu::UVec3						mipLevelExtents						(const tcu::UVec3&					baseExtents,
-																	 const deUint32						mipLevel);
 
 deUint32						getImageMaxMipLevels				(const vk::VkImageFormatProperties& imageFormatProperties,
 																	 const vk::VkExtent3D&				extent);
@@ -205,31 +194,6 @@ vk::VkBufferImageCopy			makeBufferImageCopy					(const vk::VkExtent3D				extent,
 																	 const deUint32						mipmapLevel		= 0u,
 																	 const vk::VkDeviceSize				bufferOffset	= 0ull);
 
-vk::VkBufferMemoryBarrier		makeBufferMemoryBarrier				(const vk::VkAccessFlags			srcAccessMask,
-																	 const vk::VkAccessFlags			dstAccessMask,
-																	 const vk::VkBuffer					buffer,
-																	 const vk::VkDeviceSize				offset,
-																	 const vk::VkDeviceSize				bufferSizeBytes);
-
-vk::VkImageMemoryBarrier		makeImageMemoryBarrier				(const vk::VkAccessFlags			srcAccessMask,
-																	 const vk::VkAccessFlags			dstAccessMask,
-																	 const vk::VkImageLayout			oldLayout,
-																	 const vk::VkImageLayout			newLayout,
-																	 const vk::VkImage					image,
-																	 const vk::VkImageSubresourceRange	subresourceRange);
-
-vk::VkImageMemoryBarrier		makeImageMemoryBarrier				(const vk::VkAccessFlags			srcAccessMask,
-																	 const vk::VkAccessFlags			dstAccessMask,
-																	 const vk::VkImageLayout			oldLayout,
-																	 const vk::VkImageLayout			newLayout,
-																	 const deUint32						srcQueueFamilyIndex,
-																	 const deUint32						destQueueFamilyIndex,
-																	 const vk::VkImage					image,
-																	 const vk::VkImageSubresourceRange	subresourceRange);
-
-vk::VkMemoryBarrier				makeMemoryBarrier					(const vk::VkAccessFlags			srcAccessMask,
-																	 const vk::VkAccessFlags			dstAccessMask);
-
 vk::VkSparseImageMemoryBind		makeSparseImageMemoryBind			(const vk::DeviceInterface&			vk,
 																	 const vk::VkDevice					device,
 																	 const vk::VkDeviceSize				allocationSize,
@@ -244,12 +208,6 @@ vk::VkSparseMemoryBind			makeSparseMemoryBind				(const vk::DeviceInterface&			v
 																	 const deUint32						memoryType,
 																	 const vk::VkDeviceSize				resourceOffset,
 																	 const vk::VkSparseMemoryBindFlags	flags			= 0u);
-
-void							beginCommandBuffer					(const vk::DeviceInterface&			vk,
-																	 const vk::VkCommandBuffer			cmdBuffer);
-
-void							endCommandBuffer					(const vk::DeviceInterface&			vk,
-																	 const vk::VkCommandBuffer			cmdBuffer);
 
 void							submitCommands						(const vk::DeviceInterface&			vk,
 																	 const vk::VkQueue					queue,
@@ -280,6 +238,10 @@ deUint32						findMatchingMemoryType				(const vk::InstanceInterface&		instance,
 																	 const vk::VkPhysicalDevice			physicalDevice,
 																	 const vk::VkMemoryRequirements&	objectMemoryRequirements,
 																	 const vk::MemoryRequirement&		memoryRequirement);
+
+deUint32						getHeapIndexForMemoryType			(const vk::InstanceInterface&		instance,
+																	 const vk::VkPhysicalDevice			physicalDevice,
+																	 const deUint32						memoryType);
 
 bool							checkSparseSupportForImageType		(const vk::InstanceInterface&		instance,
 																	 const vk::VkPhysicalDevice			physicalDevice,

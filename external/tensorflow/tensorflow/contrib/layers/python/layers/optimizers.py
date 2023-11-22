@@ -21,7 +21,6 @@ from __future__ import print_function
 import six
 
 from tensorflow.contrib import framework as contrib_framework
-from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
@@ -41,7 +40,7 @@ OPTIMIZER_CLS_NAMES = {
     "Adagrad": train.AdagradOptimizer,
     "Adam": train.AdamOptimizer,
     "Ftrl": train.FtrlOptimizer,
-    "Momentum": lambda lr: train.MomentumOptimizer(lr, momentum=0.9),
+    "Momentum": lambda learning_rate: train.MomentumOptimizer(learning_rate, momentum=0.9),  # pylint: disable=line-too-long
     "RMSProp": train.RMSPropOptimizer,
     "SGD": train.GradientDescentOptimizer,
 }
@@ -111,11 +110,12 @@ def optimize_loss(loss,
     gradient_multipliers: dict of variables or variable names to floats.
                           If present, gradients for specified
                           variables will be multiplied by given constant.
-    clip_gradients: float, callable or `None`. If float, is provided, a global
-      clipping is applied to prevent the norm of the gradient to exceed this
-      value. Alternatively, a callable can be provided e.g.: adaptive_clipping.
-      This callable takes a `list` of `(gradients, variables)` `tuple`s and
-      returns the same thing with the gradients modified.
+    clip_gradients: float, callable or `None`. If a float is provided, a global
+      clipping is applied to prevent the norm of the gradient from exceeding
+      this value. Alternatively, a callable can be provided, e.g.,
+      `adaptive_clipping_fn()`.  This callable takes a list of 
+      `(gradients, variables)` tuples and returns the same thing with the 
+      gradients modified.
     learning_rate_decay_fn: function, takes `learning_rate` and `global_step`
                             `Tensor`s, returns `Tensor`.
                             Can be used to implement any learning rate decay
@@ -326,7 +326,7 @@ def _adaptive_max_norm(norm, std_factor, decay, global_step, epsilon, name):
 
     # quicker adaptation at the beginning
     if global_step is not None:
-      n = math_ops.to_float(global_step)
+      n = math_ops.cast(global_step, dtypes.float32)
       decay = math_ops.minimum(decay, n / (n + 1.))
 
     # update averages
@@ -433,12 +433,11 @@ def _multiply_gradients(grads_and_vars, gradient_multipliers):
     if (grad is not None and
         (var in gradient_multipliers or var.name in gradient_multipliers)):
       key = var if var in gradient_multipliers else var.name
-      multiplier = constant_op.constant(
-          gradient_multipliers[key], dtype=dtypes.float32)
+      multiplier = gradient_multipliers[key]
       if isinstance(grad, ops.IndexedSlices):
         grad_values = grad.values * multiplier
         grad = ops.IndexedSlices(grad_values, grad.indices, grad.dense_shape)
       else:
-        grad *= multiplier
+        grad *= math_ops.cast(multiplier, grad.dtype)
     multiplied_grads_and_vars.append((grad, var))
   return multiplied_grads_and_vars

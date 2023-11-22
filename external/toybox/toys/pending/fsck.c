@@ -9,8 +9,8 @@ config FSCK
   bool "fsck"
   default n
   help
-    usage: fsck [-ANPRTV] [-C FD] [-t FSTYPE] [FS_OPTS] [BLOCKDEV]... 
-    
+    usage: fsck [-ANPRTV] [-C FD] [-t FSTYPE] [FS_OPTS] [BLOCKDEV]...
+
     Check and repair filesystems
 
     -A      Walk /etc/fstab and check all filesystems
@@ -19,7 +19,7 @@ config FSCK
     -R      With -A, skip the root filesystem
     -T      Don't show title on startup
     -V      Verbose
-    -C n    Write status information to specified filedescriptor
+    -C n    Write status information to specified file descriptor
     -t TYPE List of filesystem types to check
 
 */
@@ -223,7 +223,7 @@ static void do_fsck(struct f_sys_info *finfo)
     return;
   } else { 
     if ((pid = fork()) < 0) {
-      perror_msg(args[0]);
+      perror_msg_raw(*args);
       for (j=0;j<i;j++) free(args[i]);
       free(args);
       return; 

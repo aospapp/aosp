@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import collections
+import json
 import logging
 import numpy
 import os
@@ -10,6 +11,7 @@ import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils as _utils
 from autotest_lib.client.common_lib.cros import arc
 from autotest_lib.client.common_lib.cros import arc_common
 from autotest_lib.client.common_lib.cros import chrome
@@ -50,7 +52,8 @@ class power_LoadTest(arc.ArcTest):
                  verbose=True, force_wifi=False, wifi_ap='', wifi_sec='none',
                  wifi_pw='', wifi_timeout=60, tasks='',
                  volume_level=10, mic_gain=10, low_batt_margin_p=2,
-                 ac_ok=False, log_mem_bandwidth=False, gaia_login=True):
+                 ac_ok=False, log_mem_bandwidth=False, gaia_login=None,
+                 force_discharge=False, pdash_note=''):
         """
         percent_initial_charge_min: min battery charge at start of test
         check_network: check that Ethernet interface is not running
@@ -74,7 +77,11 @@ class power_LoadTest(arc.ArcTest):
             sys_low_batt_p to guarantee test completes prior to powerd shutdown
         ac_ok: boolean to allow running on AC
         log_mem_bandwidth: boolean to log memory bandwidth during the test
-        gaia_login: boolean of whether real GAIA login should be attempted.
+        gaia_login: whether real GAIA login should be attempted.  If 'None'
+            (default) then boolean is determined from URL.
+        force_discharge: boolean of whether to tell ec to discharge battery even
+            when the charger is plugged in.
+        pdash_note: note of the current run to send to power dashboard.
         """
         self._backlight = None
         self._services = None
@@ -105,7 +112,8 @@ class power_LoadTest(arc.ArcTest):
         self._log_mem_bandwidth = log_mem_bandwidth
         self._wait_time = 60
         self._stats = collections.defaultdict(list)
-        self._gaia_login = gaia_login
+        self._force_discharge = force_discharge
+        self._pdash_note = pdash_note
 
         if not power_utils.has_battery():
             if ac_ok and (power_utils.has_powercap_support() or
@@ -117,11 +125,20 @@ class power_LoadTest(arc.ArcTest):
         self._power_status = power_status.get_status()
         self._tmp_keyvals['b_on_ac'] = self._power_status.on_ac()
 
+        self._gaia_login = gaia_login
+        if gaia_login is None:
+            self._gaia_login = power_load_util.use_gaia_login()
+
         self._username = power_load_util.get_username()
         self._password = power_load_util.get_password()
 
         if not ac_ok:
             self._power_status.assert_battery_state(percent_initial_charge_min)
+
+        if force_discharge:
+            if not power_utils.charge_control_by_ectool(False):
+                raise error.TestError('Could not run battery force discharge.')
+
         # If force wifi enabled, convert eth0 to backchannel and connect to the
         # specified WiFi AP.
         if self._force_wifi:
@@ -172,7 +189,7 @@ class power_LoadTest(arc.ArcTest):
             # Find all wired ethernet interfaces.
             ifaces = [ iface for iface in interface.get_interfaces()
                 if (not iface.is_wifi_device() and
-                    iface.name.find('eth') != -1) ]
+                    iface.name.startswith('eth')) ]
             logging.debug(str([iface.name for iface in ifaces]))
             for iface in ifaces:
                 if check_network and iface.is_lower_up:
@@ -188,6 +205,8 @@ class power_LoadTest(arc.ArcTest):
             service_stopper.ServiceStopper.POWER_DRAW_SERVICES)
         self._services.stop_services()
 
+        self._detachable_handler = power_utils.BaseActivitySimulator()
+
         # fix up file perms for the power test extension so that chrome
         # can access it
         os.system('chmod -R 755 %s' % self.bindir)
@@ -201,18 +220,10 @@ class power_LoadTest(arc.ArcTest):
         self._statomatic = power_status.StatoMatic()
 
         self._power_status.refresh()
-        help_output = utils.system_output('check_powerd_config --help')
-        if 'low_battery_shutdown' in help_output:
-          logging.info('Have low_battery_shutdown option')
-          self._sys_low_batt_p = float(utils.system_output(
-                  'check_powerd_config --low_battery_shutdown_percent'))
-          self._sys_low_batt_s = int(utils.system_output(
-                  'check_powerd_config --low_battery_shutdown_time'))
-        else:
-          # TODO(dchan) Once M57 in stable, remove this option and function.
-          logging.info('No low_battery_shutdown option')
-          (self._sys_low_batt_p, self._sys_low_batt_s) = \
-              self._get_sys_low_batt_values_from_log()
+        self._sys_low_batt_p = float(utils.system_output(
+                 'check_powerd_config --low_battery_shutdown_percent'))
+        self._sys_low_batt_s = int(utils.system_output(
+                 'check_powerd_config --low_battery_shutdown_time'))
 
         if self._sys_low_batt_p and self._sys_low_batt_s:
             raise error.TestError(
@@ -252,14 +263,26 @@ class power_LoadTest(arc.ArcTest):
             measurements += power_rapl.create_powercap()
         elif power_utils.has_rapl_support():
             measurements += power_rapl.create_rapl()
-        self._plog = power_status.PowerLogger(measurements, seconds_period=20)
-        self._tlog = power_status.TempLogger([], seconds_period=20)
-        self._plog.start()
-        self._tlog.start()
+        self._checkpoint_logger = power_status.CheckpointLogger()
+        self._plog = power_status.PowerLogger(measurements,
+                seconds_period=20,
+                checkpoint_logger=self._checkpoint_logger)
+        self._tlog = power_status.TempLogger([],
+                seconds_period=20,
+                checkpoint_logger=self._checkpoint_logger)
+        self._clog = power_status.CPUStatsLogger(
+                seconds_period=20,
+                checkpoint_logger=self._checkpoint_logger)
+        self._meas_logs = [self._plog, self._tlog, self._clog]
+        for log in self._meas_logs:
+            log.start()
         if self._log_mem_bandwidth:
             self._mlog = memory_bandwidth_logger.MemoryBandwidthLogger(
                 raw=False, seconds_period=2)
             self._mlog.start()
+
+        # record start time and end time for each task
+        self._task_tracker = []
 
         ext_path = os.path.join(os.path.dirname(__file__), 'extension')
         self._tmp_keyvals['username'] = self._username
@@ -312,12 +335,28 @@ class power_LoadTest(arc.ArcTest):
                 handler_func=(lambda handler, forms, loop_counter=i:\
                     _extension_log_handler(handler, forms, loop_counter)))
 
-            pagelt_tracking = self._testServer.add_wait_url(url='/pagelt')
+            pagetime_tracking = self._testServer.add_wait_url(url='/pagetime')
 
-            self._testServer.add_url_handler(url='/pagelt',\
-                handler_func=(lambda handler, forms, tracker=self, loop_counter=i:\
-                    _extension_page_load_info_handler(handler, forms, loop_counter, self)))
+            self._testServer.add_url_handler(url='/pagetime',\
+                handler_func=(lambda handler, forms, test_instance=self,
+                              loop_counter=i:\
+                    _extension_page_time_info_handler(handler, forms,
+                                                      loop_counter,
+                                                      test_instance)))
 
+            # setup a handler to simulate waking up the base of a detachable
+            # on user interaction. On scrolling, wake for 1s, on page
+            # navigation, wake for 10s.
+            self._testServer.add_url(url='/pagenav')
+            self._testServer.add_url(url='/scroll')
+
+            self._testServer.add_url_handler(url='/pagenav',
+                handler_func=(lambda handler, args, plt=self:
+                              plt._detachable_handler.wake_base(10000)))
+
+            self._testServer.add_url_handler(url='/scroll',
+                handler_func=(lambda handler, args, plt=self:
+                              plt._detachable_handler.wake_base(1000)))
             # reset backlight level since powerd might've modified it
             # based on ambient light
             self._set_backlight_level()
@@ -330,10 +369,11 @@ class power_LoadTest(arc.ArcTest):
             low_battery = self._do_wait(self._verbose, self._loop_time,
                                         latch)
 
-            script_logging.set();
-            pagelt_tracking.set();
-            self._plog.checkpoint('loop%d' % (i), start_time)
-            self._tlog.checkpoint('loop%d' % (i), start_time)
+            script_logging.set()
+            pagetime_tracking.set()
+
+            self._log_loop_checkpoint(i, start_time, time.time())
+
             if self._verbose:
                 logging.debug('loop %d completed', i)
 
@@ -346,7 +386,6 @@ class power_LoadTest(arc.ArcTest):
         psr.refresh()
         self._tmp_keyvals['minutes_battery_life_tested'] = (t1 - t0) / 60
         self._tmp_keyvals.update(psr.get_keyvals())
-
 
     def postprocess_iteration(self):
         """Postprocess: write keyvals / log and send data to power dashboard."""
@@ -379,8 +418,12 @@ class power_LoadTest(arc.ArcTest):
                 _log_stats(kname, self._stats[kname])
 
 
-        keyvals = self._plog.calc()
-        keyvals.update(self._tlog.calc())
+        for task, tstart, tend in self._task_tracker:
+            self._checkpoint_logger.checkpoint('_' + task, tstart, tend)
+
+        keyvals = {}
+        for log in self._meas_logs:
+            keyvals.update(log.calc())
         keyvals.update(self._statomatic.publish())
 
         if self._log_mem_bandwidth:
@@ -453,11 +496,20 @@ class power_LoadTest(arc.ArcTest):
                                        units='minutes',
                                        higher_is_better=True)
 
+        minutes_battery_life_tested = keyvals['minutes_battery_life_tested']
+
+        # TODO(coconutruben): overwrite write_perf_keyvals for all power
+        # tests and replace this once power_LoadTest inherits from power_Test.
+        # Dump all keyvals into debug keyvals.
+        _utils.write_keyval(os.path.join(self.resultsdir, 'debug_keyval'),
+                            keyvals)
+        # Avoid polluting the keyvals with non-core domains.
+        core_keyvals = power_utils.get_core_keyvals(keyvals)
         if not self._gaia_login:
-            keyvals = dict(map(lambda (key, value):
-                               ('INVALID_' + str(key), value), keyvals.items()))
+            core_keyvals = {'INVALID_%s' % str(k): v for k, v in
+                            core_keyvals.iteritems()}
         else:
-            for key, value in keyvals.iteritems():
+            for key, value in core_keyvals.iteritems():
                 if key.startswith('percent_cpuidle') and \
                    key.endswith('C0_time'):
                     self.output_perf_value(description=key,
@@ -465,19 +517,36 @@ class power_LoadTest(arc.ArcTest):
                                            units='percent',
                                            higher_is_better=False)
 
-        self.write_perf_keyval(keyvals)
-        self._plog.save_results(self.resultsdir)
-        self._tlog.save_results(self.resultsdir)
+        self.write_perf_keyval(core_keyvals)
+        for log in self._meas_logs:
+            log.save_results(self.resultsdir)
+        self._checkpoint_logger.save_checkpoint_data(self.resultsdir)
+
+        if minutes_battery_life_tested * 60 < self._loop_time :
+            logging.info('Data is less than 1 loop, skip sending to dashboard.')
+            return
         pdash = power_dashboard.PowerLoggerDashboard( \
-                self._plog, self.tagged_testname, self.resultsdir)
+                self._plog, self.tagged_testname, self.resultsdir,
+                note=self._pdash_note)
         pdash.upload()
+        cdash = power_dashboard.CPUStatsLoggerDashboard( \
+                self._clog, self.tagged_testname, self.resultsdir,
+                note=self._pdash_note)
+        cdash.upload()
+        tdash = power_dashboard.TempLoggerDashboard( \
+                self._tlog, self.tagged_testname, self.resultsdir,
+                note=self._pdash_note)
+        tdash.upload()
 
 
     def cleanup(self):
+        if self._force_discharge:
+            power_utils.charge_control_by_ectool(True)
         if self._backlight:
             self._backlight.restore()
         if self._services:
             self._services.restore_services()
+        self._detachable_handler.restore()
 
         # cleanup backchannel interface
         # Prevent wifi congestion in test lab by forcing machines to forget the
@@ -541,7 +610,6 @@ class power_LoadTest(arc.ArcTest):
 
         return low_battery
 
-
     def _set_backlight_level(self):
         self._backlight.set_default()
         # record brightness level
@@ -564,34 +632,6 @@ class power_LoadTest(arc.ArcTest):
         else:
             logging.info('Setting lightbar to %s', level)
             self._tmp_keyvals['level_lightbar_current'] = level
-
-
-    def _get_sys_low_batt_values_from_log(self):
-        """Determine the low battery values for device and return.
-
-        2012/11/01: power manager (powerd.cc) parses parameters in filesystem
-          and outputs a log message like:
-
-           [1101/173837:INFO:powerd.cc(258)] Using low battery time threshold
-                     of 0 secs and using low battery percent threshold of 3.5
-
-           It currently checks to make sure that only one of these values is
-           defined.
-
-        Returns:
-          Tuple of (percent, seconds)
-            percent: float of low battery percentage
-            seconds: float of low battery seconds
-
-        """
-        split_re = 'threshold of'
-
-        powerd_log = '/var/log/power_manager/powerd.LATEST'
-        cmd = 'grep "low battery time" %s' % powerd_log
-        line = utils.system_output(cmd)
-        secs = float(line.split(split_re)[1].split()[0])
-        percent = float(line.split(split_re)[2].split()[0])
-        return (percent, secs)
 
 
     def _has_light_sensor(self):
@@ -693,6 +733,47 @@ class power_LoadTest(arc.ArcTest):
         self._tmp_keyvals['percent_kbd_backlight'] = \
             self._keyboard_backlight.get_percent()
 
+    def _log_loop_checkpoint(self, loop, start, end):
+        loop_str = 'loop%d' % loop
+        self._checkpoint_logger.checkpoint(loop_str, start, end)
+
+        # Don't log section if we run custom tasks.
+        if self._tasks != '':
+            return
+
+        sections = [
+            ('browsing', (0, 0.6)),
+            ('email', (0.6, 0.8)),
+            ('document', (0.8, 0.9)),
+            ('video', (0.9, 1)),
+        ]
+
+        # Use start time from extension if found by look for google.com start.
+        goog_str = loop_str+ '_web_page_www.google.com'
+        for item, start_extension, _ in self._task_tracker:
+            if item == goog_str:
+                if start_extension >= start:
+                    start = start_extension
+                    break
+                logging.warn('Timestamp from extension (%.2f) is earlier than'
+                             'timestamp from autotest (%.2f).',
+                             start_extension, start)
+
+        # Use default loop duration for incomplete loop.
+        duration = max(end - start, self._loop_time)
+
+        for section, fractions in sections:
+            s_start, s_end = (start + duration * fraction
+                              for fraction in fractions)
+            if s_start > end:
+                break
+            if s_end > end:
+                s_end = end
+            self._checkpoint_logger.checkpoint(section, s_start, s_end)
+            loop_section = '_' + loop_str + '_' + section
+            self._checkpoint_logger.checkpoint(loop_section, s_start, s_end)
+
+
 def _extension_log_handler(handler, form, loop_number):
     """
     We use the httpd library to allow us to log whatever we
@@ -712,41 +793,79 @@ def _extension_log_handler(handler, form, loop_number):
             # httpd adds them automatically so we remove them again
             del handler.server._form_entries[field]
 
-def _extension_page_load_info_handler(handler, form, loop_number, tracker):
+def _extension_page_time_info_handler(handler, form, loop_number,
+                                      test_instance):
+    page_timestamps = []
+
     stats_ids = ['mean', 'min', 'max', 'std']
-    time_measurements = []
+    loadtime_measurements = []
     sorted_pagelt = []
     #show up to this number of slow page-loads
-    num_slow_page_loads = 5;
+    num_slow_page_loads = 5
 
     if not form:
-        logging.debug("no page load information returned")
-        return;
+        logging.debug("no page time information returned")
+        return
 
     for field in form.keys():
-        url = field[str.find(field, "http"):]
-        load_time = int(form[field].value)
+        url = field[str.find(field, "http"):]  # remove unique url salt
+        page = json.loads(form[field].value)
 
-        time_measurements.append(load_time)
-        sorted_pagelt.append((url, load_time))
+        logging.debug("[extension] @ loop_%d url: %s start_time: %d",
+            loop_number, url, page['start_time'])
 
-        logging.debug("[extension] @ loop_%d url: %s load time: %d ms",
-            loop_number, url, load_time)
+        if page['end_load_time']:
+            logging.debug("[extension] @ loop_%d url: %s end_load_time: %d",
+                loop_number, url, page['end_load_time'])
+
+            load_time = page['end_load_time'] - page['start_time']
+
+            loadtime_measurements.append(load_time)
+            sorted_pagelt.append((url, load_time))
+
+            logging.debug("[extension] @ loop_%d url: %s load time: %d ms",
+                loop_number, url, load_time)
+
+        logging.debug("[extension] @ loop_%d url: %s end_browse_time: %d",
+            loop_number, url, page['end_browse_time'])
+
+        page_timestamps.append(page)
+
         # we don't want to add url information to our keyvals.
         # httpd adds them automatically so we remove them again
         del handler.server._form_entries[field]
 
-    time_measurements = numpy.array(time_measurements)
-    stats_vals = [time_measurements.mean(), time_measurements.min(),
-    time_measurements.max(),time_measurements.std()]
+    page_base = 'loop%d_web_page_' % loop_number
+    for page in page_timestamps:
+        page_failed = "_failed"
+        # timestamps from javascript are in milliseconds, change to seconds
+        scale = 1.0/1000
+        if page['end_load_time']:
+            tagname = page_base + page['url'] + "_load"
+            test_instance._task_tracker.append((tagname,
+                page['start_time'] * scale, page['end_load_time'] * scale))
+
+            tagname = page_base + page['url'] + "_browse"
+            test_instance._task_tracker.append((tagname,
+                page['end_load_time'] * scale, page['end_browse_time'] * scale))
+
+            page_failed = ""
+
+        tagname = page_base + page['url'] + page_failed
+        test_instance._task_tracker.append((tagname,
+            page['start_time'] * scale, page['end_browse_time'] * scale))
+
+    loadtime_measurements = numpy.array(loadtime_measurements)
+    stats_vals = [loadtime_measurements.mean(), loadtime_measurements.min(),
+        loadtime_measurements.max(),loadtime_measurements.std()]
 
     key_base = 'ext_ms_page_load_time_'
     for i in range(len(stats_ids)):
         key = key_base + stats_ids[i]
-        if key in tracker._tmp_keyvals:
-            tracker._tmp_keyvals[key] += "_%.2f" % stats_vals[i]
+        if key in test_instance._tmp_keyvals:
+            test_instance._tmp_keyvals[key] += "_%.2f" % stats_vals[i]
         else:
-            tracker._tmp_keyvals[key] = "%.2f" % stats_vals[i]
+            test_instance._tmp_keyvals[key] = "%.2f" % stats_vals[i]
 
 
     sorted_pagelt.sort(key=lambda item: item[1], reverse=True)

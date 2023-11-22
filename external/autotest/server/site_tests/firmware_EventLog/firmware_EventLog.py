@@ -128,19 +128,34 @@ class firmware_EventLog(FirmwareTest):
             raise error.TestFail('Incorrect event logged in recovery mode.')
 
         logging.info('Verifying eventlog behavior on suspend/resume')
-        self.disable_suspend_to_idle()
         self._cutoff_time = self._now()
         self.faft_client.system.run_shell_command(
                 'powerd_dbus_suspend -wakeup_timeout=10')
         time.sleep(5)   # a little slack time for powerd to write the 'Wake'
-        self.teardown_powerd_prefs()
         self._gather_events()
-        if ((not self._has_event(r'^Wake') or not self._has_event(r'Sleep')) and
-            (not self._has_event(r'ACPI Enter \| S3') or
-             not self._has_event(r'ACPI Wake \| S3'))):
-            raise error.TestFail('Missing required event on suspend/resume.')
+
+        # Ensure system did not log developer or recovery mode event
         if self._has_event(r'System |Developer Mode|Recovery Mode'):
             raise error.TestFail('Incorrect event logged on suspend/resume.')
+
+        # Accept any set: Wake/Sleep, ACPI Enter/Wake S3, S0ix Enter/Exit
+        if ((not self._has_event(r'^Wake') or not self._has_event(r'Sleep')) and
+            (not self._has_event(r'ACPI Enter \| S3') or
+             not self._has_event(r'ACPI Wake \| S3')) and
+            (not self._has_event(r'S0ix Enter') or
+             not self._has_event(r'S0ix Exit'))):
+            # If previous attempt failed force S3 mode and try again
+            logging.info('Enabling S3 to retest suspend/resume')
+            self.disable_suspend_to_idle()
+            self._cutoff_time = self._now()
+            self.faft_client.system.run_shell_command(
+                'powerd_dbus_suspend -wakeup_timeout=10')
+            time.sleep(5)   # a little slack time for powerd to write the 'Wake'
+            self.teardown_powerd_prefs()
+            self._gather_events()
+            if (not self._has_event(r'ACPI Enter \| S3') or
+                not self._has_event(r'ACPI Wake \| S3')):
+                raise error.TestFail('Missing required event on suspend/resume')
 
         watchdog = WatchdogTester(self.host)
         if not watchdog.is_supported():

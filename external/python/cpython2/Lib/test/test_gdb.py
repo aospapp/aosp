@@ -3,13 +3,14 @@
 # The code for testing gdb was adapted from similar work in Unladen Swallow's
 # Lib/test/test_jit_gdb.py
 
+import locale
 import os
 import re
 import subprocess
 import sys
 import sysconfig
+import textwrap
 import unittest
-import sysconfig
 
 from test import test_support
 from test.test_support import run_unittest, findfile
@@ -203,27 +204,26 @@ class DebuggerTests(unittest.TestCase):
         # Ignore some benign messages on stderr.
         ignore_patterns = (
             'Function "%s" not defined.' % breakpoint,
-            "warning: no loadable sections found in added symbol-file"
-            " system-supplied DSO",
-            "warning: Unable to find libthread_db matching"
-            " inferior's thread library, thread debugging will"
-            " not be available.",
-            "warning: Cannot initialize thread debugging"
-            " library: Debugger service failed",
-            'warning: Could not load shared library symbols for '
-            'linux-vdso.so',
-            'warning: Could not load shared library symbols for '
-            'linux-gate.so',
-            'warning: Could not load shared library symbols for '
-            'linux-vdso64.so',
             'Do you need "set solib-search-path" or '
             '"set sysroot"?',
-            'warning: Source file is more recent than executable.',
-            # Issue #19753: missing symbols on System Z
-            'Missing separate debuginfo for ',
-            'Try: zypper install -C ',
+            # BFD: /usr/lib/debug/(...): unable to initialize decompress
+            # status for section .debug_aranges
+            'BFD: ',
+            # ignore all warnings
+            'warning: ',
             )
         for line in errlines:
+            if not line:
+                continue
+            # bpo34007: Sometimes some versions of the shared libraries that
+            # are part of the traceback are compiled in optimised mode and the
+            # Program Counter (PC) is not present, not allowing gdb to walk the
+            # frames back. When this happens, the Python bindings of gdb raise
+            # an exception, making the test impossible to succeed.
+            if "PC not saved" in line:
+                raise unittest.SkipTest("gdb cannot walk the frame object"
+                                        " because the Program Counter is"
+                                        " not present")
             if not line.startswith(ignore_patterns):
                 unexpected_errlines.append(line)
 
@@ -873,7 +873,24 @@ print 42
                                           breakpoint='time_gmtime',
                                           cmds_after_breakpoint=['py-bt-full'],
                                           )
-        self.assertIn('#0 <built-in function gmtime', gdb_output)
+        self.assertIn('#1 <built-in function gmtime', gdb_output)
+
+    @unittest.skipIf(python_is_optimized(),
+                     "Python was compiled with optimizations")
+    def test_wrapper_call(self):
+        cmd = textwrap.dedent('''
+            class MyList(list):
+                def __init__(self):
+                    super(MyList, self).__init__()   # wrapper_call()
+
+            print("first break point")
+            l = MyList()
+        ''')
+        # Verify with "py-bt":
+        gdb_output = self.get_stack_trace(cmd,
+                                          cmds_after_breakpoint=['break wrapper_call', 'continue', 'py-bt'])
+        self.assertRegexpMatches(gdb_output,
+                                 r"<method-wrapper u?'__init__' of MyList object at ")
 
 
 class PyPrintTests(DebuggerTests):

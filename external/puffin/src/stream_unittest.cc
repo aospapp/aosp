@@ -6,19 +6,18 @@
 
 #include "gtest/gtest.h"
 
-#include "puffin/src/include/puffin/huffer.h"
-#include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/extent_stream.h"
 #include "puffin/src/file_stream.h"
+#include "puffin/src/include/puffin/huffer.h"
+#include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/memory_stream.h"
 #include "puffin/src/puffin_stream.h"
 #include "puffin/src/unittest_common.h"
 
-namespace puffin {
-
 using std::string;
-using std::shared_ptr;
 using std::vector;
+
+namespace puffin {
 
 class StreamTest : public ::testing::Test {
  public:
@@ -175,7 +174,8 @@ TEST_F(StreamTest, MemoryStreamTest) {
 }
 
 TEST_F(StreamTest, FileStreamTest) {
-  string filepath("/tmp/test_filepath");
+  string filepath;
+  ASSERT_TRUE(MakeTempFile(&filepath, nullptr));
   ScopedPathUnlinker scoped_unlinker(filepath);
   ASSERT_FALSE(FileStream::Open(filepath, false, false));
 
@@ -195,49 +195,51 @@ TEST_F(StreamTest, FileStreamTest) {
 }
 
 TEST_F(StreamTest, PuffinStreamTest) {
-  shared_ptr<Puffer> puffer(new Puffer());
+  auto puffer = std::make_shared<Puffer>();
   auto read_stream = PuffinStream::CreateForPuff(
-      MemoryStream::CreateForRead(kDeflates8), puffer, kPuffs8.size(),
-      kSubblockDeflateExtents8, kPuffExtents8);
-  TestRead(read_stream.get(), kPuffs8);
+      MemoryStream::CreateForRead(kDeflatesSample1), puffer,
+      kPuffsSample1.size(), kSubblockDeflateExtentsSample1,
+      kPuffExtentsSample1);
+  TestRead(read_stream.get(), kPuffsSample1);
   TestSeek(read_stream.get(), false);
   TestClose(read_stream.get());
 
   // Test the stream with puff cache.
   read_stream = PuffinStream::CreateForPuff(
-      MemoryStream::CreateForRead(kDeflates8), puffer, kPuffs8.size(),
-      kSubblockDeflateExtents8, kPuffExtents8, 8 /* max_cache_size */);
-  TestRead(read_stream.get(), kPuffs8);
+      MemoryStream::CreateForRead(kDeflatesSample1), puffer,
+      kPuffsSample1.size(), kSubblockDeflateExtentsSample1, kPuffExtentsSample1,
+      8 /* max_cache_size */);
+  TestRead(read_stream.get(), kPuffsSample1);
   TestSeek(read_stream.get(), false);
   TestClose(read_stream.get());
 
-  Buffer buf(kDeflates8.size());
-  shared_ptr<Huffer> huffer(new Huffer());
+  Buffer buf(kDeflatesSample1.size());
+  auto huffer = std::make_shared<Huffer>();
   auto write_stream = PuffinStream::CreateForHuff(
-      MemoryStream::CreateForWrite(&buf), huffer, kPuffs8.size(),
-      kSubblockDeflateExtents8, kPuffExtents8);
+      MemoryStream::CreateForWrite(&buf), huffer, kPuffsSample1.size(),
+      kSubblockDeflateExtentsSample1, kPuffExtentsSample1);
 
   ASSERT_TRUE(write_stream->Seek(0));
-  for (size_t idx = 0; idx < kPuffs8.size(); idx++) {
-    ASSERT_TRUE(write_stream->Write(&kPuffs8[idx], 1));
+  for (size_t idx = 0; idx < kPuffsSample1.size(); idx++) {
+    ASSERT_TRUE(write_stream->Write(&kPuffsSample1[idx], 1));
   }
   // Make sure the write works
-  ASSERT_EQ(buf, kDeflates8);
+  ASSERT_EQ(buf, kDeflatesSample1);
 
   std::fill(buf.begin(), buf.end(), 0);
   ASSERT_TRUE(write_stream->Seek(0));
-  ASSERT_TRUE(write_stream->Write(kPuffs8.data(), kPuffs8.size()));
+  ASSERT_TRUE(write_stream->Write(kPuffsSample1.data(), kPuffsSample1.size()));
   // Check its correctness.
-  ASSERT_EQ(buf, kDeflates8);
+  ASSERT_EQ(buf, kDeflatesSample1);
 
   // Write entire buffer one byte at a time. (all zeros).
   std::fill(buf.begin(), buf.end(), 0);
   ASSERT_TRUE(write_stream->Seek(0));
-  for (const auto& byte : kPuffs8) {
+  for (const auto& byte : kPuffsSample1) {
     ASSERT_TRUE(write_stream->Write(&byte, 1));
   }
   // Check its correctness.
-  ASSERT_EQ(buf, kDeflates8);
+  ASSERT_EQ(buf, kDeflatesSample1);
 
   // No TestSeek is needed as PuffinStream is not supposed to seek to anywhere
   // except 0.

@@ -492,6 +492,14 @@ static inline int wpa_drv_signal_poll(struct wpa_supplicant *wpa_s,
 	return -1;
 }
 
+static inline int wpa_drv_channel_info(struct wpa_supplicant *wpa_s,
+				       struct wpa_channel_info *ci)
+{
+	if (wpa_s->driver->channel_info)
+		return wpa_s->driver->channel_info(wpa_s->drv_priv, ci);
+	return -1;
+}
+
 static inline int wpa_drv_pktcnt_poll(struct wpa_supplicant *wpa_s,
 				      struct hostap_sta_driver_data *sta)
 {
@@ -689,6 +697,14 @@ static inline int wpa_drv_roaming(struct wpa_supplicant *wpa_s, int allowed,
 	return wpa_s->driver->roaming(wpa_s->drv_priv, allowed, bssid);
 }
 
+static inline int wpa_drv_disable_fils(struct wpa_supplicant *wpa_s,
+				       int disable)
+{
+	if (!wpa_s->driver->disable_fils)
+		return -1;
+	return wpa_s->driver->disable_fils(wpa_s->drv_priv, disable);
+}
+
 static inline int wpa_drv_set_mac_addr(struct wpa_supplicant *wpa_s,
 				       const u8 *addr)
 {
@@ -786,6 +802,14 @@ static inline int wpa_drv_set_transmit_next_pn(struct wpa_supplicant *wpa_s,
 	if (!wpa_s->driver->set_transmit_next_pn)
 		return -1;
 	return wpa_s->driver->set_transmit_next_pn(wpa_s->drv_priv, sa);
+}
+
+static inline int wpa_drv_set_receive_lowest_pn(struct wpa_supplicant *wpa_s,
+						struct receive_sa *sa)
+{
+	if (!wpa_s->driver->set_receive_lowest_pn)
+		return -1;
+	return wpa_s->driver->set_receive_lowest_pn(wpa_s->drv_priv, sa);
 }
 
 static inline int
@@ -1026,6 +1050,24 @@ static inline int wpa_drv_update_connect_params(
 		return -1;
 	return wpa_s->driver->update_connect_params(wpa_s->drv_priv, params,
 						    mask);
+}
+
+static inline int
+wpa_drv_send_external_auth_status(struct wpa_supplicant *wpa_s,
+				  struct external_auth *params)
+{
+	if (!wpa_s->driver->send_external_auth_status)
+		return -1;
+	return wpa_s->driver->send_external_auth_status(wpa_s->drv_priv,
+							params);
+}
+
+static inline int wpa_drv_set_4addr_mode(struct wpa_supplicant *wpa_s, int val)
+{
+	if (!wpa_s->driver->set_4addr_mode)
+		return -1;
+	return wpa_s->driver->set_4addr_mode(wpa_s->drv_priv,
+					     wpa_s->bridge_ifname, val);
 }
 
 #endif /* DRIVER_I_H */

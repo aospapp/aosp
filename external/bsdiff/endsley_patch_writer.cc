@@ -42,7 +42,7 @@ bool EndsleyPatchWriter::Init(size_t new_size) {
       patch_->reserve(new_size);
       break;
     case CompressorType::kBrotli:
-      compressor_.reset(new BrotliCompressor(quality_));
+      compressor_.reset(new BrotliCompressor(brotli_quality_));
       if (!compressor_) {
         LOG(ERROR) << "Error creating brotli compressor.";
         return false;

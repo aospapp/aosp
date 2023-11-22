@@ -35,8 +35,8 @@ class BlinkGCPluginAction : public PluginASTAction {
         options_.dump_graph = true;
       } else if (arg == "warn-unneeded-finalizer") {
         options_.warn_unneeded_finalizer = true;
-      } else if (arg == "use-chromium-style-naming") {
-        options_.use_chromium_style_naming = true;
+      } else if (arg == "enable-weak-members-in-unmanaged-classes") {
+        options_.enable_weak_members_in_unmanaged_classes = true;
       } else {
         llvm::errs() << "Unknown blink-gc-plugin argument: " << arg << "\n";
         return false;

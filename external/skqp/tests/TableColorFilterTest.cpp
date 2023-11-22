@@ -17,8 +17,7 @@
 
 DEF_TEST(TableColorFilter, r) {
     // Using a wide source gamut will make saturated colors go well out of range of sRGB.
-    auto rec2020 = SkColorSpace::MakeRGB(SkColorSpace::kSRGB_RenderTargetGamma,
-                                         SkColorSpace::kRec2020_Gamut);
+    auto rec2020 = SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, SkNamedGamut::kRec2020);
     sk_sp<SkColorFilter> to_srgb = SkToSRGBColorFilter::Make(rec2020);
 
     // Any table will work fine here.  An identity table makes testing easy.
@@ -30,7 +29,7 @@ DEF_TEST(TableColorFilter, r) {
 
     // The rec2020 primaries are not representable in sRGB, but will clamp to the sRGB primaries.
     SkColor colors[] = { SK_ColorRED, SK_ColorGREEN, SK_ColorBLUE };
-    sk_sp<SkColorFilter> composed = SkColorFilter::MakeComposeFilter(table, to_srgb);
+    sk_sp<SkColorFilter> composed = table->makeComposed(to_srgb);
     for (auto color : colors) {
         REPORTER_ASSERT(r, composed->filterColor(color) == color);
     }

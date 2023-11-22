@@ -15,6 +15,7 @@ then after idle for an hour, verify the integrity of that data.
 """
 
 def run_hardware_MemoryIntegrity(machine):
-    job.run_test('hardware_MemoryIntegrity', client_ip=machine, suspend=False)
+    job.run_test('hardware_MemoryIntegrity', client_ip=machine, suspend=False,
+                 tag=NAME.split('.')[1])
 
 job.parallel_simple(run_hardware_MemoryIntegrity, machines)

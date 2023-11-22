@@ -55,13 +55,16 @@ class vm_CrosVmStart(test.test):
                 '--socket',  crosvm_socket_path,
                 '-p', 'init=/bin/bash root=/dev/vda ro',
                 kernel_path]
-        proc = subprocess.Popen(cmd)
+        proc = subprocess.Popen(cmd, stdout = subprocess.PIPE)
         if proc.pid <= 0:
             raise error.TestFail('Failed: crosvm did not start.')
 
+        # Let the VM boot before stopping it. Once it prints, it's ready.
+        proc.stdout.read(1)
+
         # Tell the VM to stop.
-        stop_cmd = ['/usr/bin/crosvm', 'stop', '--socket', crosvm_socket_path]
-        stop_proc = subprocess.Popen(cmd)
+        stop_cmd = ['/usr/bin/crosvm', 'stop', crosvm_socket_path]
+        stop_proc = subprocess.Popen(stop_cmd)
         if stop_proc.pid <= 0:
             raise error.TestFail('Failed: crosvm stop command failed.')
         stop_proc.wait();

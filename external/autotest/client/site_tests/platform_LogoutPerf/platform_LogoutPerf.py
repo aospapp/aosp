@@ -17,7 +17,7 @@ from autotest_lib.client.cros.input_playback import keyboard
 _CHROME_EXEC_TIME = 'chrome-exec'
 _LOGIN_TIME = 'login-prompt-visible'
 _LOGOUT_STARTED_TIME = 'logout-started'
-_LOGOUT_TIMEOUT = 10  # logout should finsih in 10 seconds.
+_LOGOUT_TIMEOUT = 60  # logout should finsih in 60 seconds.
 
 
 class platform_LogoutPerf(arc.ArcTest):

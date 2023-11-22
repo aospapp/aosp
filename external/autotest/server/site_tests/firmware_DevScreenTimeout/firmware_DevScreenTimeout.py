@@ -18,7 +18,7 @@ class firmware_DevScreenTimeout(FirmwareTest):
     it will boot to developer mode. This test is to verify the timeout period.
 
     This test tries to boot the system in developer mode twice.
-    The first one will repeatly press Ctrl-D on booting in order to reduce
+    The first one will repeatedly press Ctrl-D on booting in order to reduce
     the time on developer warning screen. The second one will do nothing and
     wait the developer screen timeout. The time difference of these two boots
     is close to the developer screen timeout.
@@ -32,28 +32,16 @@ class firmware_DevScreenTimeout(FirmwareTest):
 
     fw_time_record = {}
 
-    def ctrl_d_repeatedly(self):
-        """Press Ctrl-D repeatedly. We want to be aggressive and obtain a
-        low firmware boot time when developer mode is enabled, so spam the
-        AP console with ctrl-D every half second until the firmware_screen
-        delay has been reached.
-        """
-        for _ in range(self.faft_config.firmware_screen * 2):
-            self.servo.ctrl_d()
-            time.sleep(0.5)
 
     def record_fw_boot_time(self, tag):
         """Record the current firmware boot time with the tag.
 
-        Args:
-          tag: A tag about this boot.
-
-        Raises:
-          error.TestError: If the firmware-boot-time file does not exist.
+        @param tag: A tag about this boot.
+        @raise TestError: If the firmware-boot-time file does not exist.
         """
         [fw_time] = self.faft_client.system.run_shell_command_get_output(
                 'cat /tmp/firmware-boot-time')
-        logging.info('Got firmware boot time: %s', fw_time)
+        logging.info('Got firmware boot time [%s]: %s', tag, fw_time)
         if fw_time:
             self.fw_time_record[tag] = float(fw_time)
         else:
@@ -62,13 +50,21 @@ class firmware_DevScreenTimeout(FirmwareTest):
     def check_timeout_period(self):
         """Check the firmware screen timeout period matches our spec.
 
-        Raises:
-          error.TestFail: If the timeout period does not match our spec.
+        @raise TestFail: If the timeout period does not match our spec.
         """
-        # Record the boot time of firmware screen timeout.
-        self.record_fw_boot_time('timeout_boot')
+        # On tablets/detachables, eliminate the time taken for pressing volume
+        # down button (HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1) to calculate the
+        # firmware boot time of quick dev boot.
+        if self.faft_config.fw_bypasser_type == 'tablet_detachable_bypasser':
+            self.fw_time_record['quick_bypass_boot'] -= \
+                            (self.switcher.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1)
+            logging.info("Firmware boot time [quick_bypass_boot] after "
+                         "eliminating the volume down button press time "
+                         "(%.1f seconds): %s",
+                         self.switcher.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1,
+                         self.fw_time_record['quick_bypass_boot'])
         got_timeout = (self.fw_time_record['timeout_boot'] -
-                       self.fw_time_record['ctrl_d_boot'])
+                       self.fw_time_record['quick_bypass_boot'])
         logging.info('Estimated developer firmware timeout: %s', got_timeout)
 
         if (abs(got_timeout - self.faft_config.dev_screen_timeout) >
@@ -81,15 +77,16 @@ class firmware_DevScreenTimeout(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_DevScreenTimeout, self).initialize(host, cmdline_args)
+        # NA error check point for this test
+        if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser' and
+                self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
+            raise error.TestNAError("This test is only valid on devices with "
+                                    "screens.")
         # This test is run on developer mode only.
         self.switcher.setup_mode('dev')
         self.setup_usbkey(usbkey=False)
 
     def run_once(self):
-        if self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser':
-            raise error.TestNAError("This test is only valid on devices with "
-                                    "screens.")
-
         logging.info("Always expected developer mode firmware A boot.")
         self.check_state((self.checkers.crossystem_checker, {
                               'devsw_boot': '1',
@@ -101,17 +98,21 @@ class firmware_DevScreenTimeout(FirmwareTest):
         # to avoid TPM reset too long
         self.switcher.simple_reboot()
         self.switcher.wait_for_client()
-        logging.info("Reboot and press Ctrl-D repeatedly.")
+        logging.info("Reboot and bypass the Developer warning screen "
+                     "immediately.")
         self.switcher.simple_reboot()
-        self.ctrl_d_repeatedly()
+        self.switcher.bypass_dev_mode()
         self.switcher.wait_for_client()
+        logging.info("Record the firmware boot time without waiting for "
+                     "firmware screen.")
+        self.record_fw_boot_time('quick_bypass_boot')
 
-        logging.info("Record the firmware boot time without waiting "
-                     "firmware screen; on next reboot, do nothing and wait the "
-                     "screen timeout.")
-        self.record_fw_boot_time('ctrl_d_boot')
+        logging.info("Reboot the device, do nothing and wait for screen "
+                     "timeout. And then record the firmware boot time.")
         self.switcher.simple_reboot()
         self.switcher.wait_for_client()
+        # Record the boot time of firmware screen timeout.
+        self.record_fw_boot_time('timeout_boot')
 
         logging.info("Check the firmware screen timeout matches our spec.")
         self.check_timeout_period()

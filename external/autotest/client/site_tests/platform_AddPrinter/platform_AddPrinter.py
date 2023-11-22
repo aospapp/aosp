@@ -5,13 +5,11 @@
 import dbus
 import logging
 import os
-import tempfile
 from threading import Thread
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.common_lib.cros import dbus_send
 from autotest_lib.client.cros import debugd_util
 from fake_printer import FakePrinter
@@ -35,18 +33,6 @@ class platform_AddPrinter(test.test):
         Args:
         @param ppd_file: ppd file name
         """
-
-        # Instantiate Chrome browser.
-        with tempfile.NamedTemporaryFile() as cap:
-            file_utils.download_file(chrome.CAP_URL, cap.name)
-            password = cap.read().rstrip()
-
-        extra_flags = ['--enable-features=CrOSComponent']
-        self.browser = chrome.Chrome(gaia_login=False,
-                                     username=chrome.CAP_USERNAME,
-                                     password=password,
-                                     extra_browser_args=extra_flags)
-        self.tab = self.browser.browser.tabs[0]
 
         # Set file path.
         current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -75,10 +61,6 @@ class platform_AddPrinter(test.test):
         # Remove component.
         if hasattr(self, 'component'):
           self.delete_component(self.component)
-
-        # Close browser.
-        if hasattr(self, 'browser'):
-            self.browser.close()
 
         # Remove temp files.
         if os.path.exists(self.ppd_file):
@@ -126,17 +108,27 @@ class platform_AddPrinter(test.test):
         @raises: error.TestFail if printing request generated cannot be
         verified.
         """
+        # Check if CUPS is running.
+        printers = utils.system_output('lpstat -t')
+        logging.info(printers)
 
         # Issue print request.
         utils.system_output(
             'lp -d %s %s' %
             (_FAKE_PRINTER_ID, self.pdf_path)
         );
+
         self.server_thread.join(_FAKE_SERVER_JOIN_TIMEOUT)
+        if self.server_thread.isAlive():
+          raise error.TestFail('ERROR: Server never terminated')
+
+        if not os.path.isfile(self.printing_log_path):
+          raise error.TestFail('ERROR: File never written')
 
         # Verify print request with a golden file.
         output = utils.system_output(
-            'cmp %s %s' % (self.printing_log_path, golden_file_path)
+            'cmp', ignore_status=True, retain_output=True,
+            args=(self.printing_log_path, golden_file_path)
         )
         if output:
             raise error.TestFail('ERROR: Printing request is not verified!')

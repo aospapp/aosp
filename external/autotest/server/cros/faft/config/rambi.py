@@ -12,6 +12,5 @@ class Values(object):
     ec_capability = ['battery', 'charging', 'keyboard', 'lid', 'x86',
                      'usb', 'smart_usb_charge']
     firmware_screen = 7
-    long_rec_combo = True
-    wp_voltage = 'pp1800'
     spi_voltage = 'pp1800'
+    smm_store = False

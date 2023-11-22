@@ -218,7 +218,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                                          nal_header_t *ps_nal)
 {
     IHEVCD_ERROR_T ret = (IHEVCD_ERROR_T)IHEVCD_SUCCESS;
-    WORD32 value;
+    UWORD32 value;
+    WORD32 i4_value;
     WORD32 i, j;
     WORD32 sps_id;
 
@@ -233,7 +234,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
     WORD32 no_output_of_prior_pics_flag = 0;
     WORD8 i1_nal_unit_type = ps_nal->i1_nal_unit_type;
     WORD32 num_poc_total_curr = 0;
-    WORD32 slice_address;
+    UWORD32 slice_address;
     WORD32 prev_slice_incomplete_flag = 0;
 
     if(ps_codec->i4_slice_error == 1)
@@ -250,7 +251,10 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         BITS_PARSE("no_output_of_prior_pics_flag", no_output_of_prior_pics_flag, ps_bitstrm, 1);
     }
     UEV_PARSE("pic_parameter_set_id", pps_id, ps_bitstrm);
-    pps_id = CLIP3(pps_id, 0, MAX_PPS_CNT - 2);
+    if(pps_id < 0 || pps_id > MAX_PPS_CNT - 2)
+    {
+        return IHEVCD_INVALID_PARAMETER;
+    }
 
     /* Get the current PPS structure */
     ps_pps = ps_codec->s_parse.ps_pps_base + pps_id;
@@ -357,7 +361,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         slice_address = value;
         /* If slice address is greater than the number of CTBs in a picture,
          * ignore the slice */
-        if(value >= ps_sps->i4_pic_size_in_ctb || value <= 0)
+        if(value >= ps_sps->i4_pic_size_in_ctb || value == 0)
             return IHEVCD_IGNORE_SLICE;
     }
     else
@@ -378,6 +382,10 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             //slice_reserved_undetermined_flag[ i ]
         }
         UEV_PARSE("slice_type", value, ps_bitstrm);
+        if(value > 2)
+        {
+            return IHEVCD_INVALID_PARAMETER;
+        }
         ps_slice_hdr->i1_slice_type = value;
 
         /* If the picture is IRAP, slice type must be equal to ISLICE */
@@ -436,12 +444,15 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             }
             else
             {
-                ihevcd_short_term_ref_pic_set(ps_bitstrm,
-                                              &ps_sps->as_stref_picset[0],
-                                              ps_sps->i1_num_short_term_ref_pic_sets,
-                                              ps_sps->i1_num_short_term_ref_pic_sets,
-                                              &ps_slice_hdr->s_stref_picset);
-
+                ret = ihevcd_short_term_ref_pic_set(ps_bitstrm,
+                                                    &ps_sps->as_stref_picset[0],
+                                                    ps_sps->i1_num_short_term_ref_pic_sets,
+                                                    ps_sps->i1_num_short_term_ref_pic_sets,
+                                                    &ps_slice_hdr->s_stref_picset);
+                if (ret != IHEVCD_SUCCESS)
+                {
+                    return ret;
+                }
                 st_rps_idx = ps_sps->i1_num_short_term_ref_pic_sets;
                 num_neg_pics = ps_slice_hdr->s_stref_picset.i1_num_neg_pics;
                 num_pos_pics = ps_slice_hdr->s_stref_picset.i1_num_pos_pics;
@@ -453,16 +464,18 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                 if(ps_sps->i1_num_long_term_ref_pics_sps > 0)
                 {
                     UEV_PARSE("num_long_term_sps", value, ps_bitstrm);
+                    if(value > ps_sps->i1_num_long_term_ref_pics_sps)
+                    {
+                        return IHEVCD_INVALID_PARAMETER;
+                    }
                     ps_slice_hdr->i1_num_long_term_sps = value;
-
-                    ps_slice_hdr->i1_num_long_term_sps = CLIP3(ps_slice_hdr->i1_num_long_term_sps,
-                                                               0, MAX_DPB_SIZE - num_neg_pics - num_pos_pics);
                 }
                 UEV_PARSE("num_long_term_pics", value, ps_bitstrm);
+                if((value + ps_slice_hdr->i1_num_long_term_sps + num_neg_pics + num_pos_pics) > (MAX_DPB_SIZE - 1))
+                {
+                    return IHEVCD_INVALID_PARAMETER;
+                }
                 ps_slice_hdr->i1_num_long_term_pics = value;
-                ps_slice_hdr->i1_num_long_term_pics = CLIP3(ps_slice_hdr->i1_num_long_term_pics,
-                                                            0, MAX_DPB_SIZE - num_neg_pics - num_pos_pics -
-                                                            ps_slice_hdr->i1_num_long_term_sps);
 
                 for(i = 0; i < (ps_slice_hdr->i1_num_long_term_sps +
                                 ps_slice_hdr->i1_num_long_term_pics); i++)
@@ -563,11 +576,19 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             if(ps_slice_hdr->i1_num_ref_idx_active_override_flag)
             {
                 UEV_PARSE("num_ref_idx_l0_active_minus1", value, ps_bitstrm);
+                if(value > MAX_DPB_SIZE - 2)
+                {
+                    return IHEVCD_INVALID_PARAMETER;
+                }
                 ps_slice_hdr->i1_num_ref_idx_l0_active = value + 1;
 
                 if(BSLICE == ps_slice_hdr->i1_slice_type)
                 {
                     UEV_PARSE("num_ref_idx_l1_active_minus1", value, ps_bitstrm);
+                    if(value > MAX_DPB_SIZE - 2)
+                    {
+                        return IHEVCD_INVALID_PARAMETER;
+                    }
                     ps_slice_hdr->i1_num_ref_idx_l1_active = value + 1;
                 }
 
@@ -575,15 +596,11 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             else
             {
                 ps_slice_hdr->i1_num_ref_idx_l0_active = ps_pps->i1_num_ref_idx_l0_default_active;
-
                 if(BSLICE == ps_slice_hdr->i1_slice_type)
                 {
                     ps_slice_hdr->i1_num_ref_idx_l1_active = ps_pps->i1_num_ref_idx_l1_default_active;
                 }
             }
-
-            ps_slice_hdr->i1_num_ref_idx_l0_active = CLIP3(ps_slice_hdr->i1_num_ref_idx_l0_active, 0, MAX_DPB_SIZE - 1);
-            ps_slice_hdr->i1_num_ref_idx_l1_active = CLIP3(ps_slice_hdr->i1_num_ref_idx_l1_active, 0, MAX_DPB_SIZE - 1);
 
             if(0 == num_poc_total_curr)
                 return IHEVCD_IGNORE_SLICE;
@@ -625,11 +642,25 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                    (!ps_slice_hdr->i1_collocated_from_l0_flag  && (ps_slice_hdr->i1_num_ref_idx_l1_active > 1)))
                 {
                     UEV_PARSE("collocated_ref_idx", value, ps_bitstrm);
+                    if((PSLICE == ps_slice_hdr->i1_slice_type || BSLICE == ps_slice_hdr->i1_slice_type) &&
+                                    ps_slice_hdr->i1_collocated_from_l0_flag)
+                    {
+                        if(value >= ps_slice_hdr->i1_num_ref_idx_l0_active)
+                        {
+                            return IHEVCD_INVALID_PARAMETER;
+                        }
+                    }
+                    if(BSLICE == ps_slice_hdr->i1_slice_type && !ps_slice_hdr->i1_collocated_from_l0_flag)
+                    {
+                        if(value >= ps_slice_hdr->i1_num_ref_idx_l1_active)
+                        {
+                            return IHEVCD_INVALID_PARAMETER;
+                        }
+                    }
                     ps_slice_hdr->i1_collocated_ref_idx = value;
                 }
 
             }
-            ps_slice_hdr->i1_collocated_ref_idx = CLIP3(ps_slice_hdr->i1_collocated_ref_idx, 0, MAX_DPB_SIZE - 1);
 
             if((ps_pps->i1_weighted_pred_flag  &&   (PSLICE == ps_slice_hdr->i1_slice_type)) ||
                (ps_pps->i1_weighted_bipred_flag  &&  (BSLICE == ps_slice_hdr->i1_slice_type)))
@@ -637,20 +668,35 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                 ihevcd_parse_pred_wt_ofst(ps_bitstrm, ps_sps, ps_pps, ps_slice_hdr);
             }
             UEV_PARSE("five_minus_max_num_merge_cand", value, ps_bitstrm);
+            if(value > 4)
+            {
+                return IHEVCD_INVALID_PARAMETER;
+            }
             ps_slice_hdr->i1_max_num_merge_cand = 5 - value;
 
         }
-        ps_slice_hdr->i1_max_num_merge_cand = CLIP3(ps_slice_hdr->i1_max_num_merge_cand, 1, 5);
-        SEV_PARSE("slice_qp_delta", value, ps_bitstrm);
-        ps_slice_hdr->i1_slice_qp_delta = value;
+        SEV_PARSE("slice_qp_delta", i4_value, ps_bitstrm);
+        if((i4_value + ps_pps->i1_pic_init_qp) < 0 || (i4_value + ps_pps->i1_pic_init_qp) > MAX_HEVC_QP)
+        {
+            return IHEVCD_INVALID_PARAMETER;
+        }
+        ps_slice_hdr->i1_slice_qp_delta = i4_value;
 
         if(ps_pps->i1_pic_slice_level_chroma_qp_offsets_present_flag)
         {
-            SEV_PARSE("slice_cb_qp_offset", value, ps_bitstrm);
-            ps_slice_hdr->i1_slice_cb_qp_offset = value;
+            SEV_PARSE("slice_cb_qp_offset", i4_value, ps_bitstrm);
+            if(i4_value < -12 || i4_value > 12)
+            {
+                return IHEVCD_INVALID_PARAMETER;
+            }
+            ps_slice_hdr->i1_slice_cb_qp_offset = i4_value;
 
-            SEV_PARSE("slice_cr_qp_offset", value, ps_bitstrm);
-            ps_slice_hdr->i1_slice_cr_qp_offset = value;
+            SEV_PARSE("slice_cr_qp_offset", i4_value, ps_bitstrm);
+            if(i4_value < -12 || i4_value > 12)
+            {
+                return IHEVCD_INVALID_PARAMETER;
+            }
+            ps_slice_hdr->i1_slice_cr_qp_offset = i4_value;
 
         }
         ps_slice_hdr->i1_deblocking_filter_override_flag = 0;
@@ -677,11 +723,19 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
 
                 if(!ps_slice_hdr->i1_slice_disable_deblocking_filter_flag)
                 {
-                    SEV_PARSE("beta_offset_div2", value, ps_bitstrm);
-                    ps_slice_hdr->i1_beta_offset_div2 = value;
+                    SEV_PARSE("beta_offset_div2", i4_value, ps_bitstrm);
+                    if(i4_value < -6 || i4_value > 6)
+                    {
+                        return IHEVCD_INVALID_PARAMETER;
+                    }
+                    ps_slice_hdr->i1_beta_offset_div2 = i4_value;
 
-                    SEV_PARSE("tc_offset_div2", value, ps_bitstrm);
-                    ps_slice_hdr->i1_tc_offset_div2 = value;
+                    SEV_PARSE("tc_offset_div2", i4_value, ps_bitstrm);
+                    if(i4_value < -6 || i4_value > 6)
+                    {
+                        return IHEVCD_INVALID_PARAMETER;
+                    }
+                    ps_slice_hdr->i1_tc_offset_div2 = i4_value;
 
                 }
             }
@@ -816,24 +870,30 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             if((ps_pps->i1_tiles_enabled_flag) &&
                             (ps_pps->i1_entropy_coding_sync_enabled_flag))
             {
-                max_num_entry_point_offsets = ps_pps->i1_num_tile_columns * (ps_sps->i2_pic_ht_in_ctb - 1);
+                max_num_entry_point_offsets = ps_pps->i1_num_tile_columns * ps_sps->i2_pic_ht_in_ctb - 1;
             }
             else if(ps_pps->i1_tiles_enabled_flag)
             {
-                max_num_entry_point_offsets = ps_pps->i1_num_tile_columns * ps_pps->i1_num_tile_rows;
+                max_num_entry_point_offsets = ps_pps->i1_num_tile_columns * ps_pps->i1_num_tile_rows - 1 ;
             }
             else
             {
                 max_num_entry_point_offsets = (ps_sps->i2_pic_ht_in_ctb - 1);
             }
 
-            ps_slice_hdr->i4_num_entry_point_offsets = CLIP3(ps_slice_hdr->i4_num_entry_point_offsets,
-                                                             0, max_num_entry_point_offsets);
+            if(ps_slice_hdr->i4_num_entry_point_offsets < 0 || ps_slice_hdr->i4_num_entry_point_offsets > max_num_entry_point_offsets)
+            {
+                return IHEVCD_INVALID_PARAMETER;
+            }
         }
 
         if(ps_slice_hdr->i4_num_entry_point_offsets > 0)
         {
             UEV_PARSE("offset_len_minus1", value, ps_bitstrm);
+            if(value > 31)
+            {
+                return IHEVCD_INVALID_PARAMETER;
+            }
             ps_slice_hdr->i1_offset_len = value + 1;
 
             for(i = 0; i < ps_slice_hdr->i4_num_entry_point_offsets; i++)
@@ -850,6 +910,10 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
     if(ps_pps->i1_slice_header_extension_present_flag)
     {
         UEV_PARSE("slice_header_extension_length", value, ps_bitstrm);
+        if(value > 256)
+        {
+            return IHEVCD_INVALID_PARAMETER;
+        }
         ps_slice_hdr->i2_slice_header_extension_length = value;
 
 

@@ -8,6 +8,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import autotemp, error
+from autotest_lib.client.cros import dbus_util
 from mainloop import ExceptionForward
 from mainloop import GenericTesterMainLoop
 
@@ -55,7 +56,8 @@ class DBusClient(object):
     This class is expected to be used along with a GLib main loop and provides
     some convenient functions for testing the DBus API exposed by a DBus server.
     """
-    def __init__(self, main_loop, bus, bus_name, object_path):
+
+    def __init__(self, main_loop, bus, bus_name, object_path, timeout=None):
         """Initializes the instance.
 
         Args:
@@ -63,13 +65,15 @@ class DBusClient(object):
             bus: The bus where the DBus server is connected to.
             bus_name: The bus name owned by the DBus server.
             object_path: The object path of the DBus server.
+            timeout: Maximum time in seconds to wait for the DBus connection.
         """
         self.__signal_content = {}
         self.main_loop = main_loop
         self.signal_timeout_in_seconds = 10
         logging.debug('Getting D-Bus proxy object on bus "%s" and path "%s"',
                       bus_name, object_path)
-        self.proxy_object = bus.get_object(bus_name, object_path)
+        self.proxy_object = dbus_util.get_dbus_object(bus, bus_name,
+                                                      object_path, timeout)
 
     def clear_signal_content(self, signal_name):
         """Clears the content of the signal.
@@ -192,16 +196,19 @@ class CrosDisksClient(DBusClient):
         'status', 'path'
     )
 
-    def __init__(self, main_loop, bus):
+    def __init__(self, main_loop, bus, timeout_seconds=None):
         """Initializes the instance.
 
         Args:
             main_loop: The GLib main loop.
             bus: The bus where the DBus server is connected to.
+            timeout_seconds: Maximum time in seconds to wait for the DBus
+                             connection.
         """
         super(CrosDisksClient, self).__init__(main_loop, bus,
                                               self.CROS_DISKS_BUS_NAME,
-                                              self.CROS_DISKS_OBJECT_PATH)
+                                              self.CROS_DISKS_OBJECT_PATH,
+                                              timeout_seconds)
         self.interface = dbus.Interface(self.proxy_object,
                                         self.CROS_DISKS_INTERFACE)
         self.properties = dbus.Interface(self.proxy_object,
@@ -215,15 +222,6 @@ class CrosDisksClient(DBusClient):
         self.handle_signal(self.CROS_DISKS_INTERFACE,
                            self.RENAME_COMPLETED_SIGNAL,
                            self.RENAME_COMPLETED_SIGNAL_ARGUMENTS)
-
-    def enumerate_auto_mountable_devices(self):
-        """Invokes the CrosDisks EnumerateAutoMountableDevices method.
-
-        Returns:
-            A list of sysfs paths of devices that are auto-mountable by
-            CrosDisks.
-        """
-        return self.interface.EnumerateAutoMountableDevices()
 
     def enumerate_devices(self):
         """Invokes the CrosDisks EnumerateMountableDevices method.
@@ -351,10 +349,13 @@ class CrosDisksClient(DBusClient):
         Args:
             path: The device or mount path to unmount.
             options: A list of options used for unmounting the path.
+
+        Returns:
+            The mount error code.
         """
         if options is None:
             options = []
-        self.interface.Unmount(path, dbus.Array(options, signature='s'))
+        return self.interface.Unmount(path, dbus.Array(options, signature='s'))
 
     def wait_for_mount_completion(self):
         """Waits for the CrosDisks MountCompleted signal.
@@ -394,10 +395,10 @@ class CrosDisksTester(GenericTesterMainLoop):
     """
     def __init__(self, test):
         bus_loop = DBusGMainLoop(set_as_default=True)
-        bus = dbus.SystemBus(mainloop=bus_loop)
+        self.bus = dbus.SystemBus(mainloop=bus_loop)
         self.main_loop = gobject.MainLoop()
         super(CrosDisksTester, self).__init__(test, self.main_loop)
-        self.cros_disks = CrosDisksClient(self.main_loop, bus)
+        self.cros_disks = CrosDisksClient(self.main_loop, self.bus)
 
     def get_tests(self):
         """Returns a list of test methods to be invoked by perform_one_test.
@@ -418,6 +419,16 @@ class CrosDisksTester(GenericTesterMainLoop):
         for test in tests:
             test()
             self.requirement_completed(test.func_name)
+
+    def reconnect_client(self, timeout_seconds=None):
+      """"Reconnect the CrosDisks DBus client.
+
+      Args:
+          timeout_seconds: Maximum time in seconds to wait for the DBus
+                           connection.
+      """
+      self.cros_disks = CrosDisksClient(self.main_loop, self.bus,
+                                        timeout_seconds)
 
 
 class FilesystemTestObject(object):
@@ -547,6 +558,7 @@ class DefaultFilesystemTestContent(FilesystemTestDirectory):
                 FilesystemTestFile('file2', 'abcdefg'),
                 FilesystemTestDirectory('dir2', [
                     FilesystemTestFile('file3', 'abcdefg'),
+                    FilesystemTestFile('file4', 'a' * 65536),
                 ]),
             ]),
         ], stat.S_IRWXU|stat.S_IRGRP|stat.S_IXGRP|stat.S_IROTH|stat.S_IXOTH)

@@ -18,13 +18,13 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -59,7 +59,7 @@
 #include "MagickCore/utility.h"
 #if defined(MAGICKCORE_XML_DELEGATE)
 #  if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#    if !defined(__MINGW32__) && !defined(__MINGW64__)
+#    if !defined(__MINGW32__)
 #      include <win32config.h>
 #    endif
 #  endif
@@ -69,7 +69,7 @@
 #  include <libxml/nanohttp.h>
 #endif
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !(defined(__MINGW32__) || defined(__MINGW64__))
+    !defined(__MINGW32__)
 #  include <urlmon.h>
 #  pragma comment(lib, "urlmon.lib")
 #endif
@@ -175,7 +175,7 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) ConcatenateMagickString(filename,image_info->filename,
     MagickPathExtent);
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !(defined(__MINGW32__) || defined(__MINGW64__))
+    !defined(__MINGW32__)
   (void) fclose(file);
   if (URLDownloadToFile(NULL,filename,read_info->filename,0,NULL) != S_OK)
     {
@@ -280,7 +280,7 @@ ModuleExport size_t RegisterURLImage(void)
 
   entry=AcquireMagickInfo("URL","HTTP","Uniform Resource Locator (http://)");
 #if (defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !(defined(__MINGW32__) || defined(__MINGW64__))) || \
+    !defined(__MINGW32__)) || \
     (defined(MAGICKCORE_XML_DELEGATE) && defined(LIBXML_HTTP_ENABLED))
   entry->decoder=(DecodeImageHandler *) ReadURLImage;
 #endif
@@ -288,14 +288,14 @@ ModuleExport size_t RegisterURLImage(void)
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("URL","HTTPS","Uniform Resource Locator (https://)");
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !(defined(__MINGW32__) || defined(__MINGW64__))
+    !defined(__MINGW32__)
   entry->decoder=(DecodeImageHandler *) ReadURLImage;
 #endif
   entry->format_type=ImplicitFormatType;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("URL","FTP","Uniform Resource Locator (ftp://)");
 #if (defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !(defined(__MINGW32__) || defined(__MINGW64__))) || \
+    !defined(__MINGW32__)) || \
     (defined(MAGICKCORE_XML_DELEGATE) && defined(LIBXML_FTP_ENABLED))
   entry->decoder=(DecodeImageHandler *) ReadURLImage;
 #endif

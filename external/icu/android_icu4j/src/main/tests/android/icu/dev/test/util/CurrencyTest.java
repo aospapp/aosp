@@ -26,8 +26,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
-import android.icu.dev.test.TestUtil;
-import android.icu.dev.test.TestUtil.JavaVendor;
 import android.icu.impl.CurrencyData;
 import android.icu.text.CurrencyDisplayNames;
 import android.icu.text.CurrencyMetaInfo;
@@ -193,17 +191,54 @@ public class CurrencyTest extends TestFmwk {
         // Do a basic check of getName()
         // USD { "US$", "US Dollar"            } // 04/04/1792-
         ULocale en = ULocale.ENGLISH;
+        ULocale en_CA = ULocale.forLanguageTag("en-CA");
+        ULocale en_US = ULocale.forLanguageTag("en-US");
+        ULocale en_NZ = ULocale.forLanguageTag("en-NZ");
         boolean[] isChoiceFormat = new boolean[1];
-        Currency usd = Currency.getInstance("USD");
+        Currency USD = Currency.getInstance("USD");
+        Currency CAD = Currency.getInstance("CAD");
+        Currency USX = Currency.getInstance("USX");
         // Warning: HARD-CODED LOCALE DATA in this test.  If it fails, CHECK
         // THE LOCALE DATA before diving into the code.
-        assertEquals("USD.getName(SYMBOL_NAME)",
+        assertEquals("USD.getName(SYMBOL_NAME, en)",
                 "$",
-                usd.getName(en, Currency.SYMBOL_NAME, isChoiceFormat));
-        assertEquals("USD.getName(LONG_NAME)",
+                USD.getName(en, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USD.getName(NARROW_SYMBOL_NAME, en)",
+                "$",
+                USD.getName(en, Currency.NARROW_SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USD.getName(LONG_NAME, en)",
                 "US Dollar",
-                usd.getName(en, Currency.LONG_NAME, isChoiceFormat));
-        // TODO add more tests later
+                USD.getName(en, Currency.LONG_NAME, isChoiceFormat));
+        assertEquals("CAD.getName(SYMBOL_NAME, en)",
+                "CA$",
+                CAD.getName(en, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("CAD.getName(NARROW_SYMBOL_NAME, en)",
+                "$",
+                CAD.getName(en, Currency.NARROW_SYMBOL_NAME, isChoiceFormat));
+        assertEquals("CAD.getName(SYMBOL_NAME, en_CA)",
+                "$",
+                CAD.getName(en_CA, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USD.getName(SYMBOL_NAME, en_CA)",
+                "US$",
+                USD.getName(en_CA, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USD.getName(NARROW_SYMBOL_NAME, en_CA)",
+                "$",
+                USD.getName(en_CA, Currency.NARROW_SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USD.getName(SYMBOL_NAME) in en_NZ",
+                "US$",
+                USD.getName(en_NZ, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("CAD.getName(SYMBOL_NAME)",
+                "CA$",
+                CAD.getName(en_NZ, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USX.getName(SYMBOL_NAME)",
+                "USX",
+                USX.getName(en_US, Currency.SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USX.getName(NARROW_SYMBOL_NAME)",
+                "USX",
+                USX.getName(en_US, Currency.NARROW_SYMBOL_NAME, isChoiceFormat));
+        assertEquals("USX.getName(LONG_NAME)",
+                "USX",
+                USX.getName(en_US, Currency.LONG_NAME, isChoiceFormat));
     }
 
     @Test
@@ -288,6 +323,18 @@ public class CurrencyTest extends TestFmwk {
         assertNotNull("have currency data for Germany (Java Locale)", cdn);
         assertEquals("de_USD_name (Locale)", "US-Dollar", cdn.getName("USD"));
         assertNull("de_FOO_name (Locale)", cdn.getName("FOO"));
+
+        // Locale version with noSubstitute=false
+        cdn = CurrencyDisplayNames.getInstance(Locale.GERMANY, false);
+        assertNotNull("have currency data for Germany (Java Locale, false)", cdn);
+        assertEquals("de_USD_name (Locale, false)", "US-Dollar", cdn.getName("USD"));
+        assertEquals("de_USD_plural_foo (Locale, false)", "US-Dollar", cdn.getPluralName("USD", "foo"));
+
+        // Locale version with no boolean attribute; should behave the same as noSubstitute=false
+        cdn = CurrencyDisplayNames.getInstance(Locale.GERMANY);
+        assertNotNull("have currency data for Germany (Java Locale, default)", cdn);
+        assertEquals("de_USD_name (Locale, default)", "US-Dollar", cdn.getName("USD"));
+        assertEquals("de_USD_plural_foo (Locale, default)", "US-Dollar", cdn.getPluralName("USD", "foo"));
     }
 
     // Coverage-only test of CurrencyData
@@ -610,19 +657,18 @@ public class CurrencyTest extends TestFmwk {
             String[] actual = Currency.getAvailableCurrencyCodes(locale, date);
 
             // Order is not important as of 4.4.  We never documented that it was.
-            Set<String> expectedSet = new HashSet<String>();
+            Set<String> expectedSet = new HashSet<>();
             if (expected != null) {
                 expectedSet.addAll(Arrays.asList(expected));
             }
-            Set<String> actualSet = new HashSet<String>();
+            Set<String> actualSet = new HashSet<>();
             if (actual != null) {
                 actualSet.addAll(Arrays.asList(actual));
             }
             assertEquals(locale + " on " + timeString, expectedSet, actualSet);
 
             // With Java Locale
-            // Note: skip this test on Java 6 or older when keywords are available
-            if (locale.getKeywords() == null || TestUtil.getJavaVendor() == JavaVendor.Android || TestUtil.getJavaVersion() >= 7) {
+            if (locale.getKeywords() == null) {
                 Locale javaloc = locale.toLocale();
                 String[] actualWithJavaLocale = Currency.getAvailableCurrencyCodes(javaloc, date);
                 // should be exactly same with the ULocale version
@@ -705,7 +751,7 @@ public class CurrencyTest extends TestFmwk {
             String[] all = Currency.getKeywordValuesForLocale("currency", loc, false);
             // The items in the two collections should match (ignore order,
             // behavior change from 4.3.3)
-            Set<String> returnedSet = new HashSet<String>();
+            Set<String> returnedSet = new HashSet<>();
             returnedSet.addAll(Arrays.asList(all));
             assertEquals(loc.toString(), ALLSET, returnedSet);
         }

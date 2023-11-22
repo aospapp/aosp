@@ -106,8 +106,8 @@ public final class Run {
     public final boolean checkJni;
     public final boolean debugging;
 
-    public Run(Vogar vogar, Toolchain toolchain, Console console, Mkdir mkdir, AndroidSdk androidSdk,
-            Rm rm, Target target, File runnerDir)
+    public Run(Vogar vogar, Toolchain toolchain, Console console, Mkdir mkdir,
+            AndroidSdk androidSdk, Rm rm, Target target, File runnerDir)
             throws IOException {
         this.console = console;
 
@@ -193,6 +193,7 @@ public final class Run {
             case HOST:
                 return new HostRuntime(this, modeId, variant);
             case DEVICE:
+            case DEVICE_TESTDEX:
             case APP_PROCESS:
                 return new DeviceRuntime(this, modeId, variant, new Supplier<String>() {
                     @Override

@@ -1,7 +1,6 @@
 #!/usr/bin/python -u
 
 import collections
-import datetime
 import errno
 import fcntl
 import json
@@ -25,7 +24,6 @@ from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.tko import models as tko_models
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import constants
-from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils.sponge_lib import sponge_utils
 from autotest_lib.tko import db as tko_db, utils as tko_utils
 from autotest_lib.tko import models, parser_lib
@@ -40,6 +38,16 @@ except ImportError:
 _ParseOptions = collections.namedtuple(
     'ParseOptions', ['reparse', 'mail_on_failure', 'dry_run', 'suite_report',
                      'datastore_creds', 'export_to_gcloud_path'])
+
+_HARDCODED_CONTROL_FILE_NAMES = (
+        # client side test control, as saved in old Autotest paths.
+        'control',
+        # server side test control, as saved in old Autotest paths.
+        'control.srv',
+        # All control files, as saved in skylab.
+        'control.from_control_name',
+)
+
 
 def parse_args():
     """Parse args."""
@@ -76,7 +84,7 @@ def parse_args():
                       dest="write_pidfile", action="store_true",
                       default=False)
     parser.add_option("--record-duration",
-                      help="Record timing to metadata db",
+                      help="[DEPRECATED] Record timing to metadata db",
                       dest="record_duration", action="store_true",
                       default=False)
     parser.add_option("--suite-report",
@@ -258,26 +266,9 @@ def _throttle_result_size(path):
                 path)
         return
 
-    max_result_size_KB = control_data.DEFAULT_MAX_RESULT_SIZE_KB
-    # Client side test saves the test control to file `control`, while server
-    # side test saves the test control to file `control.srv`
-    for control_file in ['control', 'control.srv']:
-        control = os.path.join(path, control_file)
-        try:
-            max_result_size_KB = control_data.parse_control(
-                    control, raise_warnings=False).max_result_size_KB
-            # Any value different from the default is considered to be the one
-            # set in the test control file.
-            if max_result_size_KB != control_data.DEFAULT_MAX_RESULT_SIZE_KB:
-                break
-        except IOError as e:
-            tko_utils.dprint(
-                    'Failed to access %s. Error: %s\nDetails %s' %
-                    (control, e, traceback.format_exc()))
-        except control_data.ControlVariableException as e:
-            tko_utils.dprint(
-                    'Failed to parse %s. Error: %s\nDetails %s' %
-                    (control, e, traceback.format_exc()))
+    max_result_size_KB = _max_result_size_from_control(path)
+    if max_result_size_KB is None:
+        max_result_size_KB = control_data.DEFAULT_MAX_RESULT_SIZE_KB
 
     try:
         result_utils.execute(path, max_result_size_KB)
@@ -287,6 +278,32 @@ def _throttle_result_size(path):
                 (path, traceback.format_exc()))
 
 
+def _max_result_size_from_control(path):
+    """Gets the max result size set in a control file, if any.
+
+    If not overrides is found, returns None.
+    """
+    for control_file in _HARDCODED_CONTROL_FILE_NAMES:
+        control = os.path.join(path, control_file)
+        if not os.path.exists(control):
+            continue
+
+        try:
+            max_result_size_KB = control_data.parse_control(
+                    control, raise_warnings=False).max_result_size_KB
+            if max_result_size_KB != control_data.DEFAULT_MAX_RESULT_SIZE_KB:
+                return max_result_size_KB
+        except IOError as e:
+            tko_utils.dprint(
+                    'Failed to access %s. Error: %s\nDetails %s' %
+                    (control, e, traceback.format_exc()))
+        except control_data.ControlVariableException as e:
+            tko_utils.dprint(
+                    'Failed to parse %s. Error: %s\nDetails %s' %
+                    (control, e, traceback.format_exc()))
+    return None
+
+
 def export_tko_job_to_file(job, jobname, filename):
     """Exports the tko job to disk file.
 
@@ -294,20 +311,17 @@ def export_tko_job_to_file(job, jobname, filename):
     @param jobname: the job name as string.
     @param filename: The path to the results to be parsed.
     """
-    try:
-        from autotest_lib.tko import job_serializer
+    from autotest_lib.tko import job_serializer
 
-        serializer = job_serializer.JobSerializer()
-        serializer.serialize_to_binary(job, jobname, filename)
-    except ImportError:
-        tko_utils.dprint("WARNING: tko_pb2.py doesn't exist. Create by "
-                         "compiling tko/tko.proto.")
+    serializer = job_serializer.JobSerializer()
+    serializer.serialize_to_binary(job, jobname, filename)
 
 
-def parse_one(db, jobname, path, parse_options):
+def parse_one(db, pid_file_manager, jobname, path, parse_options):
     """Parse a single job. Optionally send email on failure.
 
     @param db: database object.
+    @param pid_file_manager: pidfile.PidFileManager object.
     @param jobname: the tag used to search for existing job in db,
                     e.g. '1234-chromeos-test/host1'
     @param path: The path to the results to be parsed.
@@ -322,69 +336,33 @@ def parse_one(db, jobname, path, parse_options):
 
     tko_utils.dprint("\nScanning %s (%s)" % (jobname, path))
     old_job_idx = db.find_job(jobname)
-    # old tests is a dict from tuple (test_name, subdir) to test_idx
-    old_tests = {}
-    if old_job_idx is not None:
-        if not reparse:
-            tko_utils.dprint("! Job is already parsed, done")
-            return
-
-        raw_old_tests = db.select("test_idx,subdir,test", "tko_tests",
-                                  {"job_idx": old_job_idx})
-        if raw_old_tests:
-            old_tests = dict(((test, subdir), test_idx)
-                             for test_idx, subdir, test in raw_old_tests)
+    if old_job_idx is not None and not reparse:
+        tko_utils.dprint("! Job is already parsed, done")
+        return
 
     # look up the status version
     job_keyval = models.job.read_keyval(path)
     status_version = job_keyval.get("status_version", 0)
 
-    # parse out the job
     parser = parser_lib.parser(status_version)
     job = parser.make_job(path)
-    status_log = os.path.join(path, "status.log")
-    if not os.path.exists(status_log):
-        status_log = os.path.join(path, "status")
-    if not os.path.exists(status_log):
+    tko_utils.dprint("+ Parsing dir=%s, jobname=%s" % (path, jobname))
+    status_log_path = _find_status_log_path(path)
+    if not status_log_path:
         tko_utils.dprint("! Unable to parse job, no status file")
         return
+    _parse_status_log(parser, job, status_log_path)
 
-    # parse the status logs
-    tko_utils.dprint("+ Parsing dir=%s, jobname=%s" % (path, jobname))
-    status_lines = open(status_log).readlines()
-    parser.start(job)
-    tests = parser.end(status_lines)
-
-    # parser.end can return the same object multiple times, so filter out dups
-    job.tests = []
-    already_added = set()
-    for test in tests:
-        if test not in already_added:
-            already_added.add(test)
-            job.tests.append(test)
-
-    # try and port test_idx over from the old tests, but if old tests stop
-    # matching up with new ones just give up
-    if reparse and old_job_idx is not None:
-        job.index = old_job_idx
-        for test in job.tests:
-            test_idx = old_tests.pop((test.testname, test.subdir), None)
-            if test_idx is not None:
-                test.test_idx = test_idx
-            else:
-                tko_utils.dprint("! Reparse returned new test "
-                                 "testname=%r subdir=%r" %
-                                 (test.testname, test.subdir))
+    if old_job_idx is not None:
+        job.job_idx = old_job_idx
+        unmatched_tests = _match_existing_tests(db, job)
         if not dry_run:
-            for test_idx in old_tests.itervalues():
-                where = {'test_idx' : test_idx}
-                db.delete('tko_iteration_result', where)
-                db.delete('tko_iteration_perf_value', where)
-                db.delete('tko_iteration_attributes', where)
-                db.delete('tko_test_attributes', where)
-                db.delete('tko_test_labels_tests', {'test_id': test_idx})
-                db.delete('tko_tests', where)
+            _delete_tests_from_db(db, unmatched_tests)
 
+    job.afe_job_id = tko_utils.get_afe_job_id(jobname)
+    job.skylab_task_id = tko_utils.get_skylab_task_id(jobname)
+    job.afe_parent_job_id = job_keyval.get(constants.PARENT_JOB_ID)
+    job.skylab_parent_task_id = job_keyval.get(constants.PARENT_JOB_ID)
     job.build = None
     job.board = None
     job.build_version = None
@@ -419,67 +397,60 @@ def parse_one(db, jobname, path, parse_options):
         tko_utils.dprint("* testname, subdir, status, reason: %s %s %s %s"
                          % (test.testname, test.subdir, test.status,
                             test.reason))
-        if test.status != 'GOOD':
+        if test.status not in ('GOOD', 'WARN'):
             job_successful = False
+            pid_file_manager.num_tests_failed += 1
             message_lines.append(format_failure_message(
                 jobname, test.kernel.base, test.subdir,
                 test.status, test.reason))
-    try:
-        message = "\n".join(message_lines)
 
-        if not dry_run:
-            # send out a email report of failure
-            if len(message) > 2 and mail_on_failure:
-                tko_utils.dprint("Sending email report of failure on %s to %s"
-                                 % (jobname, job.user))
-                mailfailure(jobname, job, message)
+    message = "\n".join(message_lines)
 
-            # Upload perf values to the perf dashboard, if applicable.
-            for test in job.tests:
-                perf_uploader.upload_test(job, test, jobname)
+    if not dry_run:
+        # send out a email report of failure
+        if len(message) > 2 and mail_on_failure:
+            tko_utils.dprint("Sending email report of failure on %s to %s"
+                                % (jobname, job.user))
+            mailfailure(jobname, job, message)
 
-            # Upload job details to Sponge.
-            sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
-            if sponge_url:
-                job.keyval_dict['sponge_url'] = sponge_url
+        # Upload perf values to the perf dashboard, if applicable.
+        for test in job.tests:
+            perf_uploader.upload_test(job, test, jobname)
 
-            # write the job into the database.
-            job_data = db.insert_job(
-                jobname, job,
-                parent_job_id=job_keyval.get(constants.PARENT_JOB_ID, None))
+        # Upload job details to Sponge.
+        sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
+        if sponge_url:
+            job.keyval_dict['sponge_url'] = sponge_url
 
-            # Verify the job data is written to the database.
-            if job.tests:
-                tests_in_db = db.find_tests(job_data['job_idx'])
-                tests_in_db_count = len(tests_in_db) if tests_in_db else 0
-                if tests_in_db_count != len(job.tests):
-                    tko_utils.dprint(
-                            'Failed to find enough tests for job_idx: %d. The '
-                            'job should have %d tests, only found %d tests.' %
-                            (job_data['job_idx'], len(job.tests),
-                             tests_in_db_count))
-                    metrics.Counter(
-                            'chromeos/autotest/result/db_save_failure',
-                            description='The number of times parse failed to '
-                            'save job to TKO database.').increment()
+        _write_job_to_db(db, jobname, job)
 
-            # Although the cursor has autocommit, we still need to force it to
-            # commit existing changes before we can use django models, otherwise
-            # it will go into deadlock when django models try to start a new
-            # trasaction while the current one has not finished yet.
-            db.commit()
+        # Verify the job data is written to the database.
+        if job.tests:
+            tests_in_db = db.find_tests(job.job_idx)
+            tests_in_db_count = len(tests_in_db) if tests_in_db else 0
+            if tests_in_db_count != len(job.tests):
+                tko_utils.dprint(
+                        'Failed to find enough tests for job_idx: %d. The '
+                        'job should have %d tests, only found %d tests.' %
+                        (job.job_idx, len(job.tests), tests_in_db_count))
+                metrics.Counter(
+                        'chromeos/autotest/result/db_save_failure',
+                        description='The number of times parse failed to '
+                        'save job to TKO database.').increment()
 
-            # Handle retry job.
-            orig_afe_job_id = job_keyval.get(constants.RETRY_ORIGINAL_JOB_ID,
-                                             None)
-            if orig_afe_job_id:
-                orig_job_idx = tko_models.Job.objects.get(
-                        afe_job_id=orig_afe_job_id).job_idx
-                _invalidate_original_tests(orig_job_idx, job.index)
-    except Exception as e:
-        tko_utils.dprint("Hit exception while uploading to tko db:\n%s" %
-                         traceback.format_exc())
-        raise e
+        # Although the cursor has autocommit, we still need to force it to
+        # commit existing changes before we can use django models, otherwise
+        # it will go into deadlock when django models try to start a new
+        # trasaction while the current one has not finished yet.
+        db.commit()
+
+        # Handle retry job.
+        orig_afe_job_id = job_keyval.get(constants.RETRY_ORIGINAL_JOB_ID,
+                                            None)
+        if orig_afe_job_id:
+            orig_job_idx = tko_models.Job.objects.get(
+                    afe_job_id=orig_afe_job_id).job_idx
+            _invalidate_original_tests(orig_job_idx, job.job_idx)
 
     # Serializing job into a binary file
     export_tko_to_file = global_config.global_config.get_config_value(
@@ -489,14 +460,6 @@ def parse_one(db, jobname, path, parse_options):
     if export_tko_to_file:
         export_tko_job_to_file(job, jobname, binary_file_name)
 
-    if reparse:
-        site_export_file = "autotest_lib.tko.site_export"
-        site_export = utils.import_site_function(__file__,
-                                                 site_export_file,
-                                                 "site_export",
-                                                 _site_export_dummy)
-        site_export(binary_file_name)
-
     if not dry_run:
         db.commit()
 
@@ -504,35 +467,36 @@ def parse_one(db, jobname, path, parse_options):
     # Check whether this is a suite job, a suite job will be a hostless job, its
     # jobname will be <JOB_ID>-<USERNAME>/hostless, the suite field will not be
     # NULL. Only generate timeline report when datastore_parent_key is given.
-    try:
-        datastore_parent_key = job_keyval.get('datastore_parent_key', None)
-        if (suite_report and jobname.endswith('/hostless')
-            and job_data['suite'] and datastore_parent_key):
-            tko_utils.dprint('Start dumping suite timing report...')
-            timing_log = os.path.join(path, 'suite_timing.log')
-            dump_cmd = ("%s/site_utils/dump_suite_report.py %s "
-                        "--output='%s' --debug" %
-                        (common.autotest_dir, job_data['afe_job_id'],
-                         timing_log))
-            subprocess.check_output(dump_cmd, shell=True)
-            tko_utils.dprint('Successfully finish dumping suite timing report')
+    datastore_parent_key = job_keyval.get('datastore_parent_key', None)
+    provision_job_id = job_keyval.get('provision_job_id', None)
+    if (suite_report and jobname.endswith('/hostless')
+        and job.suite and datastore_parent_key):
+        tko_utils.dprint('Start dumping suite timing report...')
+        timing_log = os.path.join(path, 'suite_timing.log')
+        dump_cmd = ("%s/site_utils/dump_suite_report.py %s "
+                    "--output='%s' --debug" %
+                    (common.autotest_dir, job.afe_job_id,
+                        timing_log))
 
-            if (datastore_creds and export_to_gcloud_path
-                and os.path.exists(export_to_gcloud_path)):
-                upload_cmd = [export_to_gcloud_path, datastore_creds,
-                              timing_log, '--parent_key',
-                              datastore_parent_key]
-                tko_utils.dprint('Start exporting timeline report to gcloud')
-                subprocess.check_output(upload_cmd)
-                tko_utils.dprint('Successfully export timeline report to '
-                                 'gcloud')
-            else:
-                tko_utils.dprint('DEBUG: skip exporting suite timeline to '
-                                 'gcloud, because either gcloud creds or '
-                                 'export_to_gcloud script is not found.')
-    except Exception as e:
-        tko_utils.dprint("WARNING: fail to dump/export suite report. "
-                         "Error:\n%s" % e)
+        if provision_job_id is not None:
+            dump_cmd += " --provision_job_id=%d" % int(provision_job_id)
+
+        subprocess.check_output(dump_cmd, shell=True)
+        tko_utils.dprint('Successfully finish dumping suite timing report')
+
+        if (datastore_creds and export_to_gcloud_path
+            and os.path.exists(export_to_gcloud_path)):
+            upload_cmd = [export_to_gcloud_path, datastore_creds,
+                            timing_log, '--parent_key',
+                            datastore_parent_key]
+            tko_utils.dprint('Start exporting timeline report to gcloud')
+            subprocess.check_output(upload_cmd)
+            tko_utils.dprint('Successfully export timeline report to '
+                                'gcloud')
+        else:
+            tko_utils.dprint('DEBUG: skip exporting suite timeline to '
+                                'gcloud, because either gcloud creds or '
+                                'export_to_gcloud script is not found.')
 
     # Mark GS_OFFLOADER_NO_OFFLOAD in gs_offloader_instructions at the end of
     # the function, so any failure, e.g., db connection error, will stop
@@ -554,8 +518,82 @@ def parse_one(db, jobname, path, parse_options):
                 json.dump(gs_offloader_instructions, f)
 
 
-def _site_export_dummy(binary_file_name):
-    pass
+def _write_job_to_db(db, jobname, job):
+    """Write all TKO data associated with a job to DB.
+
+    This updates the job object as a side effect.
+
+    @param db: tko.db.db_sql object.
+    @param jobname: Name of the job to write.
+    @param job: tko.models.job object.
+    """
+    db.insert_or_update_machine(job)
+    db.insert_job(jobname, job)
+    db.insert_or_update_task_reference(
+            job,
+            'skylab' if tko_utils.is_skylab_task(jobname) else 'afe',
+    )
+    db.update_job_keyvals(job)
+    for test in job.tests:
+        db.insert_test(job, test)
+
+
+def _find_status_log_path(path):
+    if os.path.exists(os.path.join(path, "status.log")):
+        return os.path.join(path, "status.log")
+    if os.path.exists(os.path.join(path, "status")):
+        return os.path.join(path, "status")
+    return ""
+
+
+def _parse_status_log(parser, job, status_log_path):
+    status_lines = open(status_log_path).readlines()
+    parser.start(job)
+    tests = parser.end(status_lines)
+
+    # parser.end can return the same object multiple times, so filter out dups
+    job.tests = []
+    already_added = set()
+    for test in tests:
+        if test not in already_added:
+            already_added.add(test)
+            job.tests.append(test)
+
+
+def _match_existing_tests(db, job):
+    """Find entries in the DB corresponding to the job's tests, update job.
+
+    @return: Any unmatched tests in the db.
+    """
+    old_job_idx = job.job_idx
+    raw_old_tests = db.select("test_idx,subdir,test", "tko_tests",
+                                {"job_idx": old_job_idx})
+    if raw_old_tests:
+        old_tests = dict(((test, subdir), test_idx)
+                            for test_idx, subdir, test in raw_old_tests)
+    else:
+        old_tests = {}
+
+    for test in job.tests:
+        test_idx = old_tests.pop((test.testname, test.subdir), None)
+        if test_idx is not None:
+            test.test_idx = test_idx
+        else:
+            tko_utils.dprint("! Reparse returned new test "
+                                "testname=%r subdir=%r" %
+                                (test.testname, test.subdir))
+    return old_tests
+
+
+def _delete_tests_from_db(db, tests):
+    for test_idx in tests.itervalues():
+        where = {'test_idx' : test_idx}
+        db.delete('tko_iteration_result', where)
+        db.delete('tko_iteration_perf_value', where)
+        db.delete('tko_iteration_attributes', where)
+        db.delete('tko_test_attributes', where)
+        db.delete('tko_test_labels_tests', {'test_id': test_idx})
+        db.delete('tko_tests', where)
 
 
 def _get_job_subdirs(path):
@@ -584,10 +622,11 @@ def _get_job_subdirs(path):
     return None
 
 
-def parse_leaf_path(db, path, level, parse_options):
+def parse_leaf_path(db, pid_file_manager, path, level, parse_options):
     """Parse a leaf path.
 
     @param db: database handle.
+    @param pid_file_manager: pidfile.PidFileManager object.
     @param path: The path to the results to be parsed.
     @param level: Integer, level of subdirectories to include in the job name.
     @param parse_options: _ParseOptions instance.
@@ -596,18 +635,16 @@ def parse_leaf_path(db, path, level, parse_options):
     """
     job_elements = path.split("/")[-level:]
     jobname = "/".join(job_elements)
-    try:
-        db.run_with_retry(parse_one, db, jobname, path, parse_options)
-    except Exception as e:
-        tko_utils.dprint("Error parsing leaf path: %s\nException:\n%s\n%s" %
-                         (path, e, traceback.format_exc()))
+    db.run_with_retry(parse_one, db, pid_file_manager, jobname, path,
+                      parse_options)
     return jobname
 
 
-def parse_path(db, path, level, parse_options):
+def parse_path(db, pid_file_manager, path, level, parse_options):
     """Parse a path
 
     @param db: database handle.
+    @param pid_file_manager: pidfile.PidFileManager object.
     @param path: The path to the results to be parsed.
     @param level: Integer, level of subdirectories to include in the job name.
     @param parse_options: _ParseOptions instance.
@@ -622,39 +659,22 @@ def parse_path(db, path, level, parse_options):
         # synchronous server side tests record output in this directory. without
         # this check, we do not parse these results.
         if os.path.exists(os.path.join(path, 'status.log')):
-            new_job = parse_leaf_path(db, path, level, parse_options)
+            new_job = parse_leaf_path(db, pid_file_manager, path, level,
+                                      parse_options)
             processed_jobs.add(new_job)
         # multi-machine job
         for subdir in job_subdirs:
             jobpath = os.path.join(path, subdir)
-            new_jobs = parse_path(db, jobpath, level + 1, parse_options)
+            new_jobs = parse_path(db, pid_file_manager, jobpath, level + 1,
+                                  parse_options)
             processed_jobs.update(new_jobs)
     else:
         # single machine job
-        new_job = parse_leaf_path(db, path, level, parse_options)
+        new_job = parse_leaf_path(db, pid_file_manager, path, level,
+                                  parse_options)
         processed_jobs.add(new_job)
     return processed_jobs
 
-
-def record_parsing(processed_jobs, duration_secs):
-    """Record the time spent on parsing to metadata db.
-
-    @param processed_jobs: A set of job names of the parsed jobs.
-              set(['123-chromeos-test/host1', '123-chromeos-test/host2'])
-    @param duration_secs: Total time spent on parsing, in seconds.
-    """
-
-    for job_name in processed_jobs:
-        job_id, hostname = tko_utils.get_afe_job_id_and_hostname(job_name)
-        if not job_id or not hostname:
-            tko_utils.dprint('ERROR: can not parse job name %s, '
-                             'will not send duration to metadata db.'
-                             % job_name)
-            continue
-        else:
-            job_overhead.record_state_duration(
-                    job_id, hostname, job_overhead.STATUS.PARSING,
-                    duration_secs)
 
 def _detach_from_parent_process():
     """Allow reparenting the parse process away from caller.
@@ -665,14 +685,30 @@ def _detach_from_parent_process():
     if os.getpid() != os.getpgid(0):
         os.setsid()
 
+
 def main():
-    """Main entrance."""
-    start_time = datetime.datetime.now()
+    """tko_parse entry point."""
+    options, args = parse_args()
+
+    # We are obliged to use indirect=False, not use the SetupTsMonGlobalState
+    # context manager, and add a manual flush, because tko/parse is expected to
+    # be a very short lived (<1 min) script when working effectively, and we
+    # can't afford to either a) wait for up to 1min for metrics to flush at the
+    # end or b) drop metrics that were sent within the last minute of execution.
+    site_utils.SetupTsMonGlobalState('tko_parse', indirect=False,
+                                     short_lived=True)
+    try:
+        with metrics.SuccessCounter('chromeos/autotest/tko_parse/runs'):
+            _main_with_options(options, args)
+    finally:
+        metrics.Flush()
+
+
+def _main_with_options(options, args):
+    """Entry point with options parsed and metrics already set up."""
     # Record the processed jobs so that
     # we can send the duration of parsing to metadata db.
     processed_jobs = set()
-
-    options, args = parse_args()
 
     if options.detach:
         _detach_from_parent_process()
@@ -683,9 +719,6 @@ def main():
                                   options.export_to_gcloud_path)
     results_dir = os.path.abspath(args[0])
     assert os.path.exists(results_dir)
-
-    site_utils.SetupTsMonGlobalState('tko_parse', indirect=False,
-                                     short_lived=True)
 
     pid_file_manager = pidfile.PidFileManager("parser", results_dir)
 
@@ -721,7 +754,8 @@ def main():
                 else:
                     raise # something unexpected happened
             try:
-                new_jobs = parse_path(db, path, options.level, parse_options)
+                new_jobs = parse_path(db, pid_file_manager, path, options.level,
+                                      parse_options)
                 processed_jobs.update(new_jobs)
 
             finally:
@@ -733,11 +767,6 @@ def main():
         raise
     else:
         pid_file_manager.close_file(0)
-    finally:
-        metrics.Flush()
-    duration_secs = (datetime.datetime.now() - start_time).total_seconds()
-    if options.record_duration:
-        record_parsing(processed_jobs, duration_secs)
 
 
 if __name__ == "__main__":

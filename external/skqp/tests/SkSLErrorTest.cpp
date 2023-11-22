@@ -9,14 +9,16 @@
 
 #include "Test.h"
 
-#if SK_SUPPORT_GPU
-
 static void test_failure(skiatest::Reporter* r, const char* src, const char* error) {
     SkSL::Compiler compiler;
     SkSL::Program::Settings settings;
     sk_sp<GrShaderCaps> caps = SkSL::ShaderCapsFactory::Default();
     settings.fCaps = caps.get();
-    compiler.convertProgram(SkSL::Program::kFragment_Kind, SkSL::String(src), settings);
+    std::unique_ptr<SkSL::Program> program = compiler.convertProgram(SkSL::Program::kFragment_Kind,
+                                                                     SkSL::String(src), settings);
+    if (!compiler.errorCount()) {
+        compiler.optimize(*program);
+    }
     SkSL::String skError(error);
     if (compiler.errorText() != skError) {
         SkDebugf("SKSL ERROR:\n    source: %s\n    expected: %s    received: %s", src, error,
@@ -245,6 +247,12 @@ DEF_TEST(SkSLBinaryTypeMismatch, r) {
     test_failure(r,
                  "void main() { bool x = 1 || 2.0; }",
                  "error: 1: type mismatch: '||' cannot operate on 'int', 'float'\n1 error\n");
+    test_failure(r,
+                 "void main() { bool x = float2(0) == 0; }",
+                 "error: 1: type mismatch: '==' cannot operate on 'float2', 'int'\n1 error\n");
+    test_failure(r,
+                 "void main() { bool x = float2(0) != 0; }",
+                 "error: 1: type mismatch: '!=' cannot operate on 'float2', 'int'\n1 error\n");
 }
 
 DEF_TEST(SkSLCallNonFunction, r) {
@@ -489,4 +497,16 @@ DEF_TEST(SkSLStaticSwitch, r) {
                  "error: 1: static switch contains non-static conditional break\n1 error\n");
 }
 
-#endif
+DEF_TEST(SkSLInterfaceBlockScope, r) {
+    test_failure(r,
+                 "uniform testBlock {"
+                 "float x;"
+                 "} test[x];",
+                 "error: 1: unknown identifier 'x'\n1 error\n");
+}
+
+DEF_TEST(SkSLDuplicateOutput, r) {
+    test_failure(r,
+                 "layout (location=0, index=0) out half4 duplicateOutput;",
+                 "error: 1: out location=0, index=0 is reserved for sk_FragColor\n1 error\n");
+}

@@ -91,8 +91,8 @@ static void getComputeSourceCode (std::string& computeSourceCode)
 		"%f32arr12      = OpVariable %f32arr12ptr_t Function\n"
 
 		"%i1            = OpVariable %u32ptr Function\n"
-		"                 OpStore %i1 %uzero\n"
 		"%i2            = OpVariable %u32ptr Function\n"
+		"                 OpStore %i1 %uzero\n"
 		"                 OpStore %i2 %uzero\n"
 
 		"%idval         = OpLoad %uvec3 %id\n"
@@ -189,7 +189,7 @@ public:
 
 SpvAsmLoopControlDependencyInfiniteInstance::SpvAsmLoopControlDependencyInfiniteInstance (Context& ctx)
 	: ComputeShaderSpec(getComputeShaderSpec())
-	, SpvAsmComputeShaderInstance(ctx, *this, COMPUTE_TEST_USES_NONE)
+	, SpvAsmComputeShaderInstance(ctx, *this)
 {
 }
 
@@ -204,7 +204,7 @@ void SpvAsmLoopControlDependencyInfiniteCase::initPrograms (SourceCollections& p
 
 	getComputeSourceCode(comp);
 
-	programCollection.spirvAsmSources.add("compute") << SpirVAsmBuildOptions(SPIRV_VERSION_1_3) << comp;
+	programCollection.spirvAsmSources.add("compute") << SpirVAsmBuildOptions(programCollection.usedVulkanVersion, SPIRV_VERSION_1_3) << comp;
 }
 
 TestInstance* SpvAsmLoopControlDependencyInfiniteCase::createInstance (Context& context) const

@@ -6,7 +6,10 @@ AUTHOR = "Chrome OS Team"
 NAME = "dummy_Fail"
 PURPOSE = "Demonstrate failure methods of autotests."
 CRITERIA = "This test will never succeed."
-ATTRIBUTES = "suite:another_suite, suite:dummy, suite:push_to_prod"
+ATTRIBUTES = (
+        "suite:another_suite, suite:dummy, suite:push_to_prod,"
+        " suite:skylab_staging_test"
+)
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "dummy"

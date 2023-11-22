@@ -23,7 +23,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 					   const struct cras_audio_format *out,
 					   size_t max_frames,
 					   size_t pre_linear_resample);
-void cras_fmt_conv_destroy(struct cras_fmt_conv *conv);
+void cras_fmt_conv_destroy(struct cras_fmt_conv **conv);
 
 /* Creates the format converter for channel remixing. The conversion takes
  * a N by N float matrix, to multiply each N-channels sample.

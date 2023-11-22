@@ -158,11 +158,15 @@ struct DepthToSpaceOpFunctor<GPUDevice, T, FORMAT_NHWC> {
 
     const int total_count =
         batch_size * output_height * output_width * output_depth;
+    if (total_count == 0) {
+      return;
+    }
     CudaLaunchConfig config = GetCudaLaunchConfig(total_count, d);
-    D2S_NHWC<<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
+    TF_CHECK_OK(CudaLaunchKernel(
+        D2S_NHWC<T>, config.block_count, config.thread_per_block, 0, d.stream(),
         config.virtual_thread_count, input.data(), block_size, batch_size,
         input_height, input_width, input_depth, output_height, output_width,
-        output_depth, output.data());
+        output_depth, output.data()));
   }
   void operator()(const GPUDevice& d, typename TTypes<T, 5>::ConstTensor input,
                   int block_size, typename TTypes<T, 5>::Tensor output) {
@@ -188,35 +192,45 @@ struct DepthToSpaceOpFunctor<GPUDevice, T, FORMAT_NCHW> {
       const int output_width = output.dimension(3);
       const int output_depth_by_input_area = output_depth * input_area;
       const int total_count = batch_size * output_depth_by_input_area;
+      if (total_count == 0) {
+        return;
+      }
       CudaLaunchConfig config = GetCudaLaunchConfig(total_count, d);
       switch (block_size) {
         case 2:
-          return D2S_NCHW_LOOP<T, 2>
-              <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-                  total_count, input.data(), input_width, output_width,
-                  output_depth_by_input_area, input_depth_by_input_area,
-                  output.data());
+          TF_CHECK_OK(CudaLaunchKernel(
+              D2S_NCHW_LOOP<T, 2>, config.block_count, config.thread_per_block,
+              0, d.stream(), total_count, input.data(), input_width,
+              output_width, output_depth_by_input_area,
+              input_depth_by_input_area, output.data()));
+          return;
         case 3:
-          return D2S_NCHW_LOOP<T, 3>
-              <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-                  total_count, input.data(), input_width, output_width,
-                  output_depth_by_input_area, input_depth_by_input_area,
-                  output.data());
+          TF_CHECK_OK(CudaLaunchKernel(
+              D2S_NCHW_LOOP<T, 3>, config.block_count, config.thread_per_block,
+              0, d.stream(), total_count, input.data(), input_width,
+              output_width, output_depth_by_input_area,
+              input_depth_by_input_area, output.data()));
+          return;
         case 4:
-          return D2S_NCHW_LOOP<T, 4>
-              <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-                  total_count, input.data(), input_width, output_width,
-                  output_depth_by_input_area, input_depth_by_input_area,
-                  output.data());
+          TF_CHECK_OK(CudaLaunchKernel(
+              D2S_NCHW_LOOP<T, 4>, config.block_count, config.thread_per_block,
+              0, d.stream(), total_count, input.data(), input_width,
+              output_width, output_depth_by_input_area,
+              input_depth_by_input_area, output.data()));
+          return;
       }
     }
 
     // Other block sizes are processed by the generic kernel.
     const int total_count = batch_size * input_depth_by_input_area;
+    if (total_count == 0) {
+      return;
+    }
     auto config = GetCudaLaunchConfig(total_count, d);
-    D2S_NCHW<<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
+    TF_CHECK_OK(CudaLaunchKernel(
+        D2S_NCHW<T>, config.block_count, config.thread_per_block, 0, d.stream(),
         config.virtual_thread_count, input.data(), block_size, input_width,
-        output_depth * input_height, output.data());
+        output_depth * input_height, output.data()));
   }
   void operator()(const GPUDevice& d, typename TTypes<T, 5>::ConstTensor input,
                   int block_size, typename TTypes<T, 5>::Tensor output) {
@@ -228,6 +242,12 @@ struct DepthToSpaceOpFunctor<GPUDevice, T, FORMAT_NCHW> {
 // Instantiate the GPU implementations for float.
 template struct functor::DepthToSpaceOpFunctor<GPUDevice, float, FORMAT_NCHW>;
 template struct functor::DepthToSpaceOpFunctor<GPUDevice, float, FORMAT_NHWC>;
+
+// Instantiate the GPU implementations for Eigen::half.
+template struct functor::DepthToSpaceOpFunctor<GPUDevice, Eigen::half,
+                                               FORMAT_NCHW>;
+template struct functor::DepthToSpaceOpFunctor<GPUDevice, Eigen::half,
+                                               FORMAT_NHWC>;
 
 // NCHW_VECT_C with 4 x qint8 can be treated as NCHW int32.
 template struct functor::DepthToSpaceOpFunctor<GPUDevice, int32, FORMAT_NCHW>;

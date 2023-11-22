@@ -35,7 +35,6 @@ package android.icu.text;
  * to be determined.</p>
  *
  * @see Bidi#setCustomClassifier
- * @hide Only a subset of ICU is exposed in Android
  */
 
 public /*abstract*/ class BidiClassifier {
@@ -47,6 +46,7 @@ public /*abstract*/ class BidiClassifier {
      * For instance, this object can be used to save a reference to
      * a previous custom BidiClassifier while setting a new one, so as to
      * allow chaining between them.
+     * @hide unsupported on Android
      */
     protected Object context;
 
@@ -83,10 +83,9 @@ public /*abstract*/ class BidiClassifier {
      *
      * @param c Code point to be classified.
      * @return An integer representing directional property / Bidi class for the
-     *         given code point <code>c</code>, or Bidi.CLASS_DEFAULT=UCharacter.getIntPropertyMaxValue(UProperty.BIDI_CLASS)+1
+     *         given code point <code>c</code>, or UCharacter.getIntPropertyMaxValue(UProperty.BIDI_CLASS)+1
      *         to signify that there is no need to override the standard Bidi class for
      *         the given code point.
-     * @see Bidi#CLASS_DEFAULT
      */
     public int classify(int c) {
         return Bidi.CLASS_DEFAULT;

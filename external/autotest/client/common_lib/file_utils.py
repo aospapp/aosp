@@ -195,3 +195,45 @@ def get_directory_size_kibibytes(directory):
         return 0
 
     return int(stdout_data.split('\t', 1)[0])
+
+
+def recursive_path_permission(path):
+    """
+    Recursively lists a path and its parent's permission.
+
+    For a path, it emits a path_perm string "<path> <permission>" where
+    <permission> is an octal representation of the path's st_mode. After that,
+    it emits its parent's path_perm string(s) recursively.
+    For example, recursive_path_permission('/foo/bar/buz') returns
+    ['/foo/bar/buz 0100644', '/foo/bar 040755', '/foo 040755', '/ 040755']
+
+    If |path| is invalid, it returns empty list.
+    If |path| does not have parent directory, it returns a list with only its
+    own path_perm string.
+
+    @param path: file path.
+
+    @return list of "<path> <permission>" string.
+    """
+    def path_st_mode(p):
+        """
+        Gets path's permission.
+
+        @param p: file path.
+
+        @return "<path> <permission>" where <permission> is an octal
+        representation of the path's st_mode.
+        """
+        return '%s %s' % (p, oct(os.stat(p).st_mode))
+
+    if not path or not os.path.exists(path):
+        return []
+    if path == '/':
+        return [path_st_mode(path)]
+    dirname, basename = os.path.split(path)
+    if not basename:
+        return recursive_path_permission(dirname)
+    result = [path_st_mode(path)]
+    if dirname:
+        result.extend(recursive_path_permission(dirname))
+    return result

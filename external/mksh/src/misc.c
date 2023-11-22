@@ -32,7 +32,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.291 2018/01/14 00:03:03 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.293 2018/08/10 02:53:35 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -1346,7 +1346,14 @@ print_value_quoted(struct shf *shf, const char *s)
 	const unsigned char *p = (const unsigned char *)s;
 	bool inquote = true;
 
-	/* first, check whether any quotes are needed */
+	/* first, special-case empty strings (for re-entrancy) */
+	if (!*s) {
+		shf_putc('\'', shf);
+		shf_putc('\'', shf);
+		return;
+	}
+
+	/* non-empty; check whether any quotes are needed */
 	while (rtt2asc(c = *p++) >= 32)
 		if (ctype(c, C_QUOTE | C_SPC))
 			inquote = false;
@@ -2449,7 +2456,7 @@ getrusage(int what, struct rusage *ru)
  * and fp (put back a char) for backslash escapes,
  * assuming the first call to *fg gets the char di-
  * rectly after the backslash; return the character
- * (0..0xFF), Unicode (wc + 0x100), or -1 if no known
+ * (0..0xFF), UCS (wc + 0x100), or -1 if no known
  * escape sequence was found
  */
 int
@@ -2531,9 +2538,9 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		/**
 		 * x:	look for a hexadecimal number with up to
 		 *	two (C style: arbitrary) digits; convert
-		 *	to raw octet (C style: Unicode if >0xFF)
+		 *	to raw octet (C style: UCS if >0xFF)
 		 * u/U:	look for a hexadecimal number with up to
-		 *	four (U: eight) digits; convert to Unicode
+		 *	four (U: eight) digits; convert to UCS
 		 */
 		wc = 0;
 		n = 0;
@@ -2555,7 +2562,7 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		if (!n)
 			goto unknown_escape;
 		if ((cstyle && wc > 0xFF) || fc != 'x')
-			/* Unicode marker */
+			/* UCS marker */
 			wc += 0x100;
 		break;
 	case '\'':

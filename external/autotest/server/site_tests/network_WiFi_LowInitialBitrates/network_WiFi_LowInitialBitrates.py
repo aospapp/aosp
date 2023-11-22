@@ -38,12 +38,11 @@ class network_WiFi_LowInitialBitrates(wifi_cell_test_base.WiFiCellTestBase):
                 pcap_result.local_pcap_path,
                 ('%s and not %s' % (
                     dut_src_display_filter, dut_dst_display_filter)),
-                bad_fcs='include')
+                reject_bad_fcs=False)
         # Get just the DHCP related packets.
         dhcp_frames = tcpdump_analyzer.get_frames(
                 pcap_result.local_pcap_path,
-                '%s and bootp' % dut_src_display_filter,
-                bad_fcs='include')
+                '%s and bootp' % dut_src_display_filter, reject_bad_fcs=False)
         if not dhcp_frames:
             raise error.TestFail('Packet capture did not contain a DHCP '
                                  'negotiation!')
@@ -99,8 +98,6 @@ class network_WiFi_LowInitialBitrates(wifi_cell_test_base.WiFiCellTestBase):
                 raise error.TestError('Expected to generate one packet '
                                       'capture but got %d captures instead.' %
                                       len(results))
-
-            client_ip = self.context.client.wifi_ip
             self.check_bitrates_in_capture(results[0])
             self.context.client.shill.disconnect(assoc_params.ssid)
             self.context.router.deconfig()

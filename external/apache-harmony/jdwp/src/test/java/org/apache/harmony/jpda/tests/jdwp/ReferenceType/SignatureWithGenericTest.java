@@ -40,12 +40,11 @@ public class SignatureWithGenericTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.SignatureWithGeneric command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/SignatureWithGenericDebuggee;";
     static final String debuggeeGenericSignature = "";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.SignatureWithGenericDebuggee";
+        return SignatureWithGenericDebuggee.class.getName();
     }
 
     /**
@@ -60,7 +59,7 @@ public class SignatureWithGenericTest extends JDWPSyncTestCase {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);
@@ -79,7 +78,7 @@ public class SignatureWithGenericTest extends JDWPSyncTestCase {
         String returnedGenericSignature = signatureWithGenericReply.getNextValueAsString();
 
         assertString(thisCommandName + " returned invalid signature,",
-                debuggeeSignature, returnedSignature);
+                getDebuggeeClassSignature(), returnedSignature);
         assertString(thisCommandName + " returned invalid generic signature,",
                 debuggeeGenericSignature, returnedGenericSignature);
 

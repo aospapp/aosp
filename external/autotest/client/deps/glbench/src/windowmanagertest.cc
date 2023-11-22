@@ -17,7 +17,6 @@
 #include "main.h"
 #include "utils.h"
 
-
 GLuint GenerateAndBindTexture() {
   GLuint name = ~0;
   glGenTextures(1, &name);
@@ -39,7 +38,7 @@ unsigned char* CreateBitmap(int w, int h) {
       // Fill with soft ellipse
       float dx = fabs((x - w2) / w2);
       float dy = fabs((y - h2) / h2);
-      float dist2 = dx*dx + dy*dy;
+      float dist2 = dx * dx + dy * dy;
       if (dist2 > 1.f)
         dist2 = 1.f;
       *pixel = (1.f - dist2) * 255.f;
@@ -54,7 +53,6 @@ unsigned char* CreateBitmap(int w, int h) {
   }
   return bitmap;
 }
-
 
 const char kVertexShader[] =
     "attribute vec4 vertices;"
@@ -103,14 +101,14 @@ int main(int argc, char* argv[]) {
 
   unsigned char* bitmap = CreateBitmap(g_height, g_width);
   GLuint texture = GenerateAndBindTexture();
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_height, g_width, 0,
-               GL_RGBA, GL_UNSIGNED_BYTE, bitmap);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_height, g_width, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, bitmap);
 
   GLfloat vertices[8] = {
-    -1.f, -1.f,
-    1.f, -1.f,
-    -1.f, 1.f,
-    1.f, 1.f,
+      -1.f, -1.f,
+      1.f, -1.f,
+      -1.f, 1.f,
+      1.f, 1.f,
   };
 
   GLuint program = glbench::InitShaderProgram(kVertexShader, kFragmentShader);
@@ -135,9 +133,7 @@ int main(int argc, char* argv[]) {
   float seconds_delay_for_next_state[] = {
       static_cast<float>(FLAGS_screenshot1_sec),
       static_cast<float>(FLAGS_screenshot2_sec),
-      static_cast<float>(FLAGS_cooldown_sec),
-      0
-  };
+      static_cast<float>(FLAGS_cooldown_sec), 0};
 
   do {
     // Draw
@@ -155,7 +151,7 @@ int main(int argc, char* argv[]) {
       continue;
 
     // State change. Perform action.
-    switch(state) {
+    switch (state) {
       case kStateScreenShot1:
         system(FLAGS_screenshot1_cmd.c_str());
         break;

@@ -34,6 +34,9 @@
 #include "vkQueryUtil.hpp"
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 #include "tcuImageCompare.hpp"
 #include "deMath.h"
 #include "deMemory.h"
@@ -177,8 +180,6 @@ private:
 
 	Move<VkCommandPool>					m_cmdPool;
 	Move<VkCommandBuffer>				m_cmdBuffer;
-
-	Move<VkFence>						m_fence;
 };
 
 
@@ -991,55 +992,7 @@ InputAssemblyInstance::InputAssemblyInstance (Context&							context,
 	}
 
 	// Create render pass
-	{
-		const VkAttachmentDescription colorAttachmentDescription =
-		{
-			0u,													// VkAttachmentDescriptionFlags		flags;
-			m_colorFormat,										// VkFormat							format;
-			VK_SAMPLE_COUNT_1_BIT,								// VkSampleCountFlagBits			samples;
-			VK_ATTACHMENT_LOAD_OP_CLEAR,						// VkAttachmentLoadOp				loadOp;
-			VK_ATTACHMENT_STORE_OP_STORE,						// VkAttachmentStoreOp				storeOp;
-			VK_ATTACHMENT_LOAD_OP_DONT_CARE,					// VkAttachmentLoadOp				stencilLoadOp;
-			VK_ATTACHMENT_STORE_OP_DONT_CARE,					// VkAttachmentStoreOp				stencilStoreOp;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,			// VkImageLayout					initialLayout;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,			// VkImageLayout					finalLayout;
-		};
-
-		const VkAttachmentReference colorAttachmentReference =
-		{
-			0u,													// deUint32			attachment;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// VkImageLayout	layout;
-		};
-
-		const VkSubpassDescription subpassDescription =
-		{
-			0u,													// VkSubpassDescriptionFlags	flags;
-			VK_PIPELINE_BIND_POINT_GRAPHICS,					// VkPipelineBindPoint			pipelineBindPoint;
-			0u,													// deUint32						inputAttachmentCount;
-			DE_NULL,											// const VkAttachmentReference*	pInputAttachments;
-			1u,													// deUint32						colorAttachmentCount;
-			&colorAttachmentReference,							// const VkAttachmentReference*	pColorAttachments;
-			DE_NULL,											// const VkAttachmentReference*	pResolveAttachments;
-			DE_NULL,											// const VkAttachmentReference*	pDepthStencilAttachment;
-			0u,													// deUint32						preserveAttachmentCount;
-			DE_NULL												// const VkAttachmentReference*	pPreserveAttachments;
-		};
-
-		const VkRenderPassCreateInfo renderPassParams =
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,			// VkStructureType					sType;
-			DE_NULL,											// const void*						pNext;
-			0u,													// VkRenderPassCreateFlags			flags;
-			1u,													// deUint32							attachmentCount;
-			&colorAttachmentDescription,						// const VkAttachmentDescription*	pAttachments;
-			1u,													// deUint32							subpassCount;
-			&subpassDescription,								// const VkSubpassDescription*		pSubpasses;
-			0u,													// deUint32							dependencyCount;
-			DE_NULL												// const VkSubpassDependency*		pDependencies;
-		};
-
-		m_renderPass = createRenderPass(vk, vkDevice, &renderPassParams);
-	}
+	m_renderPass = makeRenderPass(vk, vkDevice, m_colorFormat);
 
 	// Create framebuffer
 	{
@@ -1145,17 +1098,8 @@ InputAssemblyInstance::InputAssemblyInstance (Context&							context,
 			m_primitiveRestartEnable										// VkBool32									primitiveRestartEnable;
 		};
 
-		const VkViewport viewport =
-		{
-			0.0f,						// float	x;
-			0.0f,						// float	y;
-			(float)m_renderSize.x(),	// float	width;
-			(float)m_renderSize.y(),	// float	height;
-			0.0f,						// float	minDepth;
-			1.0f						// float	maxDepth;
-		};
-
-		const VkRect2D scissor = { { 0, 0 }, { m_renderSize.x(), m_renderSize.y() } };
+		const VkViewport	viewport	= makeViewport(m_renderSize);
+		const VkRect2D		scissor		= makeRect2D(m_renderSize);
 
 		const VkPipelineViewportStateCreateInfo viewportStateParams =
 		{
@@ -1332,26 +1276,8 @@ InputAssemblyInstance::InputAssemblyInstance (Context&							context,
 		// Load vertices into vertex buffer
 		deMemcpy(m_vertexBufferAlloc->getHostPtr(), m_vertices.data(), m_vertices.size() * sizeof(Vertex4RGBA));
 
-		// Flush memory
-		const VkMappedMemoryRange flushMemoryRanges[] =
-		{
-			{
-				VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	// VkStructureType	sType;
-				DE_NULL,								// const void*		pNext;
-				m_indexBufferAlloc->getMemory(),		// VkDeviceMemory	memory;
-				m_indexBufferAlloc->getOffset(),		// VkDeviceSize		offset;
-				indexBufferParams.size					// VkDeviceSize		size;
-			},
-			{
-				VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	// VkStructureType	sType;
-				DE_NULL,								// const void*		pNext;
-				m_vertexBufferAlloc->getMemory(),		// VkDeviceMemory	memory;
-				m_vertexBufferAlloc->getOffset(),		// VkDeviceSize		offset;
-				vertexBufferParams.size					// VkDeviceSize		size;
-			},
-		};
-
-		vk.flushMappedMemoryRanges(vkDevice, 2, flushMemoryRanges);
+		flushAlloc(vk, vkDevice, *m_indexBufferAlloc);
+		flushAlloc(vk, vkDevice, *m_vertexBufferAlloc);
 	}
 
 	// Create command pool
@@ -1359,26 +1285,7 @@ InputAssemblyInstance::InputAssemblyInstance (Context&							context,
 
 	// Create command buffer
 	{
-		const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType;
-			DE_NULL,										// const void*						pNext;
-			0u,												// VkCommandBufferUsageFlags		flags;
-			(const VkCommandBufferInheritanceInfo*)DE_NULL,
-		};
-
 		const VkClearValue attachmentClearValue = defaultClearValue(m_colorFormat);
-
-		const VkRenderPassBeginInfo renderPassBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,				// VkStructureType		sType;
-			DE_NULL,												// const void*			pNext;
-			*m_renderPass,											// VkRenderPass			renderPass;
-			*m_framebuffer,											// VkFramebuffer		framebuffer;
-			{ { 0, 0 } , { m_renderSize.x(), m_renderSize.y() } },	// VkRect2D				renderArea;
-			1u,														// deUint32				clearValueCount;
-			&attachmentClearValue									// const VkClearValue*	pClearValues;
-		};
 
 		const VkImageMemoryBarrier attachmentLayoutBarrier =
 		{
@@ -1396,12 +1303,12 @@ InputAssemblyInstance::InputAssemblyInstance (Context&							context,
 
 		m_cmdBuffer = allocateCommandBuffer(vk, vkDevice, *m_cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-		VK_CHECK(vk.beginCommandBuffer(*m_cmdBuffer, &cmdBufferBeginInfo));
+		beginCommandBuffer(vk, *m_cmdBuffer, 0u);
 
-		vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, (VkDependencyFlags)0,
+		vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, (VkDependencyFlags)0,
 			0u, DE_NULL, 0u, DE_NULL, 1u, &attachmentLayoutBarrier);
 
-		vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		beginRenderPass(vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), attachmentClearValue);
 
 		const VkDeviceSize vertexBufferOffset = 0;
 
@@ -1410,12 +1317,9 @@ InputAssemblyInstance::InputAssemblyInstance (Context&							context,
 		vk.cmdBindIndexBuffer(*m_cmdBuffer, *m_indexBuffer, 0, m_indexType);
 		vk.cmdDrawIndexed(*m_cmdBuffer, (deUint32)m_indices.size(), 1, 0, 0, 0);
 
-		vk.cmdEndRenderPass(*m_cmdBuffer);
-		VK_CHECK(vk.endCommandBuffer(*m_cmdBuffer));
+		endRenderPass(vk, *m_cmdBuffer);
+		endCommandBuffer(vk, *m_cmdBuffer);
 	}
-
-	// Create fence
-	m_fence = createFence(vk, vkDevice);
 }
 
 InputAssemblyInstance::~InputAssemblyInstance (void)
@@ -1427,22 +1331,8 @@ tcu::TestStatus InputAssemblyInstance::iterate (void)
 	const DeviceInterface&		vk			= m_context.getDeviceInterface();
 	const VkDevice				vkDevice	= m_context.getDevice();
 	const VkQueue				queue		= m_context.getUniversalQueue();
-	const VkSubmitInfo			submitInfo	=
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType			sType;
-		DE_NULL,						// const void*				pNext;
-		0u,								// deUint32					waitSemaphoreCount;
-		DE_NULL,						// const VkSemaphore*		pWaitSemaphores;
-		(const VkPipelineStageFlags*)DE_NULL,
-		1u,								// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers;
-		0u,								// deUint32					signalSemaphoreCount;
-		DE_NULL							// const VkSemaphore*		pSignalSemaphores;
-	};
 
-	VK_CHECK(vk.resetFences(vkDevice, 1, &m_fence.get()));
-	VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *m_fence));
-	VK_CHECK(vk.waitForFences(vkDevice, 1, &m_fence.get(), true, ~(0ull) /* infinity*/));
+	submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffer.get());
 
 	return verifyImage();
 }

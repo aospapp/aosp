@@ -54,6 +54,15 @@ wayland_protocol_codegen {
     tools: ["wayland_scanner"],
 }
 
+// Generate protocol header files used by the server
+wayland_protocol_codegen {
+    name: "wayland_extension_server_protocol_headers",
+    cmd: "$(location wayland_scanner) server-header < $(in) > $(out)",
+    suffix: "-server-protocol.h",
+    srcs: [":wayland_extension_protocols"],
+    tools: ["wayland_scanner"],
+}
+
 // Generate a library with the protocol files, configured to export the client
 // header files
 cc_library_static {

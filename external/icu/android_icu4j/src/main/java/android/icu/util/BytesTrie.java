@@ -71,6 +71,7 @@ public final class BytesTrie implements Cloneable, Iterable<BytesTrie.Entry> {
     /**
      * BytesTrie state object, for saving a trie's current state
      * and resetting the trie back to this state later.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class State {
         /**
@@ -118,6 +119,7 @@ public final class BytesTrie implements Cloneable, Iterable<BytesTrie.Entry> {
 
     /**
      * Return values for BytesTrie.next(), CharsTrie.next() and similar methods.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public enum Result {
         /**
@@ -430,6 +432,7 @@ public final class BytesTrie implements Cloneable, Iterable<BytesTrie.Entry> {
 
     /**
      * Return value type for the Iterator.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class Entry {
         private Entry(int capacity) {
@@ -490,6 +493,7 @@ public final class BytesTrie implements Cloneable, Iterable<BytesTrie.Entry> {
 
     /**
      * Iterator for all of the (byte sequence, value) pairs in a BytesTrie.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class Iterator implements java.util.Iterator<Entry> {
         private Iterator(byte[] trieBytes, int offset, int remainingMatchLength, int maxStringLength) {

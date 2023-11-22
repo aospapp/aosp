@@ -136,12 +136,12 @@ struct ScatterNdFunctor<GPUDevice, T, Index, op, IXDIM> {
     }
 
     CudaLaunchConfig config = GetCudaLaunchConfig(Toutput.size(), d);
-    // clang-format off
-    ScatterNdOpKernel<T, Index, op, IXDIM>
-    <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-      Tindices.data(), Tupdates.data(), Toutput.data(), output_shape_prefix,
-      batch_strides, batch_size, slice_size);
-    // clang-format on
+
+    TF_CHECK_OK(CudaLaunchKernel(ScatterNdOpKernel<T, Index, op, IXDIM>,
+                                 config.block_count, config.thread_per_block, 0,
+                                 d.stream(), Tindices.data(), Tupdates.data(),
+                                 Toutput.data(), output_shape_prefix,
+                                 batch_strides, batch_size, slice_size));
 
     return -1;
   }
@@ -170,6 +170,7 @@ struct ScatterNdFunctor<GPUDevice, T, Index, op, IXDIM> {
   DECLARE_GPU_SPECS_INDEX(T, int32); \
   DECLARE_GPU_SPECS_INDEX(T, int64)
 
+TF_CALL_int32(DECLARE_GPU_SPECS);
 TF_CALL_GPU_NUMBER_TYPES(DECLARE_GPU_SPECS);
 TF_CALL_complex64(DECLARE_GPU_SPECS);
 TF_CALL_complex128(DECLARE_GPU_SPECS);

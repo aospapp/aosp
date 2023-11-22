@@ -3,9 +3,9 @@
 # found in the LICENSE file.
 
 import logging
-import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server.cros.network import hostap_config
 from autotest_lib.server.cros.network import wifi_cell_test_base
@@ -18,6 +18,13 @@ class network_WiFi_ConnectionIdentifier(wifi_cell_test_base.WiFiCellTestBase):
     CONNECTION_ID_TIMEOUT_SECS = 10
     SERVICE_PROPERTY_CONNECTION_ID = 'ConnectionId'
 
+    def _attempt_get_service_id(self, ssid):
+        properties = self.context.client.shill.get_service_properties(ssid)
+        logging.debug('Service properties are: %s', properties)
+        self._connection_id = properties[self.SERVICE_PROPERTY_CONNECTION_ID]
+        return self._connection_id != 0
+
+
     def _get_service_connection_id(self, ssid):
         """Get the connection ID for a service.
 
@@ -28,15 +35,12 @@ class network_WiFi_ConnectionIdentifier(wifi_cell_test_base.WiFiCellTestBase):
         @raise TestError if a timeout occurs.
         @return ConnectionId of the current service.
         """
-        start_time = time.time()
-        while time.time() - start_time < self.CONNECTION_ID_TIMEOUT_SECS:
-            properties = self.context.client.shill.get_service_properties(ssid)
-            logging.debug('Service properties are: %s', properties)
-            connection_id = properties[self.SERVICE_PROPERTY_CONNECTION_ID]
-            if connection_id != 0:
-                return connection_id
-            time.sleep(1)
-        raise error.TestFail('ConnectionId remained zero')
+        utils.poll_for_condition(
+                condition=lambda: self._attempt_get_service_id(ssid),
+                exception=error.TestFail('ConnectionId remained zero'),
+                timeout=self.CONNECTION_ID_TIMEOUT_SECS,
+                sleep_interval=1)
+        return self._connection_id
 
 
     def _connect(self, ssid, expected_connection_id=None):

@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #ifndef INCLUDE_PERFETTO_TRACING_CORE_CHROME_CONFIG_H_
@@ -52,6 +52,8 @@ class PERFETTO_EXPORT ChromeConfig {
   ChromeConfig& operator=(ChromeConfig&&);
   ChromeConfig(const ChromeConfig&);
   ChromeConfig& operator=(const ChromeConfig&);
+  bool operator==(const ChromeConfig&) const;
+  bool operator!=(const ChromeConfig& other) const { return !(*this == other); }
 
   // Conversion methods from/to the corresponding protobuf types.
   void FromProto(const perfetto::protos::ChromeConfig&);
@@ -60,8 +62,14 @@ class PERFETTO_EXPORT ChromeConfig {
   const std::string& trace_config() const { return trace_config_; }
   void set_trace_config(const std::string& value) { trace_config_ = value; }
 
+  bool privacy_filtering_enabled() const { return privacy_filtering_enabled_; }
+  void set_privacy_filtering_enabled(bool value) {
+    privacy_filtering_enabled_ = value;
+  }
+
  private:
   std::string trace_config_ = {};
+  bool privacy_filtering_enabled_ = {};
 
   // Allows to preserve unknown protobuf fields for compatibility
   // with future versions of .proto files.
@@ -69,4 +77,5 @@ class PERFETTO_EXPORT ChromeConfig {
 };
 
 }  // namespace perfetto
+
 #endif  // INCLUDE_PERFETTO_TRACING_CORE_CHROME_CONFIG_H_

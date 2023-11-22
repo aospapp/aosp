@@ -74,7 +74,7 @@ union unaligned
     uint16_t u16;
     uint32_t u32;
     uint64_t u64;
-  } __attribute__ ((packed));
+  } attribute_packed;
 
 #define FETCH(Bits, ptr)	(((const union unaligned *) ptr)->u##Bits)
 #define STORE(Bits, ptr, val)	(((union unaligned *) ptr)->u##Bits = val)
@@ -170,10 +170,8 @@ union unaligned
 
 
 /* Now the externally visible table with the function pointers.  */
-const xfct_t __elf_xfctstom[EV_NUM - 1][EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] =
+const xfct_t __elf_xfctstom[ELFCLASSNUM - 1][ELF_T_NUM] =
 {
-  [EV_CURRENT - 1] = {
-    [EV_CURRENT - 1] = {
       [ELFCLASS32 - 1] = {
 #define define_xfcts(Bits) \
 	[ELF_T_BYTE]	= elf_cvt_Byte,					      \
@@ -195,7 +193,8 @@ const xfct_t __elf_xfctstom[EV_NUM - 1][EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] 
 	[ELF_T_VDAUX]	= elf_cvt_Verdef,				      \
 	[ELF_T_VNEED]	= elf_cvt_Verneed,				      \
 	[ELF_T_VNAUX]	= elf_cvt_Verneed,				      \
-	[ELF_T_NHDR]	= elf_cvt_note,					      \
+	[ELF_T_NHDR]	= elf_cvt_note4,				      \
+	[ELF_T_NHDR8]	= elf_cvt_note8,				      \
 	[ELF_T_SYMINFO] = ElfW2(Bits, cvt_Syminfo),			      \
 	[ELF_T_MOVE]	= ElfW2(Bits, cvt_Move),			      \
 	[ELF_T_LIB]	= ElfW2(Bits, cvt_Lib),				      \
@@ -208,10 +207,4 @@ const xfct_t __elf_xfctstom[EV_NUM - 1][EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] 
 	define_xfcts (64),
 	[ELF_T_GNUHASH] = elf_cvt_gnuhash
       }
-    }
-  }
 };
-/* For now we only handle the case where the memory representation is the
-   same as the file representation.  Should this change we have to define
-   separate functions.  For now reuse them.  */
-strong_alias (__elf_xfctstom, __elf_xfctstof)

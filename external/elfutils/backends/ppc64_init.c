@@ -67,18 +67,22 @@ ppc64_init (Elf *elf __attribute__ ((unused)),
   HOOK (eh, syscall_abi);
   HOOK (eh, core_note);
   HOOK (eh, auxv_info);
+  HOOK (eh, check_object_attribute);
   HOOK (eh, abi_cfi);
   /* gcc/config/ #define DWARF_FRAME_REGISTERS.  */
   eh->frame_nregs = (114 - 1) + 32;
   HOOK (eh, set_initial_registers_tid);
   HOOK (eh, dwarf_to_regno);
+  HOOK (eh, unwind);
   HOOK (eh, resolve_sym_value);
 
   /* Find the function descriptor .opd table for resolve_sym_value.  */
   if (elf != NULL)
     {
       GElf_Ehdr ehdr_mem, *ehdr = gelf_getehdr (elf, &ehdr_mem);
-      if (ehdr != NULL && ehdr->e_type != ET_REL)
+      size_t shstrndx;
+      if (ehdr != NULL && ehdr->e_type != ET_REL
+	  && elf_getshdrstrndx (elf, &shstrndx) == 0)
 	{
 	  /* We could also try through DT_PPC64_OPD and DT_PPC64_OPDSZ. */
 	  GElf_Shdr opd_shdr_mem, *opd_shdr;
@@ -91,7 +95,7 @@ ppc64_init (Elf *elf __attribute__ ((unused)),
 		  && opd_shdr->sh_type == SHT_PROGBITS
 		  && opd_shdr->sh_size > 0)
 		{
-		  const char *name = elf_strptr (elf, ehdr->e_shstrndx,
+		  const char *name = elf_strptr (elf, shstrndx,
 						 opd_shdr->sh_name);
 		  if (name != NULL && strcmp (name, ".opd") == 0)
 		    {

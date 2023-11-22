@@ -85,7 +85,7 @@ the :mod:`glob` module.)
    pathnames, or if *paths* is empty.  Unlike :func:`commonprefix`, this
    returns a valid path.
 
-   Availability: Unix, Windows
+   .. availability:: Unix, Windows.
 
    .. versionadded:: 3.5
 
@@ -152,6 +152,8 @@ the :mod:`glob` module.)
       Accepts a :term:`path-like object`.
 
 
+.. index:: single: ~ (tilde); home directory expansion
+
 .. function:: expanduser(path)
 
    On Unix and Windows, return the argument with an initial component of ``~`` or
@@ -175,6 +177,9 @@ the :mod:`glob` module.)
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
 
+.. index::
+   single: $ (dollar); environment variables expansion
+   single: % (percent); environment variables expansion (Windows)
 
 .. function:: expandvars(path)
 
@@ -192,22 +197,16 @@ the :mod:`glob` module.)
 
 .. function:: getatime(path)
 
-   Return the time of last access of *path*.  The return value is a number giving
+   Return the time of last access of *path*.  The return value is a floating point number giving
    the number of seconds since the epoch (see the  :mod:`time` module).  Raise
    :exc:`OSError` if the file does not exist or is inaccessible.
-
-   If :func:`os.stat_float_times` returns ``True``, the result is a floating point
-   number.
 
 
 .. function:: getmtime(path)
 
-   Return the time of last modification of *path*.  The return value is a number
+   Return the time of last modification of *path*.  The return value is a floating point number
    giving the number of seconds since the epoch (see the  :mod:`time` module).
    Raise :exc:`OSError` if the file does not exist or is inaccessible.
-
-   If :func:`os.stat_float_times` returns ``True``, the result is a floating point
-   number.
 
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
@@ -246,8 +245,9 @@ the :mod:`glob` module.)
 
 .. function:: isfile(path)
 
-   Return ``True`` if *path* is an existing regular file.  This follows symbolic
-   links, so both :func:`islink` and :func:`isfile` can be true for the same path.
+   Return ``True`` if *path* is an :func:`existing <exists>` regular file.
+   This follows symbolic links, so both :func:`islink` and :func:`isfile` can
+   be true for the same path.
 
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
@@ -255,8 +255,9 @@ the :mod:`glob` module.)
 
 .. function:: isdir(path)
 
-   Return ``True`` if *path* is an existing directory.  This follows symbolic
-   links, so both :func:`islink` and :func:`isdir` can be true for the same path.
+   Return ``True`` if *path* is an :func:`existing <exists>` directory.  This
+   follows symbolic links, so both :func:`islink` and :func:`isdir` can be true
+   for the same path.
 
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
@@ -264,8 +265,9 @@ the :mod:`glob` module.)
 
 .. function:: islink(path)
 
-   Return ``True`` if *path* refers to a directory entry that is a symbolic link.
-   Always ``False`` if symbolic links are not supported by the Python runtime.
+   Return ``True`` if *path* refers to an :func:`existing <exists>` directory
+   entry that is a symbolic link.  Always ``False`` if symbolic links are not
+   supported by the Python runtime.
 
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
@@ -275,10 +277,11 @@ the :mod:`glob` module.)
 
    Return ``True`` if pathname *path* is a :dfn:`mount point`: a point in a
    file system where a different file system has been mounted.  On POSIX, the
-   function checks whether *path*'s parent, :file:`path/..`, is on a different
-   device than *path*, or whether :file:`path/..` and *path* point to the same
+   function checks whether *path*'s parent, :file:`{path}/..`, is on a different
+   device than *path*, or whether :file:`{path}/..` and *path* point to the same
    i-node on the same device --- this should detect mount points for all Unix
-   and POSIX variants.  On Windows, a drive letter root and a share UNC are
+   and POSIX variants.  It is not able to reliably detect bind mounts on the
+   same filesystem.  On Windows, a drive letter root and a share UNC are
    always mount points, and for any other path ``GetVolumePathName`` is called
    to see if it is different from the input path.
 
@@ -315,7 +318,7 @@ the :mod:`glob` module.)
    Normalize the case of a pathname.  On Unix and Mac OS X, this returns the
    path unchanged; on case-insensitive filesystems, it converts the path to
    lowercase.  On Windows, it also converts forward slashes to backward slashes.
-   Raise a TypeError if the type of *path* is not ``str`` or ``bytes`` (directly
+   Raise a :exc:`TypeError` if the type of *path* is not ``str`` or ``bytes`` (directly
    or indirectly through the :class:`os.PathLike` interface).
 
    .. versionchanged:: 3.6
@@ -352,7 +355,7 @@ the :mod:`glob` module.)
 
    *start* defaults to :attr:`os.curdir`.
 
-   Availability: Unix, Windows.
+   .. availability:: Unix, Windows.
 
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
@@ -364,7 +367,7 @@ the :mod:`glob` module.)
    This is determined by the device number and i-node number and raises an
    exception if an :func:`os.stat` call on either pathname fails.
 
-   Availability: Unix, Windows.
+   .. availability:: Unix, Windows.
 
    .. versionchanged:: 3.2
       Added Windows support.
@@ -380,7 +383,7 @@ the :mod:`glob` module.)
 
    Return ``True`` if the file descriptors *fp1* and *fp2* refer to the same file.
 
-   Availability: Unix, Windows.
+   .. availability:: Unix, Windows.
 
    .. versionchanged:: 3.2
       Added Windows support.
@@ -396,7 +399,7 @@ the :mod:`glob` module.)
    :func:`os.lstat`, or :func:`os.stat`.  This function implements the
    underlying comparison used by :func:`samefile` and :func:`sameopenfile`.
 
-   Availability: Unix, Windows.
+   .. availability:: Unix, Windows.
 
    .. versionchanged:: 3.4
       Added Windows support.
@@ -451,19 +454,6 @@ the :mod:`glob` module.)
 
    .. versionchanged:: 3.6
       Accepts a :term:`path-like object`.
-
-
-.. function:: splitunc(path)
-
-   .. deprecated:: 3.1
-      Use *splitdrive* instead.
-
-   Split the pathname *path* into a pair ``(unc, rest)`` so that *unc* is the UNC
-   mount point (such as ``r'\\host\mount'``), if present, and *rest* the rest of
-   the path (such as  ``r'\path\file.ext'``).  For paths containing drive letters,
-   *unc* will always be the empty string.
-
-   Availability:  Windows.
 
 
 .. data:: supports_unicode_filenames

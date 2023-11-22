@@ -32,13 +32,13 @@ config STRINGS
 #include "toys.h"
 
 GLOBALS(
-  long num;
+  long n;
   char *t;
 )
 
 static void do_strings(int fd, char *filename)
 {
-  int nread, i, wlen = TT.num, count = 0;
+  int nread, i, wlen = TT.n, count = 0;
   off_t offset = 0;
   char *string = 0, pattern[8];
 
@@ -66,9 +66,8 @@ static void do_strings(int fd, char *filename)
       else {
         string[count++] = toybuf[i];
         if (count == wlen) {
-          if (toys.optflags & FLAG_f) printf("%s: ", filename);
-          if (toys.optflags & (FLAG_o|FLAG_t))
-            printf(pattern, (long long)(offset - wlen));
+          if (FLAG(f)) printf("%s: ", filename);
+          if (FLAG(o) || FLAG(t)) printf(pattern, (long long)(offset - wlen));
           printf("%s", string);
         }
       }

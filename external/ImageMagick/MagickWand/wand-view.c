@@ -22,13 +22,13 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -131,7 +131,7 @@ WandExport WandView *CloneWandView(const WandView *wand_view)
   if (clone_view == (WandView *) NULL)
     ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
       wand_view->name);
-  (void) ResetMagickMemory(clone_view,0,sizeof(*clone_view));
+  (void) memset(clone_view,0,sizeof(*clone_view));
   clone_view->id=AcquireWandId();
   (void) FormatLocaleString(clone_view->name,MagickPathExtent,"%s-%.20g",
     WandViewId,(double) clone_view->id);
@@ -291,8 +291,8 @@ WandExport MagickBooleanType DuplexTransferWandViewIterator(WandView *source,
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   height=source->extent.height-source->extent.y;
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(source_image,destination_image,height,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(source_image,destination_image,height,1)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -373,9 +373,10 @@ WandExport MagickBooleanType DuplexTransferWandViewIterator(WandView *source,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickWand_DuplexTransferWandViewIterator)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(source_image,source->description,progress++,
+        progress++;
+        proceed=SetImageProgress(source_image,source->description,progress,
           source->extent.height);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -544,8 +545,8 @@ WandExport MagickBooleanType GetWandViewIterator(WandView *source,
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   height=source->extent.height-source->extent.y;
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(source_image,source_image,height,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(source_image,source_image,height,1)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -580,9 +581,10 @@ WandExport MagickBooleanType GetWandViewIterator(WandView *source,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickWand_GetWandViewIterator)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(source_image,source->description,progress++,
+        progress++;
+        proceed=SetImageProgress(source_image,source->description,progress,
           source->extent.height);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -730,7 +732,7 @@ static PixelWand ***AcquirePixelsThreadSet(const size_t number_wands)
     sizeof(*pixel_wands));
   if (pixel_wands == (PixelWand ***) NULL)
     return((PixelWand ***) NULL);
-  (void) ResetMagickMemory(pixel_wands,0,number_threads*sizeof(*pixel_wands));
+  (void) memset(pixel_wands,0,number_threads*sizeof(*pixel_wands));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
     pixel_wands[i]=NewPixelWands(number_wands);
@@ -754,7 +756,7 @@ WandExport WandView *NewWandView(MagickWand *wand)
   if (wand_view == (WandView *) NULL)
     ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
       GetExceptionMessage(errno));
-  (void) ResetMagickMemory(wand_view,0,sizeof(*wand_view));
+  (void) memset(wand_view,0,sizeof(*wand_view));
   wand_view->id=AcquireWandId();
   (void) FormatLocaleString(wand_view->name,MagickPathExtent,"%s-%.20g",
     WandViewId,(double) wand_view->id);
@@ -816,7 +818,7 @@ WandExport WandView *NewWandViewExtent(MagickWand *wand,const ssize_t x,
   if (wand_view == (WandView *) NULL)
     ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
       GetExceptionMessage(errno));
-  (void) ResetMagickMemory(wand_view,0,sizeof(*wand_view));
+  (void) memset(wand_view,0,sizeof(*wand_view));
   wand_view->id=AcquireWandId();
   (void) FormatLocaleString(wand_view->name,MagickPathExtent,"%s-%.20g",
     WandViewId,(double) wand_view->id);
@@ -947,8 +949,8 @@ WandExport MagickBooleanType SetWandViewIterator(WandView *destination,
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   height=destination->extent.height-destination->extent.y;
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(destination_image,destination_image,height,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(destination_image,destination_image,height,1)
 #endif
   for (y=destination->extent.y; y < (ssize_t) destination->extent.height; y++)
   {
@@ -990,10 +992,11 @@ WandExport MagickBooleanType SetWandViewIterator(WandView *destination,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickWand_SetWandViewIterator)
+        #pragma omp atomic
 #endif
+        progress++;
         proceed=SetImageProgress(destination_image,destination->description,
-          progress++,destination->extent.height);
+          progress,destination->extent.height);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1084,8 +1087,8 @@ WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   height=source->extent.height-source->extent.y;
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(source_image,destination_image,height,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(source_image,destination_image,height,1)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -1152,9 +1155,10 @@ WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickWand_TransferWandViewIterator)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(source_image,source->description,progress++,
+        progress++;
+        proceed=SetImageProgress(source_image,source->description,progress,
           source->extent.height);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -1238,8 +1242,8 @@ WandExport MagickBooleanType UpdateWandViewIterator(WandView *source,
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   height=source->extent.height-source->extent.y;
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(source_image,source_image,height,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(source_image,source_image,height,1)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -1285,9 +1289,10 @@ WandExport MagickBooleanType UpdateWandViewIterator(WandView *source,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickWand_UpdateWandViewIterator)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(source_image,source->description,progress++,
+        progress++;
+        proceed=SetImageProgress(source_image,source->description,progress,
           source->extent.height);
         if (proceed == MagickFalse)
           status=MagickFalse;

@@ -56,7 +56,10 @@ using parse_asn1_fn = function<ErrorCode(CBS *cbs, Tag tag,
 #define KM_WRAPPER_FORMAT_VERSION    0
 #define KM_WRAPPER_GCM_IV_SIZE       12
 #define KM_WRAPPER_GCM_TAG_SIZE      16
-#define KM_WRAPPER_WRAPPED_KEY_SIZE  32
+#define KM_WRAPPER_WRAPPED_AES_KEY_SIZE  32
+#define KM_WRAPPER_WRAPPED_DES_KEY_SIZE  24
+// TODO: update max once PKCS8 support is introduced.
+#define KM_WRAPPER_WRAPPED_MAX_KEY_SIZE  32
 #define KM_TAG_MASK                  0x0FFFFFFF
 
 // BoringSSL helpers.
@@ -311,7 +314,10 @@ ErrorCode import_wrapped_key_request(const hidl_vec<uint8_t>& wrappedKeyData,
      *     minMacLength [8] EXPLICIT INTEGER OPTIONAL,
      *     ecCurve  [10] EXPLICIT INTEGER OPTIONAL,
      *     rsaPublicExponent  [200] EXPLICIT INTEGER OPTIONAL,
-     *     bootloaderOnly [302]  EXPLICIT NULL OPTIONAL,
+     *     includeUniqueId  [202] EXPLICIT NULL OPTIONAL,
+     *     blobUsageRequirements  [301] EXPLICIT INTEGER OPTIONAL,
+     *     bootloaderOnly [302] EXPLICIT NULL OPTIONAL,
+     *     rollbackResistance  [303] EXPLICIT NULL OPTIONAL,
      *     activeDateTime  [400] EXPLICIT INTEGER OPTIONAL,
      *     originationExpireDateTime  [401] EXPLICIT INTEGER OPTIONAL,
      *     usageExpireDateTime  [402] EXPLICIT INTEGER OPTIONAL,
@@ -321,7 +327,9 @@ ErrorCode import_wrapped_key_request(const hidl_vec<uint8_t>& wrappedKeyData,
      *     noAuthRequired  [503] EXPLICIT NULL OPTIONAL,
      *     userAuthType  [504] EXPLICIT INTEGER OPTIONAL,
      *     authTimeout  [505] EXPLICIT INTEGER OPTIONAL,
-     *     allApplications  [600] EXPLICIT NULL OPTIONAL,
+     *     trustedUserPresenceReq  [507] EXPLICIT NULL OPTIONAL,
+     *     trustedConfirmationReq  [508] EXPLICIT NULL OPTIONAL,
+     *     unlockedDeviceReq  [509] EXPLICIT NULL OPTIONAL,
      *     applicationId  [601] EXPLICIT OCTET_STRING OPTIONAL,
      *     applicationData  [700]  EXPLICIT OCTET_STRING OPTIONAL,
      *     creationDateTime  [701] EXPLICIT INTEGER OPTIONAL,
@@ -402,8 +410,6 @@ ErrorCode import_wrapped_key_request(const hidl_vec<uint8_t>& wrappedKeyData,
         return ErrorCode::INVALID_ARGUMENT;
     }
 
-    // TODO: the list below may not be complete,
-    // update once the AuthorizationList spec final.
     struct tag_parser_entry {
         Tag tag;
         const parse_asn1_fn fn;
@@ -419,7 +425,10 @@ ErrorCode import_wrapped_key_request(const hidl_vec<uint8_t>& wrappedKeyData,
         {Tag::MIN_MAC_LENGTH, parse_asn1_integer},
         {Tag::EC_CURVE, parse_asn1_integer},
         {Tag::RSA_PUBLIC_EXPONENT, parse_asn1_integer},
+        {Tag::INCLUDE_UNIQUE_ID, parse_asn1_boolean},
+        {Tag::BLOB_USAGE_REQUIREMENTS, parse_asn1_integer},
         {Tag::BOOTLOADER_ONLY, parse_asn1_boolean},
+        {Tag::ROLLBACK_RESISTANCE, parse_asn1_boolean},
         {Tag::ACTIVE_DATETIME, parse_asn1_integer},
         {Tag::ORIGINATION_EXPIRE_DATETIME, parse_asn1_integer},
         {Tag::USAGE_EXPIRE_DATETIME, parse_asn1_integer},
@@ -429,6 +438,9 @@ ErrorCode import_wrapped_key_request(const hidl_vec<uint8_t>& wrappedKeyData,
         {Tag::NO_AUTH_REQUIRED, parse_asn1_boolean},
         {Tag::USER_AUTH_TYPE, parse_asn1_integer},
         {Tag::AUTH_TIMEOUT, parse_asn1_integer},
+        {Tag::TRUSTED_USER_PRESENCE_REQUIRED, parse_asn1_boolean},
+        {Tag::TRUSTED_CONFIRMATION_REQUIRED, parse_asn1_boolean},
+        {Tag::UNLOCKED_DEVICE_REQUIRED, parse_asn1_boolean},
         {Tag::APPLICATION_ID, parse_asn1_octet_string},
         {Tag::APPLICATION_DATA, parse_asn1_octet_string},
         {Tag::CREATION_DATETIME, parse_asn1_octet_string},
@@ -459,13 +471,16 @@ ErrorCode import_wrapped_key_request(const hidl_vec<uint8_t>& wrappedKeyData,
         LOG(ERROR) << "Failed to parse secure key";
         return ErrorCode::INVALID_ARGUMENT;
     }
-    if (CBS_len(&secureKey) != KM_WRAPPER_WRAPPED_KEY_SIZE) {
-        LOG(ERROR) << "Secure key len, expected: "
-                   << KM_WRAPPER_WRAPPED_KEY_SIZE
+
+    // TODO: check that the wrapped key size matches the algorithm.
+    if (CBS_len(&secureKey) > KM_WRAPPER_WRAPPED_MAX_KEY_SIZE) {
+        LOG(ERROR) << "Secure key len exceeded: "
+                   << KM_WRAPPER_WRAPPED_MAX_KEY_SIZE
                    << " got: "
                    << CBS_len(&secureKey);
         return ErrorCode::INVALID_ARGUMENT;
     }
+
     if (!CBS_get_asn1(&child, &tag, CBS_ASN1_OCTETSTRING)) {
         LOG(ERROR) << "Failed to parse gcm tag";
         return ErrorCode::INVALID_ARGUMENT;

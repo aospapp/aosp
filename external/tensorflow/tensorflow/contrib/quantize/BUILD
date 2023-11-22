@@ -20,10 +20,16 @@ py_test(
     srcs_version = "PY2AND3",
     deps = [
         ":common",
+        "//tensorflow/contrib/layers:layers_py",
+        "//tensorflow/python:array_ops",
         "//tensorflow/python:framework_ops",
         "//tensorflow/python:framework_test_lib",
+        "//tensorflow/python:init_ops",
+        "//tensorflow/python:math_ops",
+        "//tensorflow/python:nn_ops",
         "//tensorflow/python:platform_test",
         "//tensorflow/python:session",
+        "//tensorflow/python:variable_scope",
     ],
 )
 
@@ -88,7 +94,6 @@ py_library(
         ":common",
         ":graph_matcher",
         ":input_to_ops",
-        "//tensorflow/contrib/graph_editor:graph_editor_py",
         "//tensorflow/core:protos_all_py",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:dtypes",
@@ -133,7 +138,6 @@ py_library(
     srcs = ["python/quant_ops.py"],
     srcs_version = "PY2AND3",
     deps = [
-        "//tensorflow/contrib/framework:framework_py",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:framework_ops",
         "//tensorflow/python:init_ops",
@@ -154,8 +158,10 @@ py_test(
         "//tensorflow/python:array_ops",
         "//tensorflow/python:dtypes",
         "//tensorflow/python:framework_ops",
+        "//tensorflow/python:partitioned_variables",
         "//tensorflow/python:platform_test",
         "//tensorflow/python:session",
+        "//tensorflow/python:variable_scope",
         "//tensorflow/python:variables",
     ],
 )
@@ -168,7 +174,6 @@ py_library(
         ":graph_matcher",
         ":input_to_ops",
         ":quant_ops",
-        "//tensorflow/contrib/graph_editor:graph_editor_py",
         "//tensorflow/python:control_flow_ops",
         "//tensorflow/python:framework_ops",
         "//tensorflow/python:math_ops",
@@ -197,9 +202,14 @@ py_test(
 
 py_test(
     name = "quantize_parameterized_test",
-    size = "large",
+    size = "medium",
     srcs = ["python/quantize_parameterized_test.py"],
+    shard_count = 4,
     srcs_version = "PY2AND3",
+    # TODO(b/118839526): Re-enable msan test.
+    tags = [
+        "nomsan",
+    ],
     deps = [
         ":fold_batch_norms",
         ":quantize",
@@ -241,19 +251,9 @@ py_test(
         "//tensorflow/python:framework_ops",
         "//tensorflow/python:framework_test_lib",
         "//tensorflow/python:init_ops",
+        "//tensorflow/python:math_ops",
         "//tensorflow/python:nn_ops",
         "//tensorflow/python:platform_test",
+        "//tensorflow/python:training",
     ],
-)
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
-    visibility = ["//tensorflow:__subpackages__"],
 )

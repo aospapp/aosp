@@ -1,7 +1,7 @@
 package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
@@ -10,16 +10,16 @@ import android.content.IIntentSender;
 import android.content.IntentSender;
 import android.content.pm.PackageInstaller;
 import android.os.Handler;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.OutputStream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.util.ReflectionHelpers;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 @Config(minSdk = LOLLIPOP)
 public class ShadowPackageInstallerTest {
 
@@ -30,7 +30,8 @@ public class ShadowPackageInstallerTest {
 
   @Before
   public void setUp() {
-    packageInstaller = RuntimeEnvironment.application.getPackageManager().getPackageInstaller();
+    packageInstaller =
+        ApplicationProvider.getApplicationContext().getPackageManager().getPackageInstaller();
   }
 
   @Test

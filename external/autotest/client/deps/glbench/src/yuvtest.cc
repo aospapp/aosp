@@ -5,10 +5,11 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
+#include <assert.h>
+#include <string.h>
 #include <memory>
 
-#include "base/logging.h"
-
+#include "arraysize.h"
 #include "main.h"
 #include "testbase.h"
 #include "utils.h"
@@ -18,12 +19,8 @@ namespace glbench {
 
 class YuvToRgbTest : public DrawArraysTestFunc {
  public:
-  YuvToRgbTest() {
-    memset(textures_, 0, sizeof(textures_));
-  }
-  virtual ~YuvToRgbTest() {
-    glDeleteTextures(arraysize(textures_), textures_);
-  }
+  YuvToRgbTest() { memset(textures_, 0, sizeof(textures_)); }
+  virtual ~YuvToRgbTest() { glDeleteTextures(arraysize(textures_), textures_); }
   virtual bool Run();
   virtual const char* Name() const { return "yuv_to_rgb"; }
 
@@ -42,11 +39,11 @@ class YuvToRgbTest : public DrawArraysTestFunc {
   DISALLOW_COPY_AND_ASSIGN(YuvToRgbTest);
 };
 
-
 GLuint YuvToRgbTest::YuvToRgbShaderProgram(GLuint vertex_buffer,
-                                           int width, int height) {
-  const char *vertex = NULL;
-  const char *fragment = NULL;
+                                           int width,
+                                           int height) {
+  const char* vertex = NULL;
+  const char* fragment = NULL;
 
   switch (flavor_) {
     case YUV_PLANAR_ONE_TEXTURE_SLOW:
@@ -69,10 +66,9 @@ GLuint YuvToRgbTest::YuvToRgbShaderProgram(GLuint vertex_buffer,
 
   size_t size_vertex = 0;
   size_t size_fragment = 0;
-  char *yuv_to_rgb_vertex = static_cast<char *>(
-      MmapFile(vertex, &size_vertex));
-  char *yuv_to_rgb_fragment = static_cast<char *>(
-      MmapFile(fragment, &size_fragment));
+  char* yuv_to_rgb_vertex = static_cast<char*>(MmapFile(vertex, &size_vertex));
+  char* yuv_to_rgb_fragment =
+      static_cast<char*>(MmapFile(fragment, &size_fragment));
   GLuint program = 0;
 
   if (!yuv_to_rgb_fragment || !yuv_to_rgb_vertex)
@@ -105,12 +101,10 @@ GLuint YuvToRgbTest::YuvToRgbShaderProgram(GLuint vertex_buffer,
     {
       // This is used only if USE_UNIFORM_MATRIX is enabled in fragment
       // shaders.
-      float c[] = {
-        1.0,    1.0,    1.0,   0.0,
-        0.0,   -0.344,  1.772, 0.0,
-        1.402, -0.714,  0.0,   0.0,
-        -0.701,  0.529, -0.886, 1.0
-      };
+      float c[] = {1.0,   1.0,    1.0,    0.0,
+                   0.0,   -0.344, 1.772,  0.0,
+                   1.402, -0.714, 0.0,    0.0,
+                   -0.701, 0.529, -0.886, 1.0};
       int conversion = glGetUniformLocation(program, "conversion");
       glUniformMatrix4fv(conversion, 1, GL_FALSE, c);
       assert(glGetError() == 0);
@@ -123,21 +117,19 @@ GLuint YuvToRgbTest::YuvToRgbShaderProgram(GLuint vertex_buffer,
     return program;
   }
 
-
 done:
   munmap(yuv_to_rgb_fragment, size_fragment);
   munmap(yuv_to_rgb_fragment, size_vertex);
   return program;
 }
 
-
 bool YuvToRgbTest::SetupTextures() {
   bool ret = false;
   size_t size = 0;
   char evenodd[2] = {0, static_cast<char>(-1)};
-  char* pixels = static_cast<char *>(MmapFile(YUV2RGB_NAME, &size));
+  char* pixels = static_cast<char*>(MmapFile(YUV2RGB_NAME, &size));
   const int luma_size = YUV2RGB_WIDTH * YUV2RGB_PIXEL_HEIGHT;
-  const int chroma_size = YUV2RGB_WIDTH/2 * YUV2RGB_PIXEL_HEIGHT/2;
+  const int chroma_size = YUV2RGB_WIDTH / 2 * YUV2RGB_PIXEL_HEIGHT / 2;
   const char* u_plane = pixels + luma_size;
   const char* v_plane = pixels + luma_size + chroma_size;
   if (!pixels) {
@@ -153,45 +145,44 @@ bool YuvToRgbTest::SetupTextures() {
   glGenTextures(arraysize(textures_), textures_);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, textures_[0]);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, YUV2RGB_WIDTH, YUV2RGB_HEIGHT,
-               0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, YUV2RGB_WIDTH, YUV2RGB_HEIGHT, 0,
+               GL_LUMINANCE, GL_UNSIGNED_BYTE, pixels);
 
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, textures_[1]);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 2, 1,
-               0, GL_LUMINANCE, GL_UNSIGNED_BYTE, evenodd);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 2, 1, 0, GL_LUMINANCE,
+               GL_UNSIGNED_BYTE, evenodd);
 
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, textures_[2]);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
-               YUV2RGB_WIDTH, YUV2RGB_PIXEL_HEIGHT,
-               0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, YUV2RGB_WIDTH,
+               YUV2RGB_PIXEL_HEIGHT, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pixels);
 
   glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_2D, textures_[3]);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
-               YUV2RGB_WIDTH/2, YUV2RGB_PIXEL_HEIGHT/2,
-               0, GL_LUMINANCE, GL_UNSIGNED_BYTE, u_plane);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, YUV2RGB_WIDTH / 2,
+               YUV2RGB_PIXEL_HEIGHT / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE,
+               u_plane);
 
   glActiveTexture(GL_TEXTURE4);
   glBindTexture(GL_TEXTURE_2D, textures_[4]);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
-               YUV2RGB_WIDTH/2, YUV2RGB_PIXEL_HEIGHT/2,
-               0, GL_LUMINANCE, GL_UNSIGNED_BYTE, v_plane);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, YUV2RGB_WIDTH / 2,
+               YUV2RGB_PIXEL_HEIGHT / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE,
+               v_plane);
 
   {
     std::unique_ptr<char[]> buf_uv(new char[chroma_size * 2]);
     char* buf_uv_ptr = buf_uv.get();
     for (int i = 0; i < chroma_size; i++) {
-        *buf_uv_ptr++ = u_plane[i];
-        *buf_uv_ptr++ = v_plane[i];
+      *buf_uv_ptr++ = u_plane[i];
+      *buf_uv_ptr++ = v_plane[i];
     }
 
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, textures_[5]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA,
-                 YUV2RGB_WIDTH/2, YUV2RGB_PIXEL_HEIGHT/2,
-                 0, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, buf_uv.get());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, YUV2RGB_WIDTH / 2,
+                 YUV2RGB_PIXEL_HEIGHT / 2, 0, GL_LUMINANCE_ALPHA,
+                 GL_UNSIGNED_BYTE, buf_uv.get());
   }
 
   for (unsigned int i = 0; i < arraysize(textures_); i++) {
@@ -209,17 +200,16 @@ done:
   return ret;
 }
 
-
 bool YuvToRgbTest::Run() {
   glClearColor(0.f, 1.f, 0.f, 1.f);
 
   GLuint program = 0;
   GLuint vertex_buffer = 0;
   GLfloat vertices[8] = {
-    0.f, 0.f,
-    1.f, 0.f,
-    0.f, 1.f,
-    1.f, 1.f,
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
   };
   vertex_buffer = SetupVBO(GL_ARRAY_BUFFER, sizeof(vertices), vertices);
 
@@ -229,17 +219,15 @@ bool YuvToRgbTest::Run() {
   glViewport(0, 0, YUV2RGB_WIDTH, YUV2RGB_PIXEL_HEIGHT);
 
   YuvTestFlavor flavors[] = {
-    YUV_PLANAR_ONE_TEXTURE_SLOW, YUV_PLANAR_ONE_TEXTURE_FASTER,
-    YUV_PLANAR_THREE_TEXTURES, YUV_SEMIPLANAR_TWO_TEXTURES
-  };
-  const char* flavor_names[] = {
-    "yuv_shader_1", "yuv_shader_2", "yuv_shader_3", "yuv_shader_4"
-  };
+      YUV_PLANAR_ONE_TEXTURE_SLOW, YUV_PLANAR_ONE_TEXTURE_FASTER,
+      YUV_PLANAR_THREE_TEXTURES, YUV_SEMIPLANAR_TWO_TEXTURES};
+  const char* flavor_names[] = {"yuv_shader_1", "yuv_shader_2", "yuv_shader_3",
+                                "yuv_shader_4"};
   for (unsigned int f = 0; f < arraysize(flavors); f++) {
     flavor_ = flavors[f];
 
-    program = YuvToRgbShaderProgram(vertex_buffer,
-                                    YUV2RGB_WIDTH, YUV2RGB_PIXEL_HEIGHT);
+    program = YuvToRgbShaderProgram(vertex_buffer, YUV2RGB_WIDTH,
+                                    YUV2RGB_PIXEL_HEIGHT);
     if (program) {
       FillRateTestNormalSubWindow(flavor_names[f],
                                   std::min(YUV2RGB_WIDTH, g_width),
@@ -256,9 +244,8 @@ bool YuvToRgbTest::Run() {
   return true;
 }
 
-
 TestBase* GetYuvToRgbTest() {
   return new YuvToRgbTest();
 }
 
-} // namespace glbench
+}  // namespace glbench

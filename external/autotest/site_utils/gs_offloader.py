@@ -11,6 +11,10 @@ Upon successful copy, the local results directory is deleted.
 """
 
 import abc
+try:
+  import cachetools
+except ImportError:
+  cachetools = None
 import datetime
 import errno
 import glob
@@ -20,7 +24,6 @@ import logging.handlers
 import os
 import re
 import shutil
-import socket
 import stat
 import subprocess
 import sys
@@ -115,6 +118,12 @@ DEFAULT_CTS_RESULTS_GSURI = global_config.global_config.get_config_value(
         'CROS', 'cts_results_server', default='')
 DEFAULT_CTS_APFE_GSURI = global_config.global_config.get_config_value(
         'CROS', 'cts_apfe_server', default='')
+DEFAULT_CTS_DELTA_RESULTS_GSURI = global_config.global_config.get_config_value(
+        'CROS', 'ctsdelta_results_server', default='')
+DEFAULT_CTS_DELTA_APFE_GSURI = global_config.global_config.get_config_value(
+        'CROS', 'ctsdelta_apfe_server', default='')
+DEFAULT_CTS_BVT_APFE_GSURI = global_config.global_config.get_config_value(
+        'CROS', 'ctsbvt_apfe_server', default='')
 
 # metadata type
 GS_OFFLOADER_SUCCESS_TYPE = 'gs_offloader_success'
@@ -153,22 +162,6 @@ def _get_metrics_fields(dir_entry):
                     pass
 
     return fields;
-
-
-def _get_es_metadata(dir_entry):
-    """Get ES metadata for the given test result directory.
-
-    @param dir_entry: Directory entry to offload.
-    @return A dictionary for the metadata to be uploaded.
-    """
-    fields = _get_metrics_fields(dir_entry)
-    fields['hostname'] = socket.gethostname()
-    # Include more data about the test job in metadata.
-    if dir_entry:
-        fields['dir_entry'] = dir_entry
-        fields['job_id'] = job_directories.get_job_id_or_task_id(dir_entry)
-
-    return fields
 
 
 def _get_cmd_list(multiprocessing, dir_entry, gs_path):
@@ -255,7 +248,7 @@ def _replace_fifo_with_file(path):
     """
     logging.debug('Removing fifo %s', path)
     os.remove(path)
-    logging.debug('Creating marker %s', path)
+    logging.debug('Creating fifo marker %s', path)
     with open(path, 'w') as f:
         f.write('<FIFO>')
 
@@ -281,13 +274,13 @@ def _replace_symlink_with_file(path):
     target = os.readlink(path)
     logging.debug('Removing symlink %s', path)
     os.remove(path)
-    logging.debug('Creating marker %s', path)
+    logging.debug('Creating symlink marker %s', path)
     with open(path, 'w') as f:
         f.write('<symlink to %s>' % target)
 
 
 # Maximum number of files in the folder.
-_MAX_FILE_COUNT = 500
+_MAX_FILE_COUNT = 3000
 _FOLDERS_NEVER_ZIP = ['debug', 'ssp_logs', 'autoupdate_logs']
 
 
@@ -395,14 +388,37 @@ def _upload_cts_testresult(dir_entry, multiprocessing):
                                 TIMESTAMP_PATTERN)
         cts_v2_path = os.path.join(host, 'cheets_CTS_*', 'results', '*',
                                    TIMESTAMP_PATTERN)
-        gts_v2_path = os.path.join(host, 'cheets_GTS.*', 'results', '*',
+        gts_v2_path = os.path.join(host, 'cheets_GTS*', 'results', '*',
                                    TIMESTAMP_PATTERN)
         for result_path, result_pattern in [(cts_path, CTS_RESULT_PATTERN),
                             (cts_v2_path, CTS_V2_RESULT_PATTERN),
                             (gts_v2_path, CTS_V2_RESULT_PATTERN)]:
             for path in glob.glob(result_path):
                 try:
-                    _upload_files(host, path, result_pattern, multiprocessing)
+                    # CTS results from bvt-arc suites need to be only uploaded
+                    # to APFE from its designated gs bucket for early EDI
+                    # entries in APFE. These results need to copied only into
+                    # APFE bucket. Copying to results bucket is not required.
+                    if 'bvt-arc' in path:
+                        _upload_files(host, path, result_pattern,
+                                      multiprocessing,
+                                      None,
+                                      DEFAULT_CTS_BVT_APFE_GSURI)
+                        return
+                    # Non-bvt CTS results need to be uploaded to standard gs
+                    # buckets.
+                    _upload_files(host, path, result_pattern,
+                                  multiprocessing,
+                                  DEFAULT_CTS_RESULTS_GSURI,
+                                  DEFAULT_CTS_APFE_GSURI)
+                    # TODO(rohitbm): make better comparison using regex.
+                    # plan_follower CTS results go to plan_follower specific
+                    # gs buckets apart from standard gs buckets.
+                    if 'plan_follower' in path:
+                        _upload_files(host, path, result_pattern,
+                                      multiprocessing,
+                                      DEFAULT_CTS_DELTA_RESULTS_GSURI,
+                                      DEFAULT_CTS_DELTA_APFE_GSURI)
                 except Exception as e:
                     logging.error('ERROR uploading test results %s to GS: %s',
                                   path, e)
@@ -428,7 +444,9 @@ def _is_valid_result(build, result_pattern, suite):
     # suite.
     result_patterns = [CTS_RESULT_PATTERN, CTS_V2_RESULT_PATTERN]
     if result_pattern in result_patterns and not (
-            suite.startswith('arc-cts') or suite.startswith('arc-gts') or
+            suite.startswith('arc-cts') or
+            suite.startswith('arc-gts') or
+            suite.startswith('bvt-arc') or
             suite.startswith('test_that_wrapper')):
         return False
 
@@ -445,7 +463,8 @@ def _is_test_collector(package):
     return TEST_LIST_COLLECTOR in package
 
 
-def _upload_files(host, path, result_pattern, multiprocessing):
+def _upload_files(host, path, result_pattern, multiprocessing,
+                  result_gs_bucket, apfe_gs_bucket):
     keyval = models.test.parse_job_keyval(host)
     build = keyval.get('build')
     suite = keyval.get('suite')
@@ -468,7 +487,7 @@ def _upload_files(host, path, result_pattern, multiprocessing):
         # Path: bucket/build/parent_job_id/cheets_CTS.*/job_id_timestamp/
         # or bucket/build/parent_job_id/cheets_GTS.*/job_id_timestamp/
         cts_apfe_gs_path = os.path.join(
-                DEFAULT_CTS_APFE_GSURI, build, parent_job_id,
+                apfe_gs_bucket, build, parent_job_id,
                 package, job_id + '_' + timestamp) + '/'
 
         for zip_file in glob.glob(os.path.join('%s.zip' % path)):
@@ -479,25 +498,25 @@ def _upload_files(host, path, result_pattern, multiprocessing):
         logging.debug('%s is a CTS Test collector Autotest test run.', package)
         logging.debug('Skipping CTS results upload to APFE gs:// bucket.')
 
-    # Path: bucket/cheets_CTS.*/job_id_timestamp/
-    # or bucket/cheets_GTS.*/job_id_timestamp/
-    test_result_gs_path = os.path.join(
-            DEFAULT_CTS_RESULTS_GSURI, package,
-            job_id + '_' + timestamp) + '/'
+    if result_gs_bucket:
+        # Path: bucket/cheets_CTS.*/job_id_timestamp/
+        # or bucket/cheets_GTS.*/job_id_timestamp/
+        test_result_gs_path = os.path.join(
+                result_gs_bucket, package, job_id + '_' + timestamp) + '/'
 
-    for test_result_file in glob.glob(os.path.join(path, result_pattern)):
-        # gzip test_result_file(testResult.xml/test_result.xml)
+        for test_result_file in glob.glob(os.path.join(path, result_pattern)):
+            # gzip test_result_file(testResult.xml/test_result.xml)
 
-        test_result_file_gz =  '%s.gz' % test_result_file
-        with open(test_result_file, 'r') as f_in, (
-                gzip.open(test_result_file_gz, 'w')) as f_out:
-            shutil.copyfileobj(f_in, f_out)
-        utils.run(' '.join(_get_cmd_list(
-                multiprocessing, test_result_file_gz, test_result_gs_path)))
-        logging.debug('Zip and upload %s to %s',
-                      test_result_file_gz, test_result_gs_path)
-        # Remove test_result_file_gz(testResult.xml.gz/test_result.xml.gz)
-        os.remove(test_result_file_gz)
+            test_result_file_gz =  '%s.gz' % test_result_file
+            with open(test_result_file, 'r') as f_in, (
+                    gzip.open(test_result_file_gz, 'w')) as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            utils.run(' '.join(_get_cmd_list(
+                    multiprocessing, test_result_file_gz, test_result_gs_path)))
+            logging.debug('Zip and upload %s to %s',
+                          test_result_file_gz, test_result_gs_path)
+            # Remove test_result_file_gz(testResult.xml.gz/test_result.xml.gz)
+            os.remove(test_result_file_gz)
 
 
 def _emit_gs_returncode_metric(returncode):
@@ -660,8 +679,7 @@ class GSOffloader(BaseGSOffloader):
             return
         start_time = time.time()
         metrics_fields = _get_metrics_fields(dir_entry)
-        es_metadata = _get_es_metadata(dir_entry)
-        error_obj = _OffloadError(start_time, es_metadata)
+        error_obj = _OffloadError(start_time)
         try:
             sanitize_dir(dir_entry)
             if DEFAULT_CTS_RESULTS_GSURI:
@@ -669,15 +687,16 @@ class GSOffloader(BaseGSOffloader):
 
             if LIMIT_FILE_COUNT:
                 limit_file_count(dir_entry)
-            es_metadata['size_kb'] = file_utils.get_directory_size_kibibytes(dir_entry)
 
             process = None
             with timeout_util.Timeout(OFFLOAD_TIMEOUT_SECS):
                 gs_path = '%s%s' % (self._gs_uri, dest_path)
+                cmd = _get_cmd_list(self._multiprocessing, dir_entry, gs_path)
+                logging.debug('Attempting an offload command %s', cmd)
                 process = subprocess.Popen(
-                        _get_cmd_list(self._multiprocessing, dir_entry, gs_path),
-                        stdout=stdout_file, stderr=stderr_file)
+                    cmd, stdout=stdout_file, stderr=stderr_file)
                 process.wait()
+                logging.debug('Offload command %s completed.', cmd)
 
             _emit_gs_returncode_metric(process.returncode)
             if process.returncode != 0:
@@ -722,7 +741,9 @@ class GSOffloader(BaseGSOffloader):
                                                    job_complete_time)):
             return
         try:
+            logging.debug('Pruning uploaded directory %s', dir_entry)
             shutil.rmtree(dir_entry)
+            job_timestamp_cache.delete(dir_entry)
         except OSError as e:
             # The wrong file permission can lead call `shutil.rmtree(dir_entry)`
             # to raise OSError with message 'Permission denied'. Details can be
@@ -735,10 +756,9 @@ class GSOffloader(BaseGSOffloader):
 class _OffloadError(Exception):
     """Google Storage offload failed."""
 
-    def __init__(self, start_time, es_metadata):
-        super(_OffloadError, self).__init__(start_time, es_metadata)
+    def __init__(self, start_time):
+        super(_OffloadError, self).__init__(start_time)
         self.start_time = start_time
-        self.es_metadata = es_metadata
 
 
 
@@ -758,13 +778,80 @@ class FakeGSOffloader(BaseGSOffloader):
         shutil.rmtree(dir_entry)
 
 
+class OptionalMemoryCache(object):
+   """Implements memory cache if cachetools module can be loaded.
+
+   If the platform has cachetools available then the cache will
+   be created, otherwise the get calls will always act as if there
+   was a cache miss and the set/delete will be no-ops.
+   """
+   cache = None
+
+   def setup(self, age_to_delete):
+       """Set up a TTL cache size based on how long the job will be handled.
+
+       Autotest jobs are handled by gs_offloader until they are deleted from
+       local storage, base the cache size on how long that is.
+
+       @param age_to_delete: Number of days after which items in the cache
+                             should expire.
+       """
+       if cachetools:
+           # Min cache is 1000 items for 10 mins. If the age to delete is 0
+           # days you still want a short / small cache.
+           # 2000 items is a good approximation for the max number of jobs a
+           # moblab # can produce in a day, lab offloads immediatly so
+           # the number of carried jobs should be very small in the normal
+           # case.
+           ttl = max(age_to_delete * 24 * 60 * 60, 600)
+           maxsize = max(age_to_delete * 2000, 1000)
+           job_timestamp_cache.cache = cachetools.TTLCache(maxsize=maxsize,
+                                                           ttl=ttl)
+
+   def get(self, key):
+       """If we have a cache try to retrieve from it."""
+       if self.cache is not None:
+           result = self.cache.get(key)
+           return result
+       return None
+
+   def add(self, key, value):
+       """If we have a cache try to store key/value."""
+       if self.cache is not None:
+           self.cache[key] = value
+
+   def delete(self, key):
+       """If we have a cache try to remove a key."""
+       if self.cache is not None:
+           return self.cache.delete(key)
+
+
+job_timestamp_cache = OptionalMemoryCache()
+
+
+def _cached_get_timestamp_if_finished(job):
+    """Retrieve a job finished timestamp from cache or AFE.
+    @param job       _JobDirectory instance to retrieve
+                     finished timestamp of..
+
+    @returns: None if the job is not finished, or the
+              last job finished time recorded by Autotest.
+    """
+    job_timestamp = job_timestamp_cache.get(job.dirname)
+    if not job_timestamp:
+        job_timestamp = job.get_timestamp_if_finished()
+        if job_timestamp:
+            job_timestamp_cache.add(job.dirname, job_timestamp)
+    return job_timestamp
+
+
 def _is_expired(job, age_limit):
     """Return whether job directory is expired for uploading
 
     @param job: _JobDirectory instance.
     @param age_limit:  Minimum age in days at which a job may be offloaded.
     """
-    job_timestamp = job.get_timestamp_if_finished()
+    job_timestamp = _cached_get_timestamp_if_finished(job)
     if not job_timestamp:
         return False
     return job_directories.is_job_expired(age_limit, job_timestamp)
@@ -801,6 +888,7 @@ def _mark_uploaded(dirpath):
 
     @param dirpath: Directory path string.
     """
+    logging.debug('Creating uploaded marker for directory %s', dirpath)
     with open(_get_uploaded_marker_file(dirpath), 'a'):
         pass
 
@@ -835,6 +923,8 @@ def wait_for_gs_write_access(gs_uri):
     dummy_file = tempfile.NamedTemporaryFile()
     test_cmd = _get_cmd_list(False, dummy_file.name, gs_uri)
     while True:
+        logging.debug('Checking for write access with dummy file %s',
+                      dummy_file.name)
         try:
             subprocess.check_call(test_cmd)
             subprocess.check_call(
@@ -843,8 +933,11 @@ def wait_for_gs_write_access(gs_uri):
                                   os.path.basename(dummy_file.name))])
             break
         except subprocess.CalledProcessError:
-            logging.debug('Unable to offload to %s, sleeping.', gs_uri)
-            time.sleep(120)
+            t = 120
+            logging.debug('Unable to offload dummy file to %s, sleeping for %s '
+                          'seconds.', gs_uri, t)
+            time.sleep(t)
+    logging.debug('Dummy file write check to gs succeeded.')
 
 
 class Offloader(object):
@@ -884,7 +977,9 @@ class Offloader(object):
             self._gs_offloader = GSOffloader(
                     self.gs_uri, multiprocessing, self._delete_age_limit,
                     console_client)
-        classlist = []
+        classlist = [
+                job_directories.SwarmingJobDirectory,
+        ]
         if options.process_hosts_only or options.process_all:
             classlist.append(job_directories.SpecialJobDirectory)
         if not options.process_hosts_only:
@@ -907,9 +1002,7 @@ class Offloader(object):
         new_job_count = 0
         for cls in self._jobdir_classes:
             for resultsdir in cls.get_job_directories():
-                if (
-                        resultsdir in self._open_jobs
-                        or _is_uploaded(resultsdir)):
+                if resultsdir in self._open_jobs:
                     continue
                 self._open_jobs[resultsdir] = cls(resultsdir)
                 new_job_count += 1
@@ -926,7 +1019,7 @@ class Offloader(object):
                     or _is_uploaded(job.dirname)):
                 del self._open_jobs[jobkey]
                 removed_job_count += 1
-        logging.debug('End of offload cycle - cleared %d new jobs, '
+        logging.debug('End of offload cycle - cleared %d jobs, '
                       'carrying %d open jobs',
                       removed_job_count, len(self._open_jobs))
 
@@ -1044,7 +1137,7 @@ def _enqueue_offload(job, queue, age_limit):
         job.first_offload_start = time.time()
     job.offload_count += 1
     if job.process_gs_instructions():
-        timestamp = job.get_timestamp_if_finished()
+        timestamp = _cached_get_timestamp_if_finished(job)
         queue.put([job.dirname, os.path.dirname(job.dirname), timestamp])
 
 
@@ -1103,6 +1196,10 @@ def parse_options():
             type=str,
             default=None,
     )
+    parser.add_option('-t', '--enable_timestamp_cache',
+                      dest='enable_timestamp_cache',
+                      action='store_true',
+                      help='Cache the finished timestamps from AFE.')
 
     options = parser.parse_args()[0]
     if options.process_all and options.process_hosts_only:
@@ -1136,6 +1233,11 @@ def main():
         offloader_type = 'jobs'
 
     _setup_logging(options, offloader_type)
+
+    if options.enable_timestamp_cache:
+        # Extend the cache expiry time by another 1% so the timstamps
+        # are available as the results are purged.
+        job_timestamp_cache.setup(options.age_to_delete * 1.01)
 
     # Nice our process (carried to subprocesses) so we don't overload
     # the system.

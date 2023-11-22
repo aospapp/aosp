@@ -33,7 +33,6 @@ from autotest_lib.client.bin import sysinfo
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import logging_manager
 from autotest_lib.client.common_lib import packages
 from autotest_lib.client.common_lib import utils
@@ -50,20 +49,14 @@ from autotest_lib.server.hosts import shadowing_store
 from autotest_lib.server.hosts import factory as host_factory
 from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import ssh_multiplex
-from autotest_lib.tko import db as tko_db
 from autotest_lib.tko import models as tko_models
-from autotest_lib.tko import status_lib
 from autotest_lib.tko import parser_lib
-from autotest_lib.tko import utils as tko_utils
 
 try:
     from chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
-
-INCREMENTAL_TKO_PARSING = global_config.global_config.get_config_value(
-        'autoserv', 'incremental_tko_parsing', type=bool, default=False)
 
 def _control_segment_path(name):
     """Get the pathname of the named control segment file."""
@@ -76,9 +69,9 @@ SERVER_CONTROL_FILENAME = 'control.srv'
 MACHINES_FILENAME = '.machines'
 
 CLIENT_WRAPPER_CONTROL_FILE = _control_segment_path('client_wrapper')
+CLIENT_TRAMPOLINE_CONTROL_FILE = _control_segment_path('client_trampoline')
 CRASHDUMPS_CONTROL_FILE = _control_segment_path('crashdumps')
 CRASHINFO_CONTROL_FILE = _control_segment_path('crashinfo')
-INSTALL_CONTROL_FILE = _control_segment_path('install')
 CLEANUP_CONTROL_FILE = _control_segment_path('cleanup')
 VERIFY_CONTROL_FILE = _control_segment_path('verify')
 REPAIR_CONTROL_FILE = _control_segment_path('repair')
@@ -88,8 +81,8 @@ RESET_CONTROL_FILE = _control_segment_path('reset')
 GET_NETWORK_STATS_CONTROL_FILE = _control_segment_path('get_network_stats')
 
 
-def get_machine_dicts(machine_names, workdir, in_lab, host_attributes=None,
-                      connection_pool=None):
+def get_machine_dicts(machine_names, store_dir, in_lab, use_shadow_store,
+                      host_attributes=None):
     """Converts a list of machine names to list of dicts.
 
     TODO(crbug.com/678430): This function temporarily has a side effect of
@@ -97,13 +90,14 @@ def get_machine_dicts(machine_names, workdir, in_lab, host_attributes=None,
     go away once callers of autoserv start passing in the FileStore.
 
     @param machine_names: A list of machine names.
-    @param workdir: A directory where any on-disk files related to the machines
-            may be created.
+    @param store_dir: A directory to contain store backing files.
+    @param use_shadow_store: If True, we should create a ShadowingStore where
+            actual store is backed by the AFE but we create a backing file to
+            shadow the store. If False, backing file should already exist at:
+            ${store_dir}/${hostname}.store
     @param in_lab: A boolean indicating whether we're running in lab.
     @param host_attributes: Optional list of host attributes to add for each
             host.
-    @param connection_pool: ssh_multiplex.ConnectionPool instance to share
-            master connections across control scripts.
     @returns: A list of dicts. Each dict has the following keys:
             'hostname': Name of the machine originally in machine_names (str).
             'afe_host': A frontend.Host object for the machine, or a stub if
@@ -111,12 +105,17 @@ def get_machine_dicts(machine_names, workdir, in_lab, host_attributes=None,
             'host_info_store': A host_info.CachingHostInfoStore object to obtain
                     host information. A stub if in_lab is False.
             'connection_pool': ssh_multiplex.ConnectionPool instance to share
-                    master ssh connection across control scripts.
+                    master ssh connection across control scripts. This is set to
+                    None, and should be overridden for connection sharing.
     """
+    # See autoserv_parser.parse_args. Only one of in_lab or host_attributes can
+    # be provided.
+    if in_lab and host_attributes:
+        raise error.AutoservError(
+                'in_lab and host_attribute are mutually exclusive.')
+
     machine_dict_list = []
     for machine in machine_names:
-        # See autoserv_parser.parse_args. Only one of in_lab or host_attributes
-        # can be provided.
         if not in_lab:
             afe_host = server_utils.EmptyAFEHost()
             host_info_store = host_info.InMemoryHostInfoStore()
@@ -124,20 +123,20 @@ def get_machine_dicts(machine_names, workdir, in_lab, host_attributes=None,
                 afe_host.attributes.update(host_attributes)
                 info = host_info.HostInfo(attributes=host_attributes)
                 host_info_store.commit(info)
-        elif host_attributes:
-            raise error.AutoservError(
-                    'in_lab and host_attribute are mutually exclusive. '
-                    'Obtained in_lab:%s, host_attributes:%s'
-                    % (in_lab, host_attributes))
-        else:
+        elif use_shadow_store:
             afe_host = _create_afe_host(machine)
-            host_info_store = _create_host_info_store(machine, workdir)
+            host_info_store = _create_afe_backed_host_info_store(store_dir,
+                                                                 machine)
+        else:
+            afe_host = server_utils.EmptyAFEHost()
+            host_info_store = _create_file_backed_host_info_store(store_dir,
+                                                                  machine)
 
         machine_dict_list.append({
                 'hostname' : machine,
                 'afe_host' : afe_host,
                 'host_info_store': host_info_store,
-                'connection_pool': connection_pool,
+                'connection_pool': None,
         })
 
     return machine_dict_list
@@ -216,7 +215,6 @@ class server_job_record_hook(object):
         for entry in entries:
             rendered_entry = job._logger.render_entry(entry)
             logging.info(rendered_entry)
-            job._parse_status(rendered_entry)
 
 
 class server_job(base_job.base_job):
@@ -224,9 +222,6 @@ class server_job(base_job.base_job):
 
     Optional properties provided by this implementation:
         serverdir
-
-        num_tests_run
-        num_tests_failed
 
         warning_manager
         warning_loggers
@@ -236,16 +231,18 @@ class server_job(base_job.base_job):
 
     # TODO crbug.com/285395 eliminate ssh_verbosity_flag
     def __init__(self, control, args, resultdir, label, user, machines,
-                 client=False, parse_job='',
+                 machine_dict_list,
+                 client=False,
                  ssh_user=host_factory.DEFAULT_SSH_USER,
                  ssh_port=host_factory.DEFAULT_SSH_PORT,
                  ssh_pass=host_factory.DEFAULT_SSH_PASS,
                  ssh_verbosity_flag=host_factory.DEFAULT_SSH_VERBOSITY,
                  ssh_options=host_factory.DEFAULT_SSH_OPTIONS,
-                 test_retry=0, group_name='',
+                 group_name='',
                  tag='', disable_sysinfo=False,
                  control_filename=SERVER_CONTROL_FILENAME,
-                 parent_job_id=None, host_attributes=None, in_lab=False):
+                 parent_job_id=None, in_lab=False,
+                 use_client_trampoline=False):
         """
         Create a server side job object.
 
@@ -254,9 +251,10 @@ class server_job(base_job.base_job):
         @param resultdir: Where to throw the results.
         @param label: Description of the job.
         @param user: Username for the job (email address).
+        @param machines: A list of hostnames of the machines to use for the job.
+        @param machine_dict_list: A list of dicts for each of the machines above
+                as returned by get_machine_dicts.
         @param client: True if this is a client-side control file.
-        @param parse_job: string, if supplied it is the job execution tag that
-                the results will be passed through to the TKO parser with.
         @param ssh_user: The SSH username.  [root]
         @param ssh_port: The SSH port number.  [22]
         @param ssh_pass: The SSH passphrase, if needed.
@@ -264,8 +262,6 @@ class server_job(base_job.base_job):
                 '-vvv', or an empty string if not needed.
         @param ssh_options: A string giving additional options that will be
                             included in ssh commands.
-        @param test_retry: The number of times to retry a test if the test did
-                not complete successfully.
         @param group_name: If supplied, this will be written out as
                 host_group_name in the keyvals file for the parser.
         @param tag: The job execution tag from the scheduler.  [optional]
@@ -275,15 +271,17 @@ class server_job(base_job.base_job):
                 should be written in the results directory.
         @param parent_job_id: Job ID of the parent job. Default to None if the
                 job does not have a parent job.
-        @param host_attributes: Dict of host attributes passed into autoserv
-                                via the command line. If specified here, these
-                                attributes will apply to all machines.
         @param in_lab: Boolean that indicates if this is running in the lab
                        environment.
+        @param use_client_trampoline: Boolean that indicates whether to
+               use the client trampoline flow.  If this is True, control
+               is interpreted as the name of the client test to run.
+               The client control file will be client_trampoline.  The
+               test name will be passed to client_trampoline, which will
+               install the test package and re-exec the actual test
+               control file.
         """
-        super(server_job, self).__init__(resultdir=resultdir,
-                                         test_retry=test_retry)
-        self.test_retry = test_retry
+        super(server_job, self).__init__(resultdir=resultdir)
         self.control = control
         self._uncollected_log_file = os.path.join(self.resultdir,
                                                   'uncollected_logs')
@@ -313,6 +311,7 @@ class server_job(base_job.base_job):
         self.drop_caches_between_iterations = False
         self._control_filename = control_filename
         self._disable_sysinfo = disable_sysinfo
+        self._use_client_trampoline = use_client_trampoline
 
         self.logging = logging_manager.get_logging_manager(
                 manage_stdout_and_stderr=True, redirect_fds=True)
@@ -338,15 +337,15 @@ class server_job(base_job.base_job):
             job_data.update(self._get_job_data())
             utils.write_keyval(self.resultdir, job_data)
 
-        self._parse_job = parse_job
-        self._using_parser = (INCREMENTAL_TKO_PARSING and self._parse_job
-                              and len(machines) <= 1)
         self.pkgmgr = packages.PackageManager(
             self.autodir, run_function_dargs={'timeout':600})
-        self.num_tests_run = 0
-        self.num_tests_failed = 0
 
         self._register_subcommand_hooks()
+
+        # We no longer parse results as part of the server_job. These arguments
+        # can't be dropped yet because clients haven't all be cleaned up yet.
+        self.num_tests_run = -1
+        self.num_tests_failed = -1
 
         # set up the status logger
         self._indenter = status_indenter()
@@ -360,11 +359,14 @@ class server_job(base_job.base_job):
 
         self._connection_pool = ssh_multiplex.ConnectionPool()
 
+        # List of functions to run after the main job function.
+        self._post_run_hooks = []
+
         self.parent_job_id = parent_job_id
         self.in_lab = in_lab
-        self.machine_dict_list = get_machine_dicts(
-                self.machines, self.resultdir, self.in_lab, host_attributes,
-                self._connection_pool)
+        self.machine_dict_list = machine_dict_list
+        for machine_dict in self.machine_dict_list:
+            machine_dict['connection_pool'] = self._connection_pool
 
         # TODO(jrbarnette) The harness attribute is only relevant to
         # client jobs, but it's required to be present, or we will fail
@@ -374,7 +376,9 @@ class server_job(base_job.base_job):
         # to client jobs is suspect.  Probably, we should remove it.
         self.harness = None
 
-        if control:
+        # TODO(ayatane): fast and max_result_size_KB are not set for
+        # client_trampoline jobs.
+        if control and not use_client_trampoline:
             parsed_control = control_data.parse_control(
                     control, raise_warnings=False)
             self.fast = parsed_control.fast
@@ -439,63 +443,6 @@ class server_job(base_job.base_job):
         subcommand.subcommand.register_fork_hook(on_fork)
         subcommand.subcommand.register_join_hook(on_join)
 
-
-    def init_parser(self):
-        """
-        Start the continuous parsing of self.resultdir. This sets up
-        the database connection and inserts the basic job object into
-        the database if necessary.
-        """
-        if self.fast and not self._using_parser:
-            self.parser = parser_lib.parser(self._STATUS_VERSION)
-            self.job_model = self.parser.make_job(self.resultdir)
-            self.parser.start(self.job_model)
-            return
-
-        if not self._using_parser:
-            return
-
-        # redirect parser debugging to .parse.log
-        parse_log = os.path.join(self.resultdir, '.parse.log')
-        parse_log = open(parse_log, 'w', 0)
-        tko_utils.redirect_parser_debugging(parse_log)
-        # create a job model object and set up the db
-        self.results_db = tko_db.db(autocommit=True)
-        self.parser = parser_lib.parser(self._STATUS_VERSION)
-        self.job_model = self.parser.make_job(self.resultdir)
-        self.parser.start(self.job_model)
-        # check if a job already exists in the db and insert it if
-        # it does not
-        job_idx = self.results_db.find_job(self._parse_job)
-        if job_idx is None:
-            self.results_db.insert_job(self._parse_job, self.job_model,
-                                       self.parent_job_id)
-        else:
-            machine_idx = self.results_db.lookup_machine(self.job_model.machine)
-            self.job_model.index = job_idx
-            self.job_model.machine_idx = machine_idx
-
-
-    def cleanup_parser(self):
-        """
-        This should be called after the server job is finished
-        to carry out any remaining cleanup (e.g. flushing any
-        remaining test results to the results db)
-        """
-        if self.fast and not self._using_parser:
-            final_tests = self.parser.end()
-            for test in final_tests:
-                if status_lib.is_worse_than_or_equal_to(test.status, 'FAIL'):
-                    self.num_tests_failed += 1
-            return
-
-        if not self._using_parser:
-            return
-
-        final_tests = self.parser.end()
-        for test in final_tests:
-            self.__insert_test(test)
-        self._using_parser = False
 
     # TODO crbug.com/285395 add a kwargs parameter.
     def _make_namespace(self):
@@ -628,26 +575,10 @@ class server_job(base_job.base_job):
         # server_job._make_namespace.
         # To compare the machinese to self.machines, which is a list of machine
         # hostname, we need to convert machines back to a list of hostnames.
-        # Note that the order of hostnames doesn't matter, as is_forking will be
-        # True if there are more than one machine.
         if (machines and isinstance(machines, list)
             and isinstance(machines[0], dict)):
             machines = [m['hostname'] for m in machines]
-        is_forking = not (len(machines) == 1 and self.machines == machines)
-        if self._parse_job and is_forking and log:
-            def wrapper(machine):
-                hostname = server_utils.get_hostname_from_machine(machine)
-                self._parse_job += "/" + hostname
-                self._using_parser = INCREMENTAL_TKO_PARSING
-                self.machines = [machine]
-                self.push_execution_context(hostname)
-                os.chdir(self.resultdir)
-                utils.write_keyval(self.resultdir, {"hostname": hostname})
-                self.init_parser()
-                result = function(machine)
-                self.cleanup_parser()
-                return result
-        elif len(machines) > 1 and log:
+        if len(machines) > 1 and log:
             def wrapper(machine):
                 hostname = server_utils.get_hostname_from_machine(machine)
                 self.push_execution_context(hostname)
@@ -782,8 +713,7 @@ class server_job(base_job.base_job):
 
 
     _USE_TEMP_DIR = object()
-    def run(self, install_before=False, install_after=False,
-            collect_crashdumps=True, namespace={}, control=None,
+    def run(self, collect_crashdumps=True, namespace={}, control=None,
             control_file_dir=None, verify_job_repo_url=False,
             only_collect_crashinfo=False, skip_crash_collection=False,
             job_labels='', use_packaging=True):
@@ -810,6 +740,12 @@ class server_job(base_job.base_job):
         if control is None:
             if self.control is None:
                 control = ''
+            elif self._use_client_trampoline:
+                control = self._load_control_file(
+                        CLIENT_TRAMPOLINE_CONTROL_FILE)
+                # repr of a string is safe for eval.
+                control = (('trampoline_testname = %r\n' % str(self.control))
+                           + control)
             else:
                 control = self._load_control_file(self.control)
         if control_file_dir is None:
@@ -841,9 +777,6 @@ class server_job(base_job.base_job):
                         namespace['network_stats_label'] = 'at-start'
                         self._execute_code(GET_NETWORK_STATS_CONTROL_FILE,
                                            namespace)
-
-                if install_before and machines:
-                    self._execute_code(INSTALL_CONTROL_FILE, namespace)
 
                 if only_collect_crashinfo:
                     return
@@ -888,9 +821,6 @@ class server_job(base_job.base_job):
                 collect_crashinfo = self.failed_with_device_error
             except Exception as e:
                 try:
-                    # Add num_tests_failed if any extra exceptions are raised
-                    # outside _execute_code().
-                    self.num_tests_failed += 1
                     logging.exception(
                             'Exception escaped control file, job aborting:')
                     reason = re.sub(base_job.status_log_entry.BAD_CHAR_REGEX,
@@ -925,8 +855,6 @@ class server_job(base_job.base_job):
             self.disable_external_logging()
             if self._uncollected_log_file and created_uncollected_logs:
                 os.remove(self._uncollected_log_file)
-            if install_after and machines:
-                self._execute_code(INSTALL_CONTROL_FILE, namespace)
 
             if not self.fast:
                 with metrics.SecondsTimer(
@@ -990,6 +918,9 @@ class server_job(base_job.base_job):
             raise error.JobError(name + ' failed\n' + traceback.format_exc())
         else:
             self.record('END GOOD', subdir, name)
+        finally:
+            for hook in self._post_run_hooks:
+                hook()
 
         return result
 
@@ -1177,6 +1108,20 @@ class server_job(base_job.base_job):
                                summary_data)
 
 
+    def add_post_run_hook(self, hook):
+        """
+        Registers a hook to run after the main job function.
+
+        This provides a mechanism by which tests that perform multiple tests of
+        their own can write additional top-level results to the TKO status.log
+        file.
+
+        @param hook: Function to invoke (without any args) after the main job
+            function completes and the job status is logged.
+        """
+        self._post_run_hooks.append(hook)
+
+
     def disable_warnings(self, warning_type):
         self.warning_manager.disable_warnings(warning_type)
         self.record("INFO", None, None,
@@ -1354,7 +1299,6 @@ class server_job(base_job.base_job):
         namespace['autotest'].Autotest.job = self
         # server.hosts.base_classes.Host uses .job.
         namespace['hosts'].Host.job = self
-        namespace['hosts'].TestBed.job = self
         namespace['hosts'].factory.ssh_user = self._ssh_user
         namespace['hosts'].factory.ssh_port = self._ssh_port
         namespace['hosts'].factory.ssh_pass = self._ssh_pass
@@ -1394,40 +1338,6 @@ class server_job(base_job.base_job):
             if machines_text != existing_machines_text:
                 utils.open_write_close(MACHINES_FILENAME, machines_text)
         execfile(code_file, namespace, namespace)
-
-
-    def _parse_status(self, new_line):
-        if self.fast and not self._using_parser:
-            logging.info('Parsing lines in fast mode')
-            new_tests = self.parser.process_lines([new_line])
-            for test in new_tests:
-                if status_lib.is_worse_than_or_equal_to(test.status, 'FAIL'):
-                    self.num_tests_failed += 1
-
-        if not self._using_parser:
-            return
-
-        new_tests = self.parser.process_lines([new_line])
-        for test in new_tests:
-            self.__insert_test(test)
-
-
-    def __insert_test(self, test):
-        """
-        An internal method to insert a new test result into the
-        database. This method will not raise an exception, even if an
-        error occurs during the insert, to avoid failing a test
-        simply because of unexpected database issues."""
-        self.num_tests_run += 1
-        if status_lib.is_worse_than_or_equal_to(test.status, 'FAIL'):
-            self.num_tests_failed += 1
-        try:
-            self.results_db.insert_test(self.job_model, test)
-        except Exception:
-            msg = ("WARNING: An unexpected error occured while "
-                   "inserting test results into the database. "
-                   "Ignoring error.\n" + traceback.format_exc())
-            print >> sys.stderr, msg
 
 
     def preprocess_client_state(self):
@@ -1580,38 +1490,54 @@ def _create_afe_host(hostname):
     return hosts[0]
 
 
-def _create_host_info_store(hostname, workdir):
-    """Create a CachingHostInfo store backed by the AFE.
+def _create_file_backed_host_info_store(store_dir, hostname):
+    """Create a CachingHostInfoStore backed by an existing file.
 
+    @param store_dir: A directory to contain store backing files.
     @param hostname: Name of the host for which we want the store.
-    @param workdir: A directory where any on-disk files related to the machines
-            may be created.
-    @returns: An object of type shadowing_store.ShadowingStore
+
+    @returns: An object of type CachingHostInfoStore.
+    """
+    backing_file_path = os.path.join(store_dir, '%s.store' % hostname)
+    if not os.path.isfile(backing_file_path):
+        raise error.AutoservError(
+                'Requested FileStore but no backing file at %s'
+                % backing_file_path
+        )
+    return file_store.FileStore(backing_file_path)
+
+
+def _create_afe_backed_host_info_store(store_dir, hostname):
+    """Create a CachingHostInfoStore backed by the AFE.
+
+    @param store_dir: A directory to contain store backing files.
+    @param hostname: Name of the host for which we want the store.
+
+    @returns: An object of type CachingHostInfoStore.
     """
     primary_store = afe_store.AfeStore(hostname)
     try:
         primary_store.get(force_refresh=True)
     except host_info.StoreError:
-        raise error.AutoservError('Could not obtain HostInfo for hostname %s' %
-                                  hostname)
-    backing_file_path = _file_store_unique_file_path(workdir)
+        raise error.AutoservError(
+                'Could not obtain HostInfo for hostname %s' % hostname)
+    # Since the store wasn't initialized external to autoserv, we must
+    # ensure that the store we create is unique within store_dir.
+    backing_file_path = os.path.join(
+            _make_unique_subdir(store_dir),
+            '%s.store' % hostname,
+    )
     logging.info('Shadowing AFE store with a FileStore at %s',
                  backing_file_path)
     shadow_store = file_store.FileStore(backing_file_path)
     return shadowing_store.ShadowingStore(primary_store, shadow_store)
 
 
-def _file_store_unique_file_path(workdir):
-    """Returns a unique filepath for the on-disk FileStore.
-
-    Also makes sure that the workdir exists.
-
-    @param: Top level working directory.
-    """
-    store_dir = os.path.join(workdir, 'host_info_store')
+def _make_unique_subdir(workdir):
+    """Creates a new subdir within workdir and returns the path to it."""
+    store_dir = os.path.join(workdir, 'dir_%s' % uuid.uuid4())
     _make_dirs_if_needed(store_dir)
-    file_path = os.path.join(store_dir, 'store_%s' % uuid.uuid4())
-    return file_path
+    return store_dir
 
 
 def _make_dirs_if_needed(path):

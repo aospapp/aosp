@@ -2,10 +2,10 @@
   Copyright 2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -156,7 +156,7 @@ extern "C" {
 #  define MAGICKCORE_PATH_SEPARATOR		":"
 #endif /* !DIR_SEPARATOR_CHAR */
 
-# if defined(MAGICKCORE_POSIX_SUPPORT)
+# if defined(MAGICKCORE_POSIX_SUPPORT) || defined(__MINGW32__)
  
 /* module dir */
 #ifndef MAGICKCORE_MODULES_DIRNAME

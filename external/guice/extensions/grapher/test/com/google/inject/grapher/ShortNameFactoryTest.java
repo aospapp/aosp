@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2008 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,18 +26,17 @@ import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
+import com.google.inject.internal.Annotations;
 import com.google.inject.internal.ProviderMethod;
 import com.google.inject.internal.util.StackTraceElements;
 import com.google.inject.name.Names;
 import com.google.inject.spi.DefaultBindingTargetVisitor;
 import com.google.inject.spi.ProviderInstanceBinding;
-
-import junit.framework.TestCase;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.reflect.Member;
+import junit.framework.TestCase;
 
 /**
  * Tests for {@link ShortNameFactory}.
@@ -47,9 +46,10 @@ import java.lang.reflect.Member;
 public class ShortNameFactoryTest extends TestCase {
   // Helper objects are up here because their line numbers are tested below.
   private static class Obj {
-    @Annotated
-    public String field;
+    @Annotated public String field;
+
     Obj() {}
+
     void method(String parameter) {}
   }
 
@@ -59,9 +59,9 @@ public class ShortNameFactoryTest extends TestCase {
       return "I'm a ToStringObj";
     }
   }
-  
+
   @Retention(RUNTIME)
-  @Target({ ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD })
+  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
   @BindingAnnotation
   private @interface Annotated {}
 
@@ -95,81 +95,101 @@ public class ShortNameFactoryTest extends TestCase {
   }
 
   public void testGetAnnotationName_annotationInstance() throws Exception {
-    Key<?> key = Key.get(String.class,
-        Obj.class.getDeclaredField("field").getDeclaredAnnotations()[0]);
+    Key<?> key =
+        Key.get(String.class, Obj.class.getDeclaredField("field").getDeclaredAnnotations()[0]);
     assertEquals("@Annotated", nameFactory.getAnnotationName(key));
   }
 
   public void testGetAnnotationName_annotationInstanceWithParameters() throws Exception {
     Key<?> key = Key.get(String.class, Names.named("name"));
-    assertEquals("@Named(value=name)", nameFactory.getAnnotationName(key));
+    assertEquals(
+        "@Named(value=" + Annotations.memberValueString("name") + ")",
+        nameFactory.getAnnotationName(key));
   }
 
   public void testGetClassName_key() throws Exception {
     Key<?> key = Key.get(Obj.class);
-    assertEquals("Class name should not have the package",
-        "ShortNameFactoryTest$Obj", nameFactory.getClassName(key));
+    assertEquals(
+        "Class name should not have the package",
+        "ShortNameFactoryTest$Obj",
+        nameFactory.getClassName(key));
   }
-  
+
   public void testGetClassName_keyWithTypeParameters() throws Exception {
     Key<?> key = Key.get(new TypeLiteral<Provider<String>>() {});
-    assertEquals("Class name and type values should not have packages",
-        "Provider<String>", nameFactory.getClassName(key));
+    assertEquals(
+        "Class name and type values should not have packages",
+        "Provider<String>",
+        nameFactory.getClassName(key));
   }
 
   /**
-   * Tests the case where a provider method is the source of the 
+   * Tests the case where a provider method is the source of the
+   *
    * @throws Exception
    */
   public void testGetSourceName_method() throws Exception {
     Member method = Obj.class.getDeclaredMethod("method", String.class);
-    assertEquals("Method should be identified by its file name and line number",
-        "ShortNameFactoryTest.java:53", nameFactory.getSourceName(method));
+    assertEquals(
+        "Method should be identified by its file name and line number",
+        "ShortNameFactoryTest.java:53",
+        nameFactory.getSourceName(method));
   }
 
   public void testGetSourceName_stackTraceElement() throws Exception {
-    StackTraceElement element = 
+    StackTraceElement element =
         (StackTraceElement) StackTraceElements.forMember(Obj.class.getField("field"));
-    assertEquals("Stack trace element should be identified by its file name and line number",
-        "ShortNameFactoryTest.java:52", nameFactory.getSourceName(element));
+    assertEquals(
+        "Stack trace element should be identified by its file name and line number",
+        "ShortNameFactoryTest.java:51",
+        nameFactory.getSourceName(element));
   }
 
   public void testGetInstanceName_defaultToString() throws Exception {
-    assertEquals("Should use class name instead of Object#toString()",
-        "ShortNameFactoryTest$Obj", nameFactory.getInstanceName(new Obj()));
+    assertEquals(
+        "Should use class name instead of Object#toString()",
+        "ShortNameFactoryTest$Obj",
+        nameFactory.getInstanceName(new Obj()));
   }
-  
+
   public void testGetInstanceName_customToString() throws Exception {
-    assertEquals("Should use class's toString() method since it's defined",
-        "I'm a ToStringObj", nameFactory.getInstanceName(new ToStringObj()));
+    assertEquals(
+        "Should use class's toString() method since it's defined",
+        "I'm a ToStringObj",
+        nameFactory.getInstanceName(new ToStringObj()));
   }
-  
+
   public void testGetInstanceName_string() throws Exception {
-    assertEquals("String should have quotes to evoke a string literal",
-        "\"My String Instance\"", nameFactory.getInstanceName("My String Instance"));
+    assertEquals(
+        "String should have quotes to evoke a string literal",
+        "\"My String Instance\"",
+        nameFactory.getInstanceName("My String Instance"));
   }
-  
+
   public void testGetInstanceName_providerMethod() throws Exception {
     final ProviderMethod<?>[] methodHolder = new ProviderMethod[1];
-    
+
     Injector injector = Guice.createInjector(new ProvidingModule());
-    injector.getBinding(Integer.class).acceptTargetVisitor(
-        new DefaultBindingTargetVisitor<Object, Void>() {
-          @SuppressWarnings("unchecked") @Override
-          public Void visit(ProviderInstanceBinding<?> binding) {
-            methodHolder[0] = (ProviderMethod) binding.getUserSuppliedProvider();
-            return null;
-          }
-        });
-    
-    assertEquals("Method provider should pretty print as the method signature",
-        "#provideInteger(String)", nameFactory.getInstanceName(methodHolder[0]));
+    injector
+        .getBinding(Integer.class)
+        .acceptTargetVisitor(
+            new DefaultBindingTargetVisitor<Object, Void>() {
+              @SuppressWarnings("unchecked")
+              @Override
+              public Void visit(ProviderInstanceBinding<?> binding) {
+                methodHolder[0] = (ProviderMethod) binding.getUserSuppliedProvider();
+                return null;
+              }
+            });
+
+    assertEquals(
+        "Method provider should pretty print as the method signature",
+        "#provideInteger(String)",
+        nameFactory.getInstanceName(methodHolder[0]));
   }
-  
+
   private static class ProvidingModule extends AbstractModule {
-    @Override
-    protected void configure() {}
-    
+
     @Provides
     public Integer provideInteger(String string) {
       return Integer.valueOf(string);

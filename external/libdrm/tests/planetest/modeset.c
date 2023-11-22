@@ -15,7 +15,7 @@ static int set_crtc_mode(struct sp_dev *dev, struct sp_crtc *crtc,
 {
 	int ret;
 	struct drm_mode_create_blob create_blob;
-	drmModePropertySetPtr pset;
+	drmModeAtomicReqPtr pset;
 
 	memset(&create_blob, 0, sizeof(create_blob));
 	create_blob.length = sizeof(struct drm_mode_modeinfo);
@@ -27,28 +27,28 @@ static int set_crtc_mode(struct sp_dev *dev, struct sp_crtc *crtc,
 		return ret;
 	}
 
-	pset = drmModePropertySetAlloc();
+	pset = drmModeAtomicAlloc();
 	if (!pset) {
 		printf("Failed to allocate property set");
 		return -1;
 	}
 
-	ret = drmModePropertySetAdd(pset, crtc->crtc->crtc_id,
+	ret = drmModeAtomicAddProperty(pset, crtc->crtc->crtc_id,
 				    crtc->mode_pid, create_blob.blob_id) ||
-	      drmModePropertySetAdd(pset, crtc->crtc->crtc_id,
+	      drmModeAtomicAddProperty(pset, crtc->crtc->crtc_id,
 				    crtc->active_pid, 1) ||
-		drmModePropertySetAdd(pset, conn->conn->connector_id,
+	      drmModeAtomicAddProperty(pset, conn->conn->connector_id,
 				conn->crtc_id_pid, crtc->crtc->crtc_id);
 	if (ret) {
 		printf("Failed to add blob %d to pset", create_blob.blob_id);
-		drmModePropertySetFree(pset);
+		drmModeAtomicFree(pset);
 		return ret;
 	}
 
-	ret = drmModePropertySetCommit(dev->fd, DRM_MODE_ATOMIC_ALLOW_MODESET,
-					NULL, pset);
+	ret = drmModeAtomicCommit(dev->fd, pset, DRM_MODE_ATOMIC_ALLOW_MODESET,
+					NULL);
 
-	drmModePropertySetFree(pset);
+	drmModeAtomicFree(pset);
 
 	if (ret) {
 		printf("Failed to commit pset ret=%d\n", ret);
@@ -190,7 +190,7 @@ int set_sp_plane(struct sp_dev *dev, struct sp_plane *plane,
 	return ret;
 }
 int set_sp_plane_pset(struct sp_dev *dev, struct sp_plane *plane,
-		drmModePropertySetPtr pset, struct sp_crtc *crtc, int x, int y)
+		drmModeAtomicReqPtr pset, struct sp_crtc *crtc, int x, int y)
 {
 	int ret;
 	uint32_t w, h;
@@ -203,25 +203,25 @@ int set_sp_plane_pset(struct sp_dev *dev, struct sp_plane *plane,
 	if ((h + y) > crtc->crtc->mode.vdisplay)
 		h = crtc->crtc->mode.vdisplay - y;
 
-	ret = drmModePropertySetAdd(pset, plane->plane->plane_id,
+	ret = drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->crtc_pid, crtc->crtc->crtc_id)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->fb_pid, plane->bo->fb_id)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->crtc_x_pid, x)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->crtc_y_pid, y)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->crtc_w_pid, w)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->crtc_h_pid, h)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->src_x_pid, 0)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->src_y_pid, 0)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->src_w_pid, w << 16)
-		|| drmModePropertySetAdd(pset, plane->plane->plane_id,
+		|| drmModeAtomicAddProperty(pset, plane->plane->plane_id,
 			plane->src_h_pid, h << 16);
 	if (ret) {
 		printf("failed to add properties to the set\n");

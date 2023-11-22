@@ -290,6 +290,10 @@ global:
 	glGetFramebufferAttachmentParameterivOES;
 	glGenerateMipmapOES;
 	glDrawBuffersEXT;
+	glBindVertexArrayOES;
+	glDeleteVertexArraysOES;
+	glGenVertexArraysOES;
+	glIsVertexArrayOES;
 
 	# Table of function pointers to disambiguate between libraries
 	libGLESv2_swiftshader;
@@ -297,8 +301,6 @@ global:
 	# Type-strings and type-infos required by sanitizers
 	_ZTS*;
 	_ZTI*;
-
-	Register;
 
 local:
 	*;

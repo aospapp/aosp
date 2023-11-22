@@ -2070,8 +2070,8 @@ public class DateFormatTest extends TestFmwk {
         Date date = new Date(874266720000L);  // Sun Sep 14 21:52:00 CET 1997
         TimeZone tz = TimeZone.getTimeZone("CET");
 
-        DateFormat dfArab = DateFormat.getTimeInstance(DateFormat.SHORT, new ULocale("ar"));
-        DateFormat dfLatn = DateFormat.getTimeInstance(DateFormat.SHORT, new ULocale("ar-u-nu-latn"));
+        DateFormat dfArab = DateFormat.getTimeInstance(DateFormat.SHORT, new ULocale("ar-EG"));
+        DateFormat dfLatn = DateFormat.getTimeInstance(DateFormat.SHORT, new ULocale("ar-EG-u-nu-latn"));
 
         dfArab.setTimeZone(tz);
         dfLatn.setTimeZone(tz);
@@ -3915,7 +3915,8 @@ public class DateFormatTest extends TestFmwk {
             df = DateFormat.getPatternInstance("", new Locale("en_US"));
             df = DateFormat.getPatternInstance(null, "", new Locale("en_US"));
         } catch(Exception e) {
-            errln("DateFormat.getPatternInstance is not suppose to return an exception.");
+            errln("DateFormat.getPatternInstance is not suppose to return an exception, got: " + e.toString());
+            //e.printStackTrace();
         }
     }
 
@@ -5167,8 +5168,8 @@ public class DateFormatTest extends TestFmwk {
         sdf.applyPattern("hh:mm:ss bbbb");
 
 //        assertEquals("hh:mm:ss bbbb | 00:00:00 | de", "12:00:00 Mitternacht", sdf.format(k000000));
-        assertEquals("hh:mm:ss bbbb | 00:00:00 | de", "12:00:00 vorm.", sdf.format(k000000));
-        assertEquals("hh:mm:ss bbbb | 12:00:00 | de", "12:00:00 nachm.", sdf.format(k120000));
+        assertEquals("hh:mm:ss bbbb | 00:00:00 | de", "12:00:00 AM", sdf.format(k000000));
+        assertEquals("hh:mm:ss bbbb | 12:00:00 | de", "12:00:00 PM", sdf.format(k120000));
 
         // Locale ee has a rule that wraps around midnight (21h - 4h).
         sdf = new SimpleDateFormat("", new ULocale("ee"));
@@ -5423,5 +5424,14 @@ public class DateFormatTest extends TestFmwk {
         sdf.applyPattern("yyyy-MM-dd hh:mm b");
         assertEquals("yyyy-MM-dd hh:mm b | 2015-11-13 03:00 midnight", k030000, sdf.parse("2015-11-13 03:00 midnight"));
         assertEquals("yyyy-MM-dd hh:mm b | 2015-11-13 03:00 noon", k150000, sdf.parse("2015-11-13 03:00 noon"));
+    }
+
+    @Test
+    public void TestParseRegression13744() {
+        DateFormat dfmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.US);
+        ParsePosition pos = new ParsePosition(0);
+        final String inDate = "4/27/18";    // date only, no time
+        dfmt.parse(inDate, pos);
+        assertEquals("Error index", inDate.length(), pos.getErrorIndex());
     }
 }

@@ -221,6 +221,15 @@ class FacadeResource(object):
         return extension
 
 
+    def get_visible_notifications(self):
+        """Gets the visible notifications
+
+        @return: Returns all visible notifications in list format. Ex:
+                [{title:'', message:'', prority:'', id:''}]
+        """
+        return self._chrome.get_visible_notifications()
+
+
     @retry_chrome_call
     def load_url(self, url):
         """Loads the given url in a new tab. The new tab will be active.
@@ -237,6 +246,28 @@ class FacadeResource(object):
         self._tabs[tab_descriptor] = tab
         self.clean_unexpected_tabs()
         return tab_descriptor
+
+
+    def set_http_server_directories(self, directories):
+        """Starts an HTTP server.
+
+        @param directories: Directories to start serving.
+
+        @return True on success. False otherwise.
+
+        """
+        return self._chrome.browser.platform.SetHTTPServerDirectories(directories)
+
+
+    def http_server_url_of(self, fullpath):
+        """Converts a path to a URL.
+
+        @param fullpath: String containing the full path to the content.
+
+        @return the URL for the provided path.
+
+        """
+        return self._chrome.browser.platform.http_server.UrlOf(fullpath)
 
 
     def get_tabs(self):

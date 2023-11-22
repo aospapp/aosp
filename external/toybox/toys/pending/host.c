@@ -13,7 +13,7 @@ config HOST
     usage: host [-av] [-t TYPE] NAME [SERVER]
 
     Perform DNS lookup on NAME, which can be a domain name to lookup,
-    or an ipv4 dotted or ipv6 colon seprated address to reverse lookup.
+    or an IPv4 dotted or IPv6 colon-separated address to reverse lookup.
     SERVER (if present) is the DNS server to use.
 
     -a	no idea
@@ -71,7 +71,7 @@ void host_main(void)
       i, j, ret, sec, count, rcode, qlen, alen, pllen = 0;
   unsigned ttl, pri, v[5];
   unsigned char qbuf[280], abuf[512], *p;
-  char *name, *nsname, rrname[256], plname[640], ptrbuf[64];
+  char *name, *nsname, rrname[256], plname[640], ptrbuf[128];
   struct addrinfo *ai, iplit_hints = { .ai_flags = AI_NUMERICHOST };
 
   name = *toys.optargs;
@@ -103,7 +103,7 @@ void host_main(void)
   if (TT.type_str[0]-'0' < 10u) type = atoi(TT.type_str);
   else {
     type = -1;
-    for (i=0; i < sizeof rrt / sizeof *rrt; i++) {
+    for (i=0; i<ARRAY_LEN(rrt); i++) {
       if (rrt[i].name && !strcasecmp(TT.type_str, rrt[i].name)) {
         type = i;
         break;

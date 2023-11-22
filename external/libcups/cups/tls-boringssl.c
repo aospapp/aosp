@@ -418,6 +418,35 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
     return (-1);
   }
 
+  _cups_globals_t *cg = _cupsGlobals();
+  if (cg->server_cert_cb)
+  {
+    int error = 0;
+    X509 *peer_certificate = SSL_get_peer_certificate(http->tls);
+    if (peer_certificate)
+    {
+      ASN1_BIT_STRING *key = X509_get0_pubkey_bitstr(peer_certificate);
+      cups_array_t *credentials = cupsArrayNew(NULL, NULL);
+
+      if (credentials != NULL)
+      {
+        httpAddCredential(credentials, key->data, key->length);
+        error = cg->server_cert_cb(http, http->tls, credentials, cg->server_cert_data);
+        httpFreeCredentials(credentials);
+      }
+      X509_free(peer_certificate);
+    }
+
+    if (error != 0)
+    {
+      http->error  = errno = EINVAL;
+      http->status = HTTP_STATUS_ERROR;
+      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Client rejected the server certificate."), 1);
+    }
+
+    return (error);
+  }
+
   return (0);
 }
 

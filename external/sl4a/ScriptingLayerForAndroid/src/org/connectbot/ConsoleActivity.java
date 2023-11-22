@@ -623,6 +623,7 @@ public class ConsoleActivity extends Activity {
         Intent intent = new Intent(this, ScriptingLayerService.class);
         intent.setAction(Constants.ACTION_KILL_PROCESS);
         intent.putExtra(Constants.EXTRA_PROXY_PORT, bridge.getId());
+        Log.i(String.format("Killing process from ConsoleActivity, %s", intent.toUri(0)));
         startService(intent);
         Message.obtain(disconnectHandler, -1, bridge).sendToTarget();
       }

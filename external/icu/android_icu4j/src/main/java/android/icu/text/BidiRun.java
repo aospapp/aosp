@@ -28,7 +28,6 @@ package android.icu.text;
  * modified by users.
  *
  * @see android.icu.text.Bidi
- * @hide Only a subset of ICU is exposed in Android
  */
 public class BidiRun {
 

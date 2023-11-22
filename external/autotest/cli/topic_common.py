@@ -55,6 +55,7 @@ High Level Algorithm:
    atest.print_*() methods.
 """
 
+import logging
 import optparse
 import os
 import re
@@ -63,8 +64,19 @@ import textwrap
 import traceback
 import urllib2
 
+import common
+
 from autotest_lib.cli import rpc
+from autotest_lib.cli import skylab_utils
 from autotest_lib.client.common_lib.test_utils import mock
+from autotest_lib.client.common_lib import autotemp
+
+skylab_inventory_imported = False
+try:
+    from skylab_inventory import translation_utils
+    skylab_inventory_imported = True
+except ImportError:
+    pass
 
 
 # Maps the AFE keys to printable names.
@@ -116,6 +128,14 @@ FAIL_TAG = '<XYZ>'
 # Global socket timeout: uploading kernels can take much,
 # much longer than the default
 UPLOAD_SOCKET_TIMEOUT = 60*30
+
+LOGGING_LEVEL_MAP = {
+      'CRITICAL': logging.CRITICAL,
+      'ERROR': logging.ERROR,
+      'WARNING': logging.WARNING,
+      'INFO': logging.INFO,
+      'DEBUG': logging.DEBUG,
+}
 
 
 # Convertion functions to be called for printing,
@@ -252,8 +272,7 @@ class atest(object):
     Should only be instantiated by itself for usage
     references, otherwise, the <topic> objects should
     be used."""
-    msg_topic = ('[acl|host|job|label|shard|test|user|server|'
-                 'stable_version]')
+    msg_topic = '[acl|host|job|label|shard|test|user|server]'
     usage_action = '[action]'
     msg_items = ''
 
@@ -393,6 +412,9 @@ class atest(object):
         self.web_server = ''
         self.verbose = False
         self.no_confirmation = False
+        # Whether the topic or command supports skylab inventory repo.
+        self.allow_skylab = False
+        self.enforce_skylab = False
         self.topic_parse_info = item_parse_info(attribute_name='not_used')
 
         self.parser = optparse.OptionParser(self._get_usage())
@@ -420,6 +442,67 @@ class atest(object):
                                'to talk to',
                                action='store', type='string',
                                dest='web_server', default=None)
+        self.parser.add_option('--log-level',
+                               help=('Set the logging level. Must be one of %s.'
+                                     ' Default to ERROR' %
+                                     LOGGING_LEVEL_MAP.keys()),
+                               choices=LOGGING_LEVEL_MAP.keys(),
+                               default='ERROR',
+                               dest='log_level')
+
+
+    def add_skylab_options(self, enforce_skylab=False):
+        """Add options for reading and writing skylab inventory repository."""
+        self.allow_skylab = True
+        self.enforce_skylab = enforce_skylab
+
+        self.parser.add_option('--skylab',
+                                help=('Use the skylab inventory as the data '
+                                      'source. Default to %s.' %
+                                       self.enforce_skylab),
+                                action='store_true', dest='skylab',
+                                default=self.enforce_skylab)
+        self.parser.add_option('--env',
+                               help=('Environment ("prod" or "staging") of the '
+                                     'machine. Default to "prod". %s' %
+                                     skylab_utils.MSG_ONLY_VALID_IN_SKYLAB),
+                               dest='environment',
+                               default='prod')
+        self.parser.add_option('--inventory-repo-dir',
+                               help=('The path of directory to clone skylab '
+                                     'inventory repo into. It can be an empty '
+                                     'folder or an existing clean checkout of '
+                                     'infra_internal/skylab_inventory. '
+                                     'If not provided, a temporary dir will be '
+                                     'created and used as the repo dir. %s' %
+                                     skylab_utils.MSG_ONLY_VALID_IN_SKYLAB),
+                               dest='inventory_repo_dir')
+        self.parser.add_option('--keep-repo-dir',
+                               help=('Keep the inventory-repo-dir after the '
+                                     'action completes, otherwise the dir will '
+                                     'be cleaned up. %s' %
+                                     skylab_utils.MSG_ONLY_VALID_IN_SKYLAB),
+                               action='store_true',
+                               dest='keep_repo_dir')
+        self.parser.add_option('--draft',
+                               help=('Upload a change CL as a draft. %s' %
+                                     skylab_utils.MSG_ONLY_VALID_IN_SKYLAB),
+                               action='store_true',
+                               dest='draft',
+                               default=False)
+        self.parser.add_option('--dryrun',
+                               help=('Execute the action as a dryrun. %s' %
+                                     skylab_utils.MSG_ONLY_VALID_IN_SKYLAB),
+                               action='store_true',
+                               dest='dryrun',
+                               default=False)
+        self.parser.add_option('--submit',
+                               help=('Submit a change CL directly without '
+                                     'reviewing and submitting it in Gerrit. %s'
+                                     % skylab_utils.MSG_ONLY_VALID_IN_SKYLAB),
+                               action='store_true',
+                               dest='submit',
+                               default=False)
 
 
     def _get_usage(self):
@@ -435,6 +518,51 @@ class atest(object):
         @param argv: A list of arguments.
         """
         return action
+
+
+    def parse_skylab_options(self, options):
+        """Parse skylab related options.
+
+        @param: options: Option values parsed by the parser.
+        """
+        self.skylab = options.skylab
+        if not self.skylab:
+            return
+
+        # TODO(nxia): crbug.com/837831 Add skylab_inventory to
+        # autotest-server-deps ebuilds to remove the ImportError check.
+        if not skylab_inventory_imported:
+            raise skylab_utils.SkylabInventoryNotImported(
+                    "Please try to run utils/build_externals.py.")
+
+        self.draft = options.draft
+
+        self.dryrun = options.dryrun
+        if self.dryrun:
+            print('This is a dryrun. NO CL will be uploaded.\n')
+
+        self.submit = options.submit
+        if self.submit and (self.dryrun or self.draft):
+            self.invalid_syntax('Can not set --dryrun or --draft when '
+                                '--submit is set.')
+
+        # The change number of the inventory change CL.
+        self.change_number = None
+
+        self.environment = options.environment
+        translation_utils.validate_environment(self.environment)
+
+        self.keep_repo_dir = options.keep_repo_dir
+        self.inventory_repo_dir = options.inventory_repo_dir
+        if self.inventory_repo_dir is None:
+            self.temp_dir = autotemp.tempdir(
+                    prefix='inventory_repo',
+                    auto_clean=not self.keep_repo_dir)
+
+            self.inventory_repo_dir = self.temp_dir.name
+            if self.debug or self.keep_repo_dir:
+                print('The inventory_repo_dir is created at %s' %
+                      self.inventory_repo_dir)
 
 
     def parse(self, parse_info=[], req_items=None):
@@ -466,6 +594,11 @@ class atest(object):
                                 (self.msg_topic,
                                  self.usage_action,
                                  self.msg_topic))
+
+        if self.allow_skylab:
+            self.parse_skylab_options(options)
+
+        logging.getLogger().setLevel(LOGGING_LEVEL_MAP[options.log_level])
 
         return (options, leftover)
 

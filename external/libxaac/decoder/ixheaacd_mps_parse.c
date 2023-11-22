@@ -110,6 +110,12 @@ static int ixheaacd_smoothing_time_table[] = {64, 128, 256, 512};
 static int ixheaacd_inverse_smoothing_time_table_q30[] = {16777216, 8388608,
                                                           4194304, 2097152};
 
+static WORD32 bound_check(WORD32 var, WORD32 lower_bound, WORD32 upper_bound) {
+  var = min(var, upper_bound);
+  var = max(var, lower_bound);
+  return var;
+}
+
 static VOID ixheaacd_longmult1(unsigned short a[], unsigned short b,
                                unsigned short d[], int len) {
   int k;
@@ -237,8 +243,7 @@ static int ixheaacd_mps_getstridemap(int freq_res_stride, int band_start,
 static VOID ixheaacd_mps_ecdata_decoding(
     ia_mps_dec_state_struct *self, ia_handle_bit_buf_struct bitstream,
     int data[MAX_PARAMETER_SETS_MPS][MAX_PARAMETER_BANDS], int datatype) {
-  int i, j, pb, data_set, set_index, bs_data_pair, data_bands,
-      old_quant_coarse_xxx;
+  int i, j, pb, set_index, bs_data_pair, data_bands, old_quant_coarse_xxx;
   int strides[MAX_PARAMETER_BANDS + 1] = {0};
   int band_stop = 0;
 
@@ -266,13 +271,8 @@ static VOID ixheaacd_mps_ecdata_decoding(
     band_stop = self->bs_param_bands;
   }
 
-  data_set = 0;
   for (i = 0; i < self->num_parameter_sets; i++) {
     frame_xxx_data->bs_xxx_data_mode[i] = ixheaacd_read_bits_buf(bitstream, 2);
-
-    if (frame_xxx_data->bs_xxx_data_mode[i] == 3) {
-      data_set++;
-    }
   }
 
   set_index = 0;
@@ -668,7 +668,6 @@ static float ixheaacd_mps_de_quantize(int value, int param_type) {
       return ixheaacd_icc_de_quant_table[value];
 
     case IPD:
-      assert((value % 16) < 16);
       return ixheaacd_ipd_de_quant_table[(value & 15)];
 
     default:
@@ -677,13 +676,13 @@ static float ixheaacd_mps_de_quantize(int value, int param_type) {
   }
 }
 
-static VOID ixheaacd_mps_mapindexdata(
+static WORD32 ixheaacd_mps_mapindexdata(
     ia_mps_dec_state_struct *self, ia_mps_data_struct *frame_xxx_data,
     float out_data[MAX_PARAMETER_SETS_MPS][MAX_PARAMETER_BANDS],
     int out_idx_data[MAX_PARAMETER_SETS_MPS][MAX_PARAMETER_BANDS],
     int cmp_idx_data[MAX_PARAMETER_SETS_MPS][MAX_PARAMETER_BANDS],
     int idx_prev[MAX_PARAMETER_BANDS], int param_type) {
-  int interpolate_local[MAX_PARAMETER_SETS_MPS];
+  int interpolate_local[MAX_PARAMETER_SETS_MPS] = {0};
   int map[MAX_PARAMETER_BANDS + 1];
 
   int set_index, i, band, parm_slot;
@@ -784,18 +783,25 @@ static VOID ixheaacd_mps_mapindexdata(
     x2 = param_slots[i2];
 
     if (interpolate_local[i] == 1) {
-      assert(i2 < num_parameter_sets);
+      if (i2 < num_parameter_sets) {
+        return -1;
+      }
       for (band = band_start; band < band_stop; band++) {
         int yi, y1, y2;
+        yi = 0;
         y1 = out_idx_data[i1][band];
         y2 = out_idx_data[i2][band];
         if (param_type == IPD) {
           if (y2 - y1 > 8) y1 += 16;
           if (y1 - y2 > 8) y2 += 16;
 
-          yi = (y1 + (xi - x1) * (y2 - y1) / (x2 - x1)) % 16;
+          if (x2 != x1) {
+            yi = (y1 + (xi - x1) * (y2 - y1) / (x2 - x1)) % 16;
+          }
         } else {
-          yi = y1 + (xi - x1) * (y2 - y1) / (x2 - x1);
+          if (x2 != x1) {
+            yi = y1 + (xi - x1) * (y2 - y1) / (x2 - x1);
+          }
         }
         out_idx_data[i][band] = yi;
       }
@@ -803,9 +809,16 @@ static VOID ixheaacd_mps_mapindexdata(
   }
 
   for (ps = 0; ps < num_parameter_sets; ps++) {
-    for (band = band_start; band < band_stop; band++)
+    for (band = band_start; band < band_stop; band++) {
+      if (param_type == CLD) {
+        out_idx_data[ps][band] = bound_check(out_idx_data[ps][band], -15, 15);
+      } else if (param_type == ICC)  // param_type is ICC
+      {
+        out_idx_data[ps][band] = bound_check(out_idx_data[ps][band], 0, 7);
+      }
       out_data[ps][band] =
           ixheaacd_mps_de_quantize(out_idx_data[ps][band], param_type);
+    }
   }
 
   if (ext_frame_flag) {
@@ -816,26 +829,35 @@ static VOID ixheaacd_mps_mapindexdata(
           out_idx_data[num_parameter_sets - 1][band];
     }
   }
+
+  return 0;
 }
 
-static VOID ixheaacd_mps_dec_and_mapframeott(ia_mps_dec_state_struct *self) {
+static WORD32 ixheaacd_mps_dec_and_mapframeott(ia_mps_dec_state_struct *self) {
   ia_mps_bs_frame *cur_bit_stream_ptr = &(self->bs_frame);
+  WORD32 err_code = 0;
 
-  ixheaacd_mps_mapindexdata(self, &cur_bit_stream_ptr->cld_data, self->cld_data,
-                            cur_bit_stream_ptr->cld_idx,
-                            cur_bit_stream_ptr->cmp_cld_idx,
-                            cur_bit_stream_ptr->cld_idx_pre, CLD);
+  err_code = ixheaacd_mps_mapindexdata(
+      self, &cur_bit_stream_ptr->cld_data, self->cld_data,
+      cur_bit_stream_ptr->cld_idx, cur_bit_stream_ptr->cmp_cld_idx,
+      cur_bit_stream_ptr->cld_idx_pre, CLD);
+  if (err_code != 0) return err_code;
 
-  ixheaacd_mps_mapindexdata(self, &cur_bit_stream_ptr->icc_data, self->icc_data,
-                            cur_bit_stream_ptr->icc_idx,
-                            cur_bit_stream_ptr->cmp_icc_idx,
-                            cur_bit_stream_ptr->icc_idx_pre, ICC);
+  err_code = ixheaacd_mps_mapindexdata(
+      self, &cur_bit_stream_ptr->icc_data, self->icc_data,
+      cur_bit_stream_ptr->icc_idx, cur_bit_stream_ptr->cmp_icc_idx,
+      cur_bit_stream_ptr->icc_idx_pre, ICC);
+  if (err_code != 0) return err_code;
+  if ((self->config->bs_phase_coding)) {
+    err_code = ixheaacd_mps_mapindexdata(
+        self, &cur_bit_stream_ptr->ipd_data, self->ipd_data,
+        cur_bit_stream_ptr->ipd_idx, cur_bit_stream_ptr->ipd_idx_data,
+        cur_bit_stream_ptr->ipd_idx_prev, IPD);
 
-  if ((self->config->bs_phase_coding))
-    ixheaacd_mps_mapindexdata(self, &cur_bit_stream_ptr->ipd_data,
-                              self->ipd_data, cur_bit_stream_ptr->ipd_idx,
-                              cur_bit_stream_ptr->ipd_idx_data,
-                              cur_bit_stream_ptr->ipd_idx_prev, IPD);
+    if (err_code != 0) return err_code;
+  }
+
+  return 0;
 }
 
 static VOID ixheaacd_mps_dec_and_mapframesmg(ia_mps_dec_state_struct *self) {
@@ -926,16 +948,19 @@ static VOID ixheaacd_mps_dec_and_mapframesmg(ia_mps_dec_state_struct *self) {
   }
 }
 
-VOID ixheaacd_mps_frame_decode(ia_mps_dec_state_struct *self) {
+WORD32 ixheaacd_mps_frame_decode(ia_mps_dec_state_struct *self) {
   int i;
-  if (self->parse_nxt_frame == 1) return;
+  WORD32 err_code = 0;
+  if (self->parse_nxt_frame == 1) return 0;
 
   self->ext_frame_flag = 0;
   if (self->param_slots[self->num_parameter_sets - 1] != self->time_slots - 1) {
     self->ext_frame_flag = 1;
   }
 
-  ixheaacd_mps_dec_and_mapframeott(self);
+  err_code = ixheaacd_mps_dec_and_mapframeott(self);
+
+  if (err_code != 0) return err_code;
 
   ixheaacd_mps_dec_and_mapframesmg(self);
 
@@ -953,10 +978,12 @@ VOID ixheaacd_mps_frame_decode(ia_mps_dec_state_struct *self) {
     self->inv_param_slot_diff_Q30[i] =
         (int)floor(self->inv_param_slot_diff[i] * 1073741824 + 0.5);
   }
+
+  return 0;
 }
 
 WORD32 ixheaacd_mps_header_decode(ia_mps_dec_state_struct *self) {
-  self->time_slots = self->frame_length + 1;
+  self->time_slots = self->frame_length;
   self->frame_len = self->time_slots * self->qmf_band_count;
   self->bs_param_bands = ixheaacd_freq_res_table[self->config->bs_freq_res];
 
@@ -1049,6 +1076,8 @@ WORD32 ixheaacd_mps_header_decode(ia_mps_dec_state_struct *self) {
       self->res_bands = 0;
     }
   }
+
+  if (self->num_bands_ipd > MAX_PARAMETER_BANDS) return -1;
 
   self->dir_sig_count = 1;
   self->decor_sig_count = 1;

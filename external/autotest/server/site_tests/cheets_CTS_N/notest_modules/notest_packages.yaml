@@ -1,5 +1,6 @@
 CtsAlarmClockTestCases: [all]
 CtsCarTestCases: [all]
+CtsSample: [all]
 CtsSampleDeviceTestCases: [all]
 CtsSampleHostTestCases: [all]
 CtsSystemUiTestCases: [all]

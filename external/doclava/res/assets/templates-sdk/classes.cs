@@ -11,22 +11,15 @@
 <p>These are the API classes. See all
 <a href="packages.html">API packages</a>.</p>
 
-<div class="jd-letterlist"><?cs
-  each:letter=docs.classes ?>
-    <a href="#letter_<?cs name:letter ?>"><?cs
-      name:letter ?></a>&nbsp;&nbsp;<?cs
-  /each?>
-</div>
-
 <?cs each:letter=docs.classes ?>
 <?cs set:count = #1 ?>
 <h2 id="letter_<?cs name:letter ?>"><?cs name:letter ?></h2>
 <table>
     <?cs set:cur_row = #0 ?>
     <?cs each:cl = letter ?>
-        <tr class="api apilevel-<?cs var:cl.since ?>"<?cs
-            if:cl.since ?>
-            data-version-added="<?cs var:cl.since ?>"<?cs
+        <tr <?cs
+            if:cl.since
+              ?>data-version-added="<?cs var:cl.since ?>"<?cs
             /if ?><?cs
             if:cl.deprecatedsince
               ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs

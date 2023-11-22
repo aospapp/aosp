@@ -5,6 +5,7 @@
 __author__ = 'dshi@google.com (Dan Shi)'
 
 import cPickle as pickle
+import filecmp
 import os
 import random
 import shutil
@@ -41,6 +42,10 @@ class diffable_logdir_test(unittest.TestCase):
         for p in self.existing_files_path:
             self.append_text_to_file(str(random.random()), p)
 
+        self.existing_fifo_path = os.path.join(
+            self.src_dir,'sub/sub2/existing_fifo')
+        os.mkfifo(self.existing_fifo_path)
+
 
     def tearDown(self):
         """Clearn up."""
@@ -59,6 +64,23 @@ class diffable_logdir_test(unittest.TestCase):
             os.makedirs(dir_name)
         with open(file_path, 'a') as f:
             f.write(text)
+
+
+    def assert_trees_equal(self, dir1, dir2, ignore=None):
+        """Assert two directory trees contain the same files.
+
+        @param dir1: the left comparison directory.
+        @param dir2: the right comparison directory.
+        @param ignore: filenames to ignore (in any directory).
+
+        """
+        dircmps = []
+        dircmps.append(filecmp.dircmp(dir1, dir2, ignore))
+        while dircmps:
+            dcmp = dircmps.pop()
+            self.assertEqual(dcmp.left_list, dcmp.right_list)
+            self.assertEqual([], dcmp.diff_files)
+            dircmps.extend(dcmp.subdirs.values())
 
 
     def test_diffable_logdir_success(self):
@@ -88,8 +110,12 @@ class diffable_logdir_test(unittest.TestCase):
         # Remove the tmp file.
         os.remove(existing_file_2_tmp)
 
+        # Add a new FIFO
+        new_fifo_path = os.path.join(self.src_dir, 'sub/sub2/new_fifo')
+        os.mkfifo(new_fifo_path)
+
         # Run the second time to do diff.
-        info.run(self.dest_dir, collect_init_status=False)
+        info.run(self.dest_dir, collect_init_status=False, collect_all=True)
 
         # Validate files in dest_dir.
         for file_name, file_path in zip(self.existing_files+self.new_files,
@@ -97,6 +123,23 @@ class diffable_logdir_test(unittest.TestCase):
             file_path = file_path.replace('src', 'dest')
             with open(file_path, 'r') as f:
                 self.assertEqual(file_name, f.read())
+
+        # Assert that FIFOs are not in the diff.
+        self.assertFalse(
+                os.path.exists(self.existing_fifo_path.replace('src', 'dest')),
+                msg='Existing FIFO present in diff sysinfo')
+        self.assertFalse(
+                os.path.exists(new_fifo_path.replace('src', 'dest')),
+                msg='New FIFO present in diff sysinfo')
+
+        # With collect_all=True, full sysinfo should also be present.
+        full_sysinfo_path = self.dest_dir + self.src_dir
+        self.assertTrue(os.path.exists(full_sysinfo_path),
+                        msg='Full sysinfo not present')
+
+        # Assert that the full sysinfo is present.
+        self.assertNotEqual(self.src_dir, full_sysinfo_path)
+        self.assert_trees_equal(self.src_dir, full_sysinfo_path)
 
 
 class LogdirTestCase(unittest.TestCase):
@@ -164,6 +207,8 @@ class LogdirTestCase(unittest.TestCase):
 
     def test_run_excludes_common_patterns(self):
         os.mkdir(os.path.join(self.from_dir, 'autoserv2344'))
+        # Create empty file.
+        open(os.path.join(self.from_dir, 'system.journal'), 'w').close()
         deeper_subdir = os.path.join('prefix', 'autoserv', 'suffix')
         os.makedirs(os.path.join(self.from_dir, deeper_subdir))
 
@@ -174,6 +219,9 @@ class LogdirTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(destination_path),
                          msg='Copied banned file to %s' % destination_path)
         destination_path = self._destination_path(deeper_subdir)
+        self.assertFalse(os.path.exists(destination_path),
+                         msg='Copied banned file to %s' % destination_path)
+        destination_path = self._destination_path('system.journal')
         self.assertFalse(os.path.exists(destination_path),
                          msg='Copied banned file to %s' % destination_path)
 

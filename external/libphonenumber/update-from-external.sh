@@ -44,3 +44,6 @@ do
     sed "s|Version: .*$|Version: $VERSION|" < $tmp/$i > $DIR/$i
     (cd $DIR; git add $i)
 done
+
+${DIR}/srcgen/generate_android_src.sh
+git add repackaged

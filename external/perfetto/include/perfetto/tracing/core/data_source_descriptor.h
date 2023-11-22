@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #ifndef INCLUDE_PERFETTO_TRACING_CORE_DATA_SOURCE_DESCRIPTOR_H_
@@ -52,6 +52,10 @@ class PERFETTO_EXPORT DataSourceDescriptor {
   DataSourceDescriptor& operator=(DataSourceDescriptor&&);
   DataSourceDescriptor(const DataSourceDescriptor&);
   DataSourceDescriptor& operator=(const DataSourceDescriptor&);
+  bool operator==(const DataSourceDescriptor&) const;
+  bool operator!=(const DataSourceDescriptor& other) const {
+    return !(*this == other);
+  }
 
   // Conversion methods from/to the corresponding protobuf types.
   void FromProto(const perfetto::protos::DataSourceDescriptor&);
@@ -60,8 +64,24 @@ class PERFETTO_EXPORT DataSourceDescriptor {
   const std::string& name() const { return name_; }
   void set_name(const std::string& value) { name_ = value; }
 
+  bool will_notify_on_stop() const { return will_notify_on_stop_; }
+  void set_will_notify_on_stop(bool value) { will_notify_on_stop_ = value; }
+
+  bool will_notify_on_start() const { return will_notify_on_start_; }
+  void set_will_notify_on_start(bool value) { will_notify_on_start_ = value; }
+
+  bool handles_incremental_state_clear() const {
+    return handles_incremental_state_clear_;
+  }
+  void set_handles_incremental_state_clear(bool value) {
+    handles_incremental_state_clear_ = value;
+  }
+
  private:
   std::string name_ = {};
+  bool will_notify_on_stop_ = {};
+  bool will_notify_on_start_ = {};
+  bool handles_incremental_state_clear_ = {};
 
   // Allows to preserve unknown protobuf fields for compatibility
   // with future versions of .proto files.
@@ -69,4 +89,5 @@ class PERFETTO_EXPORT DataSourceDescriptor {
 };
 
 }  // namespace perfetto
+
 #endif  // INCLUDE_PERFETTO_TRACING_CORE_DATA_SOURCE_DESCRIPTOR_H_

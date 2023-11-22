@@ -16,6 +16,23 @@
 namespace brillo {
 namespace dbus_utils {
 
+namespace {
+
+void SetupDefaultPropertyHandlers(DBusInterface* prop_interface,
+                                  ExportedPropertySet* property_set) {
+  prop_interface->AddSimpleMethodHandler(dbus::kPropertiesGetAll,
+                                         base::Unretained(property_set),
+                                         &ExportedPropertySet::HandleGetAll);
+  prop_interface->AddSimpleMethodHandlerWithError(
+      dbus::kPropertiesGet, base::Unretained(property_set),
+      &ExportedPropertySet::HandleGet);
+  prop_interface->AddSimpleMethodHandlerWithError(
+      dbus::kPropertiesSet, base::Unretained(property_set),
+      &ExportedPropertySet::HandleSet);
+}
+
+}  // namespace
+
 //////////////////////////////////////////////////////////////////////////////
 
 DBusInterface::DBusInterface(DBusObject* dbus_object,
@@ -27,6 +44,11 @@ void DBusInterface::AddProperty(const std::string& property_name,
                                 ExportedPropertyBase* prop_base) {
   dbus_object_->property_set_.RegisterProperty(
       interface_name_, property_name, prop_base);
+}
+
+void DBusInterface::RemoveProperty(const std::string& property_name) {
+  dbus_object_->property_set_.UnregisterProperty(interface_name_,
+                                                 property_name);
 }
 
 void DBusInterface::ExportAsync(
@@ -152,7 +174,21 @@ void DBusInterface::AddSignalImpl(
 DBusObject::DBusObject(ExportedObjectManager* object_manager,
                        const scoped_refptr<dbus::Bus>& bus,
                        const dbus::ObjectPath& object_path)
-    : property_set_(bus.get()), bus_(bus), object_path_(object_path) {
+    : DBusObject::DBusObject(object_manager,
+                             bus,
+                             object_path,
+                             base::Bind(&SetupDefaultPropertyHandlers)) {}
+
+DBusObject::DBusObject(
+    ExportedObjectManager* object_manager,
+    const scoped_refptr<dbus::Bus>& bus,
+    const dbus::ObjectPath& object_path,
+    PropertyHandlerSetupCallback property_handler_setup_callback)
+    : property_set_(bus.get()),
+      bus_(bus),
+      object_path_(object_path),
+      property_handler_setup_callback_(
+          std::move(property_handler_setup_callback)) {
   if (object_manager)
     object_manager_ = object_manager->AsWeakPtr();
 }
@@ -183,6 +219,21 @@ DBusInterface* DBusObject::FindInterface(
   return (itf_iter == interfaces_.end()) ? nullptr : itf_iter->second.get();
 }
 
+void DBusObject::RemoveInterface(const std::string& interface_name) {
+  auto itf_iter = interfaces_.find(interface_name);
+  CHECK(itf_iter != interfaces_.end())
+      << "Interface " << interface_name << " has not been added.";
+  interfaces_.erase(itf_iter);
+}
+
+void DBusObject::ExportInterfaceAsync(
+    const std::string& interface_name,
+    const AsyncEventSequencer::CompletionAction& completion_callback) {
+  AddOrGetInterface(interface_name)
+      ->ExportAsync(object_manager_.get(), bus_.get(), exported_object_,
+                    object_path_, completion_callback);
+}
+
 void DBusObject::RegisterAsync(
     const AsyncEventSequencer::CompletionAction& completion_callback) {
   VLOG(1) << "Registering D-Bus object '" << object_path_.value() << "'.";
@@ -190,21 +241,7 @@ void DBusObject::RegisterAsync(
   scoped_refptr<AsyncEventSequencer> sequencer(new AsyncEventSequencer());
   exported_object_ = bus_->GetExportedObject(object_path_);
 
-  // Add the org.freedesktop.DBus.Properties interface to the object.
-  DBusInterface* prop_interface = AddOrGetInterface(dbus::kPropertiesInterface);
-  prop_interface->AddSimpleMethodHandler(
-      dbus::kPropertiesGetAll,
-      base::Unretained(&property_set_),
-      &ExportedPropertySet::HandleGetAll);
-  prop_interface->AddSimpleMethodHandlerWithError(
-      dbus::kPropertiesGet,
-      base::Unretained(&property_set_),
-      &ExportedPropertySet::HandleGet);
-  prop_interface->AddSimpleMethodHandlerWithError(
-      dbus::kPropertiesSet,
-      base::Unretained(&property_set_),
-      &ExportedPropertySet::HandleSet);
-  property_set_.OnPropertiesInterfaceExported(prop_interface);
+  RegisterPropertiesInterface();
 
   // Export interface methods
   for (const auto& pair : interfaces_) {
@@ -225,21 +262,7 @@ void DBusObject::RegisterAndBlock() {
   CHECK(exported_object_ == nullptr) << "Object already registered.";
   exported_object_ = bus_->GetExportedObject(object_path_);
 
-  // Add the org.freedesktop.DBus.Properties interface to the object.
-  DBusInterface* prop_interface = AddOrGetInterface(dbus::kPropertiesInterface);
-  prop_interface->AddSimpleMethodHandler(
-      dbus::kPropertiesGetAll,
-      base::Unretained(&property_set_),
-      &ExportedPropertySet::HandleGetAll);
-  prop_interface->AddSimpleMethodHandlerWithError(
-      dbus::kPropertiesGet,
-      base::Unretained(&property_set_),
-      &ExportedPropertySet::HandleGet);
-  prop_interface->AddSimpleMethodHandlerWithError(
-      dbus::kPropertiesSet,
-      base::Unretained(&property_set_),
-      &ExportedPropertySet::HandleSet);
-  property_set_.OnPropertiesInterfaceExported(prop_interface);
+  RegisterPropertiesInterface();
 
   // Export interface methods
   for (const auto& pair : interfaces_) {
@@ -273,6 +296,12 @@ bool DBusObject::SendSignal(dbus::Signal* signal) {
   }
   LOG(ERROR) << "Trying to send a signal from an object that is not exported";
   return false;
+}
+
+void DBusObject::RegisterPropertiesInterface() {
+  DBusInterface* prop_interface = AddOrGetInterface(dbus::kPropertiesInterface);
+  property_handler_setup_callback_.Run(prop_interface, &property_set_);
+  property_set_.OnPropertiesInterfaceExported(prop_interface);
 }
 
 }  // namespace dbus_utils

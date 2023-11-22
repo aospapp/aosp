@@ -50,6 +50,8 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
      */
     public Process process;
 
+    protected int realPid = -1;
+
     protected StreamRedirector errRedir;
     protected StreamRedirector outRedir;
 
@@ -76,6 +78,11 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
      */
     public void setExpectedExitCode(int expectedExitCode) {
         this.expectedExitCode = expectedExitCode;
+    }
+
+    public void setRealPid(int pid) {
+      logWriter.println("Got pid: " + pid);
+      this.realPid = pid;
     }
 
     /**
@@ -327,6 +334,7 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
         // these is the PID.
         return Integer.valueOf(new String(Files.readAllBytes(proc.resolve("stat"))).split(" ")[0]);
       } catch (IOException e) {
+        logWriter.printError("Failed to find real pid of process:", e);
         return -1;
       }
     }
@@ -349,6 +357,7 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
         } else {
           Path children = cur.resolve("task").resolve(Integer.toString(pid)).resolve("children");
           if (!children.toFile().exists()) {
+            logWriter.printError("Failed to find children file");
             return -1;
           } else {
             for (String child_pid : ReadChildPids(children.toFile())) {
@@ -362,6 +371,7 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
           }
         }
       } catch (Exception e) {
+        logWriter.printError("Failed to find real pid of process:", e);
         return -1;
       }
     }
@@ -389,7 +399,12 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
     }
 
     private void GetRemoteStackTrace(Process process) throws IOException {
-      String pid = Integer.toString(GetRealPid(process));
+      int pid_number = realPid == -1 ? GetRealPid(process) : realPid;
+      if (pid_number == -1) {
+        logWriter.printError("Could not determine subprocess pid. Cannot dump process");
+        return;
+      }
+      String pid = Integer.toString(realPid);
       logWriter.println("trying to dump " + pid);
       List<String> cmd = new ArrayList<>(Arrays.asList(splitCommandLine(settings.getDumpProcessCommand())));
       cmd.add(pid);

@@ -8,13 +8,15 @@
 #ifndef skiagm_DEFINED
 #define skiagm_DEFINED
 
+#include "../tools/Registry.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
+#include "SkClipOpPriv.h"
+#include "SkMacros.h"
+#include "SkMetaData.h"
 #include "SkPaint.h"
 #include "SkSize.h"
 #include "SkString.h"
-#include "../tools/Registry.h"
-#include "SkClipOpPriv.h"
 
 class SkAnimTimer;
 struct GrContextOptions;
@@ -89,6 +91,9 @@ namespace skiagm {
             return this->onHandleKey(uni);
         }
 
+        bool getControls(SkMetaData* controls) { return this->onGetControls(controls); }
+        void setControls(const SkMetaData& controls) { this->onSetControls(controls); }
+
         virtual void modifyGrContextOptions(GrContextOptions* options) {}
 
         /** draws a standard message that the GM is only intended to be used with the GPU.*/
@@ -97,12 +102,13 @@ namespace skiagm {
     protected:
         virtual void onOnceBeforeDraw() {}
         virtual void onDraw(SkCanvas*) = 0;
-        virtual void onDrawBackground(SkCanvas*);
         virtual SkISize onISize() = 0;
         virtual SkString onShortName() = 0;
 
         virtual bool onAnimate(const SkAnimTimer&) { return false; }
         virtual bool onHandleKey(SkUnichar uni) { return false; }
+        virtual bool onGetControls(SkMetaData*) { return false; }
+        virtual void onSetControls(const SkMetaData&) {}
 
     private:
         Mode     fMode;
@@ -112,7 +118,8 @@ namespace skiagm {
         bool     fHaveCalledOnceBeforeDraw;
     };
 
-    typedef sk_tools::Registry<GM*(*)(void*)> GMRegistry;
+    typedef GM*(*GMFactory)(void*) ;
+    typedef sk_tools::Registry<GMFactory> GMRegistry;
 
     class SimpleGM : public skiagm::GM {
     public:
@@ -135,5 +142,8 @@ namespace skiagm {
         SkISize fSize;
     };
 }
+
+void MarkGMGood(SkCanvas*, SkScalar x, SkScalar y);
+void MarkGMBad (SkCanvas*, SkScalar x, SkScalar y);
 
 #endif

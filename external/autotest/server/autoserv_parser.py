@@ -58,22 +58,13 @@ class autoserv_parser(object):
         self.parser.add_argument('-P', action='store', type=str,
                                  dest='parse_job',
                                  default='',
-                                 help=('Parse the results of the job using this'
-                                       ' execution tag. Accessible in control '
-                                       'files as job.tag.'))
+                                 help=('DEPRECATED.'
+                                       ' Use --execution-tag instead.'))
         self.parser.add_argument('--execution-tag', action='store',
                                  type=str, dest='execution_tag',
                                  default='',
                                  help=('Accessible in control files as job.tag;'
                                        ' Defaults to the value passed to -P.'))
-        self.parser.add_argument('-i', action='store_true',
-                                 dest='install_before', default=False,
-                                 help=('reinstall machines before running the '
-                                       'job'))
-        self.parser.add_argument('-I', action='store_true',
-                                 dest='install_after', default=False,
-                                 help=('reinstall machines after running the '
-                                       'job'))
         self.parser.add_argument('-v', action='store_true',
                                  dest='verify', default=False,
                                  help='verify the machines only')
@@ -142,10 +133,6 @@ class autoserv_parser(object):
                                  type=str, default=None,
                                  help=('filename to use for the server control '
                                        'file in the results directory'))
-        self.parser.add_argument('--test-retry', action='store',
-                                 type=int, default=0,
-                                 help=('Num of times to retry a test that '
-                                       'failed [default: %(default)d]'))
         self.parser.add_argument('--verify_job_repo_url', action='store_true',
                                  dest='verify_job_repo_url', default=False,
                                  help=('Verify that the job_repo_url of the '
@@ -172,36 +159,29 @@ class autoserv_parser(object):
                                  dest='require_ssp', default=False,
                                  help=('Force the autoserv process to run with '
                                        'server-side packaging'))
-        self.parser.add_argument('--warn-no-ssp', action='store_true',
-                                 dest='warn_no_ssp', default=False,
-                                 help=('Post a warning in autoserv log that '
-                                       'the process runs in a drone without '
-                                       'server-side packaging support, even '
-                                       'though the job requires server-side '
-                                       'packaging'))
         self.parser.add_argument('--no_use_packaging', action='store_true',
                                  dest='no_use_packaging', default=False,
                                  help=('Disable install modes that use the '
                                        'packaging system.'))
+        self.parser.add_argument('--source_isolate', action='store',
+                                 type=str, default='',
+                                 dest='isolate',
+                                 help=('Hash for isolate containing build '
+                                       'contents needed for server-side '
+                                       'packaging. Takes precedence over '
+                                       'test_source_build, if present.'))
         self.parser.add_argument('--test_source_build', action='store',
                                  type=str, default='',
                                  dest='test_source_build',
-                                 help=('Name of the build that contains the '
-                                       'test code. Default is empty, that is, '
-                                       'use the build specified in --image to '
-                                       'retrieve tests.'))
+                                 help=('Alternative build that contains the '
+                                       'test code for server-side packaging. '
+                                       'Default is to use the build on the '
+                                       'target DUT.'))
         self.parser.add_argument('--parent_job_id', action='store',
                                  type=str, default=None,
                                  dest='parent_job_id',
                                  help=('ID of the parent job. Default to None '
                                        'if the job does not have a parent job'))
-        self.parser.add_argument('--image', action='store', type=str,
-                               default='', dest='image',
-                               help=('Full path of an OS image to install, e.g.'
-                                     ' http://devserver/update/alex-release/'
-                                     'R27-3837.0.0 or a build name: '
-                                     'x86-alex-release/R27-3837.0.0 to '
-                                     'utilize lab devservers automatically.'))
         self.parser.add_argument('--host_attributes', action='store',
                                  dest='host_attributes', default='{}',
                                  help=('Host attribute to be applied to all '
@@ -221,6 +201,31 @@ class autoserv_parser(object):
                                  dest='cloud_trace_context_enabled',
                                  help=('Global trace context to configure '
                                        'emission of data to Cloud Trace.'))
+        self.parser.add_argument(
+                '--host-info-subdir',
+                default='host_info_store',
+                help='Optional path to a directory containing host '
+                     'information for the machines. The path is relative to '
+                     'the results directory (see -r) and must be inside '
+                     'the directory.'
+        )
+        self.parser.add_argument(
+                '--local-only-host-info',
+                default='False',
+                help='By default, host status are immediately reported back to '
+                     'the AFE, shadowing the updates to disk. This flag '
+                     'disables the AFE interaction completely, and assumes '
+                     'that initial host information is supplied to autoserv. '
+                     'See also: --host-info-subdir',
+        )
+        self.parser.add_argument(
+                '--control-name',
+                action='store',
+                help='NAME attribute of the control file to stage and run. '
+                     'This overrides the control file provided via the '
+                     'positional args.',
+        )
+
         #
         # Warning! Please read before adding any new arguments!
         #
@@ -256,10 +261,6 @@ class autoserv_parser(object):
 
         self.args = unknown_args + shlex.split(self.options.args or '')
 
-        if self.options.image:
-            self.options.install_before = True
-            self.options.image =  self.options.image.strip()
-
         self.options.host_attributes = ast.literal_eval(
                 self.options.host_attributes)
         if self.options.lab and self.options.host_attributes:
@@ -268,6 +269,15 @@ class autoserv_parser(object):
                     'Ignoring custom host attributes: %s',
                     str(self.options.host_attributes))
             self.options.host_attributes = []
+
+        self.options.local_only_host_info = _interpret_bool_arg(
+                self.options.local_only_host_info)
+        if not self.options.execution_tag:
+            self.options.execution_tag = self.options.parse_job
+
+
+def _interpret_bool_arg(value):
+    return value.lower() in {'yes', 'true'}
 
 
 # create the one and only one instance of autoserv_parser

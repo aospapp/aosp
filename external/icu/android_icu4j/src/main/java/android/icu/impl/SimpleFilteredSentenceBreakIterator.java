@@ -271,6 +271,9 @@ public class SimpleFilteredSentenceBreakIterator extends BreakIterator {
         delegate.setText(newText);
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static class Builder extends FilteredBreakIteratorBuilder {
         /**
          * filter set to store all exceptions

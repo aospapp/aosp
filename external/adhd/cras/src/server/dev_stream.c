@@ -32,6 +32,38 @@ static const struct timespec capture_callback_fuzz_ts = {
 	.tv_nsec = 1000000, /* 1 ms. */
 };
 
+/*
+ * Returns the size in frames that a format converter must allocate for its
+ * temporary buffers to be able to convert the specified number of stream
+ * frames to or from the corresponding number of device frames, at the
+ * specified device rate.
+ */
+unsigned int max_frames_for_conversion(unsigned int stream_frames,
+				       unsigned int stream_rate,
+				       unsigned int device_rate) {
+	/*
+	 * There are multiple temp buffers in the format converter,
+	 * which are all the same size. Some of these contain audio
+	 * in the source sample rate, and others in the converted
+	 * sample rate. We need to make sure the converter is large
+	 * enough to hold either.
+	 */
+	return MAX(
+	    // Number of stream frames does not require conversion.
+	    stream_frames,
+	    // Calculate corresponding number of frames at device rate.
+	    cras_frames_at_rate(stream_rate,
+				stream_frames,
+				device_rate))
+			/*
+			 * Add 1 because the linear resampler's frame rate
+			 * conversion does this, and is used to calculate
+			 * how many frames to read from the device.
+			 * See linear_resampler_{in,out}_frames_to_{out,in}(..)
+			 */
+			+ 1;
+}
+
 struct dev_stream *dev_stream_create(struct cras_rstream *stream,
 				     unsigned int dev_id,
 				     const struct cras_audio_format *dev_fmt,
@@ -49,24 +81,27 @@ struct dev_stream *dev_stream_create(struct cras_rstream *stream,
 	out->stream = stream;
 	out->dev_rate = dev_fmt->frame_rate;
 
+	max_frames = max_frames_for_conversion(stream->buffer_frames,
+					       stream_fmt->frame_rate,
+					       dev_fmt->frame_rate);
+
 	if (stream->direction == CRAS_STREAM_OUTPUT) {
-		max_frames = MAX(stream->buffer_frames,
-				 cras_frames_at_rate(stream_fmt->frame_rate,
-						     stream->buffer_frames,
-						     dev_fmt->frame_rate));
 		rc = config_format_converter(&out->conv,
 					     stream->direction,
 					     stream_fmt,
 					     dev_fmt,
 					     max_frames);
 	} else {
-		max_frames = MAX(stream->buffer_frames,
-				 cras_frames_at_rate(dev_fmt->frame_rate,
-						     stream->buffer_frames,
-						     stream_fmt->frame_rate));
+		/*
+		 * For input, take into account the stream specific processing
+		 * like AEC. Use the post processing format to configure format
+		 * converter.
+		 */
+		ofmt = cras_rstream_post_processing_format(
+				stream, dev_ptr) ? : dev_fmt,
 		rc = config_format_converter(&out->conv,
 					     stream->direction,
-					     dev_fmt,
+					     ofmt,
 					     stream_fmt,
 					     max_frames);
 	}
@@ -117,8 +152,8 @@ void dev_stream_destroy(struct dev_stream *dev_stream)
 	cras_rstream_dev_detach(dev_stream->stream, dev_stream->dev_id);
 	if (dev_stream->conv) {
 		cras_audio_area_destroy(dev_stream->conv_area);
-		cras_fmt_conv_destroy(dev_stream->conv);
-		byte_buffer_destroy(dev_stream->conv_buffer);
+		cras_fmt_conv_destroy(&dev_stream->conv);
+		byte_buffer_destroy(&dev_stream->conv_buffer);
 	}
 	free(dev_stream);
 }
@@ -286,7 +321,7 @@ static unsigned int capture_copy_converted_to_stream(
 			cras_rstream_get_cb_threshold(rstream),
 			&rstream->audio_area->frames);
 	num_frames = MIN(rstream->audio_area->frames - offset,
-			 buf_queued_bytes(dev_stream->conv_buffer) /
+			 buf_queued(dev_stream->conv_buffer) /
 							frame_bytes);
 
 	ATLOG(atlog, AUDIO_THREAD_CONV_COPY,
@@ -343,14 +378,18 @@ unsigned int dev_stream_capture(struct dev_stream *dev_stream,
 
 	/* Check if format conversion is needed. */
 	if (cras_fmt_conversion_needed(dev_stream->conv)) {
-		unsigned int format_bytes;
+		unsigned int format_bytes, fr_to_capture;
+
+		fr_to_capture = dev_stream_capture_avail(dev_stream);
+		fr_to_capture = MIN(fr_to_capture, area->frames - area_offset);
 
 		format_bytes = cras_get_format_bytes(
 				cras_fmt_conv_in_format(dev_stream->conv));
 		nread = capture_with_fmt_conv(
 			dev_stream,
 			area->channels[0].buf + area_offset * format_bytes,
-			area->frames - area_offset);
+			fr_to_capture);
+
 		capture_copy_converted_to_stream(dev_stream, rstream,
 						 software_gain_scaler);
 	} else {
@@ -446,15 +485,15 @@ unsigned int dev_stream_capture_avail(const struct dev_stream *dev_stream)
 
 	/* Sample rate conversion may cause some sample left in conv_buffer
 	 * take this buffer into account. */
-	conv_buf_level = buf_queued_bytes(dev_stream->conv_buffer) /
+	conv_buf_level = buf_queued(dev_stream->conv_buffer) /
 			format_bytes;
-	if (frames_avail < conv_buf_level)
+	if (frames_avail <= conv_buf_level)
 		return 0;
 	else
 		frames_avail -= conv_buf_level;
 
 	frames_avail = MIN(frames_avail,
-			   buf_available_bytes(dev_stream->conv_buffer) /
+			   buf_available(dev_stream->conv_buffer) /
 					format_bytes);
 
 	return cras_fmt_conv_out_frames_to_in(dev_stream->conv, frames_avail);
@@ -495,6 +534,9 @@ int dev_stream_capture_update_rstream(struct dev_stream *dev_stream)
 	unsigned int frames_ready = cras_rstream_get_cb_threshold(rstream);
 	int rc;
 
+	if ((rstream->flags & TRIGGER_ONLY) && rstream->triggered)
+		return 0;
+
 	cras_rstream_update_input_write_pointer(rstream);
 
 	/*
@@ -522,6 +564,9 @@ int dev_stream_capture_update_rstream(struct dev_stream *dev_stream)
 
 	if (rc < 0)
 		return rc;
+
+	if (rstream->flags & TRIGGER_ONLY)
+		rstream->triggered = 1;
 
 	/* Update next callback time according to perfect schedule. */
 	add_timespecs(&rstream->next_cb_ts,
@@ -608,7 +653,7 @@ int dev_stream_can_fetch(struct dev_stream *dev_stream)
 	shm = cras_rstream_output_shm(rstream);
 
 	/* Don't fetch if the previous request hasn't got response. */
-	return !cras_shm_callback_pending(shm) &&
+	return !cras_rstream_is_pending_reply(rstream) &&
 	       cras_shm_is_buffer_available(shm);
 }
 
@@ -625,7 +670,6 @@ int dev_stream_request_playback_samples(struct dev_stream *dev_stream,
 	add_timespecs(&rstream->next_cb_ts,
 		      &rstream->sleep_interval_ts);
 	check_next_wake_time(dev_stream);
-	cras_shm_set_callback_pending(cras_rstream_output_shm(rstream), 1);
 
 	return 0;
 }
@@ -634,8 +678,14 @@ int dev_stream_poll_stream_fd(const struct dev_stream *dev_stream)
 {
 	const struct cras_rstream *stream = dev_stream->stream;
 
+	/* For streams which rely on dev level timing, we should
+	 * let client response wake audio thread up. */
+	if (stream_uses_input(stream) && (stream->flags & USE_DEV_TIMING) &&
+	    cras_rstream_is_pending_reply(stream))
+		return stream->fd;
+
 	if (!stream_uses_output(stream) ||
-	    !cras_shm_callback_pending(&stream->shm) ||
+	    !cras_rstream_is_pending_reply(stream) ||
 	    cras_rstream_get_is_draining(stream))
 		return -1;
 
@@ -643,54 +693,69 @@ int dev_stream_poll_stream_fd(const struct dev_stream *dev_stream)
 }
 
 /*
- * Needed frames from this device such that written frames in shm meets
- * cb_threshold.
- */
-static int get_input_needed_frames(struct dev_stream *dev_stream,
-				   unsigned int curr_level)
-{
-	struct cras_rstream *rstream = dev_stream->stream;
-	unsigned int rstream_level = cras_rstream_level(rstream);
-	unsigned int dev_offset = cras_rstream_dev_offset(
-			rstream, dev_stream->dev_id);
-	unsigned int needed_for_stream;
-
-	/*
-	 * rstream_level + def_offset is the number of frames written to shm
-	 * from this device.
-	 */
-	if (rstream_level + dev_offset > rstream->cb_threshold) {
-		/* Enough frames from this device for this stream. */
-		return 0;
-	}
-
-	/*
-	 * Needed number of frames in shm such that written frames in shm meets
-	 * cb_threshold.
-	 */
-	needed_for_stream = rstream->cb_threshold - rstream_level - dev_offset;
-
-	/* Convert the number of frames from stream format to device format. */
-	return cras_fmt_conv_out_frames_to_in(dev_stream->conv,
-					      needed_for_stream);
-
-}
-
-/*
  * Gets proper wake up time for an input stream. It considers both
  * time for samples to reach one callback level, and the time for next callback.
+ * Returns:
+ *   0 on success; negavite error code on failure. A positive value if
+ *   there is no need to set wake up time for this stream.
  */
 static int get_input_wake_time(struct dev_stream *dev_stream,
 			       unsigned int curr_level,
 			       struct timespec *level_tstamp,
+			       unsigned int cap_limit,
+			       int is_cap_limit_stream,
 			       struct timespec *wake_time_out)
 {
 	struct cras_rstream *rstream = dev_stream->stream;
 	struct timespec time_for_sample;
 	int needed_frames_from_device;
 
-	needed_frames_from_device = get_input_needed_frames(
-			dev_stream, curr_level);
+	needed_frames_from_device = dev_stream_capture_avail(dev_stream);
+
+	/*
+	 * If this stream is not cap_limit stream, and it needs more
+	 * frames than the capture limit from audio thread, don't bother
+	 * re-calculating the wake time for it because
+	 * |needed_frames_from_device| cannot be all copied to shm until
+	 * the cap_limit stream get its samples in shm read by client
+	 * and relieve the cap_limit.
+	 *
+	 * Note that we need to know whether this stream is cap_limit
+	 * stream here because the client of cap_limit stream may read
+	 * the data from shm during this time window, and cause
+	 * needed_frames_from_device to be greater than cap_limit which
+	 * was calculated before.
+	 */
+	if (!is_cap_limit_stream && needed_frames_from_device > cap_limit)
+		return 1;
+
+	/*
+	 * For capture stream using device timing, the flow would be:
+	 * 1. Device has less than one cb_threshold of data.
+	 * 2. Device has a large chunk of data that client needs to consume
+	 *    in multiple cycles.
+	 * 3. Audio thread sends one block to client and goes to sleep.
+	 * 4. Client sends reply to wake up audio thread.
+	 * 5. Repeat 3 and 4 until there is less than one cb_threshold of data.
+	 * 6. Goes to 1.
+	 *
+	 * In 1, we schedule the next wake up time based on the needed frames.
+	 * This is needed to poll the samples from device.
+	 *
+	 * In 3, we do not schedule a wake up time for this stream.
+	 * We let reply from client wakes up audio thread to send next
+	 * cb_threshold of data.
+	 *
+	 * TODO(cychiang) Do we want to actually block sending data to client
+	 * until client replies ? Or control the scheduling of wake up time
+	 * is enough ?
+	 *
+	 */
+	if ((rstream->flags & USE_DEV_TIMING) &&
+	     cras_rstream_is_pending_reply(rstream))
+		return 1;
+
+	*wake_time_out = rstream->next_cb_ts;
 
 	/*
 	 * If current frames in the device can provide needed amount for stream,
@@ -698,7 +763,6 @@ static int get_input_wake_time(struct dev_stream *dev_stream,
 	 */
 	if (curr_level >= needed_frames_from_device)
 		needed_frames_from_device = 0;
-
 	else
 		needed_frames_from_device -= curr_level;
 
@@ -710,11 +774,11 @@ static int get_input_wake_time(struct dev_stream *dev_stream,
 
 	/* Select the time that is later so both sample and time conditions
 	 * are met. */
-	if (timespec_after(&time_for_sample, &rstream->next_cb_ts)) {
+	if (timespec_after(&time_for_sample, &rstream->next_cb_ts))
 		*wake_time_out =  time_for_sample;
-	} else {
-		*wake_time_out =  rstream->next_cb_ts;
-	}
+	/* Using device timing means the stream neglects next callback time. */
+	if (rstream->flags & USE_DEV_TIMING)
+		*wake_time_out =  time_for_sample;
 
 	return 0;
 }
@@ -722,6 +786,8 @@ static int get_input_wake_time(struct dev_stream *dev_stream,
 int dev_stream_wake_time(struct dev_stream *dev_stream,
 			 unsigned int curr_level,
 			 struct timespec *level_tstamp,
+			 unsigned int cap_limit,
+			 int is_cap_limit_stream,
 			 struct timespec *wake_time_out)
 {
 	if (dev_stream->stream->direction == CRAS_STREAM_OUTPUT) {
@@ -734,5 +800,16 @@ int dev_stream_wake_time(struct dev_stream *dev_stream,
 	}
 
 	return get_input_wake_time(dev_stream, curr_level, level_tstamp,
+				   cap_limit, is_cap_limit_stream,
 				   wake_time_out);
+}
+
+int dev_stream_is_pending_reply(const struct dev_stream *dev_stream)
+{
+	return cras_rstream_is_pending_reply(dev_stream->stream);
+}
+
+int dev_stream_flush_old_audio_messages(struct dev_stream *dev_stream)
+{
+	return cras_rstream_flush_old_audio_messages(dev_stream->stream);
 }

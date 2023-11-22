@@ -11,7 +11,6 @@ package android.icu.impl;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -184,15 +183,6 @@ public final class Utility {
      */
     public static final boolean sameObjects(Object a, Object b) {
         return a == b;
-    }
-
-    /**
-     * Convenience utility. Does null checks on objects, then calls equals.
-     */
-    public final static boolean objectEquals(Object a, Object b) {
-        return a == null ?
-                b == null ? true : false :
-                    b == null ? false : a.equals(b);
     }
 
     /**
@@ -1089,7 +1079,7 @@ public final class Utility {
     public static String[] split(String s, char divider) {
         int last = 0;
         int i;
-        ArrayList<String> output = new ArrayList<String>();
+        ArrayList<String> output = new ArrayList<>();
         for (i = 0; i < s.length(); ++i) {
             if (s.charAt(i) == divider) {
                 output.add(s.substring(last,i));
@@ -1814,42 +1804,49 @@ public final class Utility {
     }
 
     /**
-     * This implementation is equivalent to Java 7+ Objects#equals(Object a, Object b)
-     *
-     * @param a an object
-     * @param b an object to be compared with a for equality
-     * @return true if the arguments are equal to each other and false otherwise
+     * This implementation is equivalent to Java 8+ Math#addExact(int, int)
+     * @param x the first value
+     * @param y the second value
+     * @return the result
      */
-    public static boolean equals(Object a, Object b) {
-        return (a == b)
-                || (a != null && b != null && a.equals(b));
+    public static int addExact(int x, int y) {
+        int r = x + y;
+        // HD 2-12 Overflow iff both arguments have the opposite sign of the result
+        if (((x ^ r) & (y ^ r)) < 0) {
+            throw new ArithmeticException("integer overflow");
+        }
+        return r;
     }
 
     /**
-     * This implementation is equivalent to Java 7+ Objects#hash(Object... values)
-     * @param values the values to be hashed
-     * @return a hash value of the sequence of input values
+     * Returns whether the chars in the two CharSequences are equal.
      */
-    public static int hash(Object... values) {
-        return Arrays.hashCode(values);
+    public static boolean charSequenceEquals(CharSequence a, CharSequence b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        if (a.length() != b.length()) {
+            return false;
+        }
+        for (int i = 0; i < a.length(); i++) {
+            if (a.charAt(i) != b.charAt(i))
+                return false;
+        }
+        return true;
     }
 
     /**
-     * This implementation is equivalent to Java 7+ Objects#hashCode(Object o)
-     * @param o an object
-     * @return a hash value of a non-null argument and 0 for null argument
+     * Returns a hash code for a CharSequence that is equivalent to calling
+     * charSequence.toString().hashCode()
      */
-    public static int hashCode(Object o) {
-        return o == null ? 0 : o.hashCode();
-    }
-
-    /**
-     * This implementation is equivalent to Java 7+ Objects#toString(Object o)
-     * @param o an object
-     * @return the result of calling toStirng for a non-null argument and "null" for a
-     * null argument
-     */
-    public static String toString(Object o) {
-        return o == null ? "null" : o.toString();
+    public static int charSequenceHashCode(CharSequence value) {
+        int hash = 0;
+        for (int i = 0; i < value.length(); i++) {
+            hash = hash * 31 + value.charAt(i);
+        }
+        return hash;
     }
 }

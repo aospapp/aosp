@@ -219,6 +219,46 @@ public class AndroidAuxSource implements AuxSource {
             valueTags.toArray(TagInfo.getArray(valueTags.size()))));
       }
 
+      // Document provider columns
+      if ((type == TYPE_FIELD) && annotation.type().qualifiedNameMatches("android", "Column")) {
+        String value = null;
+        boolean readOnly = false;
+        for (AnnotationValueInfo val : annotation.elementValues()) {
+          switch (val.element().name()) {
+            case "value":
+              value = String.valueOf(val.value());
+              break;
+            case "readOnly":
+              readOnly = Boolean.parseBoolean(String.valueOf(val.value()));
+              break;
+          }
+        }
+
+        ArrayList<TagInfo> valueTags = new ArrayList<>();
+        valueTags.add(new ParsedTagInfo("", "",
+            "{@link android.content.ContentProvider}", null, SourcePositionInfo.UNKNOWN));
+        valueTags.add(new ParsedTagInfo("", "",
+            "{@link android.content.ContentValues}", null, SourcePositionInfo.UNKNOWN));
+        valueTags.add(new ParsedTagInfo("", "",
+            "{@link android.database.Cursor}", null, SourcePositionInfo.UNKNOWN));
+
+        ClassInfo cursorClass = annotation.type().findClass("android.database.Cursor");
+        for (FieldInfo field : cursorClass.fields()) {
+          if (field.isHiddenOrRemoved()) continue;
+          if (String.valueOf(field.constantValue()).equals(value)) {
+            valueTags.add(new ParsedTagInfo("", "",
+                "{@link android.database.Cursor#" + field.name() + "}",
+                null, SourcePositionInfo.UNKNOWN));
+          }
+        }
+        if (valueTags.size() < 4) continue;
+
+        Map<String, String> args = new HashMap<>();
+        if (readOnly) args.put("readOnly", "true");
+        tags.add(new AuxTagInfo("@column", "@column", SourcePositionInfo.UNKNOWN, args,
+            valueTags.toArray(TagInfo.getArray(valueTags.size()))));
+      }
+
       // The remaining annotations below always appear on return docs, and
       // should not be included in the method body
       if (type == TYPE_METHOD) continue;

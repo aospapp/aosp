@@ -17,13 +17,13 @@
 %                               December 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -45,6 +45,7 @@
 #include "MagickCore/blob-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
+#include "MagickCore/image-private.h"
 #include "MagickCore/list.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/string_.h"
@@ -135,10 +136,14 @@ MagickExport Image *CloneImageList(const Image *images,ExceptionInfo *exception)
     return((Image *) NULL);
   assert(images->signature == MagickCoreSignature);
   while (images->previous != (Image *) NULL)
+  {
+    assert(images != images->previous);
     images=images->previous;
+  }
   image=(Image *) NULL;
   for (p=(Image *) NULL; images != (Image *) NULL; images=images->next)
   {
+    assert(images != images->next);
     clone=CloneImage(images,0,0,MagickTrue,exception);
     if (clone == (Image *) NULL)
       {
@@ -175,8 +180,8 @@ MagickExport Image *CloneImageList(const Image *images,ExceptionInfo *exception)
 %
 %  The numbers start at 0 for the first image in the list, while negative
 %  numbers refer to images starting counting from the end of the range. Images
-%  may be refered to multiple times to clone them multiple times. Images
-%  refered beyond the available number of images in list are ignored.
+%  may be referred to multiple times to clone them multiple times. Images
+%  referred beyond the available number of images in list are ignored.
 %
 %  Images referenced may be reversed, and results in a clone of those images
 %  also being made with a reversed order.
@@ -209,16 +214,16 @@ MagickExport Image *CloneImages(const Image *images,const char *scenes,
     *clone_images,
     *image;
 
-  long
-    first,
-    last,
-    step;
-
   register ssize_t
     i;
 
   size_t
     length;
+
+  ssize_t
+    first,
+    last,
+    step;
 
   assert(images != (const Image *) NULL);
   assert(images->signature == MagickCoreSignature);
@@ -232,21 +237,32 @@ MagickExport Image *CloneImages(const Image *images,const char *scenes,
   length=GetImageListLength(images);
   for (p=(char *) scenes; *p != '\0';)
   {
+    MagickBooleanType
+      match;
+
     while ((isspace((int) ((unsigned char) *p)) != 0) || (*p == ','))
       p++;
-    first=strtol(p,&p,10);
+    first=(ssize_t) strtol(p,&p,10);
     if (first < 0)
-      first+=(long) length;
+      first+=(ssize_t) length;
+    else
+      if (first > (ssize_t) length)
+        first=(ssize_t) length;
     last=first;
     while (isspace((int) ((unsigned char) *p)) != 0)
       p++;
     if (*p == '-')
       {
-        last=strtol(p+1,&p,10);
+        last=(ssize_t) strtol(p+1,&p,10);
         if (last < 0)
-          last+=(long) length;
+          last+=(ssize_t) length;
+        else
+          if (last > (ssize_t) length)
+            last=(ssize_t) length;
       }
-    for (step=first > last ? -1 : 1; first != (last+step); first+=step)
+    match=MagickFalse;
+    step=(ssize_t) (first > last ? -1 : 1);
+    for ( ; first != (last+step); first+=step)
     {
       i=0;
       for (next=images; next != (Image *) NULL; next=GetNextImageInList(next))
@@ -257,9 +273,13 @@ MagickExport Image *CloneImages(const Image *images,const char *scenes,
             if (image == (Image *) NULL)
               break;
             AppendImageToList(&clone_images,image);
+            match=MagickTrue;
           }
         i++;
       }
+      if (match == MagickFalse)
+        (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
+          "InvalidImageIndex","`%s'",images->filename);
     }
   }
   return(GetFirstImageInList(clone_images));
@@ -313,8 +333,8 @@ MagickExport void DeleteImageFromList(Image **images)
 %  comma separated list of image numbers or ranges.
 %
 %  The numbers start at 0 for the first image, while negative numbers refer to
-%  images starting counting from the end of the range. Images may be refered to
-%  multiple times without problems. Image refered beyond the available number
+%  images starting counting from the end of the range. Images may be referred to
+%  multiple times without problems. Image referred beyond the available number
 %  of images in list are ignored.
 %
 %  If the referenced images are in the reverse order, that range will be
@@ -466,8 +486,8 @@ MagickExport Image *DestroyImageList(Image *images)
 %  using a count and a comma separated list of image numbers or ranges.
 %
 %  The numbers start at 0 for the first image, while negative numbers refer to
-%  images starting counting from the end of the range. Images may be refered to
-%  multiple times without problems. Image refered beyond the available number
+%  images starting counting from the end of the range. Images may be referred to
+%  multiple times without problems. Image referred beyond the available number
 %  of images in list are ignored.
 %
 %  The format of the DuplicateImages method is:
@@ -595,17 +615,10 @@ MagickExport Image *GetImageFromList(const Image *images,const ssize_t index)
   assert(images->signature == MagickCoreSignature);
   if (images->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
-
-  /*
-    Designed to efficiently find first image (index == 0), or last image
-    (index == -1) as appropriate, without to go through the whole image list.
-    That is it tries to avoid 'counting the whole list' to  handle the
-    most common image indexes.
-  */
-  if ( index < 0 )
+  if (index < 0)
     {
       p=GetLastImageInList(images);
-      for (i=-1; p != (Image *) NULL; p=p->previous)
+      for (i=(-1); p != (Image *) NULL; p=p->previous)
         if (i-- == index)
           break;
     }
@@ -650,7 +663,10 @@ MagickExport ssize_t GetImageIndexInList(const Image *images)
     return(-1);
   assert(images->signature == MagickCoreSignature);
   for (i=0; images->previous != (Image *) NULL; i++)
+  {
+    assert(images != images->previous);
     images=images->previous;
+  }
   return(i);
 }
 
@@ -689,7 +705,10 @@ MagickExport size_t GetImageListLength(const Image *images)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
   images=GetLastImageInList(images);
   for (i=0; images != (Image *) NULL; images=images->previous)
+  {
+    assert(images != images->previous);
     i++;
+  }
   return((size_t) i);
 }
 
@@ -846,7 +865,10 @@ MagickExport Image **ImageListToArray(const Image *images,
     }
   images=GetFirstImageInList(images);
   for (i=0; images != (Image *) NULL; images=images->next)
+  {
+    assert(images != images->next);
     group[i++]=(Image *) images;
+  }
   group[i]=(Image *) NULL;
   return(group);
 }
@@ -1181,7 +1203,7 @@ MagickExport void ReplaceImageInList(Image **images,Image *replace)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  ReplaceImageInListReturnLast() is exactly as ReplaceImageInList() except
-%  the images pointer is set to the last image in the list of replacemen
+%  the images pointer is set to the last image in the list of replacement
 %  images.
 %
 %  This allows you to simply use GetNextImageInList() to go to the image
@@ -1444,7 +1466,9 @@ MagickExport Image *SyncNextImageInList(const Image *images)
       DestroyBlob(images->next);
       images->next->blob=ReferenceBlob(images->blob);
     }
-  images->next->compression=images->compression;
-  images->next->endian=images->endian;
+  if (images->next->compression == UndefinedCompression)
+    images->next->compression=images->compression;
+  if (images->next->endian == UndefinedEndian)
+    images->next->endian=images->endian;
   return(images->next);
 }

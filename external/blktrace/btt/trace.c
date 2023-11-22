@@ -24,6 +24,8 @@ static void __add_trace(struct io *iop)
 {
 	time_t now = time(NULL);
 
+	last_t_seen = BIT_TIME(iop->t.time);
+
 	n_traces++;
 	iostat_check_time(iop->t.time);
 

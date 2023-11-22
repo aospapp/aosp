@@ -6,13 +6,10 @@
 
 #include <cassert>
 
-#include "BlinkGCPluginOptions.h"
 #include "RecordInfo.h"
 
-CheckFieldsVisitor::CheckFieldsVisitor()
-    : current_(0),
-      stack_allocated_host_(false) {
-}
+CheckFieldsVisitor::CheckFieldsVisitor(const BlinkGCPluginOptions& options)
+    : options_(options), current_(0), stack_allocated_host_(false) {}
 
 CheckFieldsVisitor::Errors& CheckFieldsVisitor::invalid_fields() {
   return invalid_fields_;
@@ -34,7 +31,7 @@ bool CheckFieldsVisitor::ContainsInvalidFields(RecordInfo* info) {
   return !invalid_fields_.empty();
 }
 
-void CheckFieldsVisitor::AtMember(Member* edge) {
+void CheckFieldsVisitor::AtMember(Member*) {
   if (managed_host_)
     return;
   // A member is allowed to appear in the context of a root.
@@ -45,6 +42,14 @@ void CheckFieldsVisitor::AtMember(Member* edge) {
       return;
   }
   invalid_fields_.push_back(std::make_pair(current_, kMemberInUnmanaged));
+}
+
+void CheckFieldsVisitor::AtWeakMember(WeakMember*) {
+  // TODO(sof): remove this once crbug.com/724418's change
+  // has safely been rolled out.
+  if (options_.enable_weak_members_in_unmanaged_classes)
+    return;
+  AtMember(nullptr);
 }
 
 void CheckFieldsVisitor::AtIterator(Iterator* edge) {
@@ -92,9 +97,8 @@ void CheckFieldsVisitor::AtValue(Value* edge) {
   if (!Parent() || !edge->value()->IsGCAllocated())
     return;
 
-  // Disallow  OwnPtr<T>, RefPtr<T> and T* to stack-allocated types.
-  if (Parent()->IsOwnPtr() ||
-      Parent()->IsUniquePtr() ||
+  // Disallow  unique_ptr<T>, RefPtr<T> and T* to stack-allocated types.
+  if (Parent()->IsUniquePtr() ||
       Parent()->IsRefPtr() ||
       (stack_allocated_host_ && Parent()->IsRawPtr())) {
     invalid_fields_.push_back(std::make_pair(
@@ -110,8 +114,6 @@ void CheckFieldsVisitor::AtValue(Value* edge) {
 }
 
 void CheckFieldsVisitor::AtCollection(Collection* edge) {
-  if (edge->on_heap() && Parent() && Parent()->IsOwnPtr())
-    invalid_fields_.push_back(std::make_pair(current_, kOwnPtrToGCManaged));
   if (edge->on_heap() && Parent() && Parent()->IsUniquePtr())
     invalid_fields_.push_back(std::make_pair(current_, kUniquePtrToGCManaged));
 }
@@ -125,8 +127,6 @@ CheckFieldsVisitor::Error CheckFieldsVisitor::InvalidSmartPtr(Edge* ptr) {
   }
   if (ptr->IsRefPtr())
     return kRefPtrToGCManaged;
-  if (ptr->IsOwnPtr())
-    return kOwnPtrToGCManaged;
   if (ptr->IsUniquePtr())
     return kUniquePtrToGCManaged;
   assert(false && "Unknown smart pointer kind");

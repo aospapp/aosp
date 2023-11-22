@@ -4,10 +4,6 @@
 
 """Job leasing utilities
 
-See infra/lucifer for the implementation of job leasing.
-
-https://chromium.googlesource.com/chromiumos/infra/lucifer
-
 Jobs are leased to processes to own and run.  A process owning a job
 obtain a job lease.  Ongoing ownership of the lease is established using
 an exclusive fcntl lock on the lease file.
@@ -113,7 +109,7 @@ class Lease(object):
             os.unlink(self._sock_path)
         except OSError as e:
             # This is fine; it means that job_reporter crashed, but
-            # lucifer_run_job was able to run its cleanup.
+            # lucifer was able to run its cleanup.
             logger.debug('Error removing %s: %s', self._sock_path, e)
 
     def abort(self):
@@ -126,6 +122,7 @@ class Lease(object):
         call will raise socket.error with ECONNREFUSED.
         """
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        sock.setblocking(0)
         logger.debug('Connecting to abort socket %s', self._sock_path)
         sock.connect(self._sock_path)
         logger.debug('Sending abort to %s', self._sock_path)
@@ -157,7 +154,10 @@ def _fcntl_locked(path):
 
     @param path: path to file
     """
-    fd = os.open(path, os.O_WRONLY)
+    try:
+        fd = os.open(path, os.O_WRONLY)
+    except (IOError, OSError):
+        return False
     try:
         fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except IOError:

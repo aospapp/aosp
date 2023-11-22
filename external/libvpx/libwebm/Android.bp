@@ -4,9 +4,7 @@ cc_library_static {
     cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["."],
     sanitize: {
-        cfi: true,
-        diag: {
-            cfi: true,
-        },
+        // Enable CFI if this becomes a shared library.
+        // cfi: true,
     },
 }

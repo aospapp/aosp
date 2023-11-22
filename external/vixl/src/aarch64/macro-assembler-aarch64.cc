@@ -1484,6 +1484,11 @@ void MacroAssembler::Fmov(VRegister vd, double imm) {
   // Floating point immediates are loaded through the literal pool.
   MacroEmissionCheckScope guard(this);
 
+  if (vd.Is1H() || vd.Is4H() || vd.Is8H()) {
+    Fmov(vd, Float16(imm));
+    return;
+  }
+
   if (vd.Is1S() || vd.Is2S() || vd.Is4S()) {
     Fmov(vd, static_cast<float>(imm));
     return;
@@ -1516,6 +1521,11 @@ void MacroAssembler::Fmov(VRegister vd, float imm) {
   // Floating point immediates are loaded through the literal pool.
   MacroEmissionCheckScope guard(this);
 
+  if (vd.Is1H() || vd.Is4H() || vd.Is8H()) {
+    Fmov(vd, Float16(imm));
+    return;
+  }
+
   if (vd.Is1D() || vd.Is2D()) {
     Fmov(vd, static_cast<double>(imm));
     return;
@@ -1538,6 +1548,43 @@ void MacroAssembler::Fmov(VRegister vd, float imm) {
     } else {
       // TODO: consider NEON support for load literal.
       Movi(vd, rawbits);
+    }
+  }
+}
+
+
+void MacroAssembler::Fmov(VRegister vd, Float16 imm) {
+  VIXL_ASSERT(allow_macro_instructions_);
+  MacroEmissionCheckScope guard(this);
+
+  if (vd.Is1S() || vd.Is2S() || vd.Is4S()) {
+    Fmov(vd, FPToFloat(imm, kIgnoreDefaultNaN));
+    return;
+  }
+
+  if (vd.Is1D() || vd.Is2D()) {
+    Fmov(vd, FPToDouble(imm, kIgnoreDefaultNaN));
+    return;
+  }
+
+  VIXL_ASSERT(vd.Is1H() || vd.Is4H() || vd.Is8H());
+  uint16_t rawbits = Float16ToRawbits(imm);
+  if (IsImmFP16(imm)) {
+    fmov(vd, imm);
+  } else {
+    if (vd.IsScalar()) {
+      if (rawbits == 0x0) {
+        fmov(vd, wzr);
+      } else {
+        // We can use movz instead of the literal pool.
+        UseScratchRegisterScope temps(this);
+        Register temp = temps.AcquireW();
+        Mov(temp, rawbits);
+        Fmov(vd, temp);
+      }
+    } else {
+      // TODO: consider NEON support for load literal.
+      Movi(vd, static_cast<uint64_t>(rawbits));
     }
   }
 }
@@ -2706,6 +2753,79 @@ void MacroAssembler::AnnotateInstrumentation(const char* marker_name) {
 }
 
 
+void MacroAssembler::SetSimulatorCPUFeatures(const CPUFeatures& features) {
+  ConfigureSimulatorCPUFeaturesHelper(features, kSetCPUFeaturesOpcode);
+}
+
+
+void MacroAssembler::EnableSimulatorCPUFeatures(const CPUFeatures& features) {
+  ConfigureSimulatorCPUFeaturesHelper(features, kEnableCPUFeaturesOpcode);
+}
+
+
+void MacroAssembler::DisableSimulatorCPUFeatures(const CPUFeatures& features) {
+  ConfigureSimulatorCPUFeaturesHelper(features, kDisableCPUFeaturesOpcode);
+}
+
+
+void MacroAssembler::ConfigureSimulatorCPUFeaturesHelper(
+    const CPUFeatures& features, DebugHltOpcode action) {
+  VIXL_ASSERT(allow_macro_instructions_);
+  VIXL_ASSERT(generate_simulator_code_);
+
+  typedef ConfigureCPUFeaturesElementType ElementType;
+  VIXL_ASSERT(CPUFeatures::kNumberOfFeatures <=
+              std::numeric_limits<ElementType>::max());
+
+  size_t count = features.Count();
+
+  size_t preamble_length = kConfigureCPUFeaturesListOffset;
+  size_t list_length = (count + 1) * sizeof(ElementType);
+  size_t padding_length = AlignUp(list_length, kInstructionSize) - list_length;
+
+  size_t total_length = preamble_length + list_length + padding_length;
+
+  // Check the overall code size as well as the size of each component.
+  ExactAssemblyScope guard_total(this, total_length);
+
+  {  // Preamble: the opcode itself.
+    ExactAssemblyScope guard_preamble(this, preamble_length);
+    hlt(action);
+  }
+  {  // A kNone-terminated list of features.
+    ExactAssemblyScope guard_list(this, list_length);
+    for (CPUFeatures::const_iterator it = features.begin();
+         it != features.end();
+         ++it) {
+      dc(static_cast<ElementType>(*it));
+    }
+    dc(static_cast<ElementType>(CPUFeatures::kNone));
+  }
+  {  // Padding for instruction alignment.
+    ExactAssemblyScope guard_padding(this, padding_length);
+    for (size_t size = 0; size < padding_length; size += sizeof(ElementType)) {
+      // The exact value is arbitrary.
+      dc(static_cast<ElementType>(CPUFeatures::kNone));
+    }
+  }
+}
+
+void MacroAssembler::SaveSimulatorCPUFeatures() {
+  VIXL_ASSERT(allow_macro_instructions_);
+  VIXL_ASSERT(generate_simulator_code_);
+  SingleEmissionCheckScope guard(this);
+  hlt(kSaveCPUFeaturesOpcode);
+}
+
+
+void MacroAssembler::RestoreSimulatorCPUFeatures() {
+  VIXL_ASSERT(allow_macro_instructions_);
+  VIXL_ASSERT(generate_simulator_code_);
+  SingleEmissionCheckScope guard(this);
+  hlt(kRestoreCPUFeaturesOpcode);
+}
+
+
 void UseScratchRegisterScope::Open(MacroAssembler* masm) {
   VIXL_ASSERT(masm_ == NULL);
   VIXL_ASSERT(masm != NULL);
@@ -2846,7 +2966,7 @@ void UseScratchRegisterScope::Exclude(const CPURegister& reg1,
 
   const CPURegister regs[] = {reg1, reg2, reg3, reg4};
 
-  for (unsigned i = 0; i < (sizeof(regs) / sizeof(regs[0])); i++) {
+  for (size_t i = 0; i < ArrayLength(regs); i++) {
     if (regs[i].IsRegister()) {
       exclude |= regs[i].GetBit();
     } else if (regs[i].IsFPRegister()) {

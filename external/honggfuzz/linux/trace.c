@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -48,14 +48,14 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "libcommon/common.h"
-#include "libcommon/files.h"
-#include "libcommon/log.h"
-#include "libcommon/util.h"
+#include "libhfcommon/common.h"
+#include "libhfcommon/files.h"
+#include "libhfcommon/log.h"
+#include "libhfcommon/util.h"
 #include "linux/bfd.h"
 #include "linux/unwind.h"
-#include "sancov.h"
 #include "sanitizers.h"
+#include "socketfuzzer.h"
 #include "subproc.h"
 
 #if defined(__ANDROID__)
@@ -348,7 +348,7 @@ static size_t arch_getProcMem(pid_t pid, uint8_t* buf, size_t len, REG_TYPE pc) 
     return memsz;
 }
 
-static size_t arch_getPC(pid_t pid, REG_TYPE* pc, REG_TYPE* status_reg UNUSED) {
+static size_t arch_getPC(pid_t pid, REG_TYPE* pc, REG_TYPE* status_reg HF_ATTR_UNUSED) {
 /*
  * Some old ARM android kernels are failing with PTRACE_GETREGS to extract
  * the correct register values if struct size is bigger than expected. As such the
@@ -361,7 +361,7 @@ static size_t arch_getPC(pid_t pid, REG_TYPE* pc, REG_TYPE* status_reg UNUSED) {
 #else
     HEADERS_STRUCT regs;
 #endif
-    struct iovec pt_iov = {
+    const struct iovec pt_iov = {
         .iov_base = &regs,
         .iov_len = sizeof(regs),
     };
@@ -574,7 +574,8 @@ static void arch_traceGenerateReport(
     util_ssnprintf(run->report, sizeof(run->report), "FAULT ADDRESS: %p\n",
         SI_FROMUSER(si) ? NULL : si->si_addr);
     util_ssnprintf(run->report, sizeof(run->report), "INSTRUCTION: %s\n", instr);
-    util_ssnprintf(run->report, sizeof(run->report), "STACK HASH: %016llx\n", run->backtrace);
+    util_ssnprintf(
+        run->report, sizeof(run->report), "STACK HASH: %016" PRIx64 "\n", run->backtrace);
     util_ssnprintf(run->report, sizeof(run->report), "STACK:\n");
     for (size_t i = 0; i < funcCnt; i++) {
 #ifdef __HF_USE_CAPSTONE__
@@ -586,7 +587,7 @@ static void arch_traceGenerateReport(
         else
             util_ssnprintf(run->report, sizeof(run->report), "[]\n");
 #else
-        util_ssnprintf(run->report, sizeof(run->report), " <" REG_PD REG_PM "> [%s():%u at %s]\n",
+        util_ssnprintf(run->report, sizeof(run->report), " <" REG_PD REG_PM "> [%s():%zu at %s]\n",
             (REG_TYPE)(long)funcs[i].pc, funcs[i].func, funcs[i].line, funcs[i].mapName);
 #endif
     }
@@ -615,7 +616,9 @@ static void arch_traceAnalyzeData(run_t* run, pid_t pid) {
      * Unwind and resolve symbols
      */
     funcs_t* funcs = util_Malloc(_HF_MAX_FUNCS * sizeof(funcs_t));
-    defer { free(funcs); };
+    defer {
+        free(funcs);
+    };
     memset(funcs, 0, _HF_MAX_FUNCS * sizeof(funcs_t));
 
 #if !defined(__ANDROID__)
@@ -665,8 +668,8 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
         si.si_signo, si.si_errno, si.si_code, si.si_addr, pc, instr);
 
     if (!SI_FROMUSER(&si) && pc && si.si_addr < run->global->linux.ignoreAddr) {
-        LOG_I("'%s' is interesting (%s), but the si.si_addr is %p (below %p), skipping",
-            run->fileName, arch_sigName(si.si_signo), si.si_addr, run->global->linux.ignoreAddr);
+        LOG_I("Input is interesting (%s), but the si.si_addr is %p (below %p), skipping",
+            arch_sigName(si.si_signo), si.si_addr, run->global->linux.ignoreAddr);
         return;
     }
 
@@ -674,7 +677,9 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
      * Unwind and resolve symbols
      */
     funcs_t* funcs = util_Malloc(_HF_MAX_FUNCS * sizeof(funcs_t));
-    defer { free(funcs); };
+    defer {
+        free(funcs);
+    };
     memset(funcs, 0, _HF_MAX_FUNCS * sizeof(funcs_t));
 
 #if !defined(__ANDROID__)
@@ -709,14 +714,6 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
      * Calculate backtrace callstack hash signature
      */
     arch_hashCallstack(run, funcs, funcCnt, saveUnique);
-
-    /*
-     * If fuzzing with sanitizer coverage feedback increase crashes counter used
-     * as metric for dynFile evolution
-     */
-    if (run->global->useSanCov) {
-        run->sanCovCnts.crashesCnt++;
-    }
 
     /*
      * If unique flag is set and single frame crash, disable uniqueness for this crash
@@ -762,8 +759,9 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
         /*
          * Check if stackhash is blacklisted
          */
-        if (run->global->blacklist && (fastArray64Search(run->global->blacklist,
-                                           run->global->blacklistCnt, run->backtrace) != -1)) {
+        if (run->global->feedback.blacklist &&
+            (fastArray64Search(run->global->feedback.blacklist, run->global->feedback.blacklistCnt,
+                 run->backtrace) != -1)) {
             LOG_I("Blacklisted stack hash '%" PRIx64 "', skipping", run->backtrace);
             ATOMIC_POST_INC(run->global->cnts.blCrashesCnt);
             return;
@@ -782,10 +780,10 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
     }
 
     /* If non-blacklisted crash detected, zero set two MSB */
-    ATOMIC_POST_ADD(run->global->dynFileIterExpire, _HF_DYNFILE_SUB_MASK);
+    ATOMIC_POST_ADD(run->global->cfg.dynFileIterExpire, _HF_DYNFILE_SUB_MASK);
 
     void* sig_addr = si.si_addr;
-    if (run->global->linux.disableRandomization == false) {
+    if (!run->global->linux.disableRandomization) {
         pc = 0UL;
         sig_addr = NULL;
     }
@@ -796,7 +794,7 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
     }
 
     /* If dry run mode, copy file with same name into workspace */
-    if (run->global->mutationsPerRun == 0U && run->global->useVerifier) {
+    if (run->global->mutate.mutationsPerRun == 0U && run->global->cfg.useVerifier) {
         snprintf(run->crashFileName, sizeof(run->crashFileName), "%s/%s", run->global->io.crashDir,
             run->origFileName);
     } else if (saveUnique) {
@@ -813,24 +811,34 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
             sig_addr, instr, localtmstr, pid, run->global->io.fileExtn);
     }
 
+    /* Target crashed (no duplicate detection yet) */
+    if (run->global->socketFuzzer.enabled) {
+        LOG_D("SocketFuzzer: trace: Crash Identified");
+    }
+
     if (files_exists(run->crashFileName)) {
-        LOG_I("It seems that '%s' already exists, skipping", run->crashFileName);
+        LOG_I("Crash (dup): '%s' already exists, skipping", run->crashFileName);
         // Clear filename so that verifier can understand we hit a duplicate
         memset(run->crashFileName, 0, sizeof(run->crashFileName));
         return;
     }
 
-    if (files_writeBufToFile(run->crashFileName, run->dynamicFile, run->dynamicFileSz,
-            O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC) == false) {
-        LOG_E("Couldn't copy '%s' to '%s'", run->fileName, run->crashFileName);
+    if (!files_writeBufToFile(run->crashFileName, run->dynamicFile, run->dynamicFileSz,
+            O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC)) {
+        LOG_E("Couldn't write to '%s'", run->crashFileName);
         return;
     }
 
-    LOG_I("Ok, that's interesting, saved '%s' as '%s'", run->fileName, run->crashFileName);
+    /* Unique new crash, notify fuzzer */
+    if (run->global->socketFuzzer.enabled) {
+        LOG_D("SocketFuzzer: trace: New Uniqu Crash");
+        fuzz_notifySocketFuzzerCrash(run);
+    }
+    LOG_I("Crash: saved as '%s'", run->crashFileName);
 
     ATOMIC_POST_INC(run->global->cnts.uniqueCrashesCnt);
     /* If unique crash found, reset dynFile counter */
-    ATOMIC_CLEAR(run->global->dynFileIterExpire);
+    ATOMIC_CLEAR(run->global->cfg.dynFileIterExpire);
 
     arch_traceGenerateReport(pid, run, funcs, funcCnt, &si, instr);
 }
@@ -848,8 +856,12 @@ static int arch_parseAsanReport(
         PLOG_D("Couldn't open '%s' - R/O mode", crashReport);
         return -1;
     }
-    defer { fclose(fReport); };
-    defer { unlink(crashReportCpy); };
+    defer {
+        fclose(fReport);
+    };
+    defer {
+        unlink(crashReportCpy);
+    };
 
     char header[35] = {0};
     snprintf(header, sizeof(header), "==%d==ERROR: AddressSanitizer:", pid);
@@ -862,14 +874,16 @@ static int arch_parseAsanReport(
 
     char *lineptr = NULL, *cAddr = NULL;
     size_t n = 0;
-    defer { free(lineptr); };
+    defer {
+        free(lineptr);
+    };
     for (;;) {
         if (getline(&lineptr, &n, fReport) == -1) {
             break;
         }
 
         /* First step is to identify header */
-        if (headerFound == false) {
+        if (!headerFound) {
             if ((strlen(lineptr) > headerSz) && (strncmp(header, lineptr, headerSz) == 0)) {
                 headerFound = true;
 
@@ -962,7 +976,6 @@ static void arch_traceExitSaveData(run_t* run, pid_t pid) {
     REG_TYPE pc = 0;
     void* crashAddr = 0;
     char* op = "UNKNOWN";
-    pid_t targetPid = (run->global->linux.pid > 0) ? run->global->linux.pid : run->pid;
 
     /* Save only the first hit for each worker */
     if (run->crashFileName[0] != '\0') {
@@ -971,24 +984,18 @@ static void arch_traceExitSaveData(run_t* run, pid_t pid) {
 
     /* Increase global crashes counter */
     ATOMIC_POST_INC(run->global->cnts.crashesCnt);
-    ATOMIC_POST_AND(run->global->dynFileIterExpire, _HF_DYNFILE_SUB_MASK);
-
-    /*
-     * If fuzzing with sanitizer coverage feedback increase crashes counter used
-     * as metric for dynFile evolution
-     */
-    if (run->global->useSanCov) {
-        run->sanCovCnts.crashesCnt++;
-    }
+    ATOMIC_POST_AND(run->global->cfg.dynFileIterExpire, _HF_DYNFILE_SUB_MASK);
 
     /* If sanitizer produces reports with stack traces (e.g. ASan), they're parsed manually */
     int funcCnt = 0;
     funcs_t* funcs = util_Malloc(_HF_MAX_FUNCS * sizeof(funcs_t));
-    defer { free(funcs); };
+    defer {
+        free(funcs);
+    };
     memset(funcs, 0, _HF_MAX_FUNCS * sizeof(funcs_t));
 
     /* Sanitizers save reports against parent PID */
-    if (targetPid != pid) {
+    if (run->pid != pid) {
         return;
     }
     funcCnt = arch_parseAsanReport(run, pid, funcs, &crashAddr, &op);
@@ -1005,8 +1012,8 @@ static void arch_traceExitSaveData(run_t* run, pid_t pid) {
 
     /* Since crash address is available, apply ignoreAddr filters */
     if (crashAddr < run->global->linux.ignoreAddr) {
-        LOG_I("'%s' is interesting, but the crash addr is %p (below %p), skipping", run->fileName,
-            crashAddr, run->global->linux.ignoreAddr);
+        LOG_I("Input is interesting, but the crash addr is %p (below %p), skipping", crashAddr,
+            run->global->linux.ignoreAddr);
         return;
     }
 
@@ -1017,15 +1024,16 @@ static void arch_traceExitSaveData(run_t* run, pid_t pid) {
     /*
      * Check if stackhash is blacklisted
      */
-    if (run->global->blacklist && (fastArray64Search(run->global->blacklist,
-                                       run->global->blacklistCnt, run->backtrace) != -1)) {
+    if (run->global->feedback.blacklist &&
+        (fastArray64Search(run->global->feedback.blacklist, run->global->feedback.blacklistCnt,
+             run->backtrace) != -1)) {
         LOG_I("Blacklisted stack hash '%" PRIx64 "', skipping", run->backtrace);
         ATOMIC_POST_INC(run->global->cnts.blCrashesCnt);
         return;
     }
 
     /* If dry run mode, copy file with same name into workspace */
-    if (run->global->mutationsPerRun == 0U && run->global->useVerifier) {
+    if (run->global->mutate.mutationsPerRun == 0U && run->global->cfg.useVerifier) {
         snprintf(run->crashFileName, sizeof(run->crashFileName), "%s/%s", run->global->io.crashDir,
             run->origFileName);
     } else {
@@ -1046,47 +1054,50 @@ static void arch_traceExitSaveData(run_t* run, pid_t pid) {
         }
     }
 
-    bool dstFileExists = false;
-    if (files_copyFile(run->fileName, run->crashFileName, &dstFileExists, true /* try_link */)) {
-        LOG_I("Ok, that's interesting, saved '%s' as '%s'", run->fileName, run->crashFileName);
-
-        /* Increase unique crashes counters */
-        ATOMIC_POST_INC(run->global->cnts.uniqueCrashesCnt);
-        ATOMIC_CLEAR(run->global->dynFileIterExpire);
+    int fd = open(run->crashFileName, O_WRONLY | O_EXCL | O_CREAT, 0600);
+    if (fd == -1 && errno == EEXIST) {
+        LOG_I("It seems that '%s' already exists, skipping", run->crashFileName);
+        return;
+    } else if (fd == -1) {
+        PLOG_E("Cannot create output file '%s'", run->crashFileName);
+        return;
     } else {
-        if (dstFileExists) {
-            LOG_I("It seems that '%s' already exists, skipping", run->crashFileName);
-
+        defer {
+            close(fd);
+        };
+        if (files_writeToFd(fd, run->dynamicFile, run->dynamicFileSz)) {
+            LOG_I("Ok, that's interesting, saved new crash as '%s'", run->crashFileName);
             /* Clear stack hash so that verifier can understand we hit a duplicate */
             run->backtrace = 0ULL;
+            /* Increase unique crashes counters */
+            ATOMIC_POST_INC(run->global->cnts.uniqueCrashesCnt);
+            ATOMIC_CLEAR(run->global->cfg.dynFileIterExpire);
         } else {
-            LOG_E("Couldn't copy '%s' to '%s'", run->fileName, run->crashFileName);
-
+            LOG_E("Couldn't save crash to '%s'", run->crashFileName);
             /* In case of write error, clear crashFileName to so that other monitored TIDs can retry
              */
             memset(run->crashFileName, 0, sizeof(run->crashFileName));
+            return;
         }
-
-        /* Don't bother generating reports for duplicate or non-saved crashes */
-        return;
     }
 
     /* Generate report */
     run->report[0] = '\0';
-    util_ssnprintf(run->report, sizeof(run->report), "EXIT_CODE: %s\n", HF_SAN_EXIT_CODE);
+    util_ssnprintf(run->report, sizeof(run->report), "EXIT_CODE: %d\n", HF_SAN_EXIT_CODE);
     util_ssnprintf(run->report, sizeof(run->report), "ORIG_FNAME: %s\n", run->origFileName);
     util_ssnprintf(run->report, sizeof(run->report), "FUZZ_FNAME: %s\n", run->crashFileName);
     util_ssnprintf(run->report, sizeof(run->report), "PID: %d\n", pid);
     util_ssnprintf(run->report, sizeof(run->report), "OPERATION: %s\n", op);
     util_ssnprintf(run->report, sizeof(run->report), "FAULT ADDRESS: %p\n", crashAddr);
     if (funcCnt > 0) {
-        util_ssnprintf(run->report, sizeof(run->report), "STACK HASH: %016llx\n", run->backtrace);
+        util_ssnprintf(
+            run->report, sizeof(run->report), "STACK HASH: %016" PRIx64 "\n", run->backtrace);
         util_ssnprintf(run->report, sizeof(run->report), "STACK:\n");
         for (int i = 0; i < funcCnt; i++) {
             util_ssnprintf(run->report, sizeof(run->report), " <" REG_PD REG_PM "> ",
                 (REG_TYPE)(long)funcs[i].pc);
             if (funcs[i].mapName[0] != '\0') {
-                util_ssnprintf(run->report, sizeof(run->report), "[%s + 0x%x]\n", funcs[i].mapName,
+                util_ssnprintf(run->report, sizeof(run->report), "[%s + 0x%zx]\n", funcs[i].mapName,
                     funcs[i].line);
             } else {
                 util_ssnprintf(run->report, sizeof(run->report), "[]\n");
@@ -1100,7 +1111,9 @@ static void arch_traceExitAnalyzeData(run_t* run, pid_t pid) {
     char* op = "UNKNOWN";
     int funcCnt = 0;
     funcs_t* funcs = util_Malloc(_HF_MAX_FUNCS * sizeof(funcs_t));
-    defer { free(funcs); };
+    defer {
+        free(funcs);
+    };
     memset(funcs, 0, _HF_MAX_FUNCS * sizeof(funcs_t));
 
     funcCnt = arch_parseAsanReport(run, pid, funcs, &crashAddr, &op);
@@ -1236,11 +1249,13 @@ static bool arch_listThreads(int tasks[], size_t thrSz, int pid) {
         PLOG_E("Couldn't open dir '%s'", path);
         return false;
     }
-    defer { closedir(dir); };
+    defer {
+        closedir(dir);
+    };
 
     for (;;) {
         errno = 0;
-        struct dirent* res = readdir(dir);
+        const struct dirent* res = readdir(dir);
         if (res == NULL && errno != 0) {
             PLOG_E("Couldn't read contents of '%s'", path);
             return false;
@@ -1291,7 +1306,7 @@ bool arch_traceWaitForPidStop(pid_t pid) {
 }
 
 #define MAX_THREAD_IN_TASK 4096
-bool arch_traceAttach(run_t* run, pid_t pid) {
+bool arch_traceAttach(run_t* run) {
 /*
  * It should be present since, at least, Linux kernel 3.8, but
  * not always defined in kernel-headers
@@ -1299,47 +1314,45 @@ bool arch_traceAttach(run_t* run, pid_t pid) {
 #if !defined(PTRACE_O_EXITKILL)
 #define PTRACE_O_EXITKILL (1 << 20)
 #endif /* !defined(PTRACE_O_EXITKILL) */
-    long seize_options = PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK;
-    if (run->global->linux.pid == 0) {
-        seize_options |= PTRACE_O_EXITKILL;
-    }
+    long seize_options =
+        PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL;
     /* The event is only used with sanitizers */
-    if (run->global->enableSanitizers) {
+    if (run->global->sanitizer.enable) {
         seize_options |= PTRACE_O_TRACEEXIT;
     }
 
-    if (run->global->linux.pid == 0 && arch_traceWaitForPidStop(pid) == false) {
+    if (!arch_traceWaitForPidStop(run->pid)) {
         return false;
     }
 
-    if (ptrace(PTRACE_SEIZE, pid, NULL, seize_options) == -1) {
-        PLOG_W("Couldn't ptrace(PTRACE_SEIZE) to pid: %d", pid);
+    if (ptrace(PTRACE_SEIZE, run->pid, NULL, seize_options) == -1) {
+        PLOG_W("Couldn't ptrace(PTRACE_SEIZE) to pid: %d", (int)run->pid);
         return false;
     }
 
-    LOG_D("Attached to PID: %d", pid);
-
-    /* It only makes sense to attach to threads with -p */
-    if (run->global->linux.pid == 0) {
-        return true;
-    }
+    LOG_D("Attached to PID: %d", (int)run->pid);
 
     int tasks[MAX_THREAD_IN_TASK + 1] = {0};
-    if (!arch_listThreads(tasks, MAX_THREAD_IN_TASK, pid)) {
-        LOG_E("Couldn't read thread list for pid '%d'", pid);
+    if (!arch_listThreads(tasks, MAX_THREAD_IN_TASK, run->pid)) {
+        LOG_E("Couldn't read thread list for pid '%d'", run->pid);
         return false;
     }
 
     for (int i = 0; i < MAX_THREAD_IN_TASK && tasks[i]; i++) {
-        if (tasks[i] == pid) {
+        if (tasks[i] == run->pid) {
             continue;
         }
         if (ptrace(PTRACE_SEIZE, tasks[i], NULL, seize_options) == -1) {
             PLOG_W("Couldn't ptrace(PTRACE_SEIZE) to pid: %d", tasks[i]);
             continue;
         }
-        LOG_D("Attached to PID: %d (thread_group:%d)", tasks[i], pid);
+        LOG_D("Attached to PID: %d (thread_group:%d)", tasks[i], run->pid);
     }
+
+    if (ptrace(PTRACE_CONT, run->pid, NULL, NULL) == -1) {
+        PLOG_W("ptrace(PTRACE_CONT) to pid: %d", (int)run->pid);
+    }
+
     return true;
 }
 
@@ -1364,7 +1377,7 @@ void arch_traceDetach(pid_t pid) {
 
 void arch_traceSignalsInit(honggfuzz_t* hfuzz) {
     /* Default is true for all platforms except Android */
-    arch_sigs[SIGABRT].important = hfuzz->monitorSIGABRT;
+    arch_sigs[SIGABRT].important = hfuzz->cfg.monitorSIGABRT;
 
     /* Default is false */
     arch_sigs[SIGVTALRM].important = hfuzz->timing.tmoutVTALRM;

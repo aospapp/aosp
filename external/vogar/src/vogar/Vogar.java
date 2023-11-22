@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.LinkedHashSet;
 
+import vogar.android.AdbChrootTarget;
 import vogar.android.AdbTarget;
 import vogar.android.AndroidSdk;
 import vogar.android.DeviceFileCache;
@@ -64,10 +65,13 @@ public final class Vogar {
     ModeId modeId = ModeId.DEVICE;
 
     @Option(names = { "--variant" })
-    Variant variant = Variant.X32;
+    Variant variant = Variant.DEFAULT;
 
     @Option(names = { "--ssh" })
     private String sshHost;
+
+    @Option(names = { "--chroot" })
+    private String chrootDir;
 
     @Option(names = { "--timeout" })
     int timeoutSeconds = 60; // default is one minute;
@@ -218,17 +222,18 @@ public final class Vogar {
         System.out.println();
         System.out.println("GENERAL OPTIONS");
         System.out.println();
-        System.out.println("  --mode <ACTIVITY|APP_PROCESS|DEVICE|HOST|JVM>: specify which environment to run in.");
+        System.out.println("  --mode <ACTIVITY|APP_PROCESS|DEVICE|DEVICE_TESTDEX|HOST|JVM>: specify which environment to run in.");
         System.out.println("      ACTIVITY: runs in an Android application on a device or emulator");
         System.out.println("      APP_PROCESS: runs in an app_process runtime on a device or emulator");
         System.out.println("      DEVICE: runs in an ART runtime on a device or emulator");
+        System.out.println("      DEVICE_TESTDEX: like DEVICE but compiles with -testdex bootclasspath jars");
         System.out.println("      HOST: runs in an ART runtime on the local desktop built with any lunch combo.");
         System.out.println("      JVM: runs in a Java VM on the local desktop");
         System.out.println("      Default is: " + modeId);
         System.out.println();
-        System.out.println("  --variant <X32|X64>: specify which dalvikvm variant to execute with");
-        System.out.println("      Used with --mode <host|device> only, not applicable for all devices.");
-        System.out.println("      x32: 32-bit, x64: 64-bit");
+        System.out.println("  --variant <DEFAULT|X32|X64>: specify which dalvikvm (or other) variant to execute with");
+        System.out.println("      Used with --mode <HOST|DEVICE|DEVICE_TESTDEX> only, not applicable for all devices.");
+        System.out.println("      DEFAULT: default (or N/A), X32: 32-bit, X64: 64-bit");
         System.out.println("      Default is: " + variant);
         System.out.println();
         System.out.println("  --toolchain <DX|D8|JAVAC>: Which toolchain to use.");
@@ -239,6 +244,9 @@ public final class Vogar {
         System.out.println("      Default is: " + language);
         System.out.println();
         System.out.println("  --ssh <host:port>: target a remote machine via SSH.");
+        System.out.println();
+        System.out.println("  --chroot <dir>: target a chroot dir on device");
+        System.out.println("      Only works with --mode device.");
         System.out.println();
         System.out.println("  --clean: synonym for --clean-before and --clean-after (default).");
         System.out.println("      Disable with --no-clean if you want no files removed.");
@@ -452,6 +460,11 @@ public final class Vogar {
             return false;
         }
 
+        if (chrootDir != null && !modeId.supportsChroot()) {
+            System.out.println("Chroot-based execution not supported for mode " + modeId);
+            return false;
+        }
+
         if (xmlReportsDirectory != null && !xmlReportsDirectory.isDirectory()) {
             System.out.println("Invalid XML reports directory: " + xmlReportsDirectory);
             return false;
@@ -543,6 +556,7 @@ public final class Vogar {
      */
     private enum TargetType {
         ADB(AdbTarget.defaultDeviceDir()),
+        ADB_CHROOT(AdbChrootTarget.defaultDeviceDir()),
         LOCAL(LocalTarget.defaultDeviceDir()),
         SSH(SshTarget.defaultDeviceDir());
 
@@ -580,6 +594,8 @@ public final class Vogar {
             targetType = TargetType.SSH;
         } else if (modeId.isLocal()) {
             targetType = TargetType.LOCAL;
+        } else if (chrootDir != null) {
+            targetType = TargetType.ADB_CHROOT;
         } else {
             targetType = TargetType.ADB;
         }
@@ -591,12 +607,27 @@ public final class Vogar {
         // Create the target.
         Target target;
         switch (targetType) {
-            case ADB:
-                DeviceFilesystem deviceFilesystem =
-                        new DeviceFilesystem(console, ImmutableList.of("adb", "shell"));
-                DeviceFileCache deviceFileCache =
-                        new DeviceFileCache(console, runnerDir, deviceFilesystem);
-                target = new AdbTarget(console, deviceFilesystem, deviceFileCache);
+            case ADB: {
+                    ImmutableList<String> targetProcessPrefix = ImmutableList.of("adb", "shell");
+                    DeviceFilesystem deviceFilesystem =
+                            new DeviceFilesystem(console, targetProcessPrefix);
+                    DeviceFileCache deviceFileCache =
+                            new DeviceFileCache(console, runnerDir, deviceFilesystem);
+                    target = new AdbTarget(console, deviceFilesystem, deviceFileCache);
+                }
+                break;
+            case ADB_CHROOT: {
+                    ImmutableList<String> targetProcessPrefix = ImmutableList.of("adb", "shell");
+                    DeviceFilesystem deviceFilesystem =
+                            new DeviceFilesystem(console, targetProcessPrefix);
+                    // Directory `runnerDir` is relative to the chroot; `runnerDirInRoot` is its
+                    // counterpart relative to the device's filesystem "absolute" root.
+                    File runnerDirInRoot = new File(chrootDir + "/" + runnerDir.getPath());
+                    DeviceFileCache deviceFileCache =
+                            new DeviceFileCache(console, runnerDirInRoot, deviceFilesystem);
+                    target =
+                        new AdbChrootTarget(console, deviceFilesystem, deviceFileCache, chrootDir);
+                }
                 break;
             case SSH:
                 target = new SshTarget(console, sshHost);

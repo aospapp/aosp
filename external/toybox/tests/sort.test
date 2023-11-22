@@ -7,16 +7,16 @@
 
 # The basic tests.  These should work even with the small config.
 
+testing "unknown argument" 'sort --oops 2>/dev/null ; echo $?' "2\n" "" ""
 testing "sort" "sort input" "a\nb\nc\n" "c\na\nb\n" ""
 testing "#2" "sort input" "010\n1\n3\n" "3\n1\n010\n" ""
 testing "stdin" "sort" "a\nb\nc\n" "" "b\na\nc\n"
 testing "numeric" "sort -n input" "1\n3\n010\n" "3\n1\n010\n" ""
 testing "reverse" "sort -r input" "wook\nwalrus\npoint\npabst\naargh\n" \
 	"point\nwook\npabst\naargh\nwalrus\n" ""
+testing "sort -o" "sort input -o output && cat output" "a\nb\nc\n" "c\na\nb\n" ""
+testing "sort -o same" "sort input -o input && cat input" "a\nb\nc\n" "c\na\nb\n" ""
 
-# These tests require the full option set.
-
-optional SORT_BIG
 # Longish chunk of data re-used by the next few tests.  The expected output
 # varies, but the input (this) is the same.
 
@@ -95,9 +95,12 @@ testing "-x" "sort -x" "010\na0\n 0c0\n" "" "a0\n010\n 0c0\n"
 testing "" "sort -k2,2f" "A b b\na B C\na B a\n" "" "a B a\nA b b\na B C\n"
 testing "" "sort -k2,2" "a B C\na B a\nA b b\n" "" "a B a\nA b b\na B C\n"
 testing "" "sort -f -k2,2" "A b b\na B C\na B a\n" "" "a B a\nA b b\na B C\n" 
-
 testing "" "sort -t, -k3n" "3,4,1,2\n4,1,2,3\n1,2,3,4\n2,3,4,1\n" "" \
   "1,2,3,4\n2,3,4,1\n4,1,2,3\n3,4,1,2\n"
+testing "-kx" "sort -k1,1x" "3\na\n0c\n" "" "0c\na\n3\n"
+
+testing "" "sort -V" "toy-2.37.tar.gz\ntoy-3.4.tar.gz\ntoy-3.12.tar.gz\ntoy-4.16-rc2.tar.gz\ntoy-4.16.tar.gz\n" "" \
+  "toy-3.12.tar.gz\ntoy-2.37.tar.gz\ntoy-3.4.tar.gz\ntoy-4.16-rc2.tar.gz\ntoy-4.16.tar.gz"
 
 optional SORT_FLOAT
 
@@ -105,5 +108,3 @@ optional SORT_FLOAT
 testing "-g" "sort -g" \
   "bork\nNaN\n-inf\n0.4\n1.222\n01.37\n2.1\n+infinity\n" "" \
   "01.37\n1.222\n2.1\n0.4\nNaN\nbork\n-inf\n+infinity\n"
-
-

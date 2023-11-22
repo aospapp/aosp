@@ -69,6 +69,9 @@ if ($cmd == 'subrem-add-user' && $id > 0) {
 if ($cmd == 'subrem-add-machine' && $id > 0) {
 	$db->exec("UPDATE users SET remediation='machine' WHERE rowid=$id");
 }
+if ($cmd == 'subrem-add-reenroll' && $id > 0) {
+	$db->exec("UPDATE users SET remediation='reenroll' WHERE rowid=$id");
+}
 if ($cmd == 'subrem-add-policy' && $id > 0) {
 	$db->exec("UPDATE users SET remediation='policy' WHERE rowid=$id");
 }
@@ -105,6 +108,10 @@ if ($cmd == "set-osu-cred" && $id > 0) {
   if (strlen($osu_user) == 0)
     $osu_password = "";
   $db->exec("UPDATE users SET osu_user='$osu_user', osu_password='$osu_password' WHERE rowid=$id");
+}
+
+if ($cmd == 'clear-t-c' && $id > 0) {
+	$db->exec("UPDATE users SET t_c_timestamp=NULL WHERE rowid=$id");
 }
 
 $dump = 0;
@@ -168,6 +175,10 @@ if ($rem == "") {
 		   $row['rowid'] . "\">add:user</a>]";
 	echo " [<a href=\"users.php?cmd=subrem-add-machine&id=" .
 		   $row['rowid'] . "\">add:machine</a>]";
+	if ($row['methods'] == 'TLS') {
+		echo " [<a href=\"users.php?cmd=subrem-add-reenroll&id=" .
+			   $row['rowid'] . "\">add:reenroll</a>]";
+	}
 	echo " [<a href=\"users.php?cmd=subrem-add-policy&id=" .
 		   $row['rowid'] . "\">add:policy</a>]";
 	echo " [<a href=\"users.php?cmd=subrem-add-free&id=" .
@@ -181,11 +192,17 @@ if ($rem == "") {
 } else if ($rem == "free") {
 	echo "Free [<a href=\"users.php?cmd=subrem-clear&id=" .
 		       $row['rowid'] . "\">clear</a>]";
+} else if ($rem == "reenroll") {
+	echo "Reenroll [<a href=\"users.php?cmd=subrem-clear&id=" .
+		       $row['rowid'] . "\">clear</a>]";
 } else  {
 	echo "Machine [<a href=\"users.php?cmd=subrem-clear&id=" .
 			  $row['rowid'] . "\">clear</a>]";
 }
 echo "<br>\n";
+
+if (strncmp($row['identity'], "cert-", 5) != 0)
+   echo "Machine managed: " . ($row['machine_managed'] == "1" ? "TRUE" : "FALSE") . "<br>\n";
 
 echo "<form>Policy: <select name=\"policy\" " .
 	"onChange=\"window.location='users.php?cmd=policy&id=" .
@@ -233,6 +250,13 @@ echo "username: <input type=\"text\" name=\"osu_user\" value=\"" .
 echo "password: <input type=\"password\" name=\"osu_password\">\n";
 echo "<input type=\"submit\" value=\"Set OSU credentials\">\n";
 echo "</form>\n";
+
+if (strlen($row['t_c_timestamp']) > 0) {
+	echo "<br>\n";
+	echo "<a href=\"users.php?cmd=clear-t-c&id=" .
+		$row['rowid'] .
+		"\">Clear Terms and Conditions acceptance</a><br>\n";
+}
 
 echo "<hr>\n";
 
@@ -302,10 +326,10 @@ if ($id == 0 && $cmd != 'eventlog') {
 echo "[<a href=\"users.php?cmd=eventlog&limit=50\">Eventlog</a>] ";
 echo "<br>\n";
 
-echo "<table border=1>\n";
-echo "<tr><th>User<th>Realm<th>Remediation<th>Policy<th>Account type<th>Phase 2 method(s)<th>DevId\n";
+echo "<table border=1 cellspacing=0 cellpadding=0>\n";
+echo "<tr><th>User<th>Realm<th><small>Remediation</small><th>Policy<th><small>Account type</small><th><small>Phase 2 method(s)</small><th>DevId<th>MAC Address<th>T&C\n";
 
-$res = $db->query('SELECT rowid,* FROM users WHERE phase2=1');
+$res = $db->query('SELECT rowid,* FROM users WHERE (phase2=1 OR methods=\'TLS\') ORDER BY identity');
 foreach ($res as $row) {
 	echo "<tr><td><a href=\"users.php?id=" . $row['rowid'] . "\"> " .
 	    $row['identity'] . " </a>";
@@ -313,13 +337,15 @@ foreach ($res as $row) {
 	$rem = $row['remediation'];
 	echo "<td>";
 	if ($rem == "") {
-		echo "Not required";
+		echo "-";
 	} else if ($rem == "user") {
 		echo "User";
 	} else if ($rem == "policy") {
 		echo "Policy";
 	} else if ($rem == "free") {
 		echo "Free";
+	} else if ($rem == "reenroll") {
+		echo "Reenroll";
 	} else  {
 		echo "Machine";
 	}
@@ -328,16 +354,18 @@ foreach ($res as $row) {
 	  echo "<td>shared";
 	else
 	  echo "<td>default";
-	echo "<td>" . $row['methods'];
+	echo "<td><small>" . $row['methods'] . "</small>";
 	echo "<td>";
 	$xml = xml_parser_create();
 	xml_parse_into_struct($xml, $row['devinfo'], $devinfo);
 	foreach($devinfo as $k) {
 	  if ($k['tag'] == 'DEVID') {
-	    echo $k['value'];
+	    echo "<small>" . $k['value'] . "</small>";
 	    break;
 	  }
 	}
+	echo "<td><small>" . $row['mac_addr'] . "</small>";
+	echo "<td><small>" . $row['t_c_timestamp'] . "</small>";
 	echo "\n";
 }
 echo "</table>\n";

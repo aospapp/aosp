@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2008 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,54 +18,52 @@ package com.google.inject.internal;
 
 import com.google.inject.spi.Dependency;
 
-/**
- * Resolves a single parameter, to be used in a constructor or method invocation.
- */
+/** Resolves a single parameter, to be used in a constructor or method invocation. */
 final class SingleParameterInjector<T> {
-  private static final Object[] NO_ARGUMENTS = {}; 
+  private static final Object[] NO_ARGUMENTS = {};
 
   private final Dependency<T> dependency;
-  private final BindingImpl<? extends T> binding;
+
+  private final Object source;
+
+  private final InternalFactory<? extends T> factory;
 
   SingleParameterInjector(Dependency<T> dependency, BindingImpl<? extends T> binding) {
     this.dependency = dependency;
-    this.binding = binding;
+    this.source = binding.getSource();
+    this.factory = binding.getInternalFactory();
   }
 
-  private T inject(Errors errors, InternalContext context) throws ErrorsException {
-    Dependency previous = context.pushDependency(dependency, binding.getSource());
+  T inject(InternalContext context) throws InternalProvisionException {
+    Dependency<T> localDependency = dependency;
+    Dependency previous = context.pushDependency(localDependency, source);
+
     try {
-      return binding.getInternalFactory().get(errors.withSource(dependency), context, dependency, false);
-    } finally {
-      context.popStateAndSetDependency(previous);
+      return factory.get(context, localDependency, false);
+    } catch (InternalProvisionException ipe) {
+      throw ipe.addSource(localDependency);
+      } finally {
+        context.popStateAndSetDependency(previous);
+
     }
   }
 
-  /**
-   * Returns an array of parameter values.
-   */
-  static Object[] getAll(Errors errors, InternalContext context,
-      SingleParameterInjector<?>[] parameterInjectors) throws ErrorsException {
+  // TODO(lukes): inline into callers to decrease stack depth
+
+  /** Returns an array of parameter values. */
+  static Object[] getAll(InternalContext context, SingleParameterInjector<?>[] parameterInjectors)
+      throws InternalProvisionException {
     if (parameterInjectors == null) {
       return NO_ARGUMENTS;
     }
 
-    int numErrorsBefore = errors.size();
-
     int size = parameterInjectors.length;
     Object[] parameters = new Object[size];
 
-    // optimization: use manual for/each to save allocating an iterator here  
+    // optimization: use manual for/each to save allocating an iterator here
     for (int i = 0; i < size; i++) {
-      SingleParameterInjector<?> parameterInjector = parameterInjectors[i];
-      try {
-        parameters[i] = parameterInjector.inject(errors, context);
-      } catch (ErrorsException e) {
-        errors.merge(e.getErrors());
-      }
+      parameters[i] = parameterInjectors[i].inject(context);
     }
-
-    errors.throwIfNewErrors(numErrorsBefore);
     return parameters;
   }
 }

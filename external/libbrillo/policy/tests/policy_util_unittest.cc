@@ -20,9 +20,9 @@ TEST(DevicePolicyUtilTest, LoadPolicyFromPath) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
-  base::FilePath invalid_policy_data_path(temp_dir.path().Append("policy"));
-  base::FilePath inexistent_file(temp_dir.path().Append("policy.1"));
-  base::FilePath good_policy_data_path(temp_dir.path().Append("policy.2"));
+  base::FilePath invalid_policy_data_path(temp_dir.GetPath().Append("policy"));
+  base::FilePath inexistent_file(temp_dir.GetPath().Append("policy.1"));
+  base::FilePath good_policy_data_path(temp_dir.GetPath().Append("policy.2"));
 
   // Create the file with invalid data.
   std::string data = "invalid data";

@@ -7,8 +7,6 @@
  * Our "unspecified" behavior for no paths is to use "."
  * Parentheses can only stack 4096 deep
  * Not treating two {} as an error, but only using last
- *
- * TODO: -empty (dirs too!)
 
 USE_FIND(NEWTOY(find, "?^HL[-HL]", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -35,7 +33,8 @@ config FIND
     -newer FILE     newer mtime than FILE     -mindepth # at least # dirs down
     -depth          ignore contents of dir    -maxdepth # at most # dirs down
     -inum  N        inode number N            -empty      empty files and dirs
-    -type [bcdflps] (block, char, dir, file, symlink, pipe, socket)
+    -type [bcdflps]   (block, char, dir, file, symlink, pipe, socket)
+    -context PATTERN  security context
 
     Numbers N may be prefixed by a - (less than) or + (greater than). Units for
     -Xtime are d (days, default), h (hours), m (minutes), or s (seconds).
@@ -191,7 +190,7 @@ static void execdir(struct dirtree *new, int flush)
       aa->execdir = bb;
     }
   }
-} 
+}
 
 // Call this with 0 for first pass argument parsing and syntax checking (which
 // populates argdata). Later commands traverse argdata (in order) when they
@@ -304,6 +303,22 @@ static int do_find(struct dirtree *new)
       print++;
       if (check) do_print(new, s[5] ? 0 : '\n');
 
+    } else if (!strcmp(s, "empty")) {
+      if (check) {
+        // Alas neither st_size nor st_blocks reliably show an empty directory
+        if (S_ISDIR(new->st.st_mode)) {
+          int fd = openat(dirtree_parentfd(new), new->name, O_RDONLY);
+          DIR *dfd = fdopendir(fd);
+          struct dirent *de = (void *)1;
+          if (dfd) {
+            while ((de = readdir(dfd)) && isdotdot(de->d_name));
+            closedir(dfd);
+          }
+          if (de) test = 0;
+        } else if (S_ISREG(new->st.st_mode)) {
+          if (new->st.st_size) test = 0;
+        } else test = 0;
+      }
     } else if (!strcmp(s, "nouser")) {
       if (check) if (bufgetpwuid(new->st.st_uid)) test = 0;
     } else if (!strcmp(s, "nogroup")) {
@@ -314,13 +329,14 @@ static int do_find(struct dirtree *new)
     // Remaining filters take an argument
     } else {
       if (!strcmp(s, "name") || !strcmp(s, "iname")
+        || !strcmp(s, "wholename") || !strcmp(s, "iwholename")
         || !strcmp(s, "path") || !strcmp(s, "ipath"))
       {
-        int i = (*s == 'i');
+        int i = (*s == 'i'), is_path = (s[i] != 'n');
         char *arg = ss[1], *path = 0, *name = new ? new->name : arg;
 
         // Handle path expansion and case flattening
-        if (new && s[i] == 'p') name = path = dirtree_path(new, 0);
+        if (new && is_path) name = path = dirtree_path(new, 0);
         if (i) {
           if ((check || !new) && name) name = strlower(name);
           if (!new) dlist_add(&TT.argdata, name);
@@ -328,10 +344,20 @@ static int do_find(struct dirtree *new)
         }
 
         if (check) {
-          test = !fnmatch(arg, name, FNM_PATHNAME*(s[i] == 'p'));
+          test = !fnmatch(arg, name, FNM_PATHNAME*(!is_path));
           if (i) free(name);
         }
         free(path);
+      } else if (!CFG_TOYBOX_LSM_NONE && !strcmp(s, "context")) {
+        if (check) {
+          char *path = dirtree_path(new, 0), *context;
+
+          if (lsm_get_context(path, &context) != -1) {
+            test = !fnmatch(ss[1], context, 0);
+            free(context);
+          } else test = 0;
+          free(path);
+        }
       } else if (!strcmp(s, "perm")) {
         if (check) {
           char *m = ss[1];
@@ -370,13 +396,11 @@ static int do_find(struct dirtree *new)
           if (copy != ss[1]) free(copy);
         }
       } else if (!strcmp(s, "size")) {
-        if (check)
-          test = compare_numsign(new->st.st_size, 512, ss[1]);
+        if (check) test = compare_numsign(new->st.st_size, 512, ss[1]);
       } else if (!strcmp(s, "links")) {
         if (check) test = compare_numsign(new->st.st_nlink, 0, ss[1]);
       } else if (!strcmp(s, "inum")) {
-        if (check)
-          test = compare_numsign(new->st.st_ino, 0, ss[1]);
+        if (check) test = compare_numsign(new->st.st_ino, 0, ss[1]);
       } else if (!strcmp(s, "mindepth") || !strcmp(s, "maxdepth")) {
         if (check) {
           struct dirtree *dt = new;
@@ -500,13 +524,13 @@ static int do_find(struct dirtree *new)
             aa->prev = (void *)1;
 
             // Flush if the child's environment space gets too large.
-            // An insanely long path (>2 gigs) could wrap the counter and
-            // defeat this test, which could potentially trigger OOM killer.
+            // Linux caps individual arguments/variables at 131072 bytes,
+            // so this counter can't wrap.
             if ((aa->plus += sizeof(char *)+strlen(name)+1) > TT.max_bytes) {
               aa->plus = 1;
               toys.exitval |= flush_exec(new, aa);
             }
-          } else test = flush_exec(new, aa);
+          } else test = !flush_exec(new, aa);
         }
 
         // Argument consumed, skip the check.
@@ -529,7 +553,7 @@ cont:
     if (!print && test) do_print(new, '\n');
 
     if (S_ISDIR(new->st.st_mode)) execdir(new, 0);
- 
+
   } else dlist_terminate(TT.argdata);
 
   return recurse;

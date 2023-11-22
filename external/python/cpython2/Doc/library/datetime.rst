@@ -1323,7 +1323,7 @@ Instance methods:
 
 Example:
 
-    >>> from datetime import time, tzinfo
+    >>> from datetime import time, tzinfo, timedelta
     >>> class GMT1(tzinfo):
     ...     def utcoffset(self, dt):
     ...         return timedelta(hours=1)
@@ -1566,7 +1566,7 @@ EST (fixed offset -5 hours), or only EDT (fixed offset -4 hours)).
 
 .. seealso::
 
-   `pytz <https://pypi.python.org/pypi/pytz/>`_
+   `pytz <https://pypi.org/project/pytz/>`_
       The standard library has no :class:`tzinfo` instances, but
       there exists a third-party library which brings the *IANA timezone
       database* (also known as the Olson database) to Python: *pytz*.

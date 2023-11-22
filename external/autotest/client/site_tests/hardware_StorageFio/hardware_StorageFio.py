@@ -44,19 +44,27 @@ class hardware_StorageFio(test.test):
 
         # Obtain the device name by stripping the partition number.
         # For example, sda3 => sda; mmcblk1p3 => mmcblk1, nvme0n1p3 => nvme0n1.
-        device = os.path.basename(
-            re.sub('(sd[a-z]|mmcblk[0-9]+p|nvme[0-9]+n[0-9]+p)[0-9]+', '\\1', self.__filename))
+        device = re.match(r'.*(sd[a-z]|mmcblk[0-9]+|nvme[0-9]+n[0-9]+)p?[0-9]+',
+                          self.__filename).group(1)
         findsys = utils.run('find /sys/devices -name %s' % device)
         device_path = findsys.stdout.rstrip()
 
-        vendor_file = device_path.replace('block/%s' % device, 'vendor')
-        model_file = device_path.replace('block/%s' % device, 'model')
-        if os.path.exists(vendor_file) and os.path.exists(model_file):
-            vendor = utils.read_one_line(vendor_file).strip()
-            model = utils.read_one_line(model_file).strip()
-            self.__description = vendor + ' ' + model
+        if "nvme" in device:
+            dir_path = utils.run('dirname %s' % device_path).stdout.rstrip()
+            model_file = '%s/model' % dir_path
+            if os.path.exists(model_file):
+                self.__description = utils.read_one_line(model_file).strip()
+            else:
+                self.__description = ''
         else:
-            self.__description = ''
+            vendor_file = device_path.replace('block/%s' % device, 'vendor')
+            model_file = device_path.replace('block/%s' % device, 'model')
+            if os.path.exists(vendor_file) and os.path.exists(model_file):
+                vendor = utils.read_one_line(vendor_file).strip()
+                model = utils.read_one_line(model_file).strip()
+                self.__description = vendor + ' ' + model
+            else:
+                self.__description = ''
 
 
     def initialize(self, dev='', filesize=DEFAULT_FILE_SIZE):

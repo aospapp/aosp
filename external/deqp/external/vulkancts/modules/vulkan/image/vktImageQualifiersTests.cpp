@@ -32,12 +32,14 @@
 #include "vkRefUtil.hpp"
 #include "vktTestCase.hpp"
 #include "vktTestCaseUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkPlatform.hpp"
 #include "vkPrograms.hpp"
 #include "vkMemUtil.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "deDefs.hpp"
 #include "deStringUtil.hpp"
@@ -325,6 +327,8 @@ public:
 
 	virtual void					commandsAfterCompute			(const VkCommandBuffer		cmdBuffer,
 																	 const VkDeviceSize			bufferSizeInBytes) const = 0;
+
+	virtual void					checkRequirements				(void) const;
 protected:
 
 	tcu::TextureLevel				generateReferenceImage			(void) const;
@@ -353,6 +357,14 @@ MemoryQualifierInstanceBase::MemoryQualifierInstanceBase (Context&					context,
 {
 }
 
+void MemoryQualifierInstanceBase::checkRequirements (void) const
+{
+	if (m_imageType == IMAGE_TYPE_CUBE_ARRAY && !m_context.getDeviceFeatures().imageCubeArray)
+	{
+		TCU_THROW(NotSupportedError, "imageCubeArray feature not supported");
+	}
+}
+
 tcu::TestStatus	MemoryQualifierInstanceBase::iterate (void)
 {
 	const VkDevice			device				= m_context.getDevice();
@@ -361,6 +373,8 @@ tcu::TestStatus	MemoryQualifierInstanceBase::iterate (void)
 	const deUint32			queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
 
 	const VkDeviceSize	bufferSizeInBytes = getNumPixels(m_imageType, m_imageSize) * tcu::getPixelSize(m_format);
+
+	checkRequirements();
 
 	// Prepare resources for the test
 	prepareResources(bufferSizeInBytes);

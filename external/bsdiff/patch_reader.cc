@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <limits>
+#include <vector>
 
 #include "bsdiff/brotli_decompressor.h"
 #include "bsdiff/bspatch.h"
@@ -70,8 +71,10 @@ bool BsdiffPatchReader::Init(const uint8_t* patch_data, size_t patch_size) {
   int64_t ctrl_len = ParseInt64(patch_data + 8);
   int64_t diff_len = ParseInt64(patch_data + 16);
   int64_t signed_newsize = ParseInt64(patch_data + 24);
+  // We already checked that the patch_size is at least 32 bytes.
   if ((ctrl_len < 0) || (diff_len < 0) || (signed_newsize < 0) ||
-      (32 + ctrl_len + diff_len > static_cast<int64_t>(patch_size))) {
+      (static_cast<int64_t>(patch_size) - 32 < ctrl_len) ||
+      (static_cast<int64_t>(patch_size) - 32 - ctrl_len < diff_len)) {
     LOG(ERROR) << "Corrupt patch.  ctrl_len: " << ctrl_len
                << ", data_len: " << diff_len
                << ", new_file_size: " << signed_newsize

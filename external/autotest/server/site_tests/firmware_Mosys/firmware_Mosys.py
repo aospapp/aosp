@@ -44,13 +44,13 @@ class firmware_Mosys(FirmwareTest):
                     self.command_list.append(cmdlst[1])
             elif 'Commands:' in line:
                 cmdlist_start = True
-        logging.info('Availabe commands: %s', ' '.join(self.command_list))
+        logging.info('Available commands: %s', ' '.join(self.command_list))
 
     def run_cmd(self, command):
         """
         Log and execute command and return the output.
 
-        @param command: Command to executeon device.
+        @param command: Command to execution device.
         @returns the output of command.
 
         """
@@ -65,7 +65,7 @@ class firmware_Mosys(FirmwareTest):
         copy to exp_ec_version.
 
         @param command: command string
-        @param exp_ec_version: The exepected EC version string.
+        @param exp_ec_version: The expected EC version string.
 
         """
         if self.faft_client.system.has_host():
@@ -98,7 +98,7 @@ class firmware_Mosys(FirmwareTest):
         copy to exp_pd_version.
 
         @param command: command string
-        @param exp_pd_version: The exepected PD version string.
+        @param exp_pd_version: The expected PD version string.
 
         """
         lines = self.run_cmd('ectool --dev 1 version')
@@ -124,7 +124,7 @@ class firmware_Mosys(FirmwareTest):
 
     def check_lsb_info(self, command, fieldname, exp_value):
         """
-        Comapre output of fieldname in /etc/lsb-release to exp_value.
+        Compare output of fieldname in /etc/lsb-release to exp_value.
 
         @param command: command string
         @param fieldname: field name in lsd-release file.
@@ -225,12 +225,12 @@ class firmware_Mosys(FirmwareTest):
             if row[1] in emap:
                 emap[row[1]] += 1
             if row[2] == '0x00000000':
-                logging.error('Expect non zero but got %s instead(%s)',
-                              (row[2], line))
+                logging.error('Expect non zero but got %s instead (%s)',
+                              row[2], line)
                 self._tag_failure(command)
             if row[3] == '0x00000000':
-                logging.error('Expect non zero but got %s instead(%s)',
-                              (row[3], line))
+                logging.error('Expect non zero but got %s instead (%s)',
+                              row[3], line)
                 self._tag_failure(command)
         # Check that there are one A and one B.
         if emap['RW_SECTION_A'] != 1 or emap['RW_SECTION_B'] != 1:

@@ -13,46 +13,117 @@ the perf.data file back to the server for analysis.
 """
 
 import os, signal, subprocess
-from autotest_lib.client.bin import profiler, os_dep
+import threading, time
+import shutil
+import logging
+from autotest_lib.client.bin import profiler
 from autotest_lib.client.common_lib import error
 
-
 class cros_perf(profiler.profiler):
+    """ Profiler for running perf """
+
     version = 1
 
-    def initialize(self, options='-e cycles', profile_type='record'):
-        # The two supported options for profile_type are 'record' and 'stat'.
-        self.options = options
-        self.perf_bin = os_dep.command('perf')
+    def initialize(self, interval=120, duration=10, profile_type='record'):
+        """Initializes the cros perf profiler.
+
+        Args:
+            interval (int): How often to start the profiler
+            duration (int): How long the profiler will run per interval. Set to
+                None to run for the full duration of the test.
+            profile_type (str): Profile type to run.
+                Valid options: record, and stat.
+        """
+        self.interval = interval
+        self.duration = duration
         self.profile_type = profile_type
 
+        if self.profile_type not in ['record', 'stat']:
+            raise error.AutotestError(
+                    'Unknown profile type: %s' % (profile_type))
 
     def start(self, test):
-        if self.profile_type == 'record':
-            # perf record allows you to specify where to place the output.
-            # perf stat does not.
-            logfile = os.path.join(test.profdir, 'perf.data')
-            self.options += ' -o %s' % logfile
 
-        if self.profile_type == 'stat':
-            # Unfortunately we need to give perf stat a command or process even
-            # when running in system-wide mode.
-            self.options += ' -p 1'
+        # KASLR makes looking up the symbols from the binary impossible, save
+        # the running symbols.
+        shutil.copy('/proc/kallsyms', test.profdir)
 
-        outfile = os.path.join(test.profdir, 'perf.out')
+        self.thread = MonitorThread(
+                interval=self.interval,
+                duration=self.duration,
+                profile_type=self.profile_type,
+                test=test)
 
-        cmd = ('exec %s %s -a %s > %s 2>&1' %
-               (self.perf_bin, self.profile_type, self.options, outfile))
-
-        self._process = subprocess.Popen(cmd, shell=True,
-                                         stderr=subprocess.STDOUT)
-
+        self.thread.start()
 
     def stop(self, test):
-        ret_code = self._process.poll()
-        if ret_code is not None:
-            raise error.AutotestError('perf terminated early with return code: '
-                                      '%d. Please check your logs.' % ret_code)
+        self.thread.stop()
 
-        self._process.send_signal(signal.SIGINT)
-        self._process.wait()
+
+class MonitorThread(threading.Thread):
+    """ Thread that runs perf at the specified interval and duration """
+
+    def __init__(self, interval, duration, profile_type, test):
+        threading.Thread.__init__(self)
+        self.stopped = threading.Event()
+        self.interval = interval
+        self.duration = duration
+        self.profile_type = profile_type
+        self.test = test
+
+    def _get_command(self, timestamp):
+        file_name = 'perf-%s.data' % (int(timestamp))
+
+        path = os.path.join(self.test.profdir, file_name)
+
+        if self.profile_type == 'record':
+            return ['perf', 'record', '-e', 'cycles', '-g', '--output', path]
+        elif self.profile_type == 'stat':
+            return ['perf', 'stat', 'record', '-a', '--output', path]
+        else:
+            raise error.AutotestError(
+                    'Unknown profile type: %s' % (self.profile_type))
+
+    def run(self):
+        logging.info("perf thread starting")
+
+        sleep_time = 0
+
+        while not self.stopped.wait(sleep_time):
+            start_time = time.time()
+
+            cmd = self._get_command(start_time)
+
+            logging.info("Running perf: %s", cmd)
+            process = subprocess.Popen(cmd, close_fds=True)
+
+            logging.info("Sleeping for %ss", self.duration)
+            self.stopped.wait(self.duration)
+
+            ret_code = process.poll()
+
+            if ret_code is None:
+                logging.info("Stopping perf")
+                process.send_signal(signal.SIGINT)
+                process.wait()
+            else:
+                logging.info(
+                        'perf terminated early with return code: %d. '
+                        'Please check your logs.', ret_code)
+
+            end_time = time.time()
+
+            sleep_time = self.interval - (end_time - start_time)
+
+            if sleep_time < 0:
+                sleep_time = 0
+
+    def stop(self):
+        """ Stops the thread """
+        logging.info("Stopping perf thread")
+
+        self.stopped.set()
+
+        self.join()
+
+        logging.info("perf thread stopped")

@@ -28,7 +28,6 @@ static const char kBinStat[] = "/usr/bin/stat";
 
 static const char kBinSh[] = SYSTEM_PREFIX "/bin/sh";
 static const char kBinCat[] = SYSTEM_PREFIX "/bin/cat";
-static const char kBinCp[] = SYSTEM_PREFIX "/bin/cp";
 static const char kBinEcho[] = SYSTEM_PREFIX "/bin/echo";
 static const char kBinFalse[] = SYSTEM_PREFIX "/bin/false";
 static const char kBinSleep[] = SYSTEM_PREFIX "/bin/sleep";
@@ -157,6 +156,18 @@ TEST_F(ProcessTest, NonZeroReturnValue) {
   EXPECT_EQ("", GetLog());
 }
 
+TEST_F(ProcessTest, RedirectInputDevNull) {
+  process_.AddArg(kBinCat);
+  process_.RedirectInput("/dev/null");
+  EXPECT_EQ(0, process_.Run());
+}
+
+TEST_F(ProcessTest, BadInputFile) {
+  process_.AddArg(kBinCat);
+  process_.RedirectInput("/bad/path");
+  EXPECT_EQ(static_cast<pid_t>(Process::kErrorExitStatus), process_.Run());
+}
+
 TEST_F(ProcessTest, BadOutputFile) {
   process_.AddArg(kBinEcho);
   process_.RedirectOutput("/bad/path");
@@ -169,11 +180,11 @@ TEST_F(ProcessTest, BadExecutable) {
 }
 
 void ProcessTest::CheckStderrCaptured() {
-  std::string contents;
   process_.AddArg(kBinSh);
   process_.AddArg("-c");
   process_.AddArg("echo errormessage 1>&2 && exit 1");
   EXPECT_EQ(1, process_.Run());
+  std::string contents;
   EXPECT_TRUE(base::ReadFileToString(FilePath(output_file_), &contents));
   EXPECT_NE(std::string::npos, contents.find("errormessage"));
   EXPECT_EQ("", GetLog());
@@ -195,7 +206,6 @@ FilePath ProcessTest::GetFdPath(int fd) {
 }
 
 TEST_F(ProcessTest, RedirectStderrUsingPipe) {
-  std::string contents;
   process_.RedirectOutput("");
   process_.AddArg(kBinSh);
   process_.AddArg("-c");
@@ -207,6 +217,7 @@ TEST_F(ProcessTest, RedirectStderrUsingPipe) {
   EXPECT_GE(pipe_fd, 0);
   EXPECT_EQ(-1, process_.GetPipe(STDOUT_FILENO));
   EXPECT_EQ(-1, process_.GetPipe(STDIN_FILENO));
+  std::string contents;
   EXPECT_TRUE(base::ReadFileToString(GetFdPath(pipe_fd), &contents));
   EXPECT_NE(std::string::npos, contents.find("errormessage"));
   EXPECT_EQ("", GetLog());
@@ -216,15 +227,23 @@ TEST_F(ProcessTest, RedirectStderrUsingPipeWhenPreviouslyClosed) {
   int saved_stderr = dup(STDERR_FILENO);
   close(STDERR_FILENO);
   process_.RedirectOutput("");
-  process_.AddArg(kBinCp);
+  process_.AddArg(kBinSh);
+  process_.AddArg("-c");
+  process_.AddArg("echo errormessage >&2 && exit 1");
   process_.RedirectUsingPipe(STDERR_FILENO, false);
-  EXPECT_FALSE(process_.Start());
-  EXPECT_TRUE(FindLog("Unable to fstat fd 2:"));
+  EXPECT_EQ(1, process_.Run());
+  int pipe_fd = process_.GetPipe(STDERR_FILENO);
+  EXPECT_GE(pipe_fd, 0);
+  EXPECT_EQ(-1, process_.GetPipe(STDOUT_FILENO));
+  EXPECT_EQ(-1, process_.GetPipe(STDIN_FILENO));
+  std::string contents;
+  EXPECT_TRUE(base::ReadFileToString(GetFdPath(pipe_fd), &contents));
+  EXPECT_NE(std::string::npos, contents.find("errormessage"));
+  EXPECT_EQ("", GetLog());
   dup2(saved_stderr, STDERR_FILENO);
 }
 
 TEST_F(ProcessTest, RedirectStdoutUsingPipe) {
-  std::string contents;
   process_.RedirectOutput("");
   process_.AddArg(kBinEcho);
   process_.AddArg("hello world\n");
@@ -235,13 +254,13 @@ TEST_F(ProcessTest, RedirectStdoutUsingPipe) {
   EXPECT_GE(pipe_fd, 0);
   EXPECT_EQ(-1, process_.GetPipe(STDERR_FILENO));
   EXPECT_EQ(-1, process_.GetPipe(STDIN_FILENO));
+  std::string contents;
   EXPECT_TRUE(base::ReadFileToString(GetFdPath(pipe_fd), &contents));
   EXPECT_NE(std::string::npos, contents.find("hello world\n"));
   EXPECT_EQ("", GetLog());
 }
 
 TEST_F(ProcessTest, RedirectStdinUsingPipe) {
-  std::string contents;
   const char kMessage[] = "made it!\n";
   process_.AddArg(kBinCat);
   process_.RedirectUsingPipe(STDIN_FILENO, true);

@@ -14,8 +14,10 @@ Syscalls which are allowed by the alt_syscall table should succeed, syscalls
 blocked by the alt_syscall table should fail, and attempts to change the
 alt_syscall table once it has been set should fail.
 """
+ATTRIBUTES = "suite:bvt-cq"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"
+JOB_RETRIES = 2
 
 job.run_test("security_AltSyscall")

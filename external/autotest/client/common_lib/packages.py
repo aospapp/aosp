@@ -950,7 +950,7 @@ class BasePackageManager(object):
 
 class SiteHttpFetcher(HttpFetcher):
     curl_cmd_pattern = ('curl --connect-timeout 15 --retry 5 '
-                        '--retry-delay 5 -s %s -o %s')
+                        '--retry-delay 5 --fail -s %s -o %s')
 
     # shortcut quick http test for now since our dev server does not support
     # this operation.

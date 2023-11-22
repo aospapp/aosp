@@ -172,7 +172,7 @@ class NativeHtml5Player(video_player.VideoPlayer):
         try:
             # unit of timeout is second.
             self.tab.WaitForJavaScriptCondition('endOrError()',
-                                                timeout=(self.duration() + 10))
+                                                timeout=(self.duration() + 30))
         except py_utils.TimeoutException:
             logging.error('Timeout in waiting endOrError()')
             raise

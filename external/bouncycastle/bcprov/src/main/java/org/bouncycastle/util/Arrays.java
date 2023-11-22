@@ -8,9 +8,19 @@ import java.util.NoSuchElementException;
  */
 public final class Arrays
 {
-    private Arrays() 
+    private Arrays()
     {
         // static class, hide constructor
+    }
+
+    public static boolean areAllZeroes(byte[] buf, int off, int len)
+    {
+        int bits = 0;
+        for (int i = 0; i < len; ++i)
+        {
+            bits |= buf[off + i];
+        }
+        return bits == 0;
     }
 
     public static boolean areEqual(
@@ -135,36 +145,37 @@ public final class Arrays
 
     /**
      * A constant time equals comparison - does not terminate early if
-     * test will fail.
+     * test will fail. For best results always pass the expected value
+     * as the first parameter.
      *
-     * @param a first array
-     * @param b second array
+     * @param expected first array
+     * @param supplied second array
      * @return true if arrays equal, false otherwise.
      */
     public static boolean constantTimeAreEqual(
-        byte[]  a,
-        byte[]  b)
+        byte[]  expected,
+        byte[]  supplied)
     {
-        if (a == b)
+        if (expected == supplied)
         {
             return true;
         }
 
-        if (a == null || b == null)
+        if (expected == null || supplied == null)
         {
             return false;
         }
 
-        if (a.length != b.length)
+        if (expected.length != supplied.length)
         {
-            return false;
+            return !Arrays.constantTimeAreEqual(expected, expected);
         }
 
         int nonEqual = 0;
 
-        for (int i = 0; i != a.length; i++)
+        for (int i = 0; i != expected.length; i++)
         {
-            nonEqual |= (a[i] ^ b[i]);
+            nonEqual |= (expected[i] ^ supplied[i]);
         }
 
         return nonEqual == 0;
@@ -335,6 +346,18 @@ public final class Arrays
     }
 
     public static void fill(
+        byte[] array,
+        int start,
+        int finish,
+        byte value)
+    {
+        for (int i = start; i < finish; i++)
+        {
+            array[i] = value;
+        }
+    }
+
+    public static void fill(
         char[] array,
         char value)
     {
@@ -355,7 +378,7 @@ public final class Arrays
     }
 
     public static void fill(
-        short[] array, 
+        short[] array,
         short value)
     {
         for (int i = 0; i < array.length; i++)
@@ -373,7 +396,63 @@ public final class Arrays
             array[i] = value;
         }
     }
-    
+
+    public static void fill(
+        byte[] array,
+        int out,
+        byte value)
+    {
+        if(out < array.length)
+        {
+            for (int i = out; i < array.length; i++)
+            {
+                array[i] = value;
+            }
+        }
+    }
+
+    public static void fill(
+        int[] array,
+        int out,
+        int value)
+    {
+        if(out < array.length)
+        {
+            for (int i = out; i < array.length; i++)
+            {
+                array[i] = value;
+            }
+        }
+    }
+
+    public static void fill(
+        short[] array,
+        int out,
+        short value)
+    {
+        if(out < array.length)
+        {
+            for (int i = out; i < array.length; i++)
+            {
+                array[i] = value;
+            }
+        }
+    }
+
+    public static void fill(
+        long[] array,
+        int out,
+        long value)
+    {
+        if(out < array.length)
+        {
+            for (int i = out; i < array.length; i++)
+            {
+                array[i] = value;
+            }
+        }
+    }
+
     public static int hashCode(byte[] data)
     {
         if (data == null)
@@ -681,9 +760,9 @@ public final class Arrays
             return null;
         }
         long[] copy = new long[data.length];
-        
+
         System.arraycopy(data, 0, copy, 0, data.length);
-        
+
         return copy;
     }
 
@@ -1126,7 +1205,7 @@ public final class Arrays
 
         int p1 = 0, p2 = a.length;
         byte[] result = new byte[p2];
-        
+
         while (--p2 >= 0)
         {
             result[p2] = a[p1++];
@@ -1194,6 +1273,22 @@ public final class Arrays
         public void remove()
         {
             throw new UnsupportedOperationException("Cannot remove element from an Array.");
+        }
+    }
+
+    /**
+     * Fill input array by zeros
+     *
+     * @param array input array
+     */
+    public static void clear(byte[] array)
+    {
+        if (array != null)
+        {
+            for (int i = 0; i < array.length; i++)
+            {
+                array[i] = 0;
+            }
         }
     }
 }

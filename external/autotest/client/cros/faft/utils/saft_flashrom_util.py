@@ -42,6 +42,7 @@ class LayoutScraper(object):
         # New layout in Chrome OS Main Processor Firmware Specification,
         # used by all newer (>2011) platforms except Mario.
         "BOOT_STUB": "FV_BSTUB",
+        "RO_FRID": "RO_FRID",
         "GBB": "FV_GBB",
         "RECOVERY": "FVDEV",
         "VBLOCK_A": "VBOOTA",
@@ -263,7 +264,7 @@ class flashrom_util(object):
         Raises error if unknown section or invalid layout_map.
         """
         if section_name not in self.firmware_layout:
-            return []
+            return ''
         pos = self.firmware_layout[section_name]
         if pos[0] >= pos[1] or pos[1] >= len(base_image):
             raise TestError('INTERNAL ERROR: invalid layout map: %s.' %

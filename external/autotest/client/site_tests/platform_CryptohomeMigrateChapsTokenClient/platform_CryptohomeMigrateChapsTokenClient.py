@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from dbus.mainloop.glib import DBusGMainLoop
+
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cryptohome, pkcs11
@@ -17,7 +19,9 @@ class platform_CryptohomeMigrateChapsTokenClient(test.test):
 
     def initialize(self):
         super(platform_CryptohomeMigrateChapsTokenClient, self).initialize()
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy()
+        bus_loop = DBusGMainLoop(set_as_default=True)
+        self._cryptohome_proxy = cryptohome.CryptohomeProxy(
+            bus_loop, self.autodir, self.job)
 
     def run_once(self, generate_key=False):
 

@@ -21,7 +21,7 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/platform/cpu_info.h"
+#include "tensorflow/core/platform/byte_order.h"
 
 namespace tensorflow {
 
@@ -110,6 +110,8 @@ REGISTER(uint8);
 REGISTER(int16);
 REGISTER(int8);
 REGISTER(int64);
+REGISTER(complex64);
+REGISTER(complex128);
 
 #undef REGISTER
 

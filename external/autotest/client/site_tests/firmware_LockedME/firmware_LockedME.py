@@ -9,6 +9,10 @@ import re
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
+FLASHROM_ACCESS_FAILED_TOKEN = ('Could not fully verify due to access error, '
+                                'ignoring')
+
+
 class firmware_LockedME(test.test):
     # Needed by autotest
     version = 1
@@ -51,11 +55,12 @@ class firmware_LockedME(test.test):
         size = os.stat(sectname).st_size
         utils.run('dd', args=('if=/dev/urandom', 'of=newdata',
                               'count=1', 'bs=%d' % (size)))
-        r = self.flashrom(args=('-w', self.BIOS_FILE,
+        r = self.flashrom(args=('-V', '-w', self.BIOS_FILE,
                                 '-i' , '%s:newdata' % (sectname),
                                 '--fast-verify'),
                           ignore_status=True)
-        if not r.exit_status:
+        if (not r.exit_status and
+            FLASHROM_ACCESS_FAILED_TOKEN not in r.stdout):
             logging.info('Oops, it worked! Put it back...')
             self.flashrom(args=('-w', self.BIOS_FILE,
                                 '-i', '%s:%s' % (sectname, sectname),
@@ -104,6 +109,13 @@ class firmware_LockedME(test.test):
             raise error.TestNAError('This test is not applicable, '
                     'because an ARM device has been detected. '
                     'ARM devices do not have an ME (Management Engine)')
+
+        cpu_family = utils.get_cpu_soc_family()
+        if cpu_family == "amd":
+            raise error.TestNAError('This test is not applicable, '
+                    'because an AMD device has been detected. '
+                    'AMD devices do not have an ME (Management Engine)')
+
         # If sw wp is on, and the ME regions are unlocked, they won't be
         # writable so will appear locked.
         if self.determine_sw_wp_status():

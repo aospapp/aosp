@@ -32,6 +32,7 @@ class TestAutotest(unittest.TestCase):
         self.host.job.default_profile_only = False
         self.host.job.args = []
         self.host.job.record = lambda *args: None
+        self.host.verify_job_repo_url = lambda *args: None
 
         # stubs
         self.god.stub_function(utils, "get_server_dir")

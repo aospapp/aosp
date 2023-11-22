@@ -75,12 +75,18 @@ static inline void minmax_to_be(struct minmax *mm)
 
 static inline double minmax_avg(struct minmax *mm)
 {
+	if (!mm->num)
+		return 0;
+
 	return (mm->sum / (double)mm->num);
 }
 
 static inline double minmax_var(struct minmax *mm)
 {
 	double num = (double)mm->num;
+
+	if (!mm->num)
+		return 0;
 
 	return ((mm->sos - ((mm->sum * mm->sum) / num)) / num);
 }

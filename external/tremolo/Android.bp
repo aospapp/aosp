@@ -1,9 +1,6 @@
 cc_library {
     name: "libvorbisidec",
     vendor_available: true,
-    vndk: {
-        enabled: true,
-    },
 
     srcs: [
         "Tremolo/bitwise.c",
@@ -65,4 +62,9 @@ cc_library {
     export_include_dirs: ["."],
 
     shared_libs: ["liblog"],
+
+    sanitize: {
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+    },
 }

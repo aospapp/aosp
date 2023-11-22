@@ -39,18 +39,17 @@ static int get_stem_from_file_name(const char *const buf)
 
 /* find the stem of a file name, returns the index into stem_arr (or -1 if
  * there is no match - IE for a file in the root directory or a regex that is
- * too complex for us).  Makes buf point to the text AFTER the stem. */
-static int find_stem_from_file(struct saved_data *data, const char **buf)
+ * too complex for us). */
+static int find_stem_from_file(struct saved_data *data, const char *key)
 {
 	int i;
-	int stem_len = get_stem_from_file_name(*buf);
+	int stem_len = get_stem_from_file_name(key);
 
 	if (!stem_len)
 		return -1;
 	for (i = 0; i < data->num_stems; i++) {
 		if (stem_len == data->stem_arr[i].len
-		    && !strncmp(*buf, data->stem_arr[i].buf, stem_len)) {
-			*buf += stem_len;
+		    && !strncmp(key, data->stem_arr[i].buf, stem_len)) {
 			return i;
 		}
 	}
@@ -232,7 +231,7 @@ end_arch_check:
 
 	/* allocate the stems_data array */
 	rc = next_entry(&stem_map_len, mmap_area, sizeof(uint32_t));
-	if (rc < 0 || !stem_map_len)
+	if (rc < 0)
 		return -1;
 
 	/*
@@ -317,8 +316,10 @@ end_arch_check:
 			goto out;
 		}
 		rc = next_entry(str_buf, mmap_area, entry_len);
-		if (rc < 0)
+		if (rc < 0) {
+			free(str_buf);
 			goto out;
+		}
 
 		if (str_buf[entry_len - 1] != '\0') {
 			free(str_buf);
@@ -891,21 +892,35 @@ static void closef(struct selabel_handle *rec)
 	free(data);
 }
 
-static struct spec *lookup_common(struct selabel_handle *rec,
-					     const char *key,
-					     int type,
-					     bool partial)
+// Finds all the matches of |key| in the given context. Returns the result in
+// the allocated array and updates the match count. If match_count is NULL,
+// stops early once the 1st match is found.
+static const struct spec **lookup_all(struct selabel_handle *rec,
+				      const char *key,
+				      int type,
+				      bool partial,
+				      size_t *match_count)
 {
 	struct saved_data *data = (struct saved_data *)rec->data;
 	struct spec *spec_arr = data->spec_arr;
 	int i, rc, file_stem;
 	mode_t mode = (mode_t)type;
-	const char *buf;
-	struct spec *ret = NULL;
 	char *clean_key = NULL;
 	const char *prev_slash, *next_slash;
 	unsigned int sofar = 0;
 	char *sub = NULL;
+
+	const struct spec **result = NULL;
+	if (match_count) {
+		*match_count = 0;
+		result = calloc(data->nspec, sizeof(struct spec*));
+	} else {
+		result = calloc(1, sizeof(struct spec*));
+	}
+	if (!result) {
+		selinux_log(SELINUX_ERROR, "%s: Out of memory\n", __func__);
+		goto finish;
+	}
 
 	if (!data->nspec) {
 		errno = ENOENT;
@@ -932,8 +947,7 @@ static struct spec *lookup_common(struct selabel_handle *rec,
 	if (sub)
 		key = sub;
 
-	buf = key;
-	file_stem = find_stem_from_file(data, &buf);
+	file_stem = find_stem_from_file(data, key);
 	mode &= S_IFMT;
 
 	/*
@@ -946,19 +960,34 @@ static struct spec *lookup_common(struct selabel_handle *rec,
 		 * stem as the file AND if the spec in question has no mode
 		 * specified or if the mode matches the file mode then we do
 		 * a regex check        */
-		if ((spec->stem_id == -1 || spec->stem_id == file_stem) &&
-		    (!mode || !spec->mode || mode == spec->mode)) {
-			if (compile_regex(data, spec, NULL) < 0)
+		bool stem_matches = spec->stem_id == -1 || spec->stem_id == file_stem;
+		// Don't check the stem if we want to find partial matches.
+                // Otherwise the case "/abc/efg/(/.*)?" will be considered
+                //a miss for "/abc".
+		if ((partial || stem_matches) &&
+				(!mode || !spec->mode || mode == spec->mode)) {
+			if (compile_regex(spec, NULL) < 0)
 				goto finish;
-			if (spec->stem_id == -1)
-				rc = regex_match(spec->regex, key, partial);
-			else
-				rc = regex_match(spec->regex, buf, partial);
-			if (rc == REGEX_MATCH) {
-				spec->matches++;
+			rc = regex_match(spec->regex, key, partial);
+			if (rc == REGEX_MATCH || (partial && rc == REGEX_MATCH_PARTIAL)) {
+				if (rc == REGEX_MATCH) {
+					spec->matches++;
+				}
+
+				if (strcmp(spec_arr[i].lr.ctx_raw, "<<none>>") == 0) {
+					errno = ENOENT;
+					goto finish;
+				}
+
+				if (match_count) {
+					result[*match_count] = spec;
+					*match_count += 1;
+					// Continue to find all the matches.
+					continue;
+				}
+				result[0] = spec;
 				break;
-			} else if (partial && rc == REGEX_MATCH_PARTIAL)
-				break;
+			}
 
 			if (rc == REGEX_NO_MATCH)
 				continue;
@@ -969,19 +998,58 @@ static struct spec *lookup_common(struct selabel_handle *rec,
 		}
 	}
 
-	if (i < 0 || strcmp(spec_arr[i].lr.ctx_raw, "<<none>>") == 0) {
-		/* No matching specification. */
-		errno = ENOENT;
-		goto finish;
-	}
-
-	errno = 0;
-	ret = &spec_arr[i];
-
 finish:
 	free(clean_key);
 	free(sub);
-	return ret;
+	if (result && !result[0]) {
+		free(result);
+		result = NULL;
+	}
+	return result;
+}
+
+static struct spec *lookup_common(struct selabel_handle *rec,
+				  const char *key,
+				  int type,
+				  bool partial) {
+	const struct spec **matches = lookup_all(rec, key, type, partial, NULL);
+	if (!matches) {
+		return NULL;
+	}
+	struct spec *result = (struct spec*)matches[0];
+	free(matches);
+	return result;
+}
+
+static bool hash_all_partial_matches(struct selabel_handle *rec, const char *key, uint8_t *digest)
+{
+	assert(digest);
+
+	size_t total_matches;
+	const struct spec **matches = lookup_all(rec, key, 0, true, &total_matches);
+	if (!matches) {
+		return false;
+	}
+
+	Sha1Context context;
+	Sha1Initialise(&context);
+	size_t i;
+	for (i = 0; i < total_matches; i++) {
+		char* regex_str = matches[i]->regex_str;
+		uint32_t mode = matches[i]->mode;
+		char* ctx_raw = matches[i]->lr.ctx_raw;
+
+		Sha1Update(&context, regex_str, strlen(regex_str) + 1);
+		Sha1Update(&context, &mode, sizeof(uint32_t));
+		Sha1Update(&context, ctx_raw, strlen(ctx_raw) + 1);
+	}
+
+	SHA1_HASH sha1_hash;
+	Sha1Finalise(&context, &sha1_hash);
+	memcpy(digest, sha1_hash.bytes, SHA1_HASH_SIZE);
+
+	free(matches);
+	return true;
 }
 
 static struct selabel_lookup_rec *lookup(struct selabel_handle *rec,
@@ -1181,6 +1249,7 @@ int selabel_file_init(struct selabel_handle *rec,
 	rec->func_stats = &stats;
 	rec->func_lookup = &lookup;
 	rec->func_partial_match = &partial_match;
+	rec->func_hash_all_partial_matches = &hash_all_partial_matches;
 	rec->func_lookup_best_match = &lookup_best_match;
 	rec->func_cmp = &cmp;
 

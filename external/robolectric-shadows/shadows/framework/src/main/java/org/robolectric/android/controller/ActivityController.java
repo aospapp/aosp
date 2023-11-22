@@ -2,21 +2,26 @@ package org.robolectric.android.controller;
 
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.O_MR1;
-import static org.robolectric.Shadows.shadowOf;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.robolectric.shadow.api.Shadow.extract;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
 
 import android.app.Activity;
+import android.app.ActivityThread;
 import android.app.Application;
+import android.app.Instrumentation;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.view.ContextThemeWrapper;
 import android.view.ViewRootImpl;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowActivity;
+import org.robolectric.shadows.ShadowContextThemeWrapper;
 import org.robolectric.shadows.ShadowViewRootImpl;
 import org.robolectric.util.ReflectionHelpers;
 
@@ -38,8 +43,16 @@ public class ActivityController<T extends Activity> extends ComponentController<
     if (attached) {
       return this;
     }
-
-    shadowOf(component).callAttach(getIntent());
+    // make sure the component is enabled
+    Context context = RuntimeEnvironment.application.getBaseContext();
+    context
+        .getPackageManager()
+        .setComponentEnabledSetting(
+            new ComponentName(context.getPackageName(), component.getClass().getName()),
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            0);
+    ShadowActivity shadowActivity = Shadow.extract(component);
+    shadowActivity.callAttach(getIntent());
     attached = true;
     return this;
   }
@@ -53,12 +66,7 @@ public class ActivityController<T extends Activity> extends ComponentController<
   }
 
   public ActivityController<T> create(final Bundle bundle) {
-    shadowMainLooper.runPaused(new Runnable() {
-      @Override
-      public void run() {
-        ReflectionHelpers.callInstanceMethod(Activity.class, component, "performCreate", from(Bundle.class, bundle));
-      }
-    });
+    shadowMainLooper.runPaused(() -> getInstrumentation().callActivityOnCreate(component, bundle));
     return this;
   }
 
@@ -70,31 +78,28 @@ public class ActivityController<T extends Activity> extends ComponentController<
     if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
       invokeWhilePaused("performRestart");
     } else {
-      // BEGIN-INTERNAL
-      invokeWhilePaused(
-        "performRestart",
-        /* start= */ from(boolean.class, true),
-        /* reason= */ from(String.class, "restart()"));
-      // END-INTERNAL
+      invokeWhilePaused("performRestart",
+          from(boolean.class, true),
+          from(String.class, "restart()"));
     }
     return this;
   }
 
   public ActivityController<T> start() {
+    // Start and stop are tricky cases. Unlike other lifecycle methods such as
+    // Instrumentation#callActivityOnPause calls Activity#performPause, Activity#performStop calls
+    // Instrumentation#callActivityOnStop internally so the dependency direction is the opposite.
     if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
       invokeWhilePaused("performStart");
     } else {
-      // BEGIN-INTERNAL
-      invokeWhilePaused(
-        "performStart",
-        /* reason= */ from(String.class, "start()"));
-      // END-INTERNAL
+      invokeWhilePaused("performStart", from(String.class, "start()"));
     }
     return this;
   }
 
   public ActivityController<T> restoreInstanceState(Bundle bundle) {
-    invokeWhilePaused("performRestoreInstanceState", from(Bundle.class, bundle));
+    shadowMainLooper.runPaused(
+        () -> getInstrumentation().callActivityOnRestoreInstanceState(component, bundle));
     return this;
   }
 
@@ -107,12 +112,9 @@ public class ActivityController<T extends Activity> extends ComponentController<
     if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
       invokeWhilePaused("performResume");
     } else {
-      // BEGIN-INTERNAL
-      invokeWhilePaused(
-        "performResume",
-        /* followedByPause= */ from(boolean.class, false),
-        /* reason= */ from(String.class, "resume()"));
-      // END-INTERNAL
+      invokeWhilePaused("performResume",
+          from(boolean.class, true),
+          from(String.class, "resume()"));
     }
     return this;
   }
@@ -131,49 +133,71 @@ public class ActivityController<T extends Activity> extends ComponentController<
       }
     });
 
-    ViewRootImpl root = component.getWindow().getDecorView().getViewRootImpl();
+    ViewRootImpl root = getViewRoot();
+    // root can be null if activity does not have content attached, or if looper is paused.
+    // this is unusual but leave the check here for legacy compatibility
     if (root != null) {
-      // If a test pause thread before creating an activity, root will be null as runPaused is waiting
-      // Related to issue #1582
-      ((ShadowViewRootImpl) extract(root)).callDispatchResized();
+      callDispatchResized(root);
+    }
+    return this;
+  }
+
+  private ViewRootImpl getViewRoot() {
+    return component.getWindow().getDecorView().getViewRootImpl();
+  }
+
+  private void callDispatchResized(ViewRootImpl root) {
+    ((ShadowViewRootImpl) extract(root)).callDispatchResized();
+  }
+
+  public ActivityController<T> windowFocusChanged(boolean hasFocus) {
+    ViewRootImpl root = getViewRoot();
+    if (root == null) {
+      // root can be null if looper was paused during visible. Flush the looper and try again
+      shadowMainLooper.idle();
+
+      root = checkNotNull(getViewRoot());
+      callDispatchResized(root);
     }
 
+    ReflectionHelpers.callInstanceMethod(root, "windowFocusChanged",
+        from(boolean.class, hasFocus), /* hasFocus */
+        from(boolean.class, false) /* inTouchMode */);
     return this;
   }
 
   public ActivityController<T> userLeaving() {
-    invokeWhilePaused("performUserLeaving");
+    shadowMainLooper.runPaused(() -> getInstrumentation().callActivityOnUserLeaving(component));
     return this;
   }
 
   public ActivityController<T> pause() {
-    invokeWhilePaused("performPause");
+    shadowMainLooper.runPaused(() -> getInstrumentation().callActivityOnPause(component));
     return this;
   }
 
   public ActivityController<T> saveInstanceState(Bundle outState) {
-    invokeWhilePaused("performSaveInstanceState", from(Bundle.class, outState));
+    shadowMainLooper.runPaused(
+        () -> getInstrumentation().callActivityOnSaveInstanceState(component, outState));
     return this;
   }
 
   public ActivityController<T> stop() {
+    // Stop and start are tricky cases. Unlike other lifecycle methods such as
+    // Instrumentation#callActivityOnPause calls Activity#performPause, Activity#performStop calls
+    // Instrumentation#callActivityOnStop internally so the dependency direction is the opposite.
     if (RuntimeEnvironment.getApiLevel() <= M) {
       invokeWhilePaused("performStop");
     } else if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
       invokeWhilePaused("performStop", from(boolean.class, true));
     } else {
-      // BEGIN-INTERNAL
-      invokeWhilePaused(
-        "performStop",
-        /* preserveWindow= */ from(boolean.class, true),
-        /* reason= */ from(String.class, "stop()"));
-      // END-INTERNAL
+      invokeWhilePaused("performStop", from(boolean.class, true), from(String.class, "stop()"));
     }
     return this;
   }
 
   @Override public ActivityController<T> destroy() {
-    invokeWhilePaused("performDestroy");
+    shadowMainLooper.runPaused(() -> getInstrumentation().callActivityOnDestroy(component));
     return this;
   }
 
@@ -254,104 +278,121 @@ public class ActivityController<T extends Activity> extends ComponentController<
       @SuppressWarnings("unchecked")
       final T recreatedActivity = (T) ReflectionHelpers.callConstructor(component.getClass());
 
-      shadowMainLooper.runPaused(new Runnable() {
-        @Override
-        public void run() {
-          // Set flags
-          ReflectionHelpers.setField(Activity.class, component, "mChangingConfigurations", true);
-          ReflectionHelpers.setField(Activity.class, component, "mConfigChangeFlags", changedBits);
+      shadowMainLooper.runPaused(
+          new Runnable() {
+            @Override
+            public void run() {
+              // Set flags
+              ReflectionHelpers.setField(
+                  Activity.class, component, "mChangingConfigurations", true);
+              ReflectionHelpers.setField(
+                  Activity.class, component, "mConfigChangeFlags", changedBits);
 
-          // Perform activity destruction
-          final Bundle outState = new Bundle();
+              // Perform activity destruction
+              final Bundle outState = new Bundle();
 
-          // The order of onPause/onStop/onSaveInstanceState is undefined, but is usually:
-          // onPause -> onSaveInstanceState -> onStop
-          ReflectionHelpers.callInstanceMethod(Activity.class, component, "performPause");
-          ReflectionHelpers.callInstanceMethod(
-              Activity.class,
-              component,
-              "performSaveInstanceState",
-              from(Bundle.class, outState));
-          if (RuntimeEnvironment.getApiLevel() <= M) {
-            ReflectionHelpers.callInstanceMethod(Activity.class, component, "performStop");
-          } else if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
-            ReflectionHelpers.callInstanceMethod(
-                Activity.class, component, "performStop", from(boolean.class, true));
-          }
-          // BEGIN-INTERNAL
-          else {
-            ReflectionHelpers.callInstanceMethod(Activity.class, component, "performStop",
-                from(boolean.class, true), from(String.class, "configuration change"));
-          }
-          // END-INTERNAL
-
-          // This is the true and complete retained state, including loaders and retained
-          // fragments.
-          final Object nonConfigInstance =
+              // The order of onPause/onStop/onSaveInstanceState is undefined, but is usually:
+              // onPause -> onSaveInstanceState -> onStop
+              ReflectionHelpers.callInstanceMethod(Activity.class, component, "performPause");
               ReflectionHelpers.callInstanceMethod(
-                  Activity.class, component, "retainNonConfigurationInstances");
-          // This is the activity's "user" state
-          final Object activityConfigInstance =
-              nonConfigInstance == null
-                  ? null // No framework or user state.
-                  : ReflectionHelpers.getField(nonConfigInstance, "activity");
+                  Activity.class,
+                  component,
+                  "performSaveInstanceState",
+                  from(Bundle.class, outState));
+              if (RuntimeEnvironment.getApiLevel() <= M) {
+                ReflectionHelpers.callInstanceMethod(Activity.class, component, "performStop");
+              } else if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
+                ReflectionHelpers.callInstanceMethod(
+                    Activity.class, component, "performStop", from(boolean.class, true));
+              } else {
+                ReflectionHelpers.callInstanceMethod(
+                    Activity.class,
+                    component,
+                    "performStop",
+                    from(boolean.class, true),
+                    from(String.class, "configurationChange"));
+              }
 
-          ReflectionHelpers.callInstanceMethod(Activity.class, component, "performDestroy");
+              // This is the true and complete retained state, including loaders and retained
+              // fragments.
+              final Object nonConfigInstance =
+                  ReflectionHelpers.callInstanceMethod(
+                      Activity.class, component, "retainNonConfigurationInstances");
+              // This is the activity's "user" state
+              final Object activityConfigInstance =
+                  nonConfigInstance == null
+                      ? null // No framework or user state.
+                      : ReflectionHelpers.getField(nonConfigInstance, "activity");
 
-          // Restore theme in case it was set in the test manually.
-          // This is not technically what happens but is purely to make this easier to use in
-          // Robolectric.
-          int theme = shadowOf((ContextThemeWrapper) component).callGetThemeResId();
+              ReflectionHelpers.callInstanceMethod(Activity.class, component, "performDestroy");
 
-          // Setup controller for the new activity
-          attached = false;
-          component = recreatedActivity;
-          attach();
+              // Restore theme in case it was set in the test manually.
+              // This is not technically what happens but is purely to make this easier to use in
+              // Robolectric.
+              ShadowContextThemeWrapper shadowContextThemeWrapper = Shadow.extract(component);
+              int theme = shadowContextThemeWrapper.callGetThemeResId();
 
-          if (theme != 0) {
-            recreatedActivity.setTheme(theme);
-          }
+              // Setup controller for the new activity
+              attached = false;
+              component = recreatedActivity;
+              attach();
 
-          // Set saved non config instance
-          ReflectionHelpers.setField(
-              recreatedActivity, "mLastNonConfigurationInstances", nonConfigInstance);
-          shadowOf(recreatedActivity).setLastNonConfigurationInstance(activityConfigInstance);
+              if (theme != 0) {
+                recreatedActivity.setTheme(theme);
+              }
 
-          // Create lifecycle
-          ReflectionHelpers.callInstanceMethod(
-              Activity.class, recreatedActivity, "performCreate", from(Bundle.class, outState));
-          if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
-            ReflectionHelpers.callInstanceMethod(Activity.class, recreatedActivity, "performStart");
-          } else {
-            // BEGIN-INTERNAL
-            ReflectionHelpers.callInstanceMethod(Activity.class, recreatedActivity, "performStart",
-                from(String.class, "configuration change"));
-            // END-INTERNAL
-          }
+              // Set saved non config instance
+              ReflectionHelpers.setField(
+                  recreatedActivity, "mLastNonConfigurationInstances", nonConfigInstance);
+              ShadowActivity shadowActivity = Shadow.extract(recreatedActivity);
+              shadowActivity.setLastNonConfigurationInstance(activityConfigInstance);
 
-          ReflectionHelpers.callInstanceMethod(
-              Activity.class,
-              recreatedActivity,
-              "performRestoreInstanceState",
-              from(Bundle.class, outState));
-          ReflectionHelpers.callInstanceMethod(
-              Activity.class, recreatedActivity, "onPostCreate", from(Bundle.class, outState));
+              // Create lifecycle
+              ReflectionHelpers.callInstanceMethod(
+                  Activity.class, recreatedActivity, "performCreate", from(Bundle.class, outState));
 
-          if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
-            ReflectionHelpers.callInstanceMethod(Activity.class, recreatedActivity, "performResume");
-          } else {
-            // BEGIN-INTERNAL
-            ReflectionHelpers.callInstanceMethod(Activity.class, recreatedActivity, "performResume",
-                from(boolean.class, false), from(String.class, "configuration change"));
-            // END-INTERNAL
-          }
+              if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
 
-          ReflectionHelpers.callInstanceMethod(Activity.class, recreatedActivity, "onPostResume");
-          // TODO: Call visible() too.
-        }
-      });
+                ReflectionHelpers.callInstanceMethod(
+                    Activity.class, recreatedActivity, "performStart");
+
+              } else {
+                ReflectionHelpers.callInstanceMethod(
+                    Activity.class,
+                    recreatedActivity,
+                    "performStart",
+                    from(String.class, "configurationChange"));
+              }
+
+              ReflectionHelpers.callInstanceMethod(
+                  Activity.class,
+                  recreatedActivity,
+                  "performRestoreInstanceState",
+                  from(Bundle.class, outState));
+              ReflectionHelpers.callInstanceMethod(
+                  Activity.class, recreatedActivity, "onPostCreate", from(Bundle.class, outState));
+              if (RuntimeEnvironment.getApiLevel() <= O_MR1) {
+                ReflectionHelpers.callInstanceMethod(
+                    Activity.class, recreatedActivity, "performResume");
+              } else {
+                ReflectionHelpers.callInstanceMethod(
+                    Activity.class,
+                    recreatedActivity,
+                    "performResume",
+                    from(boolean.class, true),
+                    from(String.class, "configurationChange"));
+              }
+              ReflectionHelpers.callInstanceMethod(
+                  Activity.class, recreatedActivity, "onPostResume");
+              // TODO: Call visible() too.
+            }
+          });
     }
 
     return this;
+  }
+
+  private static Instrumentation getInstrumentation() {
+    return ((ActivityThread) RuntimeEnvironment.getActivityThread()).getInstrumentation();
   }
 }

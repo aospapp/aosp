@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef VPX_PORTS_MEM_H_
-#define VPX_PORTS_MEM_H_
+#ifndef VPX_VPX_PORTS_MEM_H_
+#define VPX_VPX_PORTS_MEM_H_
 
 #include "vpx_config.h"
 #include "vpx/vpx_integer.h"
@@ -21,12 +21,6 @@
 #else
 #warning No alignment directives known for this compiler.
 #define DECLARE_ALIGNED(n, typ, val) typ val
-#endif
-
-#if defined(__GNUC__) && __GNUC__ >= 4 && !defined(_WIN32)
-#define DECLARE_PROTECTED(decl) decl __attribute__((visibility("protected")))
-#else
-#define DECLARE_PROTECTED(decl) decl
 #endif
 
 #if HAVE_NEON && defined(_MSC_VER)
@@ -57,4 +51,4 @@
 #define VPX_WITH_ASAN 0
 #endif  // __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
 
-#endif  // VPX_PORTS_MEM_H_
+#endif  // VPX_VPX_PORTS_MEM_H_

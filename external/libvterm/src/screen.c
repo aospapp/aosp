@@ -149,7 +149,7 @@ static void damagerect(VTermScreen *screen, VTermRect rect)
     return;
 
   default:
-    fprintf(stderr, "TODO: Maybe merge damage for level %d\n", screen->damage_merge);
+    DEBUG_LOG("TODO: Maybe merge damage for level %d\n", screen->damage_merge);
     return;
   }
 
@@ -266,7 +266,7 @@ static int erase_internal(VTermRect rect, int selective, void *user)
 {
   VTermScreen *screen = user;
 
-  for(int row = rect.start_row; row < rect.end_row; row++) {
+  for(int row = rect.start_row; row < screen->state->rows && row < rect.end_row; row++) {
     const VTermLineInfo *info = vterm_state_get_lineinfo(screen->state, row);
 
     for(int col = rect.start_col; col < rect.end_col; col++) {
@@ -304,10 +304,10 @@ static int scrollrect(VTermRect rect, int downward, int rightward, void *user)
 {
   VTermScreen *screen = user;
 
-  vterm_scroll_rect(rect, downward, rightward,
-      moverect_internal, erase_internal, screen);
-
   if(screen->damage_merge != VTERM_DAMAGE_SCROLL) {
+    vterm_scroll_rect(rect, downward, rightward,
+        moverect_internal, erase_internal, screen);
+
     vterm_screen_flush_damage(screen);
 
     vterm_scroll_rect(rect, downward, rightward,
@@ -340,10 +340,14 @@ static int scrollrect(VTermRect rect, int downward, int rightward, void *user)
     screen->pending_scroll_rightward = rightward;
   }
 
+  vterm_scroll_rect(rect, downward, rightward,
+      moverect_internal, erase_internal, screen);
+
   if(screen->damaged.start_row == -1)
     return 1;
 
   if(rect_contains(&rect, &screen->damaged)) {
+    /* Scroll region entirely contains the damage; just move it */
     vterm_rect_move(&screen->damaged, -downward, -rightward);
     rect_clip(&screen->damaged, &rect);
   }
@@ -373,7 +377,7 @@ static int scrollrect(VTermRect rect, int downward, int rightward, void *user)
     }
   }
   else {
-    fprintf(stderr, "TODO: Just flush and redo damaged=" STRFrect " rect=" STRFrect "\n",
+    DEBUG_LOG("TODO: Just flush and redo damaged=" STRFrect " rect=" STRFrect "\n",
         ARGSrect(screen->damaged), ARGSrect(rect));
   }
 
@@ -422,6 +426,9 @@ static int setpenattr(VTermAttr attr, VTermValue *val, void *user)
   case VTERM_ATTR_BACKGROUND:
     screen->pen.bg = val->color;
     return 1;
+
+  case VTERM_N_ATTRS:
+    return 0;
   }
 
   return 0;
@@ -457,16 +464,6 @@ static int settermprop(VTermProp prop, VTermValue *val, void *user)
   return 1;
 }
 
-static int setmousefunc(VTermMouseFunc func, void *data, void *user)
-{
-  VTermScreen *screen = user;
-
-  if(screen->callbacks && screen->callbacks->setmousefunc)
-    return (*screen->callbacks->setmousefunc)(func, data, screen->cbdata);
-
-  return 0;
-}
-
 static int bell(void *user)
 {
   VTermScreen *screen = user;
@@ -490,8 +487,10 @@ static int resize(int new_rows, int new_cols, VTermPos *delta, void *user)
     // Fewer rows - determine if we're going to scroll at all, and if so, push
     // those lines to scrollback
     VTermPos pos = { 0, 0 };
+    VTermPos cursor = screen->state->pos;
+    // Find the first blank row after the cursor.
     for(pos.row = old_rows - 1; pos.row >= new_rows; pos.row--)
-      if(!vterm_screen_is_eol(screen, pos))
+      if(!vterm_screen_is_eol(screen, pos) || cursor.row == pos.row)
         break;
 
     int first_blank_row = pos.row + 1;
@@ -609,16 +608,15 @@ static int setlineinfo(int row, const VTermLineInfo *newinfo, const VTermLineInf
 }
 
 static VTermStateCallbacks state_cbs = {
-  .putglyph     = &putglyph,
-  .movecursor   = &movecursor,
-  .scrollrect   = &scrollrect,
-  .erase        = &erase,
-  .setpenattr   = &setpenattr,
-  .settermprop  = &settermprop,
-  .setmousefunc = &setmousefunc,
-  .bell         = &bell,
-  .resize       = &resize,
-  .setlineinfo  = &setlineinfo,
+  .putglyph    = &putglyph,
+  .movecursor  = &movecursor,
+  .scrollrect  = &scrollrect,
+  .erase       = &erase,
+  .setpenattr  = &setpenattr,
+  .settermprop = &settermprop,
+  .bell        = &bell,
+  .resize      = &resize,
+  .setlineinfo = &setlineinfo,
 };
 
 static VTermScreen *screen_new(VTerm *vt)
@@ -641,6 +639,9 @@ static VTermScreen *screen_new(VTerm *vt)
 
   screen->rows = rows;
   screen->cols = cols;
+
+  screen->callbacks = NULL;
+  screen->cbdata    = NULL;
 
   screen->buffers[0] = realloc_buffer(screen, NULL, rows, cols);
 
@@ -839,6 +840,21 @@ void vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks 
   screen->cbdata = user;
 }
 
+void *vterm_screen_get_cbdata(VTermScreen *screen)
+{
+  return screen->cbdata;
+}
+
+void vterm_screen_set_unrecognised_fallbacks(VTermScreen *screen, const VTermParserCallbacks *fallbacks, void *user)
+{
+  vterm_state_set_unrecognised_fallbacks(screen->state, fallbacks, user);
+}
+
+void *vterm_screen_get_unrecognised_fbdata(VTermScreen *screen)
+{
+  return vterm_state_get_unrecognised_fbdata(screen->state);
+}
+
 void vterm_screen_flush_damage(VTermScreen *screen)
 {
   if(screen->pending_scrollrect.start_row != -1) {
@@ -878,9 +894,9 @@ static int attrs_differ(VTermAttrMask attrs, ScreenCell *a, ScreenCell *b)
     return 1;
   if((attrs & VTERM_ATTR_FONT_MASK)       && (a->pen.font != b->pen.font))
     return 1;
-  if((attrs & VTERM_ATTR_FOREGROUND_MASK) && !vterm_color_equal(a->pen.fg, b->pen.fg))
+  if((attrs & VTERM_ATTR_FOREGROUND_MASK) && !vterm_color_is_equal(&a->pen.fg, &b->pen.fg))
     return 1;
-  if((attrs & VTERM_ATTR_BACKGROUND_MASK) && !vterm_color_equal(a->pen.bg, b->pen.bg))
+  if((attrs & VTERM_ATTR_BACKGROUND_MASK) && !vterm_color_is_equal(&a->pen.bg, &b->pen.bg))
     return 1;
 
   return 0;
@@ -912,4 +928,9 @@ int vterm_screen_get_attrs_extent(const VTermScreen *screen, VTermRect *extent, 
   extent->end_col = col - 1;
 
   return 1;
+}
+
+void vterm_screen_convert_color_to_rgb(const VTermScreen *screen, VTermColor *col)
+{
+  vterm_state_convert_color_to_rgb(screen->state, col);
 }

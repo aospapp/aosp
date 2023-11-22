@@ -11,12 +11,12 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "http://repo1.maven.org/maven2/org/checkerframework/dataflow/2.2.2/dataflow-2.2.2-sources.jar"
+    value: "http://repo1.maven.org/maven2/org/checkerframework/dataflow/2.5.3/dataflow-2.5.3-sources.jar"
   }
   url {
     type: ARCHIVE
-    value: "http://repo1.maven.org/maven2/org/checkerframework/javacutil/2.2.2/javacutil-2.2.2-sources.jar"
+    value: "http://repo1.maven.org/maven2/org/checkerframework/javacutil/2.5.3/javacutil-2.5.3-sources.jar"
   }
-  version: "2.2.2"
-  last_upgrade_date { year: 2018 month: 1 day: 26}
+  version: "2.5.3"
+  last_upgrade_date { year: 2018 month: 10 day: 14}
 }

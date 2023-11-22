@@ -80,8 +80,7 @@ elf_getdata_rawchunk (Elf *elf, off_t offset, size_t size, Elf_Type type)
     {
     /* If the file is mmap'ed we can use it directly, if aligned for type.  */
       char *rawdata = elf->map_address + elf->start_offset + offset;
-      if (ALLOW_UNALIGNED ||
-	  ((uintptr_t) rawdata & (align - 1)) == 0)
+      if (((uintptr_t) rawdata & (align - 1)) == 0)
 	rawchunk = rawdata;
       else
 	{
@@ -152,8 +151,7 @@ elf_getdata_rawchunk (Elf *elf, off_t offset, size_t size, Elf_Type type)
 	}
 
       /* Call the conversion function.  */
-      (*__elf_xfctstom[LIBELF_EV_IDX][LIBELF_EV_IDX][elf->class - 1][type])
-	(buffer, rawchunk, size, 0);
+      (*__elf_xfctstom[elf->class - 1][type])(buffer, rawchunk, size, 0);
     }
 
   /* Allocate the dummy container to point at this buffer.  */
@@ -172,7 +170,7 @@ elf_getdata_rawchunk (Elf *elf, off_t offset, size_t size, Elf_Type type)
   chunk->data.d.d_size = size;
   chunk->data.d.d_type = type;
   chunk->data.d.d_align = align;
-  chunk->data.d.d_version = __libelf_version;
+  chunk->data.d.d_version = EV_CURRENT;
 
   rwlock_unlock (elf->lock);
   rwlock_wrlock (elf->lock);

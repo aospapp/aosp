@@ -6,6 +6,8 @@ mkdir dir
 cd dir
 touch file
 mkfifo fifo
+# fs timestamp granularity isn't always enough for -newer to tell, so wait
+sleep .1
 ln -s fifo link
 cd ..
 touch b
@@ -54,6 +56,10 @@ testing "-type f -user -exec" \
   "find dir -type f -user $USER -exec ls {} \\;" "dir/file\n" "" ""
 testing "-type l -newer -exec" \
   "find dir -type l -newer dir/file -exec ls {} \\;" "dir/link\n" "" ""
+testing "-exec true \\; -print" \
+  "find dir/file -exec true \\; -print" "dir/file\n" "" ""
+testing "-exec false \\; -print" \
+  "find dir/file -exec false \\; -print" "" "" ""
 testing "-perm (exact success)" \
   "find perm -type f -perm 0444" "perm/all-read-only\n" "" ""
 testing "-perm (exact failure)" \
@@ -93,5 +99,14 @@ testing "-iname (no arguments)" \
 
 testing "" "find dir \( -iname file -o -iname missing \) -exec echo {} \;" \
   "dir/file\n" "" ""
+
+testing "-path glob" \
+  "find dir -path 'dir*e'" "dir/file\n" "" ""
+testing "-wholename glob" \
+  "find dir -wholename 'dir*e'" "dir/file\n" "" ""
+testing "-ipath glob" \
+  "find dir -ipath 'dIr*E'" "dir/file\n" "" ""
+testing "-iwholename glob" \
+  "find dir -iwholename 'dIr*E'" "dir/file\n" "" ""
 
 rm -rf dir

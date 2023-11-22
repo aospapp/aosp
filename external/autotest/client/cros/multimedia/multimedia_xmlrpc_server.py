@@ -21,6 +21,7 @@ from autotest_lib.client.cros.multimedia import browser_facade_native
 from autotest_lib.client.cros.multimedia import cfm_facade_native
 from autotest_lib.client.cros.multimedia import display_facade_native
 from autotest_lib.client.cros.multimedia import facade_resource
+from autotest_lib.client.cros.multimedia import graphics_facade_native
 from autotest_lib.client.cros.multimedia import input_facade_native
 from autotest_lib.client.cros.multimedia import kiosk_facade_native
 from autotest_lib.client.cros.multimedia import system_facade_native
@@ -57,7 +58,8 @@ class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
                               resource, 'hotrod'),
             'cfm_mimo_screen': cfm_facade_native.CFMFacadeNative(
                               resource, 'control'),
-            'kiosk': kiosk_facade_native.KioskFacadeNative(resource)
+            'kiosk': kiosk_facade_native.KioskFacadeNative(resource),
+            'graphics': graphics_facade_native.GraphicsFacadeNative()
         }
 
 

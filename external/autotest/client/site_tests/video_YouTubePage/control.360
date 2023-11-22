@@ -1,0 +1,25 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = "Chrome OS Team"
+NAME = "video_YouTubePage.360"
+PURPOSE = "Verify that YouTube smoothly plays a 3D-360 video."
+CRITERIA = """
+This test records the dropped frames count and percentage while playing a
+YouTube 3D 360 video.
+"""
+TIME = "MEDIUM"
+TEST_CATEGORY = "Performance"
+TEST_CLASS = "video"
+TEST_TYPE = "client"
+
+DOC = """
+This test measures how smoothly YouTube 3D 360 videos play.
+"""
+
+_TEST_NAME = '360'
+_TEST_PAGE = 'https://www.youtube.com/watch?v=FAtdv94yzp4'
+job.run_test('video_YouTubePage', subtest_name=_TEST_NAME,
+             test_page=_TEST_PAGE,
+             subdir_tag=_TEST_NAME)

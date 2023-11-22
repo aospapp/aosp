@@ -116,6 +116,15 @@ void TestCreateFile(Stream* stream) {
   EXPECT_EQ(-1, ReadByte(stream));
 }
 
+// Helper functions for base::Bind.
+void SetSizeT(size_t* target, size_t source) {
+  *target = source;
+}
+
+void SetToTrue(bool* target, const Error* /* error */) {
+  *target = true;
+}
+
 }  // anonymous namespace
 
 // A mock file descriptor wrapper to test low-level file API used by FileStream.
@@ -371,24 +380,16 @@ TEST_F(FileStreamTest, Seek_Fail) {
 TEST_F(FileStreamTest, ReadAsync) {
   size_t read_size = 0;
   bool failed = false;
-  auto success_callback = [](size_t* read_size, size_t size) {
-    *read_size = size;
-  };
-  auto error_callback = [](bool* failed, const Error* /* error */) {
-    *failed = true;
-  };
   FileStream::FileDescriptorInterface::DataCallback data_callback;
 
   EXPECT_CALL(fd_mock(), Read(test_read_buffer_, 100))
       .WillOnce(ReturnWouldBlock());
   EXPECT_CALL(fd_mock(), WaitForData(Stream::AccessMode::READ, _, _))
       .WillOnce(DoAll(SaveArg<1>(&data_callback), Return(true)));
-  EXPECT_TRUE(stream_->ReadAsync(
-      test_read_buffer_,
-      100,
-      base::Bind(success_callback, base::Unretained(&read_size)),
-      base::Bind(error_callback, base::Unretained(&failed)),
-      nullptr));
+  EXPECT_TRUE(stream_->ReadAsync(test_read_buffer_, 100,
+                                 base::Bind(&SetSizeT, &read_size),
+                                 base::Bind(&SetToTrue, &failed),
+                                 nullptr));
   EXPECT_EQ(0u, read_size);
   EXPECT_FALSE(failed);
 
@@ -516,24 +517,16 @@ TEST_F(FileStreamTest, ReadAllBlocking_Fail) {
 TEST_F(FileStreamTest, WriteAsync) {
   size_t write_size = 0;
   bool failed = false;
-  auto success_callback = [](size_t* write_size, size_t size) {
-    *write_size = size;
-  };
-  auto error_callback = [](bool* failed, const Error* /* error */) {
-    *failed = true;
-  };
   FileStream::FileDescriptorInterface::DataCallback data_callback;
 
   EXPECT_CALL(fd_mock(), Write(test_write_buffer_, 100))
       .WillOnce(ReturnWouldBlock());
   EXPECT_CALL(fd_mock(), WaitForData(Stream::AccessMode::WRITE, _, _))
       .WillOnce(DoAll(SaveArg<1>(&data_callback), Return(true)));
-  EXPECT_TRUE(stream_->WriteAsync(
-      test_write_buffer_,
-      100,
-      base::Bind(success_callback, base::Unretained(&write_size)),
-      base::Bind(error_callback, base::Unretained(&failed)),
-      nullptr));
+  EXPECT_TRUE(stream_->WriteAsync(test_write_buffer_, 100,
+                                  base::Bind(&SetSizeT, &write_size),
+                                  base::Bind(&SetToTrue, &failed),
+                                  nullptr));
   EXPECT_EQ(0u, write_size);
   EXPECT_FALSE(failed);
 
@@ -1051,10 +1044,6 @@ TEST_F(FileStreamTest, FromFileDescriptor_ReadAsync) {
     *succeeded = true;
   };
 
-  auto error_callback = [](bool* failed, const Error* /* error */) {
-    *failed = true;
-  };
-
   auto write_data_callback = [](int write_fd) {
     std::string data{"abracadabra"};
     EXPECT_TRUE(base::WriteFileDescriptor(write_fd, data.data(), data.size()));
@@ -1070,14 +1059,9 @@ TEST_F(FileStreamTest, FromFileDescriptor_ReadAsync) {
       base::Bind(write_data_callback, fds[1]),
       base::TimeDelta::FromMilliseconds(10));
 
-  EXPECT_TRUE(
-      stream->ReadAsync(buffer,
-                        100,
-                        base::Bind(success_callback,
-                                   base::Unretained(&succeeded),
-                                   base::Unretained(buffer)),
-                        base::Bind(error_callback, base::Unretained(&failed)),
-                        nullptr));
+  EXPECT_TRUE(stream->ReadAsync(
+      buffer, 100, base::Bind(success_callback, &succeeded, buffer),
+      base::Bind(&SetToTrue, &failed), nullptr));
 
   auto end_condition = [](bool* failed, bool* succeeded) {
     return *failed || *succeeded;
@@ -1116,17 +1100,13 @@ TEST_F(FileStreamTest, FromFileDescriptor_WriteAsync) {
     *succeeded = true;
   };
 
-  auto error_callback = [](bool* failed, const Error* /* error */) {
-    *failed = true;
-  };
-
   StreamPtr stream = FileStream::FromFileDescriptor(fds[1], true, nullptr);
 
   EXPECT_TRUE(stream->WriteAsync(
       data.data(),
       data.size(),
       base::Bind(success_callback, base::Unretained(&succeeded), data, fds[0]),
-      base::Bind(error_callback, base::Unretained(&failed)),
+      base::Bind(&SetToTrue, &failed),
       nullptr));
 
   auto end_condition = [](bool* failed, bool* succeeded) {

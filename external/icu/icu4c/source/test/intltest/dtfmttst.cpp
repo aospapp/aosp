@@ -121,6 +121,7 @@ void DateFormatTest::runIndexedTest( int32_t index, UBool exec, const char* &nam
     TESTCASE_AUTO(TestDayPeriodWithLocales);
     TESTCASE_AUTO(TestMinuteSecondFieldsInOddPlaces);
     TESTCASE_AUTO(TestDayPeriodParsing);
+    TESTCASE_AUTO(TestParseRegression13744);
 
     TESTCASE_AUTO_END;
 }
@@ -205,14 +206,14 @@ void DateFormatTest::TestPatterns() {
         //         actualPattern, locale);
         LocalPointer<DateTimePatternGenerator> generator(
                 DateTimePatternGenerator::createInstance(locale, errorCode));
-        if(errorCode.logDataIfFailureAndReset("DateTimePatternGenerator::createInstance() failed for locale ID \"%s\"", EXPECTED[i].localeID)) {
+        if(errorCode.errDataIfFailureAndReset("DateTimePatternGenerator::createInstance() failed for locale ID \"%s\"", EXPECTED[i].localeID)) {
             continue;
         }
         UnicodeString pattern = generator->getBestPattern(actualPattern, errorCode);
         SimpleDateFormat date1(pattern, locale, errorCode);
         SimpleDateFormat date2(pattern, locale, errorCode);
         date2.adoptCalendar(Calendar::createInstance(locale, errorCode));
-        if(errorCode.logIfFailureAndReset("DateFormat::getInstanceForSkeleton() failed")) {
+        if(errorCode.errIfFailureAndReset("DateFormat::getInstanceForSkeleton() failed")) {
             errln("  for actualPattern \"%s\" & locale ID \"%s\"",
                   EXPECTED[i].actualPattern, EXPECTED[i].localeID);
             continue;
@@ -1355,18 +1356,18 @@ DateFormatTest::TestLocaleDateFormat() // Bug 495
 void
 DateFormatTest::TestFormattingLocaleTimeSeparator()
 {
-    // This test not as useful is it once was, since timeSeparator
-    // in the Arabic is changed back to ":" in CLDR 28.
+    // This test not as useful as it once was, since timeSeparator
+    // in the Arabic locale is changed back to ":" in CLDR 28.
     const UDate testDate = 874266720000.;  // Sun Sep 14 21:52:00 CET 1997
     logln((UnicodeString)"Date set to : " + dateToString(testDate));
 
     const LocalPointer<const TimeZone> tz(TimeZone::createTimeZone("CET"));
 
     const LocalPointer<DateFormat> dfArab(DateFormat::createTimeInstance(
-            DateFormat::SHORT, Locale("ar")));
+            DateFormat::SHORT, Locale("ar", "EG")));
 
     const LocalPointer<DateFormat> dfLatn(DateFormat::createTimeInstance(
-            DateFormat::SHORT, Locale("ar", NULL, NULL, "numbers=latn")));
+            DateFormat::SHORT, Locale("ar", "EG", NULL, "numbers=latn")));
 
     if (dfLatn.isNull() || dfArab.isNull()) {
         dataerrln("Error calling DateFormat::createTimeInstance()");
@@ -5180,9 +5181,9 @@ void DateFormatTest::TestDayPeriodWithLocales() {
 
     // assertEquals("hh:mm:ss bbbb | 00:00:00 | de", "12:00:00 Mitternacht",
     //     sdf.format(k000000, out.remove()));
-    assertEquals("hh:mm:ss bbbb | 00:00:00 | de", "12:00:00 vorm.",
+    assertEquals("hh:mm:ss bbbb | 00:00:00 | de", "12:00:00 AM",
         sdf.format(k000000, out.remove()));
-    assertEquals("hh:mm:ss bbbb | 12:00:00 | de", "12:00:00 nachm.",
+    assertEquals("hh:mm:ss bbbb | 12:00:00 | de", "12:00:00 PM",
         sdf.format(k120000, out.remove()));
 
     // Locale ee has a rule that wraps around midnight (21h - 4h).
@@ -5537,6 +5538,19 @@ void DateFormatTest::TestDayPeriodParsing() {
         k030000, sdf.parse(UnicodeString("2015-11-13 03:00 midnight"), errorCode));
     assertEquals("yyyy-MM-dd hh:mm b | 2015-11-13 03:00 noon",
         k150000, sdf.parse(UnicodeString("2015-11-13 03:00 noon"), errorCode));
+}
+
+void DateFormatTest::TestParseRegression13744() {
+    LocalPointer<DateFormat> dfmt(DateFormat::createDateTimeInstance(
+            DateFormat::SHORT, DateFormat::SHORT, Locale("en", "US")));
+    if (dfmt.isNull()) {
+        dataerrln("DateFormat::createDateTimeInstance() failed");
+        return;
+    }
+    ParsePosition pos(0);
+    UnicodeString inDate("4/27/18");
+    dfmt->parse(inDate, pos);
+    assertEquals("Error index", inDate.length(), pos.getErrorIndex());
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

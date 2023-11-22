@@ -7,6 +7,7 @@
 
 extern "C" {
 #include "cras_alert.h"
+#include "cras_shm.h"
 #include "cras_system_state.h"
 #include "cras_types.h"
 }
@@ -17,8 +18,10 @@ size_t cras_alsa_card_create_called;
 size_t cras_alsa_card_destroy_called;
 static size_t add_stub_called;
 static size_t rm_stub_called;
+static size_t add_task_stub_called;
 static size_t callback_stub_called;
 static void *select_data_value;
+static void *task_data_value;
 static size_t add_callback_called;
 static cras_alert_cb add_callback_cb;
 static void *add_callback_arg;
@@ -41,11 +44,12 @@ static void ResetStubData() {
   kFakeAlsaCard = reinterpret_cast<struct cras_alsa_card*>(0x33);
   add_stub_called = 0;
   rm_stub_called = 0;
+  add_task_stub_called = 0;
   callback_stub_called = 0;
   add_callback_called = 0;
   rm_callback_called = 0;
   alert_pending_called = 0;
-  device_config_dir = reinterpret_cast<char *>(3);
+  device_config_dir = NULL;
   cras_alsa_card_config_dir = NULL;
   cras_observer_notify_output_volume_called = 0;
   cras_observer_notify_output_mute_called = 0;
@@ -67,12 +71,42 @@ static void rm_stub(int fd, void *select_data) {
   select_data_value = select_data;
 }
 
+static int add_task_stub(void (*cb)(void *data),
+                         void *callback_data,
+                         void *task_data)
+{
+  add_task_stub_called++;
+  task_data_value = task_data;
+  return 0;
+}
+
 static void callback_stub(void *data) {
   callback_stub_called++;
 }
 
+static void do_sys_init() {
+  char *shm_name;
+  ASSERT_GT(asprintf(&shm_name, "/cras-%d", getpid()), 0);
+  int rw_shm_fd;
+  int ro_shm_fd;
+  struct cras_server_state *exp_state = (struct cras_server_state *)
+    cras_shm_setup(shm_name,
+                   sizeof(*exp_state),
+                   &rw_shm_fd,
+                   &ro_shm_fd);
+  if (!exp_state)
+    exit(-1);
+  cras_system_state_init(device_config_dir,
+                         shm_name,
+                         rw_shm_fd,
+                         ro_shm_fd,
+                         exp_state,
+                         sizeof(*exp_state));
+  free(shm_name);
+}
+
 TEST(SystemStateSuite, DefaultVolume) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   EXPECT_EQ(100, cras_system_get_volume());
   EXPECT_EQ(2000, cras_system_get_capture_gain());
   EXPECT_EQ(0, cras_system_get_mute());
@@ -81,7 +115,7 @@ TEST(SystemStateSuite, DefaultVolume) {
 }
 
 TEST(SystemStateSuite, SetVolume) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   cras_system_set_volume(0);
   EXPECT_EQ(0, cras_system_get_volume());
   cras_system_set_volume(50);
@@ -95,7 +129,7 @@ TEST(SystemStateSuite, SetVolume) {
 }
 
 TEST(SystemStateSuite, SetMinMaxVolume) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   cras_system_set_volume_limits(-10000, -600);
   EXPECT_EQ(-10000, cras_system_get_min_volume());
   EXPECT_EQ(-600, cras_system_get_max_volume());
@@ -103,7 +137,7 @@ TEST(SystemStateSuite, SetMinMaxVolume) {
 }
 
 TEST(SystemStateSuite, SetCaptureVolume) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   cras_system_set_capture_gain(0);
   EXPECT_EQ(0, cras_system_get_capture_gain());
   cras_system_set_capture_gain(3000);
@@ -116,7 +150,7 @@ TEST(SystemStateSuite, SetCaptureVolume) {
 }
 
 TEST(SystemStateSuite, SetCaptureVolumeStoreTarget) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   cras_system_set_capture_gain_limits(-2000, 2000);
   cras_system_set_capture_gain(3000);
   // Gain is within the limit.
@@ -132,7 +166,7 @@ TEST(SystemStateSuite, SetCaptureVolumeStoreTarget) {
 }
 
 TEST(SystemStateSuite, SetMinMaxCaptureGain) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   cras_system_set_capture_gain(3000);
   cras_system_set_capture_gain_limits(-2000, 2000);
   EXPECT_EQ(-2000, cras_system_get_min_capture_gain());
@@ -144,7 +178,7 @@ TEST(SystemStateSuite, SetMinMaxCaptureGain) {
 
 TEST(SystemStateSuite, SetUserMute) {
   ResetStubData();
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
 
   EXPECT_EQ(0, cras_system_get_mute());
 
@@ -165,7 +199,7 @@ TEST(SystemStateSuite, SetUserMute) {
 
 TEST(SystemStateSuite, SetMute) {
   ResetStubData();
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
 
   EXPECT_EQ(0, cras_system_get_mute());
 
@@ -184,8 +218,54 @@ TEST(SystemStateSuite, SetMute) {
   cras_system_state_deinit();
 }
 
+TEST(SystemStateSuite, SetSystemMuteThenSwitchUserMute) {
+  ResetStubData();
+  do_sys_init();
+
+  EXPECT_EQ(0, cras_system_get_mute());
+
+  // Set system mute.
+  cras_system_set_mute(1);
+
+  // Switching user mute will not notify observer.
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
+  cras_system_set_user_mute(1);
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
+  cras_system_set_user_mute(0);
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
+
+  // Unset system mute.
+  cras_system_set_mute(0);
+  EXPECT_EQ(2, cras_observer_notify_output_mute_called);
+
+  cras_system_state_deinit();
+}
+
+TEST(SystemStateSuite, SetUserMuteThenSwitchSystemMute) {
+  ResetStubData();
+  do_sys_init();
+
+  EXPECT_EQ(0, cras_system_get_mute());
+
+  // Set user mute.
+  cras_system_set_user_mute(1);
+
+  // Switching system mute will not notify observer.
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
+  cras_system_set_mute(1);
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
+  cras_system_set_mute(0);
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
+
+  // Unset user mute.
+  cras_system_set_user_mute(0);
+  EXPECT_EQ(2, cras_observer_notify_output_mute_called);
+
+  cras_system_state_deinit();
+}
+
 TEST(SystemStateSuite, CaptureMuteChangedCallbackMultiple) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   ResetStubData();
 
   cras_system_set_capture_mute(1);
@@ -199,7 +279,7 @@ TEST(SystemStateSuite, CaptureMuteChangedCallbackMultiple) {
 }
 
 TEST(SystemStateSuite, MuteLocked) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   ResetStubData();
 
   cras_system_set_mute(1);
@@ -211,7 +291,7 @@ TEST(SystemStateSuite, MuteLocked) {
   cras_system_set_mute(0);
   EXPECT_EQ(1, cras_system_get_mute());
   EXPECT_EQ(1, cras_system_get_mute_locked());
-  EXPECT_EQ(2, cras_observer_notify_output_mute_called);
+  EXPECT_EQ(1, cras_observer_notify_output_mute_called);
 
   cras_system_set_capture_mute(1);
   EXPECT_EQ(1, cras_system_get_capture_mute());
@@ -227,7 +307,7 @@ TEST(SystemStateSuite, MuteLocked) {
 }
 
 TEST(SystemStateSuite, Suspend) {
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   ResetStubData();
 
   cras_system_set_suspended(1);
@@ -248,7 +328,7 @@ TEST(SystemStateSuite, AddCardFailCreate) {
 
   info.card_type = ALSA_CARD_TYPE_INTERNAL;
   info.card_index = 0;
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   EXPECT_EQ(-ENOMEM, cras_system_add_alsa_card(&info));
   EXPECT_EQ(1, cras_alsa_card_create_called);
   EXPECT_EQ(cras_alsa_card_config_dir, device_config_dir);
@@ -261,7 +341,7 @@ TEST(SystemStateSuite, AddCard) {
 
   info.card_type = ALSA_CARD_TYPE_INTERNAL;
   info.card_index = 0;
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   EXPECT_EQ(0, cras_system_add_alsa_card(&info));
   EXPECT_EQ(1, cras_alsa_card_create_called);
   EXPECT_EQ(cras_alsa_card_config_dir, device_config_dir);
@@ -281,7 +361,7 @@ TEST(SystemSettingsRegisterSelectDescriptor, AddSelectFd) {
   int rc;
 
   ResetStubData();
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
   rc = cras_system_add_select_fd(7, callback_stub, stub_data);
   EXPECT_NE(0, rc);
   EXPECT_EQ(0, add_stub_called);
@@ -305,9 +385,29 @@ TEST(SystemSettingsRegisterSelectDescriptor, AddSelectFd) {
   cras_system_state_deinit();
 }
 
+TEST(SystemSettingsAddTask, AddTask) {
+  void *stub_data = reinterpret_cast<void *>(44);
+  void *task_data = reinterpret_cast<void *>(33);
+  int rc;
+
+  do_sys_init();
+  rc = cras_system_add_task(callback_stub, stub_data);
+  EXPECT_NE(0, rc);
+  EXPECT_EQ(0, add_task_stub_called);
+  rc = cras_system_set_add_task_handler(add_task_stub, task_data);
+  EXPECT_EQ(0, rc);
+  EXPECT_EQ(0, add_task_stub_called);
+  rc = cras_system_add_task(callback_stub, stub_data);
+  EXPECT_EQ(0, rc);
+  EXPECT_EQ(1, add_task_stub_called);
+  EXPECT_EQ(task_data, task_data_value);
+
+  cras_system_state_deinit();
+}
+
 TEST(SystemSettingsStreamCount, StreamCount) {
   ResetStubData();
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
 
   EXPECT_EQ(0, cras_system_state_get_active_streams());
   cras_system_state_stream_added(CRAS_STREAM_OUTPUT);
@@ -324,7 +424,7 @@ TEST(SystemSettingsStreamCount, StreamCount) {
 
 TEST(SystemSettingsStreamCount, StreamCountByDirection) {
   ResetStubData();
-  cras_system_state_init(device_config_dir);
+  do_sys_init();
 
   EXPECT_EQ(0, cras_system_state_get_active_streams());
   cras_system_state_stream_added(CRAS_STREAM_OUTPUT);

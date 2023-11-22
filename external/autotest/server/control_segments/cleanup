@@ -40,8 +40,7 @@ def cleanup(machine):
             host.collect_logs('/var/log', local_log_dir, ignore_errors=True)
 
             host.cleanup()
-            provision.run_special_task_actions(job, host, labels_list,
-                                               provision.Cleanup)
+            provision.Cleanup.run_task_actions(job, host, labels_list)
     except Exception:
         logging.exception('Cleanup failed due to Exception.')
         job.record('END FAIL', None, 'cleanup')

@@ -44,11 +44,11 @@ Key terms
   ``venv``. It allows virtual environments to be used on versions of
   Python prior to 3.4, which either don't provide ``venv`` at all, or
   aren't able to automatically install ``pip`` into created environments.
-* The `Python Packaging Index <https://pypi.python.org/pypi>`__ is a public
+* The `Python Packaging Index <https://pypi.org>`__ is a public
   repository of open source licensed packages made available for use by
   other Python users.
 * the `Python Packaging Authority
-  <https://www.pypa.io/en/latest/>`__ are the group of
+  <https://www.pypa.io/>`__ is the group of
   developers and documentation authors responsible for the maintenance and
   evolution of the standard packaging tools and the associated metadata and
   file format standards. They maintain a variety of tools, documentation,
@@ -209,6 +209,17 @@ is unexpectedly upgraded using ``pip``.
 
 On such systems, it is often better to use a virtual environment or a
 per-user installation when installing packages with ``pip``.
+
+
+Pip not installed
+-----------------
+
+It is possible that ``pip`` does not get installed by default. One potential fix is::
+
+    python -m ensurepip --default-pip
+
+There are also additional resources for `installing pip.
+<https://packaging.python.org/tutorials/installing-packages/#install-pip-setuptools-and-wheel>`__
 
 
 Installing binary extensions

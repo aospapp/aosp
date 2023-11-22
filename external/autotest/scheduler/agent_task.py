@@ -650,10 +650,14 @@ class SpecialAgentTask(AgentTask, TaskWithJobKeyvals):
 
 
     def _command_line(self):
-        return autoserv_utils._autoserv_command_line(self.host.hostname,
-                                                     self._extra_command_args,
-                                                     queue_entry=self.queue_entry,
-                                                     in_lab=True)
+        return autoserv_utils.autoserv_run_job_command(
+                autoserv_utils.autoserv_directory,
+                self.host.hostname,
+                results_directory=drone_manager.WORKING_DIRECTORY,
+                extra_args=self._extra_command_args,
+                queue_entry=self.queue_entry,
+                in_lab=True,
+        )
 
 
     def _working_directory(self):

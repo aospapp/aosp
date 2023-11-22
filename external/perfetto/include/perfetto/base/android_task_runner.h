@@ -17,6 +17,7 @@
 #ifndef INCLUDE_PERFETTO_BASE_ANDROID_TASK_RUNNER_H_
 #define INCLUDE_PERFETTO_BASE_ANDROID_TASK_RUNNER_H_
 
+#include "perfetto/base/event.h"
 #include "perfetto/base/scoped_file.h"
 #include "perfetto/base/task_runner.h"
 #include "perfetto/base/thread_checker.h"
@@ -57,6 +58,7 @@ class AndroidTaskRunner : public TaskRunner {
   void PostDelayedTask(std::function<void()>, uint32_t delay_ms) override;
   void AddFileDescriptorWatch(int fd, std::function<void()>) override;
   void RemoveFileDescriptorWatch(int fd) override;
+  bool RunsTasksOnCurrentThread() const override;
 
  private:
   bool OnFileDescriptorEvent(int signalled_fd, int events);
@@ -69,7 +71,7 @@ class AndroidTaskRunner : public TaskRunner {
   void ScheduleDelayedWakeUp(TimeMillis time);
 
   ALooper* const looper_;
-  ScopedFile immediate_event_;
+  Event immediate_event_;
   ScopedFile delayed_timer_;
 
   ThreadChecker thread_checker_;

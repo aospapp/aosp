@@ -21,7 +21,7 @@ cc_library_shared {
     vndk: {
         enabled: true,
     },
-
+    double_loadable: true,
     arch: {
         arm: {
             instruction_set: "arm",
@@ -31,20 +31,26 @@ cc_library_shared {
             },
         },
     },
-    srcs: ["libspeex/resample.c"],
+    srcs: ["libspeexdsp/resample.c"],
 
     cflags: [
-        "-DEXPORT=",
+        "-DEXPORT=__attribute__((visibility(\"default\")))",
         "-DFIXED_POINT",
-        "-DRESAMPLE_FORCE_FULL_SINC_TABLE",
+        "-DHAVE_STDINT_H",
+        "-DRESAMPLE_FULL_SINC_TABLE",
         "-O3",
         "-fstrict-aliasing",
         "-fprefetch-loop-arrays",
         "-Wall",
         "-Werror",
         "-Wno-sign-compare",
+        "-Wno-unused-parameter",
     ],
 
     local_include_dirs: ["include"],
     export_include_dirs: ["include"],
+    sanitize: {
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+    },
 }

@@ -30,6 +30,10 @@
 #include "vkPrograms.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkObjUtil.hpp"
 #include "tcuTexLookupVerifier.hpp"
 #include "tcuTextureUtil.hpp"
 #include "tcuTestLog.hpp"
@@ -205,6 +209,7 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 	, m_layerCount			(layerCount)
 	, m_imageCount			(imageCount)
 	, m_componentMapping	(componentMapping)
+	, m_componentMask		(true)
 	, m_subresourceRange	(subresourceRange)
 	, m_samplerParams		(samplerParams)
 	, m_samplerLod			(samplerLod)
@@ -212,14 +217,18 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 	, m_colorFormat			(VK_FORMAT_R8G8B8A8_UNORM)
 	, m_vertices			(vertices)
 {
-	const InstanceInterface&	vki						= context.getInstanceInterface();
-	const DeviceInterface&		vk						= context.getDeviceInterface();
-	const VkPhysicalDevice		physDevice				= context.getPhysicalDevice();
-	const VkDevice				vkDevice				= context.getDevice();
-	const VkQueue				queue					= context.getUniversalQueue();
-	const deUint32				queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
-	SimpleAllocator				memAlloc				(vk, vkDevice, getPhysicalDeviceMemoryProperties(context.getInstanceInterface(), context.getPhysicalDevice()));
-	const VkComponentMapping	componentMappingRGBA	= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	const InstanceInterface&			vki						= context.getInstanceInterface();
+	const DeviceInterface&				vk						= context.getDeviceInterface();
+	const VkPhysicalDevice				physDevice				= context.getPhysicalDevice();
+	const VkDevice						vkDevice				= context.getDevice();
+	const VkQueue						queue					= context.getUniversalQueue();
+	const deUint32						queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
+	SimpleAllocator						memAlloc				(vk, vkDevice, getPhysicalDeviceMemoryProperties(context.getInstanceInterface(), context.getPhysicalDevice()));
+	const VkComponentMapping			componentMappingRGBA	= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	const vk::VkPhysicalDeviceLimits	limits					= getPhysicalDeviceProperties(vki, physDevice).limits;
+
+	if (de::abs(samplerParams.mipLodBias) > limits.maxSamplerLodBias)
+		TCU_THROW(NotSupportedError, "Unsupported sampler Lod bias value");
 
 	if (!isSupportedSamplableFormat(context.getInstanceInterface(), context.getPhysicalDevice(), imageFormat))
 		throw tcu::NotSupportedError(std::string("Unsupported format for sampling: ") + getFormatName(imageFormat));
@@ -233,13 +242,61 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 		!isLinearFilteringSupported(context.getInstanceInterface(), context.getPhysicalDevice(), imageFormat, VK_IMAGE_TILING_OPTIMAL))
 		throw tcu::NotSupportedError(std::string("Unsupported format for linear filtering: ") + getFormatName(imageFormat));
 
+	if (samplerParams.pNext != DE_NULL)
+	{
+		const VkStructureType nextType = *reinterpret_cast<const VkStructureType*>(samplerParams.pNext);
+		switch (nextType)
+		{
+			case VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT:
+			{
+				if (!de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), "VK_EXT_sampler_filter_minmax"))
+					TCU_THROW(NotSupportedError, "VK_EXT_sampler_filter_minmax not supported");
+
+				if (!isMinMaxFilteringSupported(context.getInstanceInterface(), context.getPhysicalDevice(), imageFormat, VK_IMAGE_TILING_OPTIMAL))
+					throw tcu::NotSupportedError(std::string("Unsupported format for min/max filtering: ") + getFormatName(imageFormat));
+
+				VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT	physicalDeviceSamplerMinMaxProperties =
+				{
+					VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT,
+					DE_NULL,
+					DE_FALSE,
+					DE_FALSE
+				};
+				VkPhysicalDeviceProperties2						physicalDeviceProperties;
+				physicalDeviceProperties.sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+				physicalDeviceProperties.pNext	= &physicalDeviceSamplerMinMaxProperties;
+
+				vki.getPhysicalDeviceProperties2(context.getPhysicalDevice(), &physicalDeviceProperties);
+
+				if (physicalDeviceSamplerMinMaxProperties.filterMinmaxImageComponentMapping != VK_TRUE)
+				{
+					// If filterMinmaxImageComponentMapping is VK_FALSE the component mapping of the image
+					// view used with min/max filtering must have been created with the r component set to
+					// VK_COMPONENT_SWIZZLE_IDENTITY. Only the r component of the sampled image value is
+					// defined and the other component values are undefined
+
+					m_componentMask = tcu::BVec4(true, false, false, false);
+
+					if (m_componentMapping.r != VK_COMPONENT_SWIZZLE_IDENTITY)
+					{
+						TCU_THROW(NotSupportedError, "filterMinmaxImageComponentMapping is not supported (R mapping is not IDENTITY)");
+					}
+				}
+			}
+			break;
+			default:
+				TCU_FAIL("Unrecognized sType in chained sampler create info");
+		}
+	}
+
+
 	if ((samplerParams.addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE ||
 		 samplerParams.addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE ||
 		 samplerParams.addressModeW == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE) &&
 		!de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), "VK_KHR_sampler_mirror_clamp_to_edge"))
 		TCU_THROW(NotSupportedError, "VK_KHR_sampler_mirror_clamp_to_edge not supported");
 
-	if (isCompressedFormat(imageFormat) && imageViewType == VK_IMAGE_VIEW_TYPE_3D)
+	if ((isCompressedFormat(imageFormat) || isDepthStencilFormat(imageFormat)) && imageViewType == VK_IMAGE_VIEW_TYPE_3D)
 	{
 		// \todo [2016-01-22 pyry] Mandate VK_ERROR_FORMAT_NOT_SUPPORTED
 		try
@@ -255,11 +312,11 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			if (formatProperties.maxExtent.width == 0 &&
 				formatProperties.maxExtent.height == 0 &&
 				formatProperties.maxExtent.depth == 0)
-				TCU_THROW(NotSupportedError, "3D compressed format not supported");
+				TCU_THROW(NotSupportedError, "3D compressed or depth format not supported");
 		}
 		catch (const Error&)
 		{
-			TCU_THROW(NotSupportedError, "3D compressed format not supported");
+			TCU_THROW(NotSupportedError, "3D compressed or depth format not supported");
 		}
 	}
 
@@ -533,28 +590,6 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 
 	// Create pipeline
 	{
-		const VkPipelineShaderStageCreateInfo shaderStages[2] =
-		{
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				0u,															// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_VERTEX_BIT,									// VkShaderStageFlagBits				stage;
-				*m_vertexShaderModule,										// VkShaderModule						module;
-				"main",														// const char*							pName;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			},
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				0u,															// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_FRAGMENT_BIT,								// VkShaderStageFlagBits				stage;
-				*m_fragmentShaderModule,									// VkShaderModule						module;
-				"main",														// const char*							pName;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			}
-		};
-
 		const VkVertexInputBindingDescription vertexInputBindingDescription =
 		{
 			0u,									// deUint32					binding;
@@ -589,54 +624,8 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			vertexInputAttributeDescriptions								// const VkVertexInputAttributeDescription*	pVertexAttributeDescriptions;
 		};
 
-		const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,	// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			0u,																// VkPipelineInputAssemblyStateCreateFlags	flags;
-			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,							// VkPrimitiveTopology						topology;
-			false															// VkBool32									primitiveRestartEnable;
-		};
-
-		const VkViewport viewport =
-		{
-			0.0f,						// float	x;
-			0.0f,						// float	y;
-			(float)m_renderSize.x(),	// float	width;
-			(float)m_renderSize.y(),	// float	height;
-			0.0f,						// float	minDepth;
-			1.0f						// float	maxDepth;
-		};
-
-		const VkRect2D scissor = { { 0, 0 }, { (deUint32)m_renderSize.x(), (deUint32)m_renderSize.y() } };
-
-		const VkPipelineViewportStateCreateInfo viewportStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,			// VkStructureType						sType;
-			DE_NULL,														// const void*							pNext;
-			0u,																// VkPipelineViewportStateCreateFlags	flags;
-			1u,																// deUint32								viewportCount;
-			&viewport,														// const VkViewport*					pViewports;
-			1u,																// deUint32								scissorCount;
-			&scissor														// const VkRect2D*						pScissors;
-		};
-
-		const VkPipelineRasterizationStateCreateInfo rasterStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,		// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			0u,																// VkPipelineRasterizationStateCreateFlags	flags;
-			false,															// VkBool32									depthClampEnable;
-			false,															// VkBool32									rasterizerDiscardEnable;
-			VK_POLYGON_MODE_FILL,											// VkPolygonMode							polygonMode;
-			VK_CULL_MODE_NONE,												// VkCullModeFlags							cullMode;
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,								// VkFrontFace								frontFace;
-			false,															// VkBool32									depthBiasEnable;
-			0.0f,															// float									depthBiasConstantFactor;
-			0.0f,															// float									depthBiasClamp;
-			0.0f,															// float									depthBiasSlopeFactor;
-			1.0f															// float									lineWidth;
-		};
+		const std::vector<VkViewport>	viewports	(1, makeViewport(m_renderSize));
+		const std::vector<VkRect2D>		scissors	(1, makeRect2D(m_renderSize));
 
 		std::vector<VkPipelineColorBlendAttachmentState>	colorBlendAttachmentStates(m_imageCount);
 
@@ -665,75 +654,25 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			{ 0.0f, 0.0f, 0.0f, 0.0f }									// float										blendConstants[4];
 		};
 
-		const VkPipelineMultisampleStateCreateInfo multisampleStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,	// VkStructureType							sType;
-			DE_NULL,													// const void*								pNext;
-			0u,															// VkPipelineMultisampleStateCreateFlags	flags;
-			VK_SAMPLE_COUNT_1_BIT,										// VkSampleCountFlagBits					rasterizationSamples;
-			false,														// VkBool32									sampleShadingEnable;
-			0.0f,														// float									minSampleShading;
-			DE_NULL,													// const VkSampleMask*						pSampleMask;
-			false,														// VkBool32									alphaToCoverageEnable;
-			false														// VkBool32									alphaToOneEnable;
-		};
-
-		VkPipelineDepthStencilStateCreateInfo depthStencilStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,	// VkStructureType							sType;
-			DE_NULL,													// const void*								pNext;
-			0u,															// VkPipelineDepthStencilStateCreateFlags	flags;
-			false,														// VkBool32									depthTestEnable;
-			false,														// VkBool32									depthWriteEnable;
-			VK_COMPARE_OP_LESS,											// VkCompareOp								depthCompareOp;
-			false,														// VkBool32									depthBoundsTestEnable;
-			false,														// VkBool32									stencilTestEnable;
-			{															// VkStencilOpState							front;
-				VK_STENCIL_OP_ZERO,		// VkStencilOp	failOp;
-				VK_STENCIL_OP_ZERO,		// VkStencilOp	passOp;
-				VK_STENCIL_OP_ZERO,		// VkStencilOp	depthFailOp;
-				VK_COMPARE_OP_NEVER,	// VkCompareOp	compareOp;
-				0u,						// deUint32		compareMask;
-				0u,						// deUint32		writeMask;
-				0u						// deUint32		reference;
-			},
-			{															// VkStencilOpState	back;
-				VK_STENCIL_OP_ZERO,		// VkStencilOp	failOp;
-				VK_STENCIL_OP_ZERO,		// VkStencilOp	passOp;
-				VK_STENCIL_OP_ZERO,		// VkStencilOp	depthFailOp;
-				VK_COMPARE_OP_NEVER,	// VkCompareOp	compareOp;
-				0u,						// deUint32		compareMask;
-				0u,						// deUint32		writeMask;
-				0u						// deUint32		reference;
-			},
-			0.0f,														// float			minDepthBounds;
-			1.0f														// float			maxDepthBounds;
-		};
-
-		const VkGraphicsPipelineCreateInfo graphicsPipelineParams =
-		{
-			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,	// VkStructureType									sType;
-			DE_NULL,											// const void*										pNext;
-			0u,													// VkPipelineCreateFlags							flags;
-			2u,													// deUint32											stageCount;
-			shaderStages,										// const VkPipelineShaderStageCreateInfo*			pStages;
-			&vertexInputStateParams,							// const VkPipelineVertexInputStateCreateInfo*		pVertexInputState;
-			&inputAssemblyStateParams,							// const VkPipelineInputAssemblyStateCreateInfo*	pInputAssemblyState;
-			DE_NULL,											// const VkPipelineTessellationStateCreateInfo*		pTessellationState;
-			&viewportStateParams,								// const VkPipelineViewportStateCreateInfo*			pViewportState;
-			&rasterStateParams,									// const VkPipelineRasterizationStateCreateInfo*	pRasterizationState;
-			&multisampleStateParams,							// const VkPipelineMultisampleStateCreateInfo*		pMultisampleState;
-			&depthStencilStateParams,							// const VkPipelineDepthStencilStateCreateInfo*		pDepthStencilState;
-			&colorBlendStateParams,								// const VkPipelineColorBlendStateCreateInfo*		pColorBlendState;
-			(const VkPipelineDynamicStateCreateInfo*)DE_NULL,	// const VkPipelineDynamicStateCreateInfo*			pDynamicState;
-			*m_pipelineLayout,									// VkPipelineLayout									layout;
-			*m_renderPass,										// VkRenderPass										renderPass;
-			0u,													// deUint32											subpass;
-			0u,													// VkPipeline										basePipelineHandle;
-			0u													// deInt32											basePipelineIndex;
-		};
-
-		m_graphicsPipeline	= createGraphicsPipeline(vk, vkDevice, DE_NULL, &graphicsPipelineParams);
+		m_graphicsPipeline = makeGraphicsPipeline(vk,									// const DeviceInterface&                        vk
+												  vkDevice,								// const VkDevice                                device
+												  *m_pipelineLayout,					// const VkPipelineLayout                        pipelineLayout
+												  *m_vertexShaderModule,				// const VkShaderModule                          vertexShaderModule
+												  DE_NULL,								// const VkShaderModule                          tessellationControlModule
+												  DE_NULL,								// const VkShaderModule                          tessellationEvalModule
+												  DE_NULL,								// const VkShaderModule                          geometryShaderModule
+												  *m_fragmentShaderModule,				// const VkShaderModule                          fragmentShaderModule
+												  *m_renderPass,						// const VkRenderPass                            renderPass
+												  viewports,							// const std::vector<VkViewport>&                viewports
+												  scissors,								// const std::vector<VkRect2D>&                  scissors
+												  VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,	// const VkPrimitiveTopology                     topology
+												  0u,									// const deUint32                                subpass
+												  0u,									// const deUint32                                patchControlPoints
+												  &vertexInputStateParams,				// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
+												  DE_NULL,								// const VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo
+												  DE_NULL,								// const VkPipelineMultisampleStateCreateInfo*   multisampleStateCreateInfo
+												  DE_NULL,								// const VkPipelineDepthStencilStateCreateInfo*  depthStencilStateCreateInfo
+												  &colorBlendStateParams);				// const VkPipelineColorBlendStateCreateInfo*    colorBlendStateCreateInfo
 	}
 
 	// Create vertex buffer
@@ -759,7 +698,7 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 
 		// Load vertices into vertex buffer
 		deMemcpy(m_vertexBufferAlloc->getHostPtr(), &m_vertices[0], (size_t)vertexBufferSize);
-		flushMappedMemoryRange(vk, vkDevice, m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset(), vertexBufferParams.size);
+		flushAlloc(vk, vkDevice, *m_vertexBufferAlloc);
 	}
 
 	// Create command pool
@@ -767,29 +706,7 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 
 	// Create command buffer
 	{
-		const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType;
-			DE_NULL,										// const void*						pNext;
-			0u,												// VkCommandBufferUsageFlags		flags;
-			(const VkCommandBufferInheritanceInfo*)DE_NULL,
-		};
-
 		const std::vector<VkClearValue> attachmentClearValues (m_imageCount, defaultClearValue(m_colorFormat));
-
-		const VkRenderPassBeginInfo renderPassBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,				// VkStructureType		sType;
-			DE_NULL,												// const void*			pNext;
-			*m_renderPass,											// VkRenderPass			renderPass;
-			*m_framebuffer,											// VkFramebuffer		framebuffer;
-			{
-				{ 0, 0 },
-				{ (deUint32)m_renderSize.x(), (deUint32)m_renderSize.y() }
-			},														// VkRect2D				renderArea;
-			static_cast<deUint32>(attachmentClearValues.size()),	// deUint32				clearValueCount;
-			&attachmentClearValues[0]								// const VkClearValue*	pClearValues;
-		};
 
 		std::vector<VkImageMemoryBarrier> preAttachmentBarriers(m_imageCount);
 
@@ -813,12 +730,12 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 
 		m_cmdBuffer = allocateCommandBuffer(vk, vkDevice, *m_cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-		VK_CHECK(vk.beginCommandBuffer(*m_cmdBuffer, &cmdBufferBeginInfo));
+		beginCommandBuffer(vk, *m_cmdBuffer, 0u);
 
-		vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, (VkDependencyFlags)0,
+		vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, (VkDependencyFlags)0,
 			0u, DE_NULL, 0u, DE_NULL, (deUint32)m_imageCount, &preAttachmentBarriers[0]);
 
-		vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		beginRenderPass(vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), (deUint32)attachmentClearValues.size(), &attachmentClearValues[0]);
 
 		vk.cmdBindPipeline(*m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_graphicsPipeline);
 
@@ -828,12 +745,9 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 		vk.cmdBindVertexBuffers(*m_cmdBuffer, 0, 1, &m_vertexBuffer.get(), &vertexBufferOffset);
 		vk.cmdDraw(*m_cmdBuffer, (deUint32)m_vertices.size(), 1, 0, 0);
 
-		vk.cmdEndRenderPass(*m_cmdBuffer);
-		VK_CHECK(vk.endCommandBuffer(*m_cmdBuffer));
+		endRenderPass(vk, *m_cmdBuffer);
+		endCommandBuffer(vk, *m_cmdBuffer);
 	}
-
-	// Create fence
-	m_fence = createFence(vk, vkDevice);
 }
 
 ImageSamplingInstance::~ImageSamplingInstance (void)
@@ -845,22 +759,8 @@ tcu::TestStatus ImageSamplingInstance::iterate (void)
 	const DeviceInterface&		vk			= m_context.getDeviceInterface();
 	const VkDevice				vkDevice	= m_context.getDevice();
 	const VkQueue				queue		= m_context.getUniversalQueue();
-	const VkSubmitInfo			submitInfo	=
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType			sType;
-		DE_NULL,						// const void*				pNext;
-		0u,								// deUint32					waitSemaphoreCount;
-		DE_NULL,						// const VkSemaphore*		pWaitSemaphores;
-		DE_NULL,
-		1u,								// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers;
-		0u,								// deUint32					signalSemaphoreCount;
-		DE_NULL							// const VkSemaphore*		pSignalSemaphores;
-	};
 
-	VK_CHECK(vk.resetFences(vkDevice, 1, &m_fence.get()));
-	VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *m_fence));
-	VK_CHECK(vk.waitForFences(vkDevice, 1, &m_fence.get(), true, ~(0ull) /* infinity */));
+	submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffer.get());
 
 	return verifyImage();
 }
@@ -994,20 +894,38 @@ tcu::Vector<ScalarType, 4> swizzle (const tcu::Vector<ScalarType, 4>& vec, const
 									  getSwizzledComp(vec, swz.a, 3));
 }
 
-tcu::Vec4 swizzleScaleBias (const tcu::Vec4& vec, const vk::VkComponentMapping& swz)
+/*--------------------------------------------------------------------*//*!
+* \brief Swizzle scale or bias vector by given mapping
+*
+* \param vec scale or bias vector
+* \param swz swizzle component mapping, may include ZERO, ONE, or IDENTITY
+* \param zeroOrOneValue vector value for component swizzled as ZERO or ONE
+* \return swizzled vector
+*//*--------------------------------------------------------------------*/
+tcu::Vec4 swizzleScaleBias (const tcu::Vec4& vec, const vk::VkComponentMapping& swz, float zeroOrOneValue)
 {
+
+	// Remove VK_COMPONENT_SWIZZLE_IDENTITY to avoid addressing channelValues[0]
+	const vk::VkComponentMapping nonIdentitySwz =
+	{
+		swz.r == VK_COMPONENT_SWIZZLE_IDENTITY ? VK_COMPONENT_SWIZZLE_R : swz.r,
+		swz.g == VK_COMPONENT_SWIZZLE_IDENTITY ? VK_COMPONENT_SWIZZLE_G : swz.g,
+		swz.b == VK_COMPONENT_SWIZZLE_IDENTITY ? VK_COMPONENT_SWIZZLE_B : swz.b,
+		swz.a == VK_COMPONENT_SWIZZLE_IDENTITY ? VK_COMPONENT_SWIZZLE_A : swz.a
+	};
+
 	const float channelValues[] =
 	{
-		1.0f, // -1
-		1.0f, // 0
-		1.0f,
+		-1.0f,				// impossible
+		zeroOrOneValue,		// SWIZZLE_ZERO
+		zeroOrOneValue,		// SWIZZLE_ONE
 		vec.x(),
 		vec.y(),
 		vec.z(),
-		vec.w()
+		vec.w(),
 	};
 
-	return tcu::Vec4(channelValues[swz.r], channelValues[swz.g], channelValues[swz.b], channelValues[swz.a]);
+	return tcu::Vec4(channelValues[nonIdentitySwz.r], channelValues[nonIdentitySwz.g], channelValues[nonIdentitySwz.b], channelValues[nonIdentitySwz.a]);
 }
 
 template<typename ScalarType>
@@ -1169,7 +1087,7 @@ bool validateResultImage (const TextureViewType&				texture,
 		// and thus we need to pre-swizzle the texture.
 		UniquePtr<typename TexViewTraits<TextureViewType>::TextureType>	swizzledTex	(createSwizzledCopy(texture, swz));
 
-		return validateResultImage(*swizzledTex, sampler, texCoords, lodBounds, lookupPrecision, swizzleScaleBias(lookupScale, swz), swizzleScaleBias(lookupBias, swz), result, errorMask);
+		return validateResultImage(*swizzledTex, sampler, texCoords, lodBounds, lookupPrecision, swizzleScaleBias(lookupScale, swz, 1.0f), swizzleScaleBias(lookupBias, swz, 0.0f), result, errorMask);
 	}
 }
 
@@ -1460,11 +1378,44 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 		// the point of the test is not to validate accuracy.
 		lookupPrecision.coordBits		= tcu::IVec3(17, 17, 17);
 		lookupPrecision.uvwBits			= tcu::IVec3(5, 5, 5);
-		lookupPrecision.colorMask		= tcu::BVec4(true);
-		lookupPrecision.colorThreshold	= tcu::computeFixedPointThreshold(max((tcu::IVec4(8, 8, 8, 8) - (isNearestOnly ? 1 : 2)), tcu::IVec4(0))) / swizzleScaleBias(lookupScale, m_componentMapping);
+		lookupPrecision.colorMask		= m_componentMask;
+		lookupPrecision.colorThreshold	= tcu::computeFixedPointThreshold(max((tcu::IVec4(8, 8, 8, 8) - (isNearestOnly ? 1 : 2)), tcu::IVec4(0))) / swizzleScaleBias(lookupScale, m_componentMapping, 1.0f);
 
 		if (tcu::isSRGB(m_texture->getTextureFormat()))
 			lookupPrecision.colorThreshold += tcu::Vec4(4.f / 255.f);
+
+		de::MovePtr<TestTexture>			textureCopy;
+		TestTexture*						texture			= DE_NULL;
+
+		if (isCombinedDepthStencilType(m_texture->getTextureFormat().type))
+		{
+			// Verification loop does not support reading from combined depth stencil texture levels.
+			// Get rid of stencil component.
+
+			tcu::TextureFormat::ChannelType depthChannelType = tcu::TextureFormat::CHANNELTYPE_LAST;
+
+			switch (m_texture->getTextureFormat().type)
+			{
+			case tcu::TextureFormat::UNSIGNED_INT_16_8_8:
+				depthChannelType = tcu::TextureFormat::UNORM_INT16;
+				break;
+			case tcu::TextureFormat::UNSIGNED_INT_24_8:
+			case tcu::TextureFormat::UNSIGNED_INT_24_8_REV:
+				depthChannelType = tcu::TextureFormat::UNORM_INT24;
+				break;
+			case tcu::TextureFormat::FLOAT_UNSIGNED_INT_24_8_REV:
+				depthChannelType = tcu::TextureFormat::FLOAT;
+				break;
+			default:
+				DE_ASSERT("Unhandled texture format type in switch");
+			}
+			textureCopy	= m_texture->copy(tcu::TextureFormat(tcu::TextureFormat::D, depthChannelType));
+			texture		= textureCopy.get();
+		}
+		else
+		{
+			texture		= m_texture.get();
+		}
 
 		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
@@ -1478,7 +1429,7 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 																					 m_colorFormat,
 																					 m_renderSize));
 			const tcu::ConstPixelBufferAccess	resultAccess	= result->getAccess();
-			bool								compareOk		= validateResultImage(*m_texture,
+			bool								compareOk		= validateResultImage(*texture,
 																					  m_imageViewType,
 																					  subresource,
 																					  sampler,
@@ -1510,7 +1461,7 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 					<< tcu::TestLog::EndMessage;
 				anyWarnings = true;
 
-				compareOk = validateResultImage(*m_texture,
+				compareOk = validateResultImage(*texture,
 												m_imageViewType,
 												subresource,
 												sampler,

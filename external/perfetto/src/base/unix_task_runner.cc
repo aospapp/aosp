@@ -19,7 +19,6 @@
 #include "perfetto/base/build_config.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -29,47 +28,23 @@ namespace perfetto {
 namespace base {
 
 UnixTaskRunner::UnixTaskRunner() {
-  // Create a self-pipe which is used to wake up the main thread from inside
-  // poll(2).
-  int pipe_fds[2];
-  PERFETTO_CHECK(pipe(pipe_fds) == 0);
-
-  // Make the pipe non-blocking so that we never block the waking thread (either
-  // the main thread or another one) when scheduling a wake-up.
-  for (auto fd : pipe_fds) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    PERFETTO_CHECK(flags != -1);
-    PERFETTO_CHECK(fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0);
-    PERFETTO_CHECK(fcntl(fd, F_SETFD, FD_CLOEXEC) == 0);
-  }
-  control_read_.reset(pipe_fds[0]);
-  control_write_.reset(pipe_fds[1]);
-
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_LINUX)
-  // We are never expecting to have more than a few bytes in the wake-up pipe.
-  // Reduce the buffer size on Linux. Note that this gets rounded up to the page
-  // size.
-  PERFETTO_CHECK(fcntl(control_read_.get(), F_SETPIPE_SZ, 1) > 0);
-#endif
-
-  AddFileDescriptorWatch(control_read_.get(), [] {
+  AddFileDescriptorWatch(event_.fd(), [] {
     // Not reached -- see PostFileDescriptorWatches().
-    PERFETTO_DCHECK(false);
+    PERFETTO_DFATAL("Should be unreachable.");
   });
 }
 
 UnixTaskRunner::~UnixTaskRunner() = default;
 
 void UnixTaskRunner::WakeUp() {
-  const char dummy = 'P';
-  if (write(control_write_.get(), &dummy, 1) <= 0 && errno != EAGAIN)
-    PERFETTO_DPLOG("write()");
+  event_.Notify();
 }
 
 void UnixTaskRunner::Run() {
   PERFETTO_DCHECK_THREAD(thread_checker_);
+  created_thread_id_ = GetThreadId();
   quit_ = false;
-  while (true) {
+  for (;;) {
     int poll_timeout_ms;
     {
       std::lock_guard<std::mutex> lock(lock_);
@@ -90,11 +65,14 @@ void UnixTaskRunner::Run() {
 }
 
 void UnixTaskRunner::Quit() {
-  {
-    std::lock_guard<std::mutex> lock(lock_);
-    quit_ = true;
-  }
+  std::lock_guard<std::mutex> lock(lock_);
+  quit_ = true;
   WakeUp();
+}
+
+bool UnixTaskRunner::QuitCalled() {
+  std::lock_guard<std::mutex> lock(lock_);
+  return quit_;
 }
 
 bool UnixTaskRunner::IsIdleForTesting() {
@@ -115,8 +93,7 @@ void UnixTaskRunner::UpdateWatchTasksLocked() {
 }
 
 void UnixTaskRunner::RunImmediateAndDelayedTask() {
-  // TODO(skyostil): Add a separate work queue in case in case locking overhead
-  // becomes an issue.
+  // If locking overhead becomes an issue, add a separate work queue.
   std::function<void()> immediate_task;
   std::function<void()> delayed_task;
   TimeMillis now = GetWallTimeMs();
@@ -152,14 +129,8 @@ void UnixTaskRunner::PostFileDescriptorWatches() {
 
     // The wake-up event is handled inline to avoid an infinite recursion of
     // posted tasks.
-    if (poll_fds_[i].fd == control_read_.get()) {
-      // Drain the byte(s) written to the wake-up pipe. We can potentially read
-      // more than one byte if several wake-ups have been scheduled.
-      char buffer[16];
-      if (read(control_read_.get(), &buffer[0], sizeof(buffer)) <= 0 &&
-          errno != EAGAIN) {
-        PERFETTO_DPLOG("read()");
-      }
+    if (poll_fds_[i].fd == event_.fd()) {
+      event_.Clear();
       continue;
     }
 
@@ -248,6 +219,10 @@ void UnixTaskRunner::RemoveFileDescriptorWatch(int fd) {
     watch_tasks_changed_ = true;
   }
   // No need to schedule a wake-up for this.
+}
+
+bool UnixTaskRunner::RunsTasksOnCurrentThread() const {
+  return GetThreadId() == created_thread_id_;
 }
 
 }  // namespace base

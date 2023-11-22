@@ -255,8 +255,7 @@ _gdbm_gdbm_close_impl(dbmobject *self)
     if (self->di_dbm)
         gdbm_close(self->di_dbm);
     self->di_dbm = NULL;
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 /* XXX Should return a set or a set view */
@@ -319,7 +318,7 @@ dbm_contains(PyObject *self, PyObject *arg)
         return -1;
     }
     if (PyUnicode_Check(arg)) {
-        key.dptr = PyUnicode_AsUTF8AndSize(arg, &size);
+        key.dptr = (char *)PyUnicode_AsUTF8AndSize(arg, &size);
         key.dsize = size;
         if (key.dptr == NULL)
             return -1;
@@ -375,8 +374,7 @@ _gdbm_gdbm_firstkey_impl(dbmobject *self)
         return v;
     }
     else {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 }
 
@@ -415,8 +413,7 @@ _gdbm_gdbm_nextkey_impl(dbmobject *self, const char *key,
         return v;
     }
     else {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 }
 
@@ -445,8 +442,7 @@ _gdbm_gdbm_reorganize_impl(dbmobject *self)
             PyErr_SetString(DbmError, gdbm_strerror(gdbm_errno));
         return NULL;
     }
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 /*[clinic input]
@@ -464,8 +460,7 @@ _gdbm_gdbm_sync_impl(dbmobject *self)
 {
     check_dbmobject_open(self);
     gdbm_sync(self->di_dbm);
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -532,7 +527,7 @@ static PyTypeObject Dbmtype = {
 
 /*[clinic input]
 _gdbm.open as dbmopen
-    filename as name: str
+    filename: unicode
     flags: str="r"
     mode: int(py_default="0o666") = 0o666
     /
@@ -562,8 +557,9 @@ when the database has to be created.  It defaults to octal 0o666.
 [clinic start generated code]*/
 
 static PyObject *
-dbmopen_impl(PyObject *module, const char *name, const char *flags, int mode)
-/*[clinic end generated code: output=31aa1bafdf5da688 input=55563cd60e51984a]*/
+dbmopen_impl(PyObject *module, PyObject *filename, const char *flags,
+             int mode)
+/*[clinic end generated code: output=9527750f5df90764 input=3be0b0875974b928]*/
 {
     int iflags;
 
@@ -611,7 +607,19 @@ dbmopen_impl(PyObject *module, const char *name, const char *flags, int mode)
         }
     }
 
-    return newdbmobject(name, iflags, mode);
+    PyObject *filenamebytes = PyUnicode_EncodeFSDefault(filename);
+    if (filenamebytes == NULL) {
+        return NULL;
+    }
+    const char *name = PyBytes_AS_STRING(filenamebytes);
+    if (strlen(name) != (size_t)PyBytes_GET_SIZE(filenamebytes)) {
+        Py_DECREF(filenamebytes);
+        PyErr_SetString(PyExc_ValueError, "embedded null character");
+        return NULL;
+    }
+    PyObject *self = newdbmobject(name, iflags, mode);
+    Py_DECREF(filenamebytes);
+    return self;
 }
 
 static const char dbmmodule_open_flags[] = "rwcn"
@@ -654,7 +662,7 @@ PyInit__gdbm(void) {
     if (m == NULL)
         return NULL;
     d = PyModule_GetDict(m);
-    DbmError = PyErr_NewException("_gdbm.error", PyExc_IOError, NULL);
+    DbmError = PyErr_NewException("_gdbm.error", PyExc_OSError, NULL);
     if (DbmError != NULL) {
         PyDict_SetItemString(d, "error", DbmError);
         s = PyUnicode_FromString(dbmmodule_open_flags);

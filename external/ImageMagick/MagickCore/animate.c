@@ -17,13 +17,13 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -312,7 +312,7 @@ MagickExport MagickBooleanType AnimateImages(const ImageInfo *image_info,
     CatchException(exception);
   (void) XSetErrorHandler(XError);
   resource_database=XGetResourceDatabase(display,GetClientName());
-  (void) ResetMagickMemory(&resource_info,0,sizeof(XResourceInfo));
+  (void) memset(&resource_info,0,sizeof(XResourceInfo));
   XGetResourceInfo(image_info,resource_database,GetClientName(),&resource_info);
   if (image_info->page != (char *) NULL)
     resource_info.image_geometry=AcquireString(image_info->page);
@@ -433,10 +433,13 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
       status=ExpandFilenames(&number_files,&filelist);
       if ((status == MagickFalse) || (number_files == 0))
         {
+          for (i=0; i < number_files; i++)
+            filelist[i]=DestroyString(filelist[i]);
+          filelist=(char **) RelinquishMagickMemory(filelist);
           if (number_files == 0)
             {
               ThrowXWindowException(ImageError,"NoImagesWereLoaded",filenames);
-             return((Image *) NULL);
+              return((Image *) NULL);
             }
           ThrowXWindowException(ResourceLimitError,"MemoryAllocationFailed",
             filenames);
@@ -752,7 +755,11 @@ MagickExport void XAnimateBackgroundImage(Display *display,
     i;
 
   size_t
+    delay,
     number_scenes;
+
+  ssize_t
+    iterations;
 
   static XPixelInfo
     pixel;
@@ -769,9 +776,6 @@ MagickExport void XAnimateBackgroundImage(Display *display,
   unsigned int
     height,
     width;
-
-  size_t
-    delay;
 
   Window
     root_window;
@@ -1138,6 +1142,7 @@ MagickExport void XAnimateBackgroundImage(Display *display,
   */
   (void) XSelectInput(display,window_info.id,SubstructureNotifyMask);
   event.type=Expose;
+  iterations=0;
   do
   {
     for (scene=0; scene < (int) number_scenes; scene++)
@@ -1158,6 +1163,9 @@ MagickExport void XAnimateBackgroundImage(Display *display,
         image_list[scene]->ticks_per_second,1L);
       XDelay(display,resources.delay*(delay == 0 ? 10 : delay));
     }
+    iterations++;
+    if (iterations == (ssize_t) image_list[0]->iterations)
+      break;
   } while (event.type != DestroyNotify);
   (void) XSync(display,MagickFalse);
   image_list=(Image **) RelinquishMagickMemory(image_list);
@@ -1567,7 +1575,8 @@ MagickExport Image *XAnimateImages(Display *display,
     resource_info,&windows->context);
   (void) CloneString(&class_hints->res_name,resource_info->client_name);
   (void) CloneString(&class_hints->res_class,resource_info->client_name);
-  class_hints->res_class[0]=(char) toupper((int) class_hints->res_class[0]);
+  class_hints->res_class[0]=(char) LocaleUppercase((int)
+    class_hints->res_class[0]);
   manager_hints->flags=InputHint | StateHint;
   manager_hints->input=MagickFalse;
   manager_hints->initial_state=WithdrawnState;

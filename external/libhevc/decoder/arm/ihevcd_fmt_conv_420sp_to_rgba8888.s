@@ -68,13 +68,13 @@
 @*                                                                            *
 @*  Register Usage   : R0 - R14                                               *
 @*                                                                            *
-@*  Stack Usage      : 40 Bytes                                               *
+@*  Stack Usage      : 104 Bytes                                              *
 @*                                                                            *
 @*  Interruptibility : Interruptible                                          *
 @*                                                                            *
 @*  Known Limitations                                                         *
 @*       Assumptions: Image Width:     Assumed to be multiple of 16 and       *
-@*                     greater than or equal to 16                *
+@*                     greater than or equal to 16                            *
 @*                     Image Height:    Assumed to be even.                   *
 @*                                                                            *
 @*  Revision History :                                                        *
@@ -82,6 +82,7 @@
 @*         07 06 2010   Varshita        Draft                                 *
 @*         07 06 2010   Naveen Kr T     Completed                             *
 @*         05 08 2013   Naveen K P      Modified for HEVC                     *
+@*         30 10 2018   Saurabh Sood    Store D registers to stack            *
 @*****************************************************************************/
     .global ihevcd_fmt_conv_420sp_to_rgba8888_a9q
 .type ihevcd_fmt_conv_420sp_to_rgba8888_a9q, function
@@ -89,7 +90,7 @@ ihevcd_fmt_conv_420sp_to_rgba8888_a9q:
 
     @// push the registers on the stack
     STMFD       SP!,{R4-R12,LR}
-
+    VPUSH       {d8-d15}
 
     @//R0 - Y PTR
     @//R1 - UV PTR
@@ -131,12 +132,12 @@ ihevcd_fmt_conv_420sp_to_rgba8888_a9q:
 
     @//D0 HAS C1-C2-C3-C4
     @// load other parameters from stack
-    LDR         R5,[sp,#40]
+    LDR         R5,[sp,#104]
     @LDR  R4,[sp,#44]
-    LDR         R6,[sp,#44]
-    LDR         R7,[sp,#48]
+    LDR         R6,[sp,#108]
+    LDR         R7,[sp,#112]
     @LDR  R8,[sp,#52]
-    LDR         R9,[sp,#52]
+    LDR         R9,[sp,#116]
 
     @// calculate offsets, offset = stride - width
     SUB         R10,R6,R3                   @// luma offset
@@ -445,10 +446,8 @@ LABEL_YUV420SP_TO_RGB8888_WIDTH_LOOP_SKIP:
     BNE         LABEL_YUV420SP_TO_RGB8888_HEIGHT_LOOP
 
     @//POP THE REGISTERS
+    VPOP        {d8-d15}
     LDMFD       SP!,{R4-R12,PC}
 
 
-
-
     .section .note.GNU-stack,"",%progbits
-

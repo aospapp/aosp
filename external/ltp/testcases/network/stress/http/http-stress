@@ -23,7 +23,8 @@ TCID=http-stress
 TST_TOTAL=2
 TST_CLEANUP="cleanup"
 
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 cleanup()
 {
@@ -34,8 +35,7 @@ setup()
 {
 	tst_require_root
 
-	ipver=${TST_IPV6:-'4'}
-	tst_resm TINFO "run over IPv$ipver"
+	tst_resm TINFO "run over IPv$TST_IPVER"
 
 	trap "tst_brkm TBROK 'test interrupted'" INT
 

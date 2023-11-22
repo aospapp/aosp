@@ -21,6 +21,8 @@ set(DEQP_VK_SUBGROUPS_SRCS
   vktSubgroupsArithmeticTests.hpp
   vktSubgroupsClusteredTests.cpp
   vktSubgroupsClusteredTests.hpp
+  vktSubgroupsPartitionedTests.cpp
+  vktSubgroupsPartitionedTests.hpp
   vktSubgroupsShuffleTests.cpp
   vktSubgroupsShuffleTests.hpp
   vktSubgroupsQuadTests.cpp
@@ -35,6 +37,8 @@ set(DEQP_VK_SUBGROUPS_LIBS
   tcutil
   vkutil
   )
+
+PCH(DEQP_VK_SUBGROUPS_SRCS ../pch.cpp)
 
 add_library(deqp-vk-subgroups STATIC ${DEQP_VK_SUBGROUPS_SRCS})
 target_link_libraries(deqp-vk-subgroups ${DEQP_VK_SUBGROUPS_LIBS})

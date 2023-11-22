@@ -9,7 +9,7 @@
 
 #include "SkTypes.h"
 
-#if SK_SUPPORT_GPU && SK_ALLOW_STATIC_GLOBAL_INITIALIZERS
+#if SK_ALLOW_STATIC_GLOBAL_INITIALIZERS
 
 #include "GrAutoLocaleSetter.h"
 #include "GrContextFactory.h"
@@ -18,7 +18,6 @@
 #include "GrDrawingManager.h"
 #include "GrPipeline.h"
 #include "GrRenderTargetContextPriv.h"
-#include "GrTest.h"
 #include "GrXferProcessor.h"
 #include "SkChecksum.h"
 #include "SkRandom.h"
@@ -150,19 +149,23 @@ static sk_sp<GrRenderTargetContext> random_render_target_context(GrContext* cont
                                                                  const GrCaps* caps) {
     GrSurfaceOrigin origin = random->nextBool() ? kTopLeft_GrSurfaceOrigin
                                                 : kBottomLeft_GrSurfaceOrigin;
-    int sampleCnt = random->nextBool() ? caps->getSampleCount(2, kRGBA_8888_GrPixelConfig) : 1;
+    int sampleCnt =
+            random->nextBool() ? caps->getRenderTargetSampleCount(2, kRGBA_8888_GrPixelConfig) : 1;
     // Above could be 0 if msaa isn't supported.
     sampleCnt = SkTMax(1, sampleCnt);
 
-    sk_sp<GrRenderTargetContext> renderTargetContext(context->makeDeferredRenderTargetContext(
-                                                                           SkBackingFit::kExact,
-                                                                           kRenderTargetWidth,
-                                                                           kRenderTargetHeight,
-                                                                           kRGBA_8888_GrPixelConfig,
-                                                                           nullptr,
-                                                                           sampleCnt,
-                                                                           GrMipMapped::kNo,
-                                                                           origin));
+    const GrBackendFormat format = caps->getBackendFormatFromColorType(kRGBA_8888_SkColorType);
+
+    sk_sp<GrRenderTargetContext> renderTargetContext(
+        context->contextPriv().makeDeferredRenderTargetContext(format,
+                                                               SkBackingFit::kExact,
+                                                               kRenderTargetWidth,
+                                                               kRenderTargetHeight,
+                                                               kRGBA_8888_GrPixelConfig,
+                                                               nullptr,
+                                                               sampleCnt,
+                                                               GrMipMapped::kNo,
+                                                               origin));
     return renderTargetContext;
 }
 
@@ -247,15 +250,6 @@ static void set_random_color_coverage_stages(GrPaint* paint,
     }
 }
 
-static void set_random_state(GrPaint* paint, SkRandom* random) {
-    if (random->nextBool()) {
-        paint->setDisableOutputConversionToSRGB(true);
-    }
-    if (random->nextBool()) {
-        paint->setAllowSRGBInputs(true);
-    }
-}
-
 #endif
 
 #if !GR_TEST_UTILS
@@ -271,20 +265,26 @@ bool GrDrawingManager::ProgramUnitTest(GrContext* context, int maxStages, int ma
     {
         GrSurfaceDesc dummyDesc;
         dummyDesc.fFlags = kRenderTarget_GrSurfaceFlag;
-        dummyDesc.fOrigin = kBottomLeft_GrSurfaceOrigin;
         dummyDesc.fWidth = 34;
         dummyDesc.fHeight = 18;
         dummyDesc.fConfig = kRGBA_8888_GrPixelConfig;
-        proxies[0] = proxyProvider->createProxy(dummyDesc, SkBackingFit::kExact, SkBudgeted::kNo);
+        const GrBackendFormat format =
+            context->contextPriv().caps()->getBackendFormatFromColorType(kRGBA_8888_SkColorType);
+        proxies[0] = proxyProvider->createProxy(format, dummyDesc, kBottomLeft_GrSurfaceOrigin,
+                                                GrMipMapped::kYes, SkBackingFit::kExact,
+                                                SkBudgeted::kNo, GrInternalSurfaceFlags::kNone);
     }
     {
         GrSurfaceDesc dummyDesc;
         dummyDesc.fFlags = kNone_GrSurfaceFlags;
-        dummyDesc.fOrigin = kTopLeft_GrSurfaceOrigin;
         dummyDesc.fWidth = 16;
         dummyDesc.fHeight = 22;
         dummyDesc.fConfig = kAlpha_8_GrPixelConfig;
-        proxies[1] = proxyProvider->createProxy(dummyDesc, SkBackingFit::kExact, SkBudgeted::kNo);
+        const GrBackendFormat format =
+            context->contextPriv().caps()->getBackendFormatFromColorType(kAlpha_8_SkColorType);
+        proxies[1] = proxyProvider->createProxy(format, dummyDesc, kTopLeft_GrSurfaceOrigin,
+                                                GrMipMapped::kYes, SkBackingFit::kExact,
+                                                SkBudgeted::kNo, GrInternalSurfaceFlags::kNone);
     }
 
     if (!proxies[0] || !proxies[1]) {
@@ -299,8 +299,8 @@ bool GrDrawingManager::ProgramUnitTest(GrContext* context, int maxStages, int ma
     static const int NUM_TESTS = 1024;
     for (int t = 0; t < NUM_TESTS; t++) {
         // setup random render target(can fail)
-        sk_sp<GrRenderTargetContext> renderTargetContext(random_render_target_context(
-            context, &random, context->caps()));
+        sk_sp<GrRenderTargetContext> renderTargetContext(
+                random_render_target_context(context, &random, context->contextPriv().caps()));
         if (!renderTargetContext) {
             SkDebugf("Could not allocate renderTargetContext");
             return false;
@@ -310,19 +310,21 @@ bool GrDrawingManager::ProgramUnitTest(GrContext* context, int maxStages, int ma
         GrProcessorTestData ptd(&random, context, renderTargetContext.get(), proxies);
         set_random_color_coverage_stages(&paint, &ptd, maxStages, maxLevels);
         set_random_xpf(&paint, &ptd);
-        set_random_state(&paint, &random);
         GrDrawRandomOp(&random, renderTargetContext.get(), std::move(paint));
     }
     // Flush everything, test passes if flush is successful(ie, no asserts are hit, no crashes)
     drawingManager->flush(nullptr);
 
+    const GrBackendFormat format =
+            context->contextPriv().caps()->getBackendFormatFromColorType(kRGBA_8888_SkColorType);
     // Validate that GrFPs work correctly without an input.
-    sk_sp<GrRenderTargetContext> renderTargetContext(context->makeDeferredRenderTargetContext(
-                                                                           SkBackingFit::kExact,
-                                                                           kRenderTargetWidth,
-                                                                           kRenderTargetHeight,
-                                                                           kRGBA_8888_GrPixelConfig,
-                                                                           nullptr));
+    sk_sp<GrRenderTargetContext> renderTargetContext(
+                 context->contextPriv().makeDeferredRenderTargetContext(format,
+                                                                        SkBackingFit::kExact,
+                                                                        kRenderTargetWidth,
+                                                                        kRenderTargetHeight,
+                                                                        kRGBA_8888_GrPixelConfig,
+                                                                        nullptr));
     if (!renderTargetContext) {
         SkDebugf("Could not allocate a renderTargetContext");
         return false;

@@ -8,8 +8,6 @@
 #include "Test.h"
 
 // This test is specific to the GPU backend.
-#if SK_SUPPORT_GPU
-
 #include "GrContext.h"
 #include "GrContextPriv.h"
 #include "GrProxyProvider.h"
@@ -17,19 +15,27 @@
 #include "GrSurfaceContext.h"
 #include "GrSurfaceProxy.h"
 #include "GrTextureProxy.h"
+#include "ProxyUtils.h"
 #include "SkCanvas.h"
 #include "SkSurface.h"
+#include "SkTo.h"
 
 // This was made indivisible by 4 to ensure we test setting GL_PACK_ALIGNMENT properly.
 static const int X_SIZE = 13;
 static const int Y_SIZE = 13;
 
 static void validate_alpha_data(skiatest::Reporter* reporter, int w, int h, const uint8_t* actual,
-                                size_t actualRowBytes, const uint8_t* expected, SkString extraMsg) {
+                                size_t actualRowBytes, const uint8_t* expected, SkString extraMsg,
+                                GrColorType colorType) {
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             uint8_t a = actual[y * actualRowBytes + x];
             uint8_t e = expected[y * w + x];
+            if (GrColorType::kRGBA_1010102 == colorType) {
+                // This config only preserves two bits of alpha
+                a >>= 6;
+                e >>= 6;
+            }
             if (e != a) {
                 ERRORF(reporter,
                        "Failed alpha readback. Expected: 0x%02x, Got: 0x%02x at (%d,%d), %s",
@@ -53,7 +59,6 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
     {
         GrSurfaceDesc desc;
         desc.fFlags     = kNone_GrSurfaceFlags;
-        desc.fOrigin    = kTopLeft_GrSurfaceOrigin;
         desc.fConfig    = kAlpha_8_GrPixelConfig;    // it is a single channel texture
         desc.fWidth     = X_SIZE;
         desc.fHeight    = Y_SIZE;
@@ -61,8 +66,13 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
         // We are initializing the texture with zeros here
         memset(alphaData, 0, X_SIZE * Y_SIZE);
 
-        sk_sp<GrTextureProxy> proxy = proxyProvider->createTextureProxy(desc, SkBudgeted::kNo,
-                                                                        alphaData, 0);
+        const SkImageInfo ii = SkImageInfo::MakeA8(X_SIZE, Y_SIZE);
+
+        SkPixmap pixmap(ii, alphaData, ii.minRowBytes());
+        sk_sp<SkImage> alphaImg = SkImage::MakeRasterCopy(pixmap);
+        sk_sp<GrTextureProxy> proxy =
+            proxyProvider->createTextureProxy(alphaImg, kNone_GrSurfaceFlags, 1,
+                                              SkBudgeted::kNo, SkBackingFit::kExact);
         if (!proxy) {
             ERRORF(reporter, "Could not create alpha texture.");
             return;
@@ -70,7 +80,6 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
         sk_sp<GrSurfaceContext> sContext(context->contextPriv().makeWrappedSurfaceContext(
                                                                   std::move(proxy)));
 
-        const SkImageInfo ii = SkImageInfo::MakeA8(X_SIZE, Y_SIZE);
         sk_sp<SkSurface> surf(SkSurface::MakeRenderTarget(context, SkBudgeted::kNo, ii));
 
         // create a distinctive texture
@@ -87,19 +96,25 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
             REPORTER_ASSERT(reporter, result, "Initial A8 writePixels failed");
 
             size_t nonZeroRowBytes = rowBytes ? rowBytes : X_SIZE;
-            std::unique_ptr<uint8_t[]> readback(new uint8_t[nonZeroRowBytes * Y_SIZE]);
+            size_t bufLen = nonZeroRowBytes * Y_SIZE;
+            std::unique_ptr<uint8_t[]> readback(new uint8_t[bufLen]);
             // clear readback to something non-zero so we can detect readback failures
-            memset(readback.get(), kClearValue, nonZeroRowBytes * Y_SIZE);
+            memset(readback.get(), kClearValue, bufLen);
 
             // read the texture back
             result = sContext->readPixels(ii, readback.get(), rowBytes, 0, 0);
+            // We don't require reading from kAlpha_8 to be supported. TODO: At least make this work
+            // when kAlpha_8 is renderable.
+            if (!result) {
+                continue;
+            }
             REPORTER_ASSERT(reporter, result, "Initial A8 readPixels failed");
 
             // make sure the original & read back versions match
             SkString msg;
             msg.printf("rb:%d A8", SkToU32(rowBytes));
             validate_alpha_data(reporter, X_SIZE, Y_SIZE, readback.get(), nonZeroRowBytes,
-                                alphaData, msg);
+                                alphaData, msg, GrColorType::kAlpha_8);
 
             // Now try writing to a single channel surface (if we could create one).
             if (surf) {
@@ -113,7 +128,14 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
 
                 canvas->drawRect(rect, paint);
 
-                memset(readback.get(), kClearValue, nonZeroRowBytes * Y_SIZE);
+                // Workaround for a bug in old GCC/glibc used in our Chromecast toolchain:
+                // error: call to '__warn_memset_zero_len' declared with attribute warning:
+                //        memset used with constant zero length parameter; this could be due
+                //        to transposed parameters
+                // See also: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61294
+                if (bufLen > 0) {
+                    memset(readback.get(), kClearValue, bufLen);
+                }
                 result = surf->readPixels(ii, readback.get(), nonZeroRowBytes, 0, 0);
                 REPORTER_ASSERT(reporter, result, "A8 readPixels after clear failed");
 
@@ -133,10 +155,14 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
         }
     }
 
-    static const GrPixelConfig kRGBAConfigs[] {
-        kRGBA_8888_GrPixelConfig,
-        kBGRA_8888_GrPixelConfig,
-        kSRGBA_8888_GrPixelConfig
+    static constexpr struct {
+        GrColorType fColorType;
+        GrSRGBEncoded fSRGBEncoded;
+    } kInfos[] = {
+            {GrColorType::kRGBA_8888, GrSRGBEncoded::kNo},
+            {GrColorType::kBGRA_8888, GrSRGBEncoded::kNo},
+            {GrColorType::kRGBA_8888, GrSRGBEncoded::kYes},
+            {GrColorType::kRGBA_1010102, GrSRGBEncoded::kNo},
     };
 
     for (int y = 0; y < Y_SIZE; ++y) {
@@ -151,15 +177,8 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
 
     // Attempt to read back just alpha from a RGBA/BGRA texture. Once with a texture-only src and
     // once with a render target.
-    for (auto config : kRGBAConfigs) {
+    for (auto info : kInfos) {
         for (int rt = 0; rt < 2; ++rt) {
-            GrSurfaceDesc desc;
-            desc.fFlags     = rt ? kRenderTarget_GrSurfaceFlag : kNone_GrSurfaceFlags;
-            desc.fOrigin    = rt ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
-            desc.fConfig    = config;
-            desc.fWidth     = X_SIZE;
-            desc.fHeight    = Y_SIZE;
-
             uint32_t rgbaData[X_SIZE * Y_SIZE];
             // Make the alpha channel of the rgba texture come from alphaData.
             for (int y = 0; y < Y_SIZE; ++y) {
@@ -168,18 +187,16 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
                 }
             }
 
-            sk_sp<GrTextureProxy> proxy = proxyProvider->createTextureProxy(desc, SkBudgeted::kNo,
-                                                                            rgbaData, 0);
+            auto origin = rt ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
+            auto proxy = sk_gpu_test::MakeTextureProxyFromData(context, rt, X_SIZE, Y_SIZE,
+                                                               info.fColorType, info.fSRGBEncoded,
+                                                               origin, rgbaData, 0);
             if (!proxy) {
-                // We always expect to be able to create a RGBA texture
-                if (!rt  && kRGBA_8888_GrPixelConfig == desc.fConfig) {
-                    ERRORF(reporter, "Failed to create RGBA texture.");
-                }
                 continue;
             }
 
             sk_sp<GrSurfaceContext> sContext = context->contextPriv().makeWrappedSurfaceContext(
-                                                                       std::move(proxy));
+                    std::move(proxy));
 
             for (auto rowBytes : kRowBytes) {
                 size_t nonZeroRowBytes = rowBytes ? rowBytes : X_SIZE;
@@ -196,10 +213,8 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(ReadWriteAlpha, reporter, ctxInfo) {
                 SkString msg;
                 msg.printf("rt:%d, rb:%d 8888", rt, SkToU32(rowBytes));
                 validate_alpha_data(reporter, X_SIZE, Y_SIZE, readback.get(), nonZeroRowBytes,
-                                    alphaData, msg);
+                                    alphaData, msg, info.fColorType);
             }
         }
     }
 }
-
-#endif

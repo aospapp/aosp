@@ -17,7 +17,11 @@ It fails if any of these are not running at the time of the test.
 
 NETWORK_CRITICAL_PROCESSES = [
     'dbus-daemon',
+     # dhcpcd expected for a test-lab DUT controlled via ethernet.
+    'dhcpcd',
     'netfilter-queue|conntrackd',
+     # powerd expected as long as it controls set_wifi_transmit_power.
+    'powerd',
     'shill',
     'udevd|systemd-udevd',
     'update_engine',

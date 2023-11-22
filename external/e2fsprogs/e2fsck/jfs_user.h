@@ -27,7 +27,16 @@
 /*
  * Pull in the definition of the e2fsck context structure
  */
+#include "config.h"
 #include "e2fsck.h"
+#endif
+
+#if __STDC_VERSION__ < 199901L
+# if __GNUC__ >= 2 || _MSC_VER >= 1300
+#  define __func__ __FUNCTION__
+# else
+#  define __func__ "<unknown>"
+# endif
 #endif
 
 struct buffer_head {
@@ -100,6 +109,9 @@ typedef struct {
 extern lkmem_cache_t *do_cache_create(int len);
 extern void do_cache_destroy(lkmem_cache_t *cache);
 extern size_t journal_tag_bytes(journal_t *journal);
+extern __u32 __hash_32(__u32 val);
+extern __u32 hash_32(__u32 val, unsigned int bits);
+extern __u32 hash_64(__u64 val, unsigned int bits);
 #endif
 
 #if (defined(E2FSCK_INCLUDE_INLINE_FUNCS) || !defined(NO_INLINE_FUNCS))
@@ -121,7 +133,6 @@ extern size_t journal_tag_bytes(journal_t *journal);
 #endif /* __STDC_VERSION__ >= 199901L */
 #endif /* E2FSCK_INCLUDE_INLINE_FUNCS */
 
-
 _INLINE_ lkmem_cache_t *do_cache_create(int len)
 {
 	lkmem_cache_t *new_cache;
@@ -135,6 +146,32 @@ _INLINE_ lkmem_cache_t *do_cache_create(int len)
 _INLINE_ void do_cache_destroy(lkmem_cache_t *cache)
 {
 	free(cache);
+}
+
+/* generic hashing taken from the Linux kernel */
+#define GOLDEN_RATIO_32 0x61C88647
+#define GOLDEN_RATIO_64 0x61C8864680B583EBull
+
+_INLINE_ __u32 __hash_32(__u32 val)
+{
+	return val * GOLDEN_RATIO_32;
+}
+
+_INLINE_ __u32 hash_32(__u32 val, unsigned int bits)
+{
+	/* High bits are more random, so use them. */
+	return __hash_32(val) >> (32 - bits);
+}
+
+_INLINE_ __u32 hash_64(__u64 val, unsigned int bits)
+{
+	if (sizeof(long) >= 8) {
+		/* 64x64-bit multiply is efficient on all 64-bit processors */
+		return val * GOLDEN_RATIO_64 >> (64 - bits);
+	} else {
+		/* Hash 64 bits using only 32x32-bit multiply. */
+		return hash_32((__u32)val ^ __hash_32(val >> 32), bits);
+	}
 }
 
 #undef _INLINE_
@@ -175,7 +212,7 @@ extern e2fsck_t e2fsck_global_ctx;  /* Try your very best not to use this! */
 	do { if (!(assert)) {						\
 		printf ("Assertion failure in %s() at %s line %d: "	\
 			"\"%s\"\n",					\
-			__FUNCTION__, __FILE__, __LINE__, # assert);	\
+			__func__, __FILE__, __LINE__, # assert);	\
 		fatal_error(e2fsck_global_ctx, 0);			\
 	} } while (0)
 

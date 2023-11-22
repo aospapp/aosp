@@ -2,8 +2,10 @@
 #define BLKTRACE_H
 
 #include <stdio.h>
+#include <limits.h>
 #include <byteswap.h>
 #include <endian.h>
+#include <sys/types.h>
 
 #include "blktrace_api.h"
 #include "rbtree.h"
@@ -22,6 +24,7 @@
 
 #define t_sec(t)	((t)->bytes >> 9)
 #define t_kb(t)		((t)->bytes >> 10)
+#define t_b(t)		((t)->bytes & 1023)
 
 typedef __u32 u32;
 typedef __u8 u8;
@@ -30,11 +33,14 @@ struct io_stats {
 	unsigned long qreads, qwrites, creads, cwrites, mreads, mwrites;
 	unsigned long ireads, iwrites, rrqueue, wrqueue;
 	unsigned long long qread_kb, qwrite_kb, cread_kb, cwrite_kb;
+	unsigned long long qread_b, qwrite_b, cread_b, cwrite_b;
 	unsigned long long iread_kb, iwrite_kb;
 	unsigned long long mread_kb, mwrite_kb;
+	unsigned long long mread_b, mwrite_b, iread_b, iwrite_b;
 	unsigned long qreads_pc, qwrites_pc, ireads_pc, iwrites_pc;
 	unsigned long rrqueue_pc, wrqueue_pc, creads_pc, cwrites_pc;
 	unsigned long long qread_kb_pc, qwrite_kb_pc, iread_kb_pc, iwrite_kb_pc;
+	unsigned long long qread_b_pc, qwrite_b_pc, iread_b_pc, iwrite_b_pc;
 	unsigned long io_unplugs, timer_unplugs;
 };
 
@@ -44,7 +50,7 @@ struct per_cpu_info {
 
 	int fd;
 	int fdblock;
-	char fname[128];
+	char fname[PATH_MAX];
 
 	struct io_stats io_stats;
 
@@ -114,7 +120,7 @@ static inline void trace_to_cpu(struct blk_io_trace *t)
 	t->action	= be32_to_cpu(t->action);
 	t->pid		= be32_to_cpu(t->pid);
 	t->device	= be32_to_cpu(t->device);
-	t->cpu		= be16_to_cpu(t->cpu);
+	t->cpu		= be32_to_cpu(t->cpu);
 	t->error	= be16_to_cpu(t->error);
 	t->pdu_len	= be16_to_cpu(t->pdu_len);
 }

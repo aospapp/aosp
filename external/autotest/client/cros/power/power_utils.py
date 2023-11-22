@@ -8,6 +8,7 @@ import re
 import shutil
 import time
 from autotest_lib.client.bin import utils
+from autotest_lib.client.bin.input.input_device import InputDevice
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import upstart
 
@@ -42,7 +43,7 @@ def get_x86_cpu_arch():
     """
     cpuinfo = utils.read_file('/proc/cpuinfo')
 
-    if re.search(r'AMD.*A6-92[0-9][0-9].*RADEON.*R[245]', cpuinfo):
+    if re.search(r'AMD.*[AE][269]-9[0-9][0-9][0-9].*RADEON.*R[245]', cpuinfo):
         return 'Stoney'
     if re.search(r'Intel.*Atom.*[NZ][2-6]', cpuinfo):
         return 'Atom'
@@ -93,6 +94,18 @@ def has_powercap_support():
         Boolean, True if powercap supported, False otherwise.
     """
     return os.path.isdir('/sys/devices/virtual/powercap/intel-rapl/')
+
+
+def has_lid():
+    """
+    Checks whether the device has lid.
+
+    @return: Returns True if the device has a lid, False otherwise.
+    """
+    INPUT_DEVICE_LIST = "/dev/input/event*"
+
+    return any(InputDevice(node).is_lid() for node in
+               glob.glob(INPUT_DEVICE_LIST))
 
 
 def _call_dbus_method(destination, path, interface, method_name, args):
@@ -199,6 +212,16 @@ def get_low_battery_shutdown_percent():
     return ret
 
 
+def has_hammer():
+    """Check whether DUT has hammer device or not.
+
+    Returns:
+        boolean whether device has hammer or not
+    """
+    command = 'grep Hammer /sys/bus/usb/devices/*/product'
+    return utils.run(command, ignore_status=True).exit_status == 0
+
+
 def _charge_control_by_ectool(is_charge):
     """execute ectool command.
 
@@ -244,6 +267,30 @@ def charge_control_by_ectool(is_charge):
     return False
 
 
+def get_core_keyvals(keyvals):
+    """Get important keyvals to report.
+
+    Remove the following types of non-important keyvals.
+    - Minor checkpoints. (start with underscore)
+    - Individual cpu / gpu frequency buckets.
+      (regex '[cg]pu(freq(_\d+)+)?_\d{3,}')
+    - Specific idle states from cpuidle/cpupkg.
+      (regex '.*cpu(idle|pkg)[ABD-Za-z0-9_\-]+C[^0].*')
+
+    Args:
+      keyvals: keyvals to remove non-important ones.
+
+    Returns:
+      Dictionary, keyvals with non-important ones removed.
+    """
+    matcher = re.compile(r"""
+                         _.*|
+                         .*_[cg]pu(freq(_\d+)+)?_\d{3,}_.*|
+                         .*cpu(idle|pkg)[ABD-Za-z0-9_\-]+C[^0].*
+                         """, re.X)
+    return {k: v for k, v in keyvals.iteritems() if not matcher.match(k)}
+
+
 class BacklightException(Exception):
     """Class for Backlight exceptions."""
 
@@ -284,12 +331,14 @@ class Backlight(object):
 
         attributes:
         """
-        cmd = "mosys psu type"
-        result = utils.system_output(cmd, ignore_status=True).strip()
-        self._can_control_bl = not result == "AC_only"
-
-        self._init_level = self.get_level()
+        self._init_level = None
         self.default_brightness_percent = default_brightness_percent
+
+        self._can_control_bl = True
+        try:
+            self._init_level = self.get_level()
+        except error.TestFail:
+            self._can_control_bl = False
 
         logging.debug("device can_control_bl: %s", self._can_control_bl)
         if not self._can_control_bl:
@@ -392,9 +441,26 @@ class Backlight(object):
         """
         return float(self._try_bl_cmd('--get_brightness_percent'))
 
+    def linear_to_nonlinear(self, linear):
+        """Convert supplied linear brightness percent to nonlinear.
+
+        Returns float of supplied linear brightness percent converted to
+        nonlinear percent.
+        """
+        return float(self._try_bl_cmd('--linear_to_nonlinear=%f' % linear))
+
+    def nonlinear_to_linear(self, nonlinear):
+        """Convert supplied nonlinear brightness percent to linear.
+
+        Returns float of supplied nonlinear brightness percent converted to
+        linear percent.
+        """
+        return float(self._try_bl_cmd('--nonlinear_to_linear=%f' % nonlinear))
+
     def restore(self):
         """Restore backlight to initial level when instance created."""
-        self.set_level(self._init_level)
+        if self._init_level is not None:
+            self.set_level(self._init_level)
 
 
 class KbdBacklightException(Exception):
@@ -564,7 +630,7 @@ def set_display_power(power_val):
         raise DisplayException('Invalid display power setting: %d' % power_val)
     _call_dbus_method(destination='org.chromium.DisplayService',
                       path='/org/chromium/DisplayService',
-                      interface='org.chomium.DisplayServiceInterface',
+                      interface='org.chromium.DisplayServiceInterface',
                       method_name='SetPower',
                       args='int32:%d' % power_val)
 
@@ -910,3 +976,93 @@ class DisplayPanelSelfRefresh(object):
         @returns dictionary of keyvals
         """
         return self._keyvals
+
+
+class BaseActivityException(Exception):
+    """Class for base activity simulation exceptions."""
+
+
+class BaseActivitySimulator(object):
+    """Class to simulate wake activity on the normally autosuspended base."""
+
+    # Note on naming: throughout this class, the word base is used to mean the
+    # base of a detachable (keyboard, touchpad, etc).
+
+    # file defines where to look for detachable base.
+    # TODO(coconutruben): check when next wave of detachables come out if this
+    # structure still holds, or if we need to replace it by querying input
+    # devices.
+    _BASE_INIT_FILE = '/etc/init/hammerd.override'
+    _BASE_WAKE_TIME_MS = 10000
+
+    def __init__(self):
+        """Initializer
+
+        Let the BaseActivitySimulator bootstrap itself by detecting if
+        the board is a detachable, and ensuring the base path exists.
+        Sets the base to autosuspend, and the autosuspend delay to be
+        at most _BASE_WAKE_TIME_MS.
+
+        """
+        self._should_run = os.path.exists(self._BASE_INIT_FILE)
+        base_power_path = ''
+        if self._should_run:
+            with open(self._BASE_INIT_FILE, 'r') as init_file:
+                init_file_content = init_file.read()
+                try:
+                    bus = re.search('env USB_BUS=([0-9]+)',
+                                    init_file_content).group(1)
+                    port = re.search('env USB_PORT=([0-9]+)',
+                                    init_file_content).group(1)
+                except AttributeError:
+                    raise BaseActivityException("Failed to read usb bus "
+                                                "or port from hammerd file.")
+                base_power_path = ('/sys/bus/usb/devices/%s-%s/power/'
+                                   % (bus, port))
+                if not os.path.exists(base_power_path):
+                    logging.warn("Device has hammerd file, but base usb device"
+                                 " not found.")
+                    self._should_run = False
+        if self._should_run:
+            self._base_control_path =  os.path.join(base_power_path,
+                                                    'control')
+            self._autosuspend_delay_path = os.path.join(base_power_path,
+                                                       'autosuspend_delay_ms')
+            logging.debug("base activity simulator will be running.")
+            with open(self._base_control_path, 'r+') as f:
+                self._default_control = f.read()
+                if self._default_control != 'auto':
+                    logging.debug("Putting the base into autosuspend.")
+                    f.write('auto')
+
+            with open(self._autosuspend_delay_path, 'r+') as f:
+                self._default_autosuspend_delay_ms = f.read().rstrip('\n')
+                f.write(str(self._BASE_WAKE_TIME_MS))
+
+    def wake_base(self, wake_time_ms=_BASE_WAKE_TIME_MS):
+        """Wake up the base to simulate user activity.
+
+        Args:
+          wake_time_ms: time the base should be turned on
+                        (taken out of autosuspend) in milliseconds.
+        """
+        if self._should_run:
+            logging.debug("Taking base out of runtime suspend for %d seconds",
+                          wake_time_ms/1000)
+            with open(self._autosuspend_delay_path, 'r+') as f:
+                f.write(str(wake_time_ms))
+            # Toggling the control will keep the base awake for
+            # the duration specified in the autosuspend_delay_ms file.
+            with open(self._base_control_path, 'w') as f:
+                f.write('on')
+            with open(self._base_control_path, 'w') as f:
+                f.write('auto')
+
+    def restore(self):
+        """Restore the original control and autosuspend delay."""
+        if self._should_run:
+            with open(self._base_control_path, 'w') as f:
+                f.write(self._default_control)
+
+            with open(self._autosuspend_delay_path, 'w') as f:
+                f.write(self._default_autosuspend_delay_ms)

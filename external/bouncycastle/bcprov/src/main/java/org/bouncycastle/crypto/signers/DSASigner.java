@@ -4,19 +4,21 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 
 import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.DSA;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
+import org.bouncycastle.crypto.DSAExt;
 import org.bouncycastle.crypto.params.DSAKeyParameters;
 import org.bouncycastle.crypto.params.DSAParameters;
 import org.bouncycastle.crypto.params.DSAPrivateKeyParameters;
 import org.bouncycastle.crypto.params.DSAPublicKeyParameters;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.util.BigIntegers;
 
 /**
  * The Digital Signature Algorithm - as described in "Handbook of Applied
  * Cryptography", pages 452 - 453.
  */
 public class DSASigner
-    implements DSA
+    implements DSAExt
 {
     private final DSAKCalculator kCalculator;
 
@@ -67,6 +69,11 @@ public class DSASigner
         }
 
         this.random = initSecureRandom(forSigning && !kCalculator.isDeterministic(), providedRandom);
+    }
+
+    public BigInteger getOrder()
+    {
+        return key.getParameters().getQ();
     }
 
     /**
@@ -162,7 +169,7 @@ public class DSASigner
 
     protected SecureRandom initSecureRandom(boolean needed, SecureRandom provided)
     {
-        return !needed ? null : (provided != null) ? provided : new SecureRandom();
+        return !needed ? null : (provided != null) ? provided : CryptoServicesRegistrar.getSecureRandom();
     }
 
     private BigInteger getRandomizer(BigInteger q, SecureRandom provided)
@@ -170,6 +177,6 @@ public class DSASigner
         // Calculate a random multiple of q to add to k. Note that g^q = 1 (mod p), so adding multiple of q to k does not change r.
         int randomBits = 7;
 
-        return new BigInteger(randomBits, provided != null ? provided : new SecureRandom()).add(BigInteger.valueOf(128)).multiply(q);
+        return BigIntegers.createRandomBigInteger(randomBits, provided != null ? provided : CryptoServicesRegistrar.getSecureRandom()).add(BigInteger.valueOf(128)).multiply(q);
     }
 }

@@ -38,7 +38,10 @@ class LinuxSystem(object):
     CAPABILITY_SEND_MANAGEMENT_FRAME = 'send_management_frame'
     CAPABILITY_TDLS = 'tdls'
     CAPABILITY_VHT = 'vht'
+    CAPABILITY_SME = 'sme'
+    CAPABILITY_SUPPLICANT_ROAMING = "supplicant_roaming"
     BRIDGE_INTERFACE_NAME = 'br0'
+    HOSTAP_BRIDGE_INTERFACE_PREFIX = 'hostapbr'
     MIN_SPATIAL_STREAMS = 2
     MAC_BIT_LOCAL = 0x2  # Locally administered.
     MAC_BIT_MULTICAST = 0x1
@@ -96,6 +99,7 @@ class LinuxSystem(object):
         logging.debug('Current regulatory domain %r',
                       self.iw_runner.get_regulatory_domain())
         self._interfaces = []
+        self._brif_index = 0
         for interface in self.iw_runner.list_interfaces():
             if self.inherit_interfaces:
                 self._interfaces.append(NetDev(inherited=True,
@@ -294,8 +298,12 @@ class LinuxSystem(object):
                 'tdls_oper' in phy.commands or
                 'T-DLS' in phy.features):
                 caps.add(self.CAPABILITY_TDLS)
+            if 'authenticate' in phy.commands:
+                caps.add(self.CAPABILITY_SME)
             if phy.support_vht:
                 caps.add(self.CAPABILITY_VHT)
+            if 'roaming' not in phy.features:
+                caps.add(self.CAPABILITY_SUPPLICANT_ROAMING)
         if any([iw_runner.DEV_MODE_IBSS in phy.modes
                 for phy in self.phy_list]):
             caps.add(self.CAPABILITY_IBSS)
@@ -434,6 +442,12 @@ class LinuxSystem(object):
 
         if spatial_streams is None:
             spatial_streams = self.MIN_SPATIAL_STREAMS
+        # We don't want to use the 3rd radio on Whirlwind. Reject it if someone
+        # tries to add a test that uses it.
+        elif spatial_streams < self.MIN_SPATIAL_STREAMS and \
+             self.board == 'whirlwind':
+            raise error.TestError('Requested spatial streams: %d; minimum %d' \
+                                  % (spatial_streams, self.MIN_SPATIAL_STREAMS))
 
         if same_phy_as:
             for net_dev in self._interfaces:
@@ -480,6 +494,13 @@ class LinuxSystem(object):
             self.ensure_unique_mac(net_dev)
 
         return net_dev
+
+
+    def get_brif(self):
+        brif_name = '%s%d' % (self.HOSTAP_BRIDGE_INTERFACE_PREFIX,
+                              self._brif_index)
+        self._brif_index += 1
+        return brif_name
 
 
     def get_configured_interface(self, phytype, spatial_streams=None,
@@ -677,9 +698,8 @@ class LinuxSystem(object):
         """
         missing = [cap for cap in requirements if not cap in self.capabilities]
         if missing:
-            raise error.TestNAError(
-                    'AP on %s is missing required capabilites: %r' %
-                    (self.role, missing))
+            raise error.TestNAError('%s is missing required capabilites: %r'
+                                    % (self.role, missing))
 
 
     def disable_antennas_except(self, permitted_antennas):

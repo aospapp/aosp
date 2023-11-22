@@ -11,6 +11,7 @@ NOTE: This module should only be used in the context of a running test. Any
 
 import common
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.server.cros import autoupdater
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 
@@ -19,7 +20,6 @@ AFE = frontend_wrappers.RetryingAFE(timeout_min=5, delay_sec=10)
 _CROS_VERSION_MAP = AFE.get_stable_version_map(AFE.CROS_IMAGE_TYPE)
 _FIRMWARE_VERSION_MAP = AFE.get_stable_version_map(AFE.FIRMWARE_IMAGE_TYPE)
 _FAFT_VERSION_MAP = AFE.get_stable_version_map(AFE.FAFT_IMAGE_TYPE)
-_ANDROID_VERSION_MAP = AFE.get_stable_version_map(AFE.ANDROID_IMAGE_TYPE)
 
 _CONFIG = global_config.global_config
 ENABLE_DEVSERVER_TRIGGER_AUTO_UPDATE = _CONFIG.get_config_value(
@@ -77,16 +77,6 @@ def get_stable_faft_version(board):
     return _FAFT_VERSION_MAP.get_version(board)
 
 
-def get_stable_android_version(board):
-    """Retrieve the stable Android version a given board.
-
-    @param board: Board to lookup.
-
-    @returns Stable version of Android for the given board.
-    """
-    return _ANDROID_VERSION_MAP.get_version(board)
-
-
 def _clear_host_attributes_before_provision(host, info):
     """Clear host attributes before provision, e.g., job_repo_url.
 
@@ -101,33 +91,28 @@ def _clear_host_attributes_before_provision(host, info):
         info.attributes.pop(key, None)
 
 
-def machine_install_and_update_labels(host, *args, **dargs):
-    """Calls machine_install and updates the version labels on a host.
+def machine_install_and_update_labels(host, update_url,
+                                      use_quick_provision=False,
+                                      with_cheets=False):
+    """Install a build and update the version labels on a host.
 
-    @param host: Host object to run machine_install on.
-    @param *args: Args list to pass to machine_install.
-    @param **dargs: dargs dict to pass to machine_install.
-
+    @param host: Host object where the build is to be installed.
+    @param update_url: URL of the build to install.
+    @param use_quick_provision:  If true, then attempt to use
+        quick-provision for the update.
+    @param with_cheets: If true, installation is for a specific, custom
+        version of Android for a target running ARC.
     """
-    # **dargs also carries an additional bool arg to determine whether
-    # the provisioning is w/ or w/o cheets. with_cheets arg will be popped in
-    # beginning so machine_install isn't affected by with_cheets presence.
-    with_cheets = dargs.pop('with_cheets', False)
     info = host.host_info_store.get()
     info.clear_version_labels()
     _clear_host_attributes_before_provision(host, info)
     host.host_info_store.commit(info)
-    # If ENABLE_DEVSERVER_TRIGGER_AUTO_UPDATE is enabled and the host is a
-    # CrosHost, devserver will be used to trigger auto-update.
-    if host.support_devserver_provision:
-        image_name, host_attributes = host.machine_install_by_devserver(
-            *args, **dargs)
-    else:
-        image_name, host_attributes = host.machine_install(*args, **dargs)
-
+    updater = autoupdater.ChromiumOSUpdater(
+            update_url, host=host, use_quick_provision=use_quick_provision)
+    image_name, host_attributes = updater.run_update()
     info = host.host_info_store.get()
     info.attributes.update(host_attributes)
-    if with_cheets == True:
+    if with_cheets:
         image_name += provision.CHEETS_SUFFIX
     info.set_version_label(host.VERSION_PREFIX, image_name)
     host.host_info_store.commit(info)

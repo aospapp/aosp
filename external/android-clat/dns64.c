@@ -16,25 +16,26 @@
  * dns64.c - find the nat64 prefix with a dns64 lookup
  */
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <strings.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
+#include "NetdClient.h"
 #include "dns64.h"
 #include "logging.h"
-#include "NetdClient.h"
 #include "resolv_netid.h"
 
 /* function: plat_prefix
- * looks up an ipv4-only hostname and looks for a nat64 /96 prefix, returns 1 on success, 0 on failure
- * ipv4_name  - name to lookup
- * net_id     - (optional) netId to use, NETID_UNSET indicates use of default network
- * prefix     - the plat /96 prefix
+ * looks up an ipv4-only hostname and looks for a nat64 /96 prefix, returns 1 on success, 0 on
+ * failure
+ *   ipv4_name  - name to lookup
+ *   net_id     - (optional) netId to use, NETID_UNSET indicates use of default network
+ *   prefix     - the plat /96 prefix
  */
 int plat_prefix(const char *ipv4_name, unsigned net_id, struct in6_addr *prefix) {
   const struct addrinfo hints = {
@@ -54,8 +55,8 @@ int plat_prefix(const char *ipv4_name, unsigned net_id, struct in6_addr *prefix)
 
   status = android_getaddrinfofornet(ipv4_name, NULL, &hints, net_id, MARK_UNSET, &result);
   if (status != 0 || result == NULL) {
-    logmsg(ANDROID_LOG_ERROR, "plat_prefix/dns(%s) status = %d/%s",
-           ipv4_name, status, gai_strerror(status));
+    logmsg(ANDROID_LOG_ERROR, "plat_prefix/dns(%s) status = %d/%s", ipv4_name, status,
+           gai_strerror(status));
     return 0;
   }
 

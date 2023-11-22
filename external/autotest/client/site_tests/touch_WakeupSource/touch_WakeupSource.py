@@ -15,7 +15,13 @@ class touch_WakeupSource(touch_playback_test_base.touch_playback_test_base):
     version = 1
 
     # Devices whose touchpads should not be a wake source.
-    _NO_TOUCHPAD_WAKE = ['clapper', 'glimmer', 'veyron_minnie']
+    #
+    # Note, starting with octopus platform, convertibles should enable touchpad
+    # wake.  If you  wish to enable on previous devices, see furquan@ doc
+    # go/cros-trackpad-wake and/or consult chromeos-platform-power@ for more
+    # details.
+    _NO_TOUCHPAD_WAKE = ['clapper', 'glimmer', 'veyron_minnie', 'caroline',
+                         'eve', 'kevin', 'pyro']
 
     # Devices with Synaptics touchpads that do not report wake source,
     # or reference platforms like Rambi which are broken but do not ship,

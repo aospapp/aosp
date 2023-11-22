@@ -58,6 +58,12 @@ namespace memory
 namespace
 {
 
+template<typename T>
+T roundUpToMultiple(const T& a, const T& b)
+{
+	return b * (a / b + (a % b != 0 ? 1 : 0));
+}
+
 enum
 {
 	// The min max for allocation count is 4096. Use 4000 to take into account
@@ -101,20 +107,13 @@ struct TestConfigRandom
 	}
 };
 
-vk::Move<VkInstance> createInstanceWithExtensions (const vk::PlatformInterface& vkp, deUint32 version, const std::vector<std::string>& enableExtensions)
+template<typename T>
+T roundUpToNextMultiple (T value, T multiple)
 {
-	std::vector<std::string>					enableExtensionPtrs;
-	const std::vector<VkExtensionProperties>	availableExtensions	 = enumerateInstanceExtensionProperties(vkp, DE_NULL);
-	for (size_t extensionID = 0; extensionID < enableExtensions.size(); extensionID++)
-	{
-		if (!isInstanceExtensionSupported(version, availableExtensions, RequiredExtension(enableExtensions[extensionID])))
-			TCU_THROW(NotSupportedError, (enableExtensions[extensionID] + " is not supported").c_str());
-
-		if (!isCoreInstanceExtension(version, enableExtensions[extensionID]))
-			enableExtensionPtrs.push_back(enableExtensions[extensionID]);
-	}
-
-	return createDefaultInstance(vkp, version, std::vector<std::string>() /* layers */, enableExtensionPtrs);
+	if (value % multiple == 0)
+		return value;
+	else
+		return value + multiple - (value % multiple);
 }
 
 class BaseAllocateTestInstance : public TestInstance
@@ -178,10 +177,11 @@ void BaseAllocateTestInstance::createDeviceGroup (void)
 		devGroupProperties[devGroupIdx].physicalDeviceCount,								//physicalDeviceCount
 		devGroupProperties[devGroupIdx].physicalDevices										//physicalDevices
 	};
-	InstanceDriver									instance				(m_context.getPlatformInterface(), m_useDeviceGroups ? m_deviceGroupInstance.get() : m_context.getInstance());
-	const VkPhysicalDeviceFeatures					deviceFeatures	=		getPhysicalDeviceFeatures(instance, deviceGroupInfo.pPhysicalDevices[physDeviceIdx]);
+	VkInstance										instance				(m_useDeviceGroups ? m_deviceGroupInstance.get() : m_context.getInstance());
+	InstanceDriver									instanceDriver			(m_context.getPlatformInterface(), instance);
+	const VkPhysicalDeviceFeatures					deviceFeatures	=		getPhysicalDeviceFeatures(instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx]);
 
-	const std::vector<VkQueueFamilyProperties>		queueProps		=		getPhysicalDeviceQueueFamilyProperties(instance, devGroupProperties[devGroupIdx].physicalDevices[physDeviceIdx]);
+	const std::vector<VkQueueFamilyProperties>		queueProps		=		getPhysicalDeviceQueueFamilyProperties(instanceDriver, devGroupProperties[devGroupIdx].physicalDevices[physDeviceIdx]);
 	for (size_t queueNdx = 0; queueNdx < queueProps.size(); queueNdx++)
 	{
 		if (queueProps[queueNdx].queueFlags & VK_QUEUE_COMPUTE_BIT)
@@ -211,9 +211,9 @@ void BaseAllocateTestInstance::createDeviceGroup (void)
 		deviceExtensions.empty() ? DE_NULL : &deviceExtensions[0],	// const char* const*	ppEnabledExtensionNames;
 		&deviceFeatures,											// const VkPhysicalDeviceFeatures*	pEnabledFeatures;
 	};
-	m_logicalDevice		= createDevice(instance, deviceGroupInfo.pPhysicalDevices[physDeviceIdx], &deviceInfo);
-	m_deviceDriver		= de::MovePtr<DeviceDriver>(new DeviceDriver(instance, *m_logicalDevice));
-	m_memoryProperties	= getPhysicalDeviceMemoryProperties(instance, deviceGroupInfo.pPhysicalDevices[physDeviceIdx]);
+	m_logicalDevice		= createDevice(m_context.getPlatformInterface(), instance, instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx], &deviceInfo);
+	m_deviceDriver		= de::MovePtr<DeviceDriver>(new DeviceDriver(m_context.getPlatformInterface(), instance, *m_logicalDevice));
+	m_memoryProperties	= getPhysicalDeviceMemoryProperties(instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx]);
 }
 
 class AllocateFreeTestInstance : public BaseAllocateTestInstance
@@ -224,6 +224,7 @@ public:
 		, m_config				(config)
 		, m_result				(m_context.getTestContext().getLog())
 		, m_memoryTypeIndex		(0)
+		, m_memoryLimits		(getMemoryLimits(context.getTestContext().getPlatform().getVulkanPlatform()))
 	{
 		DE_ASSERT(!!m_config.memorySize != !!m_config.memoryPercentage);
 	}
@@ -234,6 +235,7 @@ private:
 	const TestConfig						m_config;
 	tcu::ResultCollector					m_result;
 	deUint32								m_memoryTypeIndex;
+	const PlatformMemoryLimits				m_memoryLimits;
 };
 
 
@@ -242,6 +244,33 @@ tcu::TestStatus AllocateFreeTestInstance::iterate (void)
 	TestLog&								log					= m_context.getTestContext().getLog();
 	const VkDevice							device				= getDevice();
 	const DeviceInterface&					vkd					= getDeviceInterface();
+	VkMemoryRequirements					memReqs;
+	const deUint32							queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
+	VkBufferCreateFlags						createFlags			= (vk::VkBufferCreateFlagBits)0u;
+	VkBufferUsageFlags						usageFlags			= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	VkSharingMode							sharingMode			= vk::VK_SHARING_MODE_EXCLUSIVE;
+	Move<VkBuffer>							buffer;
+
+	if ((m_memoryProperties.memoryTypes[m_memoryTypeIndex].propertyFlags & vk::VK_MEMORY_PROPERTY_PROTECTED_BIT) == vk::VK_MEMORY_PROPERTY_PROTECTED_BIT)
+	{
+		createFlags |= vk::VK_BUFFER_CREATE_PROTECTED_BIT;
+	}
+
+	// Create a minimal buffer first to get the supported memory types
+	VkBufferCreateInfo				bufferParams					=
+	{
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,                       // VkStructureType          sType;
+		DE_NULL,                                                    // const void*              pNext;
+		createFlags,                                                // VkBufferCreateFlags      flags;
+		1u,                                                         // VkDeviceSize             size;
+		usageFlags,                                                 // VkBufferUsageFlags       usage;
+		sharingMode,                                                // VkSharingMode            sharingMode;
+		1u,                                                         // uint32_t                 queueFamilyIndexCount;
+		&queueFamilyIndex,                                          // const uint32_t*          pQueueFamilyIndices;
+	};
+
+	buffer = createBuffer(vkd, device, &bufferParams);
+	vkd.getBufferMemoryRequirements(device, *buffer, &memReqs);
 
 	DE_ASSERT(m_config.memoryAllocationCount <= MAX_ALLOCATION_COUNT);
 
@@ -262,10 +291,11 @@ tcu::TestStatus AllocateFreeTestInstance::iterate (void)
 
 	try
 	{
-		const VkMemoryType		memoryType		= m_memoryProperties.memoryTypes[m_memoryTypeIndex];
-		const VkMemoryHeap		memoryHeap		= m_memoryProperties.memoryHeaps[memoryType.heapIndex];
+		const VkMemoryType		memoryType				= m_memoryProperties.memoryTypes[m_memoryTypeIndex];
+		const VkMemoryHeap		memoryHeap				= m_memoryProperties.memoryHeaps[memoryType.heapIndex];
 
-		const VkDeviceSize		allocationSize	= (m_config.memorySize ? *m_config.memorySize : (VkDeviceSize)(*m_config.memoryPercentage * (float)memoryHeap.size));
+		const VkDeviceSize		allocationSize	= (m_config.memorySize ? memReqs.size : (VkDeviceSize)(*m_config.memoryPercentage * (float)memoryHeap.size));
+		const VkDeviceSize		roundedUpAllocationSize	 = roundUpToNextMultiple(allocationSize, m_memoryLimits.deviceMemoryAllocationGranularity);
 		vector<VkDeviceMemory>	memoryObjects	(m_config.memoryAllocationCount, (VkDeviceMemory)0);
 
 		log << TestLog::Message << "Memory type index: " << m_memoryTypeIndex << TestLog::EndMessage;
@@ -277,14 +307,14 @@ tcu::TestStatus AllocateFreeTestInstance::iterate (void)
 			log << TestLog::Message << "Memory type: " << memoryType << TestLog::EndMessage;
 			log << TestLog::Message << "Memory heap: " << memoryHeap << TestLog::EndMessage;
 
-			if (allocationSize * m_config.memoryAllocationCount * 8 > memoryHeap.size)
+			if (roundedUpAllocationSize * m_config.memoryAllocationCount > memoryHeap.size)
 				TCU_THROW(NotSupportedError, "Memory heap doesn't have enough memory.");
 
 #if (DE_PTR_SIZE == 4)
 			// For 32-bit binaries we cap the total host visible allocations to 1.5GB to
 			// avoid exhausting CPU virtual address space and throwing a false negative result.
 			if ((memoryType.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
-				allocationSize * m_config.memoryAllocationCount >= 1610612736)
+				allocationSize * m_config.memoryAllocationCount * (m_subsetAllocationAllowed ? 1 : m_numPhysDevices) >= 1610612736)
 
 				log << TestLog::Message << "    Skipping: Not enough CPU virtual address space for all host visible allocations." << TestLog::EndMessage;
 			else
@@ -485,7 +515,7 @@ RandomAllocFreeTestInstance::RandomAllocFreeTestInstance (Context& context, Test
 	{
 		m_heaps[heapNdx].heap			= m_memoryProperties.memoryHeaps[heapNdx];
 		m_heaps[heapNdx].memoryUsage	= 0;
-		m_heaps[heapNdx].maxMemoryUsage	= m_heaps[heapNdx].heap.size / 2; /* Use at maximum 50% of heap */
+		m_heaps[heapNdx].maxMemoryUsage	= m_heaps[heapNdx].heap.size / 8; /* Use at maximum 12.5% of heap */
 
 		m_heaps[heapNdx].objects.reserve(100);
 	}

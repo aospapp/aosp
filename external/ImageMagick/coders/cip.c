@@ -16,13 +16,13 @@
 %                                April 2004                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -199,7 +199,8 @@ static MagickBooleanType WriteCIPImage(const ImageInfo *image_info,Image *image,
   (void) WriteBlobString(image,"<CiscoIPPhoneImage>\n");
   value=GetImageProperty(image,"label",exception);
   if (value != (const char *) NULL)
-    (void) FormatLocaleString(buffer,MagickPathExtent,"<Title>%s</Title>\n",value);
+    (void) FormatLocaleString(buffer,MagickPathExtent,"<Title>%s</Title>\n",
+      value);
   else
     {
       char
@@ -234,22 +235,52 @@ static MagickBooleanType WriteCIPImage(const ImageInfo *image_info,Image *image,
     for (x=0; x < ((ssize_t) image->columns-3); x+=4)
     {
       byte=(unsigned char)
-        ((((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+3))/QuantumRange) & 0x03) << 6) |
-         (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+2))/QuantumRange) & 0x03) << 4) |
-         (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+1))/QuantumRange) & 0x03) << 2) |
-         (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+0))/QuantumRange) & 0x03) << 0));
+        ((((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+3*GetPixelChannels(image)))/QuantumRange) & 0x03) << 6) |
+         (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+2*GetPixelChannels(image)))/QuantumRange) & 0x03) << 4) |
+         (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+1*GetPixelChannels(image)))/QuantumRange) & 0x03) << 2) |
+         (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+0*GetPixelChannels(image)))/QuantumRange) & 0x03) << 0));
       (void) FormatLocaleString(buffer,MagickPathExtent,"%02x",byte);
       (void) WriteBlobString(image,buffer);
-      p+=4;
+      p+=GetPixelChannels(image);
     }
     if ((image->columns % 4) != 0)
       {
-        i=(ssize_t) image->columns % 4;
-        byte=(unsigned char)
-          ((((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+MagickMin(i,3)))/QuantumRange) & 0x03) << 6) |
-           (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+MagickMin(i,2)))/QuantumRange) & 0x03) << 4) |
-           (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+MagickMin(i,1)))/QuantumRange) & 0x03) << 2) |
-           (((size_t) (3*ClampToQuantum(GetPixelLuma(image,p+MagickMin(i,0)))/QuantumRange) & 0x03) << 0));
+        byte=0;
+        for ( ; x < (ssize_t) image->columns; x++)
+        {
+          i=x % 4;
+          switch (i)
+          {
+            case 0:
+            {
+              byte|=(unsigned char) (((size_t) (3*ClampToQuantum(GetPixelLuma(
+                image,p+MagickMin(i,3)*GetPixelChannels(image)))/
+                QuantumRange) & 0x03) << 6);
+              break;
+            }
+            case 1:
+            {
+              byte|=(unsigned char) (((size_t) (3*ClampToQuantum(GetPixelLuma(
+                image,p+MagickMin(i,2)*GetPixelChannels(image)))/
+                QuantumRange) & 0x03) << 4);
+              break;
+            }
+            case 2:
+            {
+              byte|=(unsigned char) (((size_t) (3*ClampToQuantum(GetPixelLuma(
+                image,p+MagickMin(i,1)*GetPixelChannels(image)))/
+                QuantumRange) & 0x03) << 2);
+              break;
+            }
+            case 3:
+            {
+              byte|=(unsigned char) (((size_t) (3*ClampToQuantum(GetPixelLuma(
+                image,p+MagickMin(i,0)*GetPixelChannels(image)))/
+                QuantumRange) & 0x03) << 0);
+              break;
+            }
+          }
+        }
         (void) FormatLocaleString(buffer,MagickPathExtent,"%02x",~byte);
         (void) WriteBlobString(image,buffer);
       }

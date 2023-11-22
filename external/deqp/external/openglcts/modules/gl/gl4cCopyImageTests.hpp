@@ -19,8 +19,8 @@
  * limitations under the License.
  *
  */ /*!
- * \file
- * \brief
+ * \file gl4cCopyImageTests.hpp
+ * \brief CopyImageSubData functional tests.
  */ /*-------------------------------------------------------------------*/
 
 #include "glcTestCase.hpp"
@@ -292,11 +292,11 @@ private:
  * * Verify that usage of a non-matching target for either the source or
  *   destination objects results in a GL_INVALID_ENUM error.
  **/
-class TargetMissMatchTest : public deqp::TestCase
+class TargetMismatchTest : public deqp::TestCase
 {
 public:
-	TargetMissMatchTest(deqp::Context& context);
-	virtual ~TargetMissMatchTest()
+	TargetMismatchTest(deqp::Context& context);
+	virtual ~TargetMismatchTest()
 	{
 	}
 
@@ -327,9 +327,9 @@ private:
 
 /** Implements negative test C. Description follows:
  *
- * [B]
- * * Verify that usage of a non-matching target for either the source or
- *   destination objects results in a GL_INVALID_ENUM error.
+ * [C]
+ * * Verify that INVALID_OPERATION is generated when the texture provided
+ *   to CopyImageSubData is incomplete
  **/
 class IncompleteTexTest : public deqp::TestCase
 {
@@ -414,11 +414,11 @@ private:
  *   do not match in terms of number of samples they can hold, results in
  *   GL_INVALID_OPERATION error.
  **/
-class SamplesMissMatchTest : public deqp::TestCase
+class SamplesMismatchTest : public deqp::TestCase
 {
 public:
-	SamplesMissMatchTest(deqp::Context& context);
-	virtual ~SamplesMissMatchTest()
+	SamplesMismatchTest(deqp::Context& context);
+	virtual ~SamplesMismatchTest()
 	{
 	}
 
@@ -492,16 +492,16 @@ private:
 /** Implements negative test G. Description follows:
  *
  * [G]
- * * Verify that usage of a mismatching <srcTarget> or <dstTarget> argument
+ * * Verify that usage of an invalid <srcTarget> or <dstTarget> argument
  *   generates GL_INVALID_VALUE error. For the purpose of the test, make sure
  *   to iterate over the set of all objects that can be used as source or
  *   destination objects.
  **/
-class MissMatchObjectTest : public deqp::TestCase
+class InvalidObjectTest : public deqp::TestCase
 {
 public:
-	MissMatchObjectTest(deqp::Context& context);
-	virtual ~MissMatchObjectTest()
+	InvalidObjectTest(deqp::Context& context);
+	virtual ~InvalidObjectTest()
 	{
 	}
 
@@ -512,9 +512,10 @@ private:
 	/* Private types */
 	struct testCase
 	{
-		glw::GLenum m_obj_target;
 		glw::GLenum m_dst_target;
+		bool		m_dst_valid;
 		glw::GLenum m_src_target;
+		bool		m_src_valid;
 		glw::GLenum m_expected_result;
 	};
 
@@ -655,6 +656,46 @@ private:
 	glw::GLuint			  m_src_tex_name;
 	glw::GLuint			  m_test_case_index;
 	std::vector<testCase> m_test_cases;
+};
+
+/** Implements functional test. Description follows:
+ *
+ * [B]
+ * 1. Create a single level integer texture, with BASE_LEVEL and MAX_LEVEL set to 0.
+ * 2. Leave the mipmap filters at the default of GL_NEAREST_MIPMAP_LINEAR and GL_LINEAR.
+ * 3. Do glCopyImageSubData to or from that texture.
+ * 4. Make sure it succeeds and does not raise GL_INVALID_OPERATION.
+ **/
+class IntegerTexTest : public deqp::TestCase
+{
+public:
+	IntegerTexTest(deqp::Context& context);
+	virtual ~IntegerTexTest()
+	{
+	}
+
+	/* Implementation of tcu::TestNode methods */
+	virtual IterateResult iterate(void);
+
+private:
+	/* Private types */
+	struct testCase
+	{
+		glw::GLint  m_internal_format;
+		glw::GLuint m_type;
+	};
+
+	/* Private methods */
+	unsigned int createTexture(int width, int height, glw::GLint internalFormat, glw::GLuint type, const void* data,
+							   int minFilter, int magFilter);
+	void clean();
+
+	/* Private fields */
+	glw::GLuint m_dst_buf_name;
+	glw::GLuint m_dst_tex_name;
+	glw::GLuint m_src_buf_name;
+	glw::GLuint m_src_tex_name;
+	glw::GLuint m_test_case_index;
 };
 }
 

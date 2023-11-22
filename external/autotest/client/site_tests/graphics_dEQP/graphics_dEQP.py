@@ -21,8 +21,7 @@ RERUN_RATIO = 0.02  # Ratio to rerun failing test for hasty mode
 
 
 class graphics_dEQP(graphics_utils.GraphicsTest):
-    """Run the drawElements Quality Program test suite.
-    """
+    """Run the drawElements Quality Program test suite."""
     version = 1
     _services = None
     _hasty = False
@@ -69,7 +68,8 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         self._env = os.environ.copy()
         old_ld_path = self._env.get('LD_LIBRARY_PATH', '')
         if old_ld_path:
-            self._env['LD_LIBRARY_PATH'] = '/usr/local/lib:/usr/local/lib64:' + old_ld_path
+            self._env[
+                'LD_LIBRARY_PATH'] = '/usr/local/lib:/usr/local/lib64:' + old_ld_path
         else:
             self._env['LD_LIBRARY_PATH'] = '/usr/local/lib:/usr/local/lib64'
 
@@ -83,8 +83,19 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
             self._services.restore_services()
         super(graphics_dEQP, self).cleanup()
 
-    def _parse_test_results(self, result_filename,
-                            test_results=None, failing_test=None):
+    def _archive_test_results(self, result_filename):
+        """Reduce space usage.
+
+        The default /tmp result file location is memory backed and capped at 1/2
+        of main memory. We have experienced out of storage situations. Avoid
+        this for instance by using compression.
+        """
+        os.system('gzip %s' % result_filename)
+
+    def _parse_test_results(self,
+                            result_filename,
+                            test_results=None,
+                            failing_test=None):
         """Handles result files with one or more test results.
 
         @param result_filename: log file to parse.
@@ -103,6 +114,7 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
             test_results = {}
 
         if not os.path.isfile(result_filename):
+            logging.error('Did not find file %s', result_filename)
             return test_results
 
         with open(result_filename) as result_file:
@@ -125,6 +137,7 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                         xml_bad = True
                     else:
                         xml_start = True
+                        test_case = line.split(' ')[1]
 
                 if xml_complete or xml_bad:
                     if xml_complete:
@@ -135,7 +148,7 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                         xml_complete = False
                     test_results[result] = test_results.get(result, 0) + 1
                     if (result.lower() not in self.TEST_RESULT_FILTER and
-                        failing_test != None):
+                            failing_test != None):
                         failing_test.append(test_case)
                     xml_bad = False
                     xml_start = False
@@ -154,7 +167,7 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         for subset_file in subset_paths:
             # Filter against extra hasty failures only in hasty mode.
             if (not '.Pass.bz2' in subset_file and
-               (self._hasty or '.hasty.' not in subset_file)):
+                (self._hasty or '.hasty.' not in subset_file)):
                 not_passing_cases.extend(
                     bz2.BZ2File(subset_file).read().splitlines())
         not_passing_cases.sort()
@@ -218,22 +231,23 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         command = ('%s '
                    '--deqp-runmode=txt-caselist '
                    '--deqp-surface-type=%s '
-                   '--deqp-gl-config-name=rgba8888d24s8ms0 ' % (executable,
-                                                                self._surface))
+                   '--deqp-gl-config-name=rgba8888d24s8ms0 ' %
+                   (executable, self._surface))
         logging.info('Running command %s', command)
-        utils.run(command,
-                  env=self._env,
-                  timeout=60,
-                  stderr_is_expected=False,
-                  ignore_status=False,
-                  stdin=None)
+        utils.run(
+            command,
+            env=self._env,
+            timeout=60,
+            stderr_is_expected=False,
+            ignore_status=False,
+            stdin=None)
 
         # Now read this caselist file.
         caselist_name = '%s-cases.txt' % test_filter.split('.')[0]
         caselist_file = os.path.join(os.path.dirname(executable), caselist_name)
         if not os.path.isfile(caselist_file):
-            raise error.TestFail('Failed: No caselist file at %s!' %
-                                 caselist_file)
+            raise error.TestFail(
+                'Failed: No caselist file at %s!' % caselist_file)
 
         # And remove non-Pass'ing expectations from caselist.
         caselist = open(caselist_file).read().splitlines()
@@ -248,7 +262,8 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
 
         test_cases = list(set(test_cases) - set(not_passing_cases))
         if not test_cases:
-            raise error.TestFail('Failed: Unable to bootstrap %s!' % test_filter)
+            raise error.TestFail(
+                'Failed: Unable to bootstrap %s!' % test_filter)
 
         test_cases.sort()
         return test_cases
@@ -261,7 +276,9 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         return []
 
     def _get_test_cases(self, test_filter, subset):
-        """Gets the test cases for 'Pass', 'Fail' etc. expectations.
+        """Gets the test cases for 'Pass', 'Fail' etc.
+
+        expectations.
 
         This function supports bootstrapping of new GPU families and dEQP
         binaries. In particular if there are not 'Pass' expectations found for
@@ -284,8 +301,8 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                 # for trouble (stability). Decide if it should be disallowed.
                 return self._load_not_passing_cases(test_filter)
             if subset != 'Pass':
-                raise error.TestFail('Failed: No subset file found for %s!' %
-                                     subset_path)
+                raise error.TestFail(
+                    'Failed: No subset file found for %s!' % subset_path)
             # Ask dEQP for all cases and remove the failing ones.
             return self._bootstrap_new_test_cases(test_filter)
 
@@ -332,14 +349,9 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                            '--deqp-watchdog=enable '
                            '--deqp-surface-width=%d '
                            '--deqp-surface-height=%d '
-                           '--deqp-log-filename=%s' % (
-                               executable,
-                               test_case,
-                               self._surface,
-                               width,
-                               height,
-                               log_file)
-                           )
+                           '--deqp-log-filename=%s' %
+                           (executable, test_case, self._surface, width, height,
+                            log_file))
                 logging.debug('Running single: %s', command)
 
                 # Must be in the executable directory when running for it to find it's
@@ -351,14 +363,15 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                 run_result = {}
                 start_time = time.time()
                 try:
-                    run_result = utils.run(command,
-                                           env=self._env,
-                                           timeout=self._timeout,
-                                           stderr_is_expected=False,
-                                           ignore_status=True)
+                    run_result = utils.run(
+                        command,
+                        env=self._env,
+                        timeout=self._timeout,
+                        stderr_is_expected=False,
+                        ignore_status=True)
                     result_counts = self._parse_test_results(
-                        log_file,
-                        failing_test=failing_test)
+                        log_file, failing_test=failing_test)
+                    self._archive_test_results(log_file)
                     if result_counts:
                         result = result_counts.keys()[0]
                     else:
@@ -428,11 +441,11 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         # in smaller batches. We start and end at multiples of batch_size
         # boundaries.
         shard_start = self._hasty_batch_size * (
-            (self._shard_number * (num_test_cases / self._shard_count)) /
-            self._hasty_batch_size)
-        shard_end = self._hasty_batch_size * ((
-            (self._shard_number + 1) * (num_test_cases / self._shard_count)) /
-                                              self._hasty_batch_size)
+            (self._shard_number *
+             (num_test_cases / self._shard_count)) / self._hasty_batch_size)
+        shard_end = self._hasty_batch_size * (
+            ((self._shard_number + 1) *
+             (num_test_cases / self._shard_count)) / self._hasty_batch_size)
         # The last shard will be slightly larger than the others. Extend it to
         # cover all test cases avoiding rounding problems with the integer
         # arithmetics done to compute shard_start and shard_end.
@@ -450,8 +463,8 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                              batch_cases)
             else:
                 executable = self._get_executable(api)
-                log_file = os.path.join(self._log_path,
-                                        '%s_hasty_%d.log' % (self._filter, batch))
+                log_file = os.path.join(
+                    self._log_path, '%s_hasty_%d.log' % (self._filter, batch))
                 command = ('%s '
                            '--deqp-stdin-caselist '
                            '--deqp-surface-type=%s '
@@ -461,13 +474,8 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                            '--deqp-watchdog=enable '
                            '--deqp-surface-width=%d '
                            '--deqp-surface-height=%d '
-                           '--deqp-log-filename=%s' % (
-                               executable,
-                               self._surface,
-                               width,
-                               height,
-                               log_file)
-                           )
+                           '--deqp-log-filename=%s' %
+                           (executable, self._surface, width, height, log_file))
 
                 logging.info('Running tests %d...%d out of %d:\n%s\n%s',
                              batch + 1, batch_to, num_test_cases, command,
@@ -478,22 +486,25 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
                 os.chdir(os.path.dirname(executable))
 
                 try:
-                    utils.run(command,
-                              env=self._env,
-                              timeout=batch_timeout,
-                              stderr_is_expected=False,
-                              ignore_status=False,
-                              stdin=batch_cases)
+                    utils.run(
+                        command,
+                        env=self._env,
+                        timeout=batch_timeout,
+                        stderr_is_expected=False,
+                        ignore_status=False,
+                        stdin=batch_cases)
                 except Exception:
                     pass
                 # We are trying to handle all errors by parsing the log file.
                 results = self._parse_test_results(log_file, results,
                                                    failing_test)
+                self._archive_test_results(log_file)
                 logging.info(results)
         return results
 
     def _run_once(self, test_cases):
         """Run dEQP test_cases in individual/hasty mode.
+
         @param test_cases: test cases to run.
         """
         failing_test = []
@@ -507,18 +518,19 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         return test_results, failing_test
 
     def run_once(self, opts=None):
-        options = dict(filter='',
-                       test_names='',  # e.g., dEQP-GLES3.info.version,
-                                       # dEQP-GLES2.functional,
-                                       # dEQP-GLES3.accuracy.texture, etc.
-                       test_names_file='',
-                       timeout=self._timeout,
-                       subset_to_run='Pass',  # Pass, Fail, Timeout, NotPass...
-                       hasty='False',
-                       shard_number='0',
-                       shard_count='1',
-                       debug='False',
-                       perf_failure_description=None)
+        options = dict(
+            filter='',
+            test_names='',  # e.g., dEQP-GLES3.info.version,
+            # dEQP-GLES2.functional,
+            # dEQP-GLES3.accuracy.texture, etc.
+            test_names_file='',
+            timeout=self._timeout,
+            subset_to_run='Pass',  # Pass, Fail, Timeout, NotPass...
+            hasty='False',
+            shard_number='0',
+            shard_count='1',
+            debug='False',
+            perf_failure_description=None)
         if opts is None:
             opts = []
         options.update(utils.args_to_dict(opts))
@@ -549,8 +561,8 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         # Create a place to put detailed test output logs.
         filter_name = self._filter or os.path.basename(self._test_names_file)
         logging.info('dEQP test filter = %s', filter_name)
-        self._log_path = os.path.join(tempfile.gettempdir(), '%s-logs' %
-                                                             filter_name)
+        self._log_path = os.path.join(tempfile.gettempdir(),
+                                      '%s-logs' % filter_name)
         shutil.rmtree(self._log_path, ignore_errors=True)
         os.mkdir(self._log_path)
 
@@ -579,19 +591,19 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
         # Rerun the test if we are in hasty mode.
         if self._hasty and len(failing_test) > 0:
             if len(failing_test) < sum(test_results.values()) * RERUN_RATIO:
-                logging.info("Because we are in hasty mode, we will rerun the "
-                             "failing tests one at a time")
+                logging.info('Because we are in hasty mode, we will rerun the '
+                             'failing tests one at a time')
                 rerun_results, failing_test = self._run_once(failing_test)
                 # Update failing test result from the test_results
                 for result in test_results:
                     if result.lower() not in self.TEST_RESULT_FILTER:
                         test_results[result] = 0
                 for result in rerun_results:
-                    test_results[result] = (test_results.get(result, 0) +
-                                            rerun_results[result])
+                    test_results[result] = (
+                        test_results.get(result, 0) + rerun_results[result])
             else:
-                logging.info("There are too many failing tests. It would "
-                             "take too long to rerun them. Giving up.")
+                logging.info('There are too many failing tests. It would '
+                             'take too long to rerun them. Giving up.')
 
         # Update failing tests to the chrome perf dashboard records.
         for test_case in test_cases:
@@ -629,5 +641,5 @@ class graphics_dEQP(graphics_utils.GraphicsTest):
             raise error.TestFail('Failed: on %s %d/%d tests failed.' %
                                  (self._gpu_type, test_failures, test_count))
         if test_skipped > 0:
-            logging.info('On %s %d tests skipped, %d passes' %
-                         (self._gpu_type, test_skipped, test_passes))
+            logging.info('On %s %d tests skipped, %d passes', self._gpu_type,
+                         test_skipped, test_passes)

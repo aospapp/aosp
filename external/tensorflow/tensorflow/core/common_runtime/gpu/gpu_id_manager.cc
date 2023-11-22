@@ -18,57 +18,87 @@ limitations under the License.
 #include <unordered_map>
 
 #include "tensorflow/core/common_runtime/gpu/gpu_id.h"
+#include "tensorflow/core/lib/core/errors.h"
+#include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/logging.h"
+#include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/mutex.h"
 
 namespace tensorflow {
 namespace {
-// Manages the map between TfGpuId and CUDA GPU id.
-class TfToCudaGpuIdMap {
+// Manages the map between TfGpuId and platform GPU id.
+class TfToPlatformGpuIdMap {
  public:
-  static TfToCudaGpuIdMap* singleton() {
-    static auto* manager = new TfToCudaGpuIdMap;
-    return manager;
+  static TfToPlatformGpuIdMap* singleton() {
+    static auto* id_map = new TfToPlatformGpuIdMap;
+    return id_map;
   }
 
-  void InsertOrDie(TfGpuId tf_gpu_id, CudaGpuId cuda_gpu_id)
+  Status Insert(TfGpuId tf_gpu_id, PlatformGpuId platform_gpu_id)
       LOCKS_EXCLUDED(mu_) {
     std::pair<IdMapType::iterator, bool> result;
     {
       mutex_lock lock(mu_);
-      result = id_map_.insert({tf_gpu_id.value(), cuda_gpu_id.value()});
+      result = id_map_.insert({tf_gpu_id.value(), platform_gpu_id.value()});
     }
-    if (!result.second) {
-      CHECK_EQ(cuda_gpu_id.value(), result.first->second)
-          << "Mapping the same TfGpuId to a different CUDA GPU id."
-          << " TfGpuId: " << tf_gpu_id
-          << " Existing mapped CUDA GPU id: " << result.first->second
-          << " CUDA GPU id being tried to map to: " << cuda_gpu_id;
+    if (!result.second && platform_gpu_id.value() != result.first->second) {
+      return errors::AlreadyExists(
+          "TensorFlow device (GPU:", tf_gpu_id.value(),
+          ") is being mapped to "
+          "multiple CUDA devices (",
+          platform_gpu_id.value(), " now, and ", result.first->second,
+          " previously), which is not supported. "
+          "This may be the result of providing different GPU configurations "
+          "(ConfigProto.gpu_options, for example different visible_device_list)"
+          " when creating multiple Sessions in the same process. This is not "
+          " currently supported, see "
+          "https://github.com/tensorflow/tensorflow/issues/19083");
     }
+    return Status::OK();
   }
 
-  int32 FindOrDie(TfGpuId tf_gpu_id) const LOCKS_EXCLUDED(mu_) {
+  bool Find(TfGpuId tf_gpu_id, PlatformGpuId* platform_gpu_id) const
+      LOCKS_EXCLUDED(mu_) {
     mutex_lock lock(mu_);
     auto result = id_map_.find(tf_gpu_id.value());
-    CHECK(result != id_map_.end())
-        << "Could not find the mapping for TfGpuId: " << tf_gpu_id;
-    return result->second;
+    if (result == id_map_.end()) return false;
+    *platform_gpu_id = result->second;
+    return true;
   }
 
  private:
+  TfToPlatformGpuIdMap() = default;
+
+  void TestOnlyReset() LOCKS_EXCLUDED(mu_) {
+    mutex_lock lock(mu_);
+    id_map_.clear();
+  }
+
   using IdMapType = std::unordered_map<int32, int32>;
   mutable mutex mu_;
   IdMapType id_map_ GUARDED_BY(mu_);
+
+  friend class ::tensorflow::GpuIdManager;
+  TF_DISALLOW_COPY_AND_ASSIGN(TfToPlatformGpuIdMap);
 };
 }  // namespace
 
-void GpuIdManager::InsertTfCudaGpuIdPair(TfGpuId tf_gpu_id,
-                                         CudaGpuId cuda_gpu_id) {
-  TfToCudaGpuIdMap::singleton()->InsertOrDie(tf_gpu_id, cuda_gpu_id);
+Status GpuIdManager::InsertTfPlatformGpuIdPair(TfGpuId tf_gpu_id,
+                                               PlatformGpuId platform_gpu_id) {
+  return TfToPlatformGpuIdMap::singleton()->Insert(tf_gpu_id, platform_gpu_id);
 }
 
-CudaGpuId GpuIdManager::TfToCudaGpuId(TfGpuId tf_gpu_id) {
-  return CudaGpuId(TfToCudaGpuIdMap::singleton()->FindOrDie(tf_gpu_id));
+Status GpuIdManager::TfToPlatformGpuId(TfGpuId tf_gpu_id,
+                                       PlatformGpuId* platform_gpu_id) {
+  if (TfToPlatformGpuIdMap::singleton()->Find(tf_gpu_id, platform_gpu_id)) {
+    return Status::OK();
+  }
+  return errors::NotFound("TensorFlow device GPU:", tf_gpu_id.value(),
+                          " was not registered");
+}
+
+void GpuIdManager::TestOnlyReset() {
+  TfToPlatformGpuIdMap::singleton()->TestOnlyReset();
 }
 
 }  // namespace tensorflow

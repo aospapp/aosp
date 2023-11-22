@@ -61,6 +61,15 @@ public final class HttpsURLConnectionImpl extends DelegatingHttpsURLConnection {
   }
 
   @Override public void setSSLSocketFactory(SSLSocketFactory sslSocketFactory) {
+    // BEGIN Android-added: Integrate upstream change: Let setSSLSocketFactory(null) throw.
+    // https://github.com/square/okhttp/commit/f704f9d30e941ebdbdc95843c931cfc9d34bcba6
+    // This method is documented to throw if sslSocketFactory == null. Setting the client's
+    // sslSocketFactory to null instead would cause it to fall back to the default factory.
+    // http://b/73702052
+    if (sslSocketFactory == null) {
+      throw new IllegalArgumentException("sslSocketFactory == null");
+    }
+    // END Android-added: Integrate upstream change: Let setSSLSocketFactory(null) throw.
     delegate.client.setSslSocketFactory(sslSocketFactory);
   }
 

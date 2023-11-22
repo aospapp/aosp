@@ -13,11 +13,15 @@
 # limitations under the License.
 
 import("//gn/standalone/android.gni")
+import("//gn/standalone/wasm.gni")
 import("llvm.gni")
 
 declare_args() {
   if (is_clang) {
-    if (is_linux) {
+    if (is_system_compiler) {
+      cc = "\$CC "
+      cxx = "\$CXX "
+    } else if (is_linux) {
       cc = linux_clang_bin
       cxx = linux_clangxx_bin
     } else {
@@ -65,7 +69,7 @@ template("gcc_like_toolchain") {
 
     tool("cc") {
       depfile = "{{output}}.d"
-      command = "$cc_wrapper $cc -MMD -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} -c {{source}} -o {{output}}"
+      command = "$cc_wrapper $cc -MMD -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} ${extra_cflags} -c {{source}} -o {{output}}"
       depsformat = "gcc"
       outputs = [
         "{{source_out_dir}}/{{target_output_name}}.{{source_name_part}}.o",
@@ -75,7 +79,7 @@ template("gcc_like_toolchain") {
 
     tool("cxx") {
       depfile = "{{output}}.d"
-      command = "$cc_wrapper $cxx -MMD -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} -c {{source}} -o {{output}}"
+      command = "$cc_wrapper $cxx -MMD -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}  ${extra_cflags} ${extra_cxxflags} -c {{source}} -o {{output}}"
       depsformat = "gcc"
       outputs = [
         "{{source_out_dir}}/{{target_output_name}}.{{source_name_part}}.o",
@@ -117,7 +121,7 @@ template("gcc_like_toolchain") {
         rpath = "-Wl,-install_name,@rpath/$soname"
       }
 
-      command = "$cc_wrapper $cxx -shared {{ldflags}} {{inputs}} {{solibs}} {{libs}} $rpath -o {{output}}"
+      command = "$cc_wrapper $cxx -shared {{ldflags}} ${extra_ldflags} {{inputs}} {{solibs}} {{libs}} $rpath -o {{output}}"
       outputs = [
         "{{root_out_dir}}/$soname",
       ]
@@ -127,7 +131,7 @@ template("gcc_like_toolchain") {
     }
 
     tool("link") {
-      command = "$cc_wrapper $cxx {{ldflags}} {{inputs}} {{solibs}} {{libs}} -o {{output}}"
+      command = "$cc_wrapper $cxx {{ldflags}} ${extra_ldflags} {{inputs}} {{solibs}} {{libs}} -o {{output}}"
       outputs = [
         "{{root_out_dir}}/{{target_output_name}}{{output_extension}}",
       ]
@@ -165,4 +169,13 @@ gcc_like_toolchain("gcc_like_host") {
   ar = host_ar
   cc = host_cc
   cxx = host_cxx
+}
+
+gcc_like_toolchain("wasm") {
+  # emsdk_dir and em_config are defined in wasm.gni.
+  cpu = host_cpu
+  os = host_os
+  ar = "$emsdk_dir/emscripten/emar --em-config $em_config"
+  cc = "$emsdk_dir/emscripten/emcc --em-config $em_config"
+  cxx = "$emsdk_dir/emscripten/em++ --em-config $em_config"
 }

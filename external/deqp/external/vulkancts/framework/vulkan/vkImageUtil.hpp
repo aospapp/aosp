@@ -26,8 +26,10 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vkDefs.hpp"
+#include "vkMemUtil.hpp"
 #include "tcuTexture.hpp"
 #include "tcuCompressedTexture.hpp"
+#include "deSharedPtr.hpp"
 
 namespace vk
 {
@@ -51,6 +53,7 @@ tcu::TextureFormat			getStencilCopyFormat		(VkFormat combinedFormat);
 tcu::Sampler				mapVkSampler				(const VkSamplerCreateInfo& samplerCreateInfo);
 tcu::Sampler::CompareMode	mapVkSamplerCompareOp		(VkCompareOp compareOp);
 tcu::Sampler::WrapMode		mapVkSamplerAddressMode		(VkSamplerAddressMode addressMode);
+tcu::Sampler::ReductionMode mapVkSamplerReductionMode	(VkSamplerReductionModeEXT reductionMode);
 tcu::Sampler::FilterMode	mapVkMinTexFilter			(VkFilter filter, VkSamplerMipmapMode mipMode);
 tcu::Sampler::FilterMode	mapVkMagTexFilter			(VkFilter filter);
 
@@ -60,9 +63,16 @@ VkSamplerAddressMode		mapWrapMode					(tcu::Sampler::WrapMode wrapMode);
 VkCompareOp					mapCompareMode				(tcu::Sampler::CompareMode mode);
 VkFormat					mapTextureFormat			(const tcu::TextureFormat& format);
 VkFormat					mapCompressedTextureFormat	(const tcu::CompressedTexFormat format);
-VkSamplerCreateInfo			mapSampler					(const tcu::Sampler& sampler, const tcu::TextureFormat& format, float minLod = 0.0f, float maxLod = 1000.0f);
+VkSamplerCreateInfo			mapSampler					(const tcu::Sampler& sampler, const tcu::TextureFormat& format, float minLod = 0.0f, float maxLod = 1000.0f, bool unnormal = false);
 
 void						imageUtilSelfTest			(void);
+
+float						getRepresentableDiffUnorm	(const VkFormat format, const deUint32 componentNdx);
+float						getRepresentableDiffSnorm	(const VkFormat format, const deUint32 componentNdx);
+deUint32					getFormatComponentWidth		(const VkFormat format, const deUint32 componentNdx);
+deUint32					getBlockSizeInBytes			(const VkFormat compressedFormat);
+deUint32					getBlockWidth				(const VkFormat compressedFormat);
+deUint32					getBlockHeight				(const VkFormat compressedFormat);
 
 // \todo [2017-05-18 pyry] Consider moving this to tcu
 struct PlanarFormatDescription
@@ -116,6 +126,8 @@ int								getPlaneCount					(VkFormat format);
 VkImageAspectFlagBits			getPlaneAspect					(deUint32 planeNdx);
 deUint32						getAspectPlaneNdx				(VkImageAspectFlagBits planeAspect);
 bool							isChromaSubsampled				(VkFormat format);
+bool							isYCbCr422Format				(VkFormat format);
+bool							isYCbCr420Format				(VkFormat format);
 
 tcu::PixelBufferAccess			getChannelAccess				(const PlanarFormatDescription&	formatInfo,
 																 const tcu::UVec2&				size,
@@ -127,6 +139,78 @@ tcu::ConstPixelBufferAccess		getChannelAccess				(const PlanarFormatDescription&
 																 const deUint32*				planeRowPitches,
 																 const void* const*				planePtrs,
 																 deUint32						channelNdx);
+VkImageAspectFlags				getImageAspectFlags				(const tcu::TextureFormat		textureFormat);
+VkExtent3D						mipLevelExtents					(const VkExtent3D&				baseExtents,
+																 const deUint32					mipLevel);
+tcu::UVec3						alignedDivide					(const VkExtent3D&				extent,
+																 const VkExtent3D&				divisor);
+
+/*--------------------------------------------------------------------*//*!
+ * Copies buffer data into an image. The buffer is expected to be
+ * in a state after host write.
+*//*--------------------------------------------------------------------*/
+void							copyBufferToImage				(const DeviceInterface&						vk,
+																 vk::VkDevice								device,
+																 vk::VkQueue								queue,
+																 deUint32									queueFamilyIndex,
+																 const vk::VkBuffer&						buffer,
+																 vk::VkDeviceSize							bufferSize,
+																 const std::vector<vk::VkBufferImageCopy>&	copyRegions,
+																 const vk::VkSemaphore*						waitSemaphore,
+																 vk::VkImageAspectFlags						imageAspectFlags,
+																 deUint32									mipLevels,
+																 deUint32									arrayLayers,
+																 vk::VkImage								destImage,
+																 VkImageLayout								destImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+																 VkPipelineStageFlags						destImageDstStageFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+void							copyBufferToImage				(const DeviceInterface&					vk,
+																 const VkCommandBuffer&					cmdBuffer,
+																 const VkBuffer&						buffer,
+																 vk::VkDeviceSize						bufferSize,
+																 const std::vector<VkBufferImageCopy>&	copyRegions,
+																 VkImageAspectFlags						imageAspectFlags,
+																 deUint32								mipLevels,
+																 deUint32								arrayLayers,
+																 VkImage								destImage,
+																 VkImageLayout							destImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+																 VkPipelineStageFlags					destImageDstStageFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+/*--------------------------------------------------------------------*//*!
+ * Copies image data into a buffer. The buffer is expected to be
+ * read by the host.
+*//*--------------------------------------------------------------------*/
+void							copyImageToBuffer				(const DeviceInterface&		vk,
+																 vk::VkCommandBuffer		cmdBuffer,
+																 vk::VkImage				image,
+																 vk::VkBuffer				buffer,
+																 tcu::IVec2					size,
+																 vk::VkAccessFlags			srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+																 vk::VkImageLayout			oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+																 deUint32					numLayers = 1u);
+
+/*--------------------------------------------------------------------*//*!
+ * Checks if the physical device supports creation of the specified
+ * image format.
+ *//*--------------------------------------------------------------------*/
+bool							checkSparseImageFormatSupport	(const vk::VkPhysicalDevice		physicalDevice,
+																 const vk::InstanceInterface&	instance,
+																 const vk::VkImageCreateInfo&	imageCreateInfo);
+
+/*--------------------------------------------------------------------*//*!
+ * Allocates memory for a sparse image and handles the memory binding.
+ *//*--------------------------------------------------------------------*/
+void							allocateAndBindSparseImage		(const vk::DeviceInterface&						vk,
+																 vk::VkDevice									device,
+																 const vk::VkPhysicalDevice						physicalDevice,
+																 const vk::InstanceInterface&					instance,
+																 const vk::VkImageCreateInfo&					imageCreateInfo,
+																 const vk::VkSemaphore&							signalSemaphore,
+																 vk::VkQueue									queue,
+																 vk::Allocator&									allocator,
+																 std::vector<de::SharedPtr<vk::Allocation> >&	allocations,
+																 tcu::TextureFormat								format,
+																 vk::VkImage									destImage);
 
 } // vk
 

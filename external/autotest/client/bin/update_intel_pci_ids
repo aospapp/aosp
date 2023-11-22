@@ -37,6 +37,8 @@ def map_gpu_name(mesa_name):
         'Kaby Lake': 'kabylake',
         'Geminilake': 'geminilake',
         'Cannonlake': 'cannonlake',
+        'Coffeelake': 'coffeelake',
+        'Ice Lake': 'icelake'
     }
 
     for name in family_name_map:

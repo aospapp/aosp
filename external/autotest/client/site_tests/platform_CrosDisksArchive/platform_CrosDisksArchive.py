@@ -2,10 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
 import os
 import shutil
-import zipfile
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import autotemp, error
@@ -45,25 +43,6 @@ class CrosDisksArchiveTester(CrosDisksTester):
                 else:
                     yield relative_path
 
-    def _make_zip_archive(self, archive_path, root_dir,
-                         compression=zipfile.ZIP_DEFLATED):
-        """Archives a specified directory into a ZIP file.
-
-           The created ZIP file contains all files and sub-directories
-           under the specified root directory, but not the root directory
-           itself.
-
-        Args:
-            archive_path: Path of the output archive.
-            root_dir: The root directory to archive.
-            compression: The ZIP compression method.
-        """
-        # ZipFile in Python 2.6 does not work with the 'with' statement.
-        archive = zipfile.ZipFile(archive_path, 'w', compression)
-        for path in self._find_all_files(root_dir):
-            archive.write(os.path.join(root_dir, path), path)
-        archive.close()
-
     def _make_rar_archive(self, archive_path, root_dir):
         """Archives a specified directory into a RAR file.
 
@@ -92,9 +71,7 @@ class CrosDisksArchiveTester(CrosDisksTester):
             archive_path: Path of the output archive.
             root_dir: The root directory to archive.
         """
-        if archive_type in ['zip']:
-            self._make_zip_archive(archive_path, root_dir)
-        elif archive_type in ['rar']:
+        if archive_type in ['rar']:
             self._make_rar_archive(archive_path, root_dir)
         else:
             raise error.TestFail("Unsupported archive type " + archive_type)

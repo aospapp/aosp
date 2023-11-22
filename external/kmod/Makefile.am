@@ -35,13 +35,15 @@ SED_PROCESS = \
 	-e 's,@liblzma_LIBS\@,${liblzma_LIBS},g' \
 	-e 's,@zlib_CFLAGS\@,${zlib_CFLAGS},g' \
 	-e 's,@zlib_LIBS\@,${zlib_LIBS},g' \
+	-e 's,@openssl_CFLAGS\@,${openssl_CFLAGS},g' \
+	-e 's,@openssl_LIBS\@,${openssl_LIBS},g' \
 	< $< > $@ || rm $@
 
 %.pc: %.pc.in Makefile
 	$(SED_PROCESS)
 
 LIBKMOD_CURRENT=5
-LIBKMOD_REVISION=2
+LIBKMOD_REVISION=4
 LIBKMOD_AGE=3
 
 noinst_LTLIBRARIES = shared/libshared.la
@@ -87,7 +89,7 @@ libkmod_libkmod_la_DEPENDENCIES = \
 	${top_srcdir}/libkmod/libkmod.sym
 libkmod_libkmod_la_LIBADD = \
 	shared/libshared.la \
-	${liblzma_LIBS} ${zlib_LIBS}
+	${liblzma_LIBS} ${zlib_LIBS} ${openssl_LIBS}
 
 noinst_LTLIBRARIES += libkmod/libkmod-internal.la
 libkmod_libkmod_internal_la_SOURCES = $(libkmod_libkmod_la_SOURCES)
@@ -270,6 +272,7 @@ check-am: rootfs check-sysconfdir
 
 EXTRA_DIST += \
 	testsuite/module-playground/cache \
+	testsuite/module-playground/dummy.pkcs7 \
 	testsuite/module-playground/dummy.sha1 \
 	testsuite/module-playground/dummy.sha256 \
 	testsuite/module-playground/Makefile \
@@ -404,7 +407,7 @@ DISTCLEAN_LOCAL_HOOKS += testsuite-distclean
 EXTRA_DIST += testsuite/rootfs-pristine
 
 DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc --enable-python --sysconfdir=/etc \
-	--with-zlib \
+	--with-zlib --with-openssl \
 	--with-bashcompletiondir=$$dc_install_base/$(bashcompletiondir)
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
@@ -459,7 +462,7 @@ endif
 
 kmod-coverity-%.tar.xz:
 	rm -rf $< cov-int
-	./bootstrap-configure --disable-python --disable-manpages
+	./autogen.sh c --disable-python --disable-manpages
 	make clean
 	cov-build --dir cov-int make -j 4
 	tar caf $@ cov-int
@@ -498,3 +501,13 @@ tar: kmod-$(VERSION).tar.xz kmod-$(VERSION).tar.sign
 
 tar-sync: kmod-$(VERSION).tar.xz kmod-$(VERSION).tar.sign
 	kup put kmod-$(VERSION).tar.xz  kmod-$(VERSION).tar.sign /pub/linux/utils/kernel/kmod/
+
+# ------------------------------------------------------------------------------
+# mkosi
+# ------------------------------------------------------------------------------
+
+DISTRO ?= "arch"
+
+mkosi:
+	-$(MKDIR_P) $(top_srcdir)/testsuite/mkosi/mkosi.cache
+	$(MKOSI) -C $(top_srcdir)/testsuite/mkosi --build-sources ../../ --default mkosi.${DISTRO} -fi

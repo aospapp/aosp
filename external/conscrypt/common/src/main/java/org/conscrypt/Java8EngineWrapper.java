@@ -301,6 +301,11 @@ final class Java8EngineWrapper extends AbstractConscryptEngine {
     }
 
     @Override
+    byte[] exportKeyingMaterial(String label, byte[] context, int length) throws SSLException {
+        return delegate.exportKeyingMaterial(label, context, length);
+    }
+
+    @Override
     public String getHandshakeApplicationProtocol() {
         return delegate.getHandshakeApplicationProtocol();
     }

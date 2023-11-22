@@ -35,6 +35,7 @@ public class RelativeDateFormat extends DateFormat {
 
     /**
      * @author srl
+     * @hide Only a subset of ICU is exposed in Android
      *
      */
     public static class URelativeString {

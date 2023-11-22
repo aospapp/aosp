@@ -11,13 +11,13 @@ like scenario.
 CRITERIA = """
 The test fails if the vda_unittest or the vea_unittest fails or crashes.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild, suite:crosbolt_perf_nightly"
 TIME = 'SHORT'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = 'video'
 TEST_TYPE = 'client'
 # Reboot in the lab after the test ends.
-DEPENDENCIES = 'cleanup-reboot, hw_video_acc_vp8, hw_video_acc_enc_vp8'
+DEPENDENCIES = 'cleanup-reboot'
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -53,4 +53,5 @@ job.run_test('video_HangoutHardwarePerf',
     resources=resources,
     decode_videos=decode_videos,
     encode_videos=encode_videos,
-    measurement='cpu')
+    measurement='cpu',
+    capabilities=['hw_dec_vp8_1080_30', 'hw_enc_vp8_1080_30'])

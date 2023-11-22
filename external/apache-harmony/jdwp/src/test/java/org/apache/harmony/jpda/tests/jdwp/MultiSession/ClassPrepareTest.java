@@ -56,7 +56,8 @@ public class ClassPrepareTest extends JDWPEventTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String class2prepareRegexp = "org.apache.harmony.jpda.tests.jdwp.Events.Class2Prepare";
+        String class2prepareRegexp = 
+            getDebuggeeClassName().replaceAll("ClassPrepareDebuggee", "Class2Prepare");
         //String class2prepareSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/Class2Prepare;";
 
         ReplyPacket reply = debuggeeWrapper.vmMirror

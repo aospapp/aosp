@@ -14,6 +14,10 @@ class AndroidCXXCompiler(libcxx.compiler.CXXCompiler):
         self.link_template = link_template
         self.build_top = os.getenv('ANDROID_BUILD_TOP')
 
+        # The file system tests require a handful of defines that we can't add
+        # to the Android.bp since they require absolute paths.
+        self.extra_cflags = []
+
     def copy(self):
         return copy.deepcopy(self)
 
@@ -60,7 +64,7 @@ class AndroidCXXCompiler(libcxx.compiler.CXXCompiler):
             source_files = [source_files]
         cxx_args = self.cxx_template.replace('%OUT%', out)
         cxx_args = cxx_args.replace('%SOURCE%', ' '.join(source_files))
-        return [self.path] + shlex.split(cxx_args)
+        return [self.path] + shlex.split(cxx_args) + self.extra_cflags
 
     def linkCmd(self, source_files, out=None, flags=None):
         if out is None:

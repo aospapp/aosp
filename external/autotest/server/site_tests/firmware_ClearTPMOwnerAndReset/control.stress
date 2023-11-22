@@ -5,7 +5,7 @@
 AUTHOR = "mruthven"
 NAME = "firmware_ClearTPMOwnerAndReset.stress"
 PURPOSE = "Verify normal boot after clearing the tpm owner and rebooting the ec"
-ATTRIBUTES = "suite:cr50_stress_experimental"
+# TODO(b/77292177): add to faft_cr50 once the issue has been addressed.
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"

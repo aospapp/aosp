@@ -12,7 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform, kernel"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:usb_detect"
+#ATTRIBUTES = "suite:usb_detect"
 DEPENDENCIES = "servo, kernel_usb"
 
 DOC = """

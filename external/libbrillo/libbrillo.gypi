@@ -4,7 +4,6 @@
       'deps': [
         'libchrome-<(libbase_ver)'
       ],
-      'USE_dbus%': '1',
     },
     'include_dirs': [
       '../libbrillo',
@@ -24,6 +23,7 @@
         'libbrillo-http-<(libbase_ver)',
         'libbrillo-minijail-<(libbase_ver)',
         'libbrillo-streams-<(libbase_ver)',
+        'libinstallattributes-<(libbase_ver)',
         'libpolicy-<(libbase_ver)',
       ],
       'direct_dependent_settings': {
@@ -38,7 +38,13 @@
       'type': 'shared_library',
       'variables': {
         'exported_deps': [
-          'dbus-1',
+        ],
+        'conditions': [
+          ['USE_dbus == 1', {
+            'exported_deps': [
+              'dbus-1',
+            ],
+          }],
         ],
         'deps': ['<@(exported_deps)'],
       },
@@ -50,30 +56,16 @@
         },
       },
       'libraries': ['-lmodp_b64'],
-      #TODO(deymo): Split DBus code from libbrillo-core the same way is split in
-      # the Android.mk, based on the <(USE_dbus) variable.
       'sources': [
-        'brillo/any.cc',
         'brillo/asynchronous_signal_handler.cc',
         'brillo/backoff_entry.cc',
-        'brillo/daemons/dbus_daemon.cc',
         'brillo/daemons/daemon.cc',
         'brillo/data_encoding.cc',
-        'brillo/dbus/async_event_sequencer.cc',
-        'brillo/dbus/data_serialization.cc',
-        'brillo/dbus/dbus_connection.cc',
-        'brillo/dbus/dbus_method_invoker.cc',
-        'brillo/dbus/dbus_method_response.cc',
-        'brillo/dbus/dbus_object.cc',
-        'brillo/dbus/dbus_service_watcher.cc',
-        'brillo/dbus/dbus_signal.cc',
-        'brillo/dbus/exported_object_manager.cc',
-        'brillo/dbus/exported_property_set.cc',
-        'brillo/dbus/utils.cc',
         'brillo/errors/error.cc',
         'brillo/errors/error_codes.cc',
         'brillo/file_utils.cc',
         'brillo/flag_helper.cc',
+        'brillo/imageloader/manifest.cc',
         'brillo/key_value_store.cc',
         'brillo/message_loops/base_message_loop.cc',
         'brillo/message_loops/message_loop.cc',
@@ -90,6 +82,25 @@
         'brillo/url_utils.cc',
         'brillo/userdb_utils.cc',
         'brillo/value_conversion.cc',
+      ],
+      'conditions': [
+        ['USE_dbus == 1', {
+          'sources': [
+            'brillo/any.cc',
+            'brillo/daemons/dbus_daemon.cc',
+            'brillo/dbus/async_event_sequencer.cc',
+            'brillo/dbus/data_serialization.cc',
+            'brillo/dbus/dbus_connection.cc',
+            'brillo/dbus/dbus_method_invoker.cc',
+            'brillo/dbus/dbus_method_response.cc',
+            'brillo/dbus/dbus_object.cc',
+            'brillo/dbus/dbus_service_watcher.cc',
+            'brillo/dbus/dbus_signal.cc',
+            'brillo/dbus/exported_object_manager.cc',
+            'brillo/dbus/exported_property_set.cc',
+            'brillo/dbus/utils.cc',
+          ],
+        }],
       ],
     },
     {
@@ -120,6 +131,13 @@
         'brillo/http/http_transport.cc',
         'brillo/http/http_transport_curl.cc',
         'brillo/http/http_utils.cc',
+      ],
+      'conditions': [
+        ['USE_dbus == 1', {
+          'sources': [
+            'brillo/http/http_proxy.cc',
+          ],
+        }],
       ],
     },
     {
@@ -213,9 +231,34 @@
       ],
     },
     {
+      'target_name': 'libinstallattributes-<(libbase_ver)',
+      'type': 'shared_library',
+      'dependencies': [
+        'libinstallattributes-includes',
+        '../common-mk/external_dependencies.gyp:install_attributes-proto',
+      ],
+      'variables': {
+        'exported_deps': [
+          'protobuf-lite',
+        ],
+        'deps': ['<@(exported_deps)'],
+      },
+      'all_dependent_settings': {
+        'variables': {
+          'deps': [
+            '<@(exported_deps)',
+          ],
+        },
+      },
+      'sources': [
+        'install_attributes/libinstallattributes.cc',
+      ],
+    },
+    {
       'target_name': 'libpolicy-<(libbase_ver)',
       'type': 'shared_library',
       'dependencies': [
+        'libinstallattributes-<(libbase_ver)',
         'libpolicy-includes',
         '../common-mk/external_dependencies.gyp:policy-protos',
       ],
@@ -248,14 +291,20 @@
       'target_name': 'libbrillo-glib-<(libbase_ver)',
       'type': 'shared_library',
       'dependencies': [
-          'libbrillo-<(libbase_ver)',
+        'libbrillo-<(libbase_ver)',
       ],
       'variables': {
         'exported_deps': [
-          'dbus-1',
-          'dbus-glib-1',
           'glib-2.0',
           'gobject-2.0',
+        ],
+        'conditions': [
+          ['USE_dbus == 1', {
+            'exported_deps': [
+              'dbus-1',
+              'dbus-glib-1',
+            ],
+          }],
         ],
         'deps': ['<@(exported_deps)'],
       },
@@ -270,12 +319,15 @@
           ],
         },
       },
-      'sources': [
-        'brillo/glib/abstract_dbus_service.cc',
-        'brillo/glib/dbus.cc',
-        'brillo/message_loops/glib_message_loop.cc',
-      ],
       'includes': ['../common-mk/deps.gypi'],
+      'conditions': [
+        ['USE_dbus == 1', {
+          'sources': [
+            'brillo/glib/abstract_dbus_service.cc',
+            'brillo/glib/dbus.cc',
+          ],
+        }],
+      ],
     },
   ],
   'conditions': [
@@ -286,8 +338,8 @@
           'type': 'executable',
           'dependencies': [
             'libbrillo-<(libbase_ver)',
-            'libbrillo-test-<(libbase_ver)',
             'libbrillo-glib-<(libbase_ver)',
+            'libbrillo-test-<(libbase_ver)',
           ],
           'variables': {
             'deps': [
@@ -316,20 +368,10 @@
             }],
           ],
           'sources': [
-            'brillo/any_unittest.cc',
-            'brillo/any_internal_impl_unittest.cc',
             'brillo/asynchronous_signal_handler_unittest.cc',
             'brillo/backoff_entry_unittest.cc',
             'brillo/data_encoding_unittest.cc',
-            'brillo/dbus/async_event_sequencer_unittest.cc',
-            'brillo/dbus/data_serialization_unittest.cc',
-            'brillo/dbus/dbus_method_invoker_unittest.cc',
-            'brillo/dbus/dbus_object_unittest.cc',
-            'brillo/dbus/dbus_param_reader_unittest.cc',
-            'brillo/dbus/dbus_param_writer_unittest.cc',
-            'brillo/dbus/dbus_signal_handler_unittest.cc',
-            'brillo/dbus/exported_object_manager_unittest.cc',
-            'brillo/dbus/exported_property_set_unittest.cc',
+            'brillo/enum_flags_unittest.cc',
             'brillo/errors/error_codes_unittest.cc',
             'brillo/errors/error_unittest.cc',
             'brillo/file_utils_unittest.cc',
@@ -340,11 +382,11 @@
             'brillo/http/http_request_unittest.cc',
             'brillo/http/http_transport_curl_unittest.cc',
             'brillo/http/http_utils_unittest.cc',
+            'brillo/imageloader/manifest_unittest.cc',
             'brillo/key_value_store_unittest.cc',
             'brillo/map_utils_unittest.cc',
             'brillo/message_loops/base_message_loop_unittest.cc',
             'brillo/message_loops/fake_message_loop_unittest.cc',
-            'brillo/message_loops/glib_message_loop_unittest.cc',
             'brillo/message_loops/message_loop_unittest.cc',
             'brillo/mime_utils_unittest.cc',
             'brillo/osrelease_reader_unittest.cc',
@@ -360,21 +402,58 @@
             'brillo/streams/stream_unittest.cc',
             'brillo/streams/stream_utils_unittest.cc',
             'brillo/strings/string_utils_unittest.cc',
-            'brillo/type_name_undecorate_unittest.cc',
             'brillo/unittest_utils.cc',
             'brillo/url_utils_unittest.cc',
-            'brillo/variant_dictionary_unittest.cc',
             'brillo/value_conversion_unittest.cc',
             'testrunner.cc',
-            '<(proto_in_dir)/test.proto',
+          ],
+          'conditions': [
+            ['USE_dbus == 1', {
+              'sources': [
+                'brillo/any_unittest.cc',
+                'brillo/any_internal_impl_unittest.cc',
+                'brillo/dbus/async_event_sequencer_unittest.cc',
+                'brillo/dbus/data_serialization_unittest.cc',
+                'brillo/dbus/dbus_method_invoker_unittest.cc',
+                'brillo/dbus/dbus_object_unittest.cc',
+                'brillo/dbus/dbus_param_reader_unittest.cc',
+                'brillo/dbus/dbus_param_writer_unittest.cc',
+                'brillo/dbus/dbus_signal_handler_unittest.cc',
+                'brillo/dbus/exported_object_manager_unittest.cc',
+                'brillo/dbus/exported_property_set_unittest.cc',
+                'brillo/http/http_proxy_unittest.cc',
+                'brillo/type_name_undecorate_unittest.cc',
+                'brillo/variant_dictionary_unittest.cc',
+                '<(proto_in_dir)/test.proto',
+              ],
+            }],
+          ],
+        },
+        {
+          'target_name': 'libinstallattributes-<(libbase_ver)_unittests',
+          'type': 'executable',
+          'dependencies': [
+            '../common-mk/external_dependencies.gyp:install_attributes-proto',
+            'libinstallattributes-<(libbase_ver)',
+          ],
+          'includes': ['../common-mk/common_test.gypi'],
+          'sources': [
+            'install_attributes/tests/libinstallattributes_unittest.cc',
           ]
         },
         {
           'target_name': 'libpolicy-<(libbase_ver)_unittests',
           'type': 'executable',
-          'dependencies': ['libpolicy-<(libbase_ver)'],
+          'dependencies': [
+            '../common-mk/external_dependencies.gyp:install_attributes-proto',
+            '../common-mk/external_dependencies.gyp:policy-protos',
+            'libinstallattributes-<(libbase_ver)',
+            'libpolicy-<(libbase_ver)',
+          ],
           'includes': ['../common-mk/common_test.gypi'],
           'sources': [
+            'install_attributes/mock_install_attributes_reader.cc',
+            'policy/tests/device_policy_impl_unittest.cc',
             'policy/tests/libpolicy_unittest.cc',
             'policy/tests/policy_util_unittest.cc',
             'policy/tests/resilient_policy_util_unittest.cc',

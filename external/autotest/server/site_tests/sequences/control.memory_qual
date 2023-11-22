@@ -4,7 +4,6 @@
 
 AUTHOR = "puthik"
 NAME = "MemoryQual"
-ATTRIBUTES = "suite:memory_qual"
 TIME = "LENGTHY"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
@@ -44,6 +43,11 @@ CLIENT_TESTS= [
         'tag' : 'memory_qual', 'num_suspends' : 10000}),
 ]
 
+CLIENT_X86_TESTS= [
+    ('hardware_UnsafeMemory', {
+        'sec' : 5 * HOUR_IN_SECS}),
+]
+
 SERVER_TESTS= [
     ('hardware_MemoryIntegrity', {
         'tag' : 'idle', 'seconds' : HOUR_IN_SECS, 'suspend': False}),
@@ -54,7 +58,9 @@ SERVER_TESTS= [
 def run_client_test(machine):
     client = hosts.create_host(machine)
     client_at = autotest.Autotest(client)
-    for test, argv in CLIENT_TESTS:
+    client_tests = (CLIENT_TESTS + CLIENT_X86_TESTS if client.get_arch() in
+        ('i386', 'i686', 'x86_64') else CLIENT_TESTS)
+    for test, argv in client_tests:
         client.reboot()
         client_at.run_test(test, **argv)
 

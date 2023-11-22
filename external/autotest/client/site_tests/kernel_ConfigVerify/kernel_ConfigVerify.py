@@ -77,6 +77,11 @@ class kernel_ConfigVerify(test.test):
         'FW_LOADER_USER_HELPER',
         'FW_LOADER_USER_HELPER_FALLBACK',
     ]
+    MISSING_OK = [
+        # Due to a bug (crbug.com/782034), modifying this file together with
+        # kernel changes might cause failures in the CQ. In order to avoid that,
+        # this list contains modules that are okay that they are missing.
+    ]
     IS_EXCLUSIVE = [
         # Security; no surprise binary formats.
         {
@@ -85,6 +90,8 @@ class kernel_ConfigVerify(test.test):
                 'BINFMT_ELF',
             ],
             'module': [
+            ],
+            'enabled': [
             ],
             'missing': [
                 # Sanity checks; one disabled, one does not exist.
@@ -110,6 +117,8 @@ class kernel_ConfigVerify(test.test):
                 'UDF_FS',
                 'VFAT_FS',
             ],
+            'enabled': [
+            ],
             'missing': [
                 # Sanity checks; one disabled, one does not exist.
                 'EXT2_FS',
@@ -128,6 +137,8 @@ class kernel_ConfigVerify(test.test):
                 'MSDOS_PARTITION',
             ],
             'module': [
+            ],
+            'enabled': [
             ],
             'missing': [
                 # Sanity checks; one disabled, one does not exist.
@@ -158,42 +169,60 @@ class kernel_ConfigVerify(test.test):
 
         # Load the list of kernel config variables.
         config = kernel_config.KernelConfig()
-        config.initialize()
+        config.initialize(missing_ok=self.MISSING_OK)
 
         # Adjust for kernel-version-specific changes
         kernel_ver = os.uname()[2]
+
+        # For linux-3.10 or newer.
         if utils.compare_versions(kernel_ver, "3.10") >= 0:
             for entry in self.IS_EXCLUSIVE:
                 if entry['regex'] == 'BINFMT_':
                     entry['builtin'].append('BINFMT_SCRIPT')
 
+        # For linux-3.14 or newer.
         if utils.compare_versions(kernel_ver, "3.14") >= 0:
             self.IS_MODULE.append('TEST_ASYNC_DRIVER_PROBE')
+            self.IS_MISSING.remove('INET_DIAG')
             for entry in self.IS_EXCLUSIVE:
                 if entry['regex'] == 'BINFMT_':
                     entry['builtin'].append('BINFMT_MISC')
                 if entry['regex'] == '.*_FS$':
                     entry['module'].append('NFS_FS')
 
+        # For linux-3.18 or newer.
         if utils.compare_versions(kernel_ver, "3.18") >= 0:
             for entry in self.IS_EXCLUSIVE:
                 if entry['regex'] == '.*_FS$':
                     entry['builtin'].append('SND_PROC_FS')
+                    entry['builtin'].append('USB_CONFIGFS_F_FS')
+                    entry['builtin'].append('ESD_FS')
+                    entry['enabled'].append('CONFIGFS_FS')
+                    entry['module'].append('USB_F_FS')
 
+            # Like FW_LOADER_USER_HELPER, these may be exploited by userspace.
+            # We run udev everywhere which uses netlink sockets for event
+            # propagation rather than executing programs, so don't need this.
+            self.IS_MISSING.append('UEVENT_HELPER')
+            self.IS_MISSING.append('UEVENT_HELPER_PATH')
+
+        # For kernels older than linux-4.4.
         if utils.compare_versions(kernel_ver, "4.4") < 0:
             for entry in self.IS_EXCLUSIVE:
                 if entry['regex'] == '.*_FS$':
                     entry['builtin'].append('EXT4_USE_FOR_EXT23')
 
-        if utils.compare_versions(kernel_ver, "4.4") >= 0 and \
-            utils.compare_versions(kernel_ver, "4.12") < 0:
-            for entry in self.IS_EXCLUSIVE:
-                if entry['regex'] == '.*_FS$':
-                    entry['builtin'].append('ESD_FS')
-                    entry['builtin'].append('CONFIGFS_FS')
+        # For linux-4.4 or newer.
+        if utils.compare_versions(kernel_ver, '4.4') >= 0:
+            self.IS_BUILTIN.append('STATIC_USERMODEHELPER')
 
-        if utils.compare_versions(kernel_ver, "3.14") >= 0:
-            self.IS_MISSING.remove('INET_DIAG')
+        # For linux-4.19 or newer.
+        if utils.compare_versions(kernel_ver, "4.19") >= 0:
+            self.IS_MISSING.remove('BPF_SYSCALL')
+            self.IS_BUILTIN.append('HAVE_EBPF_JIT')
+            self.IS_BUILTIN.append('BPF_JIT_ALWAYS_ON')
+            self.IS_BUILTIN.remove('CC_STACKPROTECTOR')
+            self.IS_BUILTIN.append('STACKPROTECTOR')
 
         # Run the static checks.
         map(config.has_builtin, self.IS_BUILTIN)
@@ -211,6 +240,11 @@ class kernel_ConfigVerify(test.test):
         # be 32k.
         wanted = '32768'
         config.has_value('DEFAULT_MMAP_MIN_ADDR', [wanted])
+
+        # Security; make sure usermode helper is our tool for linux-4.4+.
+        if utils.compare_versions(kernel_ver, '4.4') >= 0:
+            wanted = '"/sbin/usermode-helper"'
+            config.has_value('STATIC_USERMODEHELPER_PATH', [wanted])
 
         # Security; make sure NX page table bits are usable.
         if self.is_x86_family(arch):

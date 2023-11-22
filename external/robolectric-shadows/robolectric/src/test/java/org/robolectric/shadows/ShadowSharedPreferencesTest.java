@@ -1,6 +1,6 @@
 package org.robolectric.shadows;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -8,6 +8,9 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,10 +18,8 @@ import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowSharedPreferencesTest {
   private final static String FILENAME = "filename";
   private SharedPreferences.Editor editor;
@@ -30,7 +31,7 @@ public class ShadowSharedPreferencesTest {
 
   @Before
   public void setUp() {
-    context = RuntimeEnvironment.application;
+    context = ApplicationProvider.getApplicationContext();
 
     sharedPreferences = context.getSharedPreferences(FILENAME, Context.MODE_PRIVATE);
     // Ensure no shared preferences have leaked from previous tests.
@@ -196,5 +197,29 @@ public class ShadowSharedPreferencesTest {
     anotherSharedPreferences.edit().putString(testKey, "bar").commit();
 
     assertThat(transcript).containsExactly(testKey+ " called");
+  }
+
+  @Test
+  public void defaultSharedPreferences() throws Exception {
+    SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+    sharedPreferences.edit().putString("foo", "bar").commit();
+
+    SharedPreferences anotherSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+    String restored = anotherSharedPreferences.getString("foo", null);
+    assertThat(restored).isEqualTo("bar");
+  }
+
+  /**
+   * Tests a sequence of operations in SharedPrefereces that would previously cause a deadlock.
+   *
+   * @throws Exception
+   */
+  @Test
+  public void commit_multipleTimes() throws Exception {
+    SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+    sharedPreferences.edit().putBoolean("foo", true).apply();
+    sharedPreferences.edit().putBoolean("bar", true).commit();
+    assertTrue(sharedPreferences.getBoolean("foo", false));
+    assertTrue(sharedPreferences.getBoolean("bar", false));
   }
 }

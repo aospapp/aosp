@@ -22,12 +22,21 @@ std::unique_ptr<PatchWriterInterface> CreateBsdiffPatchWriter(
     const std::string& patch_filename);
 
 // Create a patch writer using the "BSDF2" patch format. It uses the compressor
-// specified in |type| with compression quality |quality|.
+// specified in |type|. And the brotli compressor will have the compression
+// quality |brotli_quality|.
 BSDIFF_EXPORT
 std::unique_ptr<PatchWriterInterface> CreateBSDF2PatchWriter(
     const std::string& patch_filename,
     CompressorType type,
-    int quality);
+    int brotli_quality);
+
+// Create a patch writer using the "BSDF2" patch format. It also tries all the
+// compressors in |types| to generate the smallest patch.
+BSDIFF_EXPORT
+std::unique_ptr<PatchWriterInterface> CreateBSDF2PatchWriter(
+    const std::string& patch_filename,
+    const std::vector<CompressorType>& types,
+    int brotli_quality);
 
 // Create a patch writer compatible with Android Play Store bsdiff patches.
 // The data will be written to the passed |patch| vector, which must be valid
@@ -38,7 +47,7 @@ BSDIFF_EXPORT
 std::unique_ptr<PatchWriterInterface> CreateEndsleyPatchWriter(
     std::vector<uint8_t>* patch,
     CompressorType type,
-    int quality);
+    int brotli_quality);
 
 // Helper function to create an Endsley patch writer with no compression.
 BSDIFF_EXPORT

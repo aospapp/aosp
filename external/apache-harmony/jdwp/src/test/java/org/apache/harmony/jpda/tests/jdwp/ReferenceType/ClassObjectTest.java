@@ -40,11 +40,10 @@ public class ClassObjectTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.ClassObject command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/ClassObjectDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.ClassObjectDebuggee";
+        return ClassObjectDebuggee.class.getName();
     }
 
     /**
@@ -60,13 +59,13 @@ public class ClassObjectTest extends JDWPSyncTestCase {
         //int testStatus = testStatusPassed;
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);
 
-        String debuggeeExtraClassSignature
-            = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/ClassObjectDebuggee_ExtraClass;";
+        String debuggeeExtraClassSignature =
+                getClassSignature(ClassObjectDebuggee_ExtraClass.class);
 
         long debuggeeExtraClassRefTypeID = getClassIDBySignature(debuggeeExtraClassSignature);
 

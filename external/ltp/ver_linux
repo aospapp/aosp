@@ -7,18 +7,35 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:$PATH
 echo 'If some fields are empty or look unusual you may have an old version.'
 echo 'Compare to the current minimal requirements in Documentation/Changes.'
-echo ' '
 
+echo
+echo "`ls /etc/*release 2> /dev/null`"
 cat /etc/*release 2> /dev/null
+if [ $? = 1 ]; then
+   echo "`ls /usr/lib/*release 2> /dev/null`"
+   cat /usr/lib/*release 2> /dev/null
+fi
 if [ $? = 1 ]; then
    echo '/etc/issue:'
    cat /etc/issue 2> /dev/null
 fi
+if [ $? = 1 ]; then
+	echo 'lsb_release -a'
+	lsb_release -a 2> /dev/null
+fi
 
+echo
+echo 'uname:'
 uname -a
-echo ' '
+
+echo
+echo '/proc/cmdline'
+cat /proc/cmdline
+
+echo
 
 echo "Gnu C                 " `gcc --version 2>/dev/null | head -n 1`
+echo "Clang                 " `clang --version 2>/dev/null | head -n 1`
 
 make --version 2>&1 | awk -F, '{print $1}' | awk \
       '/GNU Make/{print "Gnu make              ",$NF}'
@@ -88,5 +105,9 @@ echo 'free reports:'
 free
 
 echo
-echo '/proc/cpuinfo'
-cat /proc/cpuinfo
+echo 'cpuinfo:'
+if which lscpu > /dev/null 2>&1; then
+	lscpu
+else
+	cat /proc/cpuinfo
+fi

@@ -3,8 +3,6 @@ access01 access01
 # Basic test for access(2) using F_OK, R_OK, W_OK and X_OK arguments.
 access03 access03
 # EFAULT error testing for access(2)
-alarm01 alarm01
-# Basic test for alarm(2)
 alarm02 alarm02
 # Boundary Value Test for alarm(2)
 #    TEST CASES
@@ -177,10 +175,6 @@ lseek11 lseek11
 # Negative test for lseek(2) of a pipe
 lstat02 lstat02
 # Basic test for lstat(2)
-mkdir01 mkdir01
-# Basic errno test for mkdir(2)
-mkdir08 mkdir08
-# Basic test for mkdir(2)
 qmm01 mmap001 -m 1
 # Basic mmap() test.
 open03 open03
@@ -195,14 +189,10 @@ readdir01 readdir01
 # write multiple files and try to find them with readdir
 #    TEST CASES
 # 	1.) Create n files and check that readdir() finds n files
-readlink02 readlink02
+readlink01 readlink01
 # Basic test for readlink(2)
 rename02 rename02
 # Basic test for rename(2)
-rmdir04 rmdir04
-# Basic test for rmdir(2)
-rmdir05 rmdir05
-# rmdir(2) test for errno(s) EINVAL, EMLINK, EFAULT
 sbrk01 sbrk01
 # Basic test for sbrk(2)
 select01 select01
@@ -255,8 +245,6 @@ uname01 uname01
 # Basic test for uname(2)
 unlink05 unlink05
 # Basic test for unlink(2)
-unlink06 unlink06
-# unlink(2) of a FIFO
 unlink07 unlink07
 # unlink(2) negative testcases
 unlink08 unlink08

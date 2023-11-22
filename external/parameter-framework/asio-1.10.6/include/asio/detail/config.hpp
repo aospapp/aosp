@@ -50,7 +50,7 @@
 // If ASIO_MOVE_CAST isn't defined, and move support is available, define
 // ASIO_MOVE_ARG and ASIO_MOVE_CAST to take advantage of rvalue
 // references and perfect forwarding.
-#if defined(ASIO_HAS_MOVE) && !defined(ASIO_MOVE_CAST)
+#if !defined(ASIO_MOVE_CAST)
 # define ASIO_MOVE_ARG(type) type&&
 # define ASIO_MOVE_CAST(type) static_cast<type&&>
 # define ASIO_MOVE_CAST2(type1, type2) static_cast<type1, type2&&>

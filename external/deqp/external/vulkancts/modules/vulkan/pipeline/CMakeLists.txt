@@ -11,12 +11,20 @@ set(DEQP_VK_PIPELINE_SRCS
 	vktPipelineCombinationsIterator.hpp
 	vktPipelineDepthTests.cpp
 	vktPipelineDepthTests.hpp
+	vktPipelineDerivativeTests.cpp
+	vktPipelineDerivativeTests.hpp
+	vktPipelineDynamicOffsetTests.cpp
+	vktPipelineDynamicOffsetTests.hpp
+	vktPipelineEarlyDestroyTests.cpp
+	vktPipelineEarlyDestroyTests.hpp
 	vktPipelineImageSamplingInstance.cpp
 	vktPipelineImageSamplingInstance.hpp
 	vktPipelineImageTests.cpp
 	vktPipelineImageTests.hpp
 	vktPipelinePushConstantTests.cpp
 	vktPipelinePushConstantTests.hpp
+	vktPipelinePushDescriptorTests.cpp
+	vktPipelinePushDescriptorTests.hpp
 	vktPipelineSpecConstantTests.hpp
 	vktPipelineSpecConstantTests.cpp
 	vktPipelineSpecConstantUtil.hpp
@@ -25,6 +33,8 @@ set(DEQP_VK_PIPELINE_SRCS
 	vktPipelineImageUtil.hpp
 	vktPipelineImageViewTests.cpp
 	vktPipelineImageViewTests.hpp
+	vktPipelineMatchedAttachmentsTests.cpp
+	vktPipelineMatchedAttachmentsTests.hpp
 	vktPipelineMultisampleTestsUtil.cpp
 	vktPipelineMultisampleTestsUtil.hpp
 	vktPipelineMultisampleTests.cpp
@@ -41,6 +51,8 @@ set(DEQP_VK_PIPELINE_SRCS
 	vktPipelineMultisampleShaderBuiltInTests.hpp
 	vktPipelineMultisampleImageTests.cpp
 	vktPipelineMultisampleImageTests.hpp
+	vktPipelineMultisampleSampleLocationsExtTests.cpp
+	vktPipelineMultisampleSampleLocationsExtTests.hpp
 	vktPipelineInputAssemblyTests.cpp
 	vktPipelineInputAssemblyTests.hpp
 	vktPipelineReferenceRenderer.cpp
@@ -51,6 +63,8 @@ set(DEQP_VK_PIPELINE_SRCS
 	vktPipelineFramebufferAttachmentTests.hpp
 	vktPipelineSamplerTests.cpp
 	vktPipelineSamplerTests.hpp
+	vktPipelineStencilExportTests.cpp
+	vktPipelineStencilExportTests.hpp
 	vktPipelineStencilTests.cpp
 	vktPipelineStencilTests.hpp
 	vktPipelineTests.cpp
@@ -73,6 +87,8 @@ set(DEQP_VK_PIPELINE_LIBS
 	vkutil
 	referencerenderer
 	)
+
+PCH(DEQP_VK_PIPELINE_SRCS ../pch.cpp)
 
 add_library(deqp-vk-pipeline STATIC ${DEQP_VK_PIPELINE_SRCS})
 target_link_libraries(deqp-vk-pipeline ${DEQP_VK_PIPELINE_LIBS})

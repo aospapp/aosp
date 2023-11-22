@@ -52,6 +52,7 @@ public class BidiTransform
      * @see Bidi#REORDER_DEFAULT
      * @see Bidi#REORDER_INVERSE_LIKE_DIRECT
      * @see Bidi#REORDER_RUNS_ONLY
+     * @hide Only a subset of ICU is exposed in Android
      */
     public enum Order {
         /**
@@ -73,6 +74,7 @@ public class BidiTransform
      * @see Bidi#setReorderingOptions
      * @see Bidi#writeReordered
      * @see Bidi#writeReverse
+     * @hide Only a subset of ICU is exposed in Android
      */
     public enum Mirroring {
         /**

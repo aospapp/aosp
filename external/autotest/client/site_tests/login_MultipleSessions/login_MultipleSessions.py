@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject, os
+import gobject
 from dbus.mainloop.glib import DBusGMainLoop
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import policy, session_manager
 from autotest_lib.client.cros import cros_ui, cryptohome, ownership
@@ -17,13 +17,10 @@ class login_MultipleSessions(test.test):
     """
     version = 1
 
-    def setup(self):
-        os.chdir(self.srcdir)
-        utils.make('OUT_DIR=.')
-
 
     def initialize(self):
         super(login_MultipleSessions, self).initialize()
+        policy.install_protobufs(self.autodir, self.job)
         # Ensure a clean beginning.
         ownership.restart_ui_to_clear_ownership_files()
 
@@ -33,7 +30,8 @@ class login_MultipleSessions(test.test):
                 gobject.MainLoop())
         self._listener.listen_for_new_key_and_policy()
 
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(self._bus_loop)
+        self._cryptohome_proxy = cryptohome.CryptohomeProxy(
+            self._bus_loop, self.autodir, self.job)
 
 
     def run_once(self):
@@ -46,8 +44,7 @@ class login_MultipleSessions(test.test):
         # Ensure that the first user got to be the owner.
         retrieved_policy = policy.get_policy(self._session_manager)
         if retrieved_policy is None: raise error.TestFail('Policy not found')
-        policy.compare_policy_response(self.srcdir, retrieved_policy,
-                                       owner=expected_owner)
+        policy.compare_policy_response(retrieved_policy, owner=expected_owner)
         # bounce the session manager and wait for it to come back up before
         # reconnecting.
         cros_ui.restart()
@@ -63,8 +60,7 @@ class login_MultipleSessions(test.test):
         # Ensure that the first user still gets to be the owner.
         retrieved_policy = policy.get_policy(self._session_manager)
         if retrieved_policy is None: raise error.TestFail('Policy not found')
-        policy.compare_policy_response(self.srcdir, retrieved_policy,
-                                       owner=expected_owner)
+        policy.compare_policy_response(retrieved_policy, owner=expected_owner)
 
 
     def __start_session_for(self, user):

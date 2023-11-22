@@ -15,6 +15,8 @@
  */
 package com.google.currysrc.api.process.ast;
 
+import java.util.Objects;
+import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.BodyDeclaration;
 import org.eclipse.jdt.core.dom.CompilationUnit;
@@ -49,11 +51,16 @@ public final class MethodLocator implements BodyDeclarationLocator {
   @Override
   public boolean matches(BodyDeclaration node) {
     if (node instanceof MethodDeclaration) {
-      BodyDeclaration parentNode = (BodyDeclaration) node.getParent();
-      MethodDeclaration methodDeclaration = (MethodDeclaration) node;
-      return typeLocator.matches(parentNode)
-          && methodDeclaration.getName().getFullyQualifiedName().equals(methodName)
-          && parameterMatcher.matches(methodDeclaration);
+      ASTNode parent = node.getParent();
+      // We can only locate methods in named classes. parent can also be an
+      // AnonymousClassDeclaration.
+      if (parent instanceof BodyDeclaration) {
+        BodyDeclaration parentNode = (BodyDeclaration) parent;
+        MethodDeclaration methodDeclaration = (MethodDeclaration) node;
+        return typeLocator.matches(parentNode)
+                && methodDeclaration.getName().getFullyQualifiedName().equals(methodName)
+                && parameterMatcher.matches(methodDeclaration);
+      }
     }
     return false;
   }
@@ -85,6 +92,25 @@ public final class MethodLocator implements BodyDeclarationLocator {
   @Override public String getStringFormTarget() {
     return typeLocator.getStringFormTarget() + "#" + methodName
         + "(" + parameterMatcher.toStringForm() + ")";
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof MethodLocator)) {
+      return false;
+    }
+    MethodLocator that = (MethodLocator) o;
+    return Objects.equals(typeLocator, that.typeLocator) &&
+        Objects.equals(methodName, that.methodName) &&
+        Objects.equals(parameterMatcher, that.parameterMatcher);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(typeLocator, methodName, parameterMatcher);
   }
 
   @Override

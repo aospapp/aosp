@@ -51,8 +51,9 @@ class JvmtiAgent {
      * @throws IOException If jvmti could not be enabled or agent could not be loaded
      */
     JvmtiAgent() throws IOException {
-        if (Build.VERSION.SDK_INT < 28) {
-            throw new IOException("Requires API 28. API is " + Build.VERSION.SDK_INT);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            throw new IOException("Requires API level " + Build.VERSION_CODES.P + ". API level is "
+                    + Build.VERSION.SDK_INT);
         }
 
         ClassLoader cl = JvmtiAgent.class.getClassLoader();

@@ -149,10 +149,11 @@ private:
 	{
 										SparseContext					(Move<VkDevice>&			device,
 																		 const deUint32				queueFamilyIndex,
-																		 const InstanceInterface&	interface)
+																		 const PlatformInterface&	platformInterface,
+																		 VkInstance					instance)
 										: m_device						(device)
 										, m_queueFamilyIndex			(queueFamilyIndex)
-										, m_deviceInterface				(interface, *m_device)
+										, m_deviceInterface				(platformInterface, instance, *m_device)
 		{
 		}
 
@@ -217,9 +218,9 @@ private:
 				&deviceFeatures
 			};
 
-			Move<VkDevice>				device							= createDevice(vk, physicalDevice, &deviceInfo);
+			Move<VkDevice>				device							= createDevice(m_context.getPlatformInterface(), m_context.getInstance(), vk, physicalDevice, &deviceInfo);
 
-			return new SparseContext(device, queueIndex, vk);
+			return new SparseContext(device, queueIndex, m_context.getPlatformInterface(), m_context.getInstance());
 		}
 
 		return DE_NULL;
@@ -261,6 +262,20 @@ public:
 		return new BufferTestInstance(ctx, m_testCase);
 	}
 
+	virtual void						checkSupport					(Context&					ctx) const
+	{
+		const VkPhysicalDeviceFeatures&		physicalDeviceFeatures = getPhysicalDeviceFeatures(ctx.getInstanceInterface(), ctx.getPhysicalDevice());
+
+		if ((m_testCase.flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT) && !physicalDeviceFeatures.sparseBinding)
+			TCU_THROW(NotSupportedError, "Sparse bindings feature is not supported");
+
+		if ((m_testCase.flags & VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT) && !physicalDeviceFeatures.sparseResidencyBuffer)
+			TCU_THROW(NotSupportedError, "Sparse buffer residency feature is not supported");
+
+		if ((m_testCase.flags & VK_BUFFER_CREATE_SPARSE_ALIASED_BIT) && !physicalDeviceFeatures.sparseResidencyAliased)
+			TCU_THROW(NotSupportedError, "Sparse aliased residency feature is not supported");
+	}
+
 private:
 	BufferCaseParameters				m_testCase;
 };
@@ -287,15 +302,18 @@ class DedicatedAllocationBuffersTestCase : public TestCase
 	{
 		tcu::TestLog&					log								= m_testCtx.getLog();
 		log << tcu::TestLog::Message << getBufferUsageFlagsStr(m_testCase.usage) << tcu::TestLog::EndMessage;
-		const std::vector<std::string>&	extensions						= ctx.getDeviceExtensions();
-		const deBool					isSupported						= isDeviceExtensionSupported(ctx.getUsedApiVersion(), extensions, "VK_KHR_dedicated_allocation");
+		return new DedicatedAllocationBufferTestInstance(ctx, m_testCase);
+	}
+
+	virtual void						checkSupport					(Context&					ctx) const
+	{
+		const std::vector<std::string>&	extensions		= ctx.getDeviceExtensions();
+		const deBool					isSupported		= isDeviceExtensionSupported(ctx.getUsedApiVersion(), extensions, "VK_KHR_dedicated_allocation");
 		if (!isSupported)
 		{
 			TCU_THROW(NotSupportedError, "Not supported");
 		}
-		return new DedicatedAllocationBufferTestInstance(ctx, m_testCase);
 	}
-
 private:
 	BufferCaseParameters				m_testCase;
 };
@@ -478,17 +496,6 @@ tcu::TestStatus BufferTestInstance::bufferCreateAndAllocTest			(VkDeviceSize				
 
 tcu::TestStatus							BufferTestInstance::iterate		(void)
 {
-	const VkPhysicalDeviceFeatures&		physicalDeviceFeatures			= getPhysicalDeviceFeatures(getInstanceInterface(), getPhysicalDevice());
-
-	if ((m_testCase.flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT ) && !physicalDeviceFeatures.sparseBinding)
-		TCU_THROW(NotSupportedError, "Sparse bindings feature is not supported");
-
-	if ((m_testCase.flags & VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT ) && !physicalDeviceFeatures.sparseResidencyBuffer)
-		TCU_THROW(NotSupportedError, "Sparse buffer residency feature is not supported");
-
-	if ((m_testCase.flags & VK_BUFFER_CREATE_SPARSE_ALIASED_BIT ) && !physicalDeviceFeatures.sparseResidencyAliased)
-		TCU_THROW(NotSupportedError, "Sparse aliased residency feature is not supported");
-
 	const VkDeviceSize					testSizes[]						=
 	{
 		1,

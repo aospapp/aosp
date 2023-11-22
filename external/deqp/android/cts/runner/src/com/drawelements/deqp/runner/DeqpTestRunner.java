@@ -25,8 +25,10 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
@@ -38,9 +40,9 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
-import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.NativeCodeCoverageListener;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunInterruptedException;
@@ -52,11 +54,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -77,20 +76,25 @@ import java.util.regex.Pattern;
 @OptionClass(alias="deqp-test-runner")
 public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         ITestFilterReceiver, IAbiReceiver, IShardableTest, ITestCollector,
-        IRuntimeHintProvider, IStrictShardableTest {
+        IRuntimeHintProvider {
     private static final String DEQP_ONDEVICE_APK = "com.drawelements.deqp.apk";
     private static final String DEQP_ONDEVICE_PKG = "com.drawelements.deqp";
     private static final String INCOMPLETE_LOG_MESSAGE = "Crash: Incomplete test log";
     private static final String SKIPPED_INSTANCE_LOG_MESSAGE = "Configuration skipped";
     private static final String NOT_EXECUTABLE_LOG_MESSAGE = "Abort: Test cannot be executed";
-    private static final String CASE_LIST_FILE_NAME = "/sdcard/dEQP-TestCaseList.txt";
-    private static final String LOG_FILE_NAME = "/sdcard/TestLog.qpa";
+    private static final String APP_DIR = "/sdcard/";
+    private static final String CASE_LIST_FILE_NAME = "dEQP-TestCaseList.txt";
+    private static final String LOG_FILE_NAME = "TestLog.qpa";
     public static final String FEATURE_LANDSCAPE = "android.hardware.screen.landscape";
     public static final String FEATURE_PORTRAIT = "android.hardware.screen.portrait";
     public static final String FEATURE_VULKAN_LEVEL = "android.hardware.vulkan.level";
 
     private static final int TESTCASE_BATCH_LIMIT = 1000;
     private static final int UNRESPONSIVE_CMD_TIMEOUT_MS = 10 * 60 * 1000; // 10min
+
+    private static final String ANGLE_NONE = "none";
+    private static final String ANGLE_VULKAN = "vulkan";
+    private static final String ANGLE_OPENGLES = "opengles";
 
     // !NOTE: There's a static method copyOptions() for copying options during split.
     // If you add state update copyOptions() as appropriate!
@@ -140,6 +144,18 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             isTimeVal = true,
             description="The estimated config runtime. Defaults to 200ms x num tests.")
     private long mRuntimeHint = -1;
+
+    @Option(name="deqp-use-angle",
+            description="ANGLE backend ('none', 'vulkan', 'opengles'). Defaults to 'none' (don't use ANGLE)",
+            importance=Option.Importance.NEVER)
+    private String mAngle = "none";
+
+    @Option(
+            name = "native-coverage",
+            description =
+                    "Collect code coverage for this test run. Note that the build under test must"
+                        + " be a coverage build or else this will fail.")
+    private boolean mCoverage = false;
 
     private Collection<TestDescription> mRemainingTests = null;
     private Map<TestDescription, Set<BatchRunConfiguration>> mTestInstances = null;
@@ -313,7 +329,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                         mSink.testLog(testId.getClassName() + "." + testId.getTestName() + "@"
                                 + entry.getKey().getId(), LogDataType.XML, source);
 
-                        source.cancel();
+                        source.close();
                     }
                 }
 
@@ -334,7 +350,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                     mSink.testFailed(testId, errorLog.toString());
                 }
 
-                final Map<String, String> emptyMap = Collections.emptyMap();
+                final HashMap<String, Metric> emptyMap = new HashMap<>();
                 mSink.testEnded(testId, emptyMap);
             }
         }
@@ -988,31 +1004,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         }
 
         public void recoverDevice() throws DeviceNotAvailableException {
-            // Work around the API. We need to call recoverDevice() on the test device and
-            // we know that mDevice is a TestDevice. However even though the recoverDevice()
-            // method is public suggesting it should be publicly accessible, the class itself
-            // and its super-interface (IManagedTestDevice) are package-private.
-            final Method recoverDeviceMethod;
-            try {
-                recoverDeviceMethod = mDevice.getClass().getMethod("recoverDevice");
-                recoverDeviceMethod.setAccessible(true);
-            } catch (NoSuchMethodException ex) {
-                throw new AssertionError("Test device must have recoverDevice()");
-            }
-
-            try {
-                recoverDeviceMethod.invoke(mDevice);
-            } catch (InvocationTargetException ex) {
-                if (ex.getCause() instanceof DeviceNotAvailableException) {
-                    throw (DeviceNotAvailableException)ex.getCause();
-                } else if (ex.getCause() instanceof RuntimeException) {
-                    throw (RuntimeException)ex.getCause();
-                } else {
-                    throw new AssertionError("unexpected throw", ex);
-                }
-            } catch (IllegalAccessException ex) {
-                throw new AssertionError("unexpected throw", ex);
-            }
+            ((IManagedTestDevice) mDevice).recoverDevice();
         }
 
         private void rebootDevice() throws DeviceNotAvailableException {
@@ -1421,16 +1413,16 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
 
         final String testCases = generateTestCaseTrie(batch.tests);
 
-        mDevice.executeShellCommand("rm " + CASE_LIST_FILE_NAME);
-        mDevice.executeShellCommand("rm " + LOG_FILE_NAME);
-        mDevice.pushString(testCases + "\n", CASE_LIST_FILE_NAME);
+        mDevice.executeShellCommand("rm " + APP_DIR + CASE_LIST_FILE_NAME);
+        mDevice.executeShellCommand("rm " + APP_DIR + LOG_FILE_NAME);
+        mDevice.pushString(testCases + "\n", APP_DIR + CASE_LIST_FILE_NAME);
 
         final String instrumentationName =
                 "com.drawelements.deqp/com.drawelements.deqp.testercore.DeqpInstrumentation";
 
         final StringBuilder deqpCmdLine = new StringBuilder();
         deqpCmdLine.append("--deqp-caselist-file=");
-        deqpCmdLine.append(CASE_LIST_FILE_NAME);
+        deqpCmdLine.append(APP_DIR + CASE_LIST_FILE_NAME);
         deqpCmdLine.append(" ");
         deqpCmdLine.append(getRunConfigDisplayCmdLine(batch.config));
 
@@ -1444,8 +1436,8 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         final String command = String.format(
                 "am instrument %s -w -e deqpLogFileName \"%s\" -e deqpCmdLine \"%s\""
                     + " -e deqpLogData \"%s\" %s",
-                AbiUtils.createAbiFlag(mAbi.getName()), LOG_FILE_NAME, deqpCmdLine.toString(),
-                mLogData, instrumentationName);
+                AbiUtils.createAbiFlag(mAbi.getName()), APP_DIR + LOG_FILE_NAME,
+                deqpCmdLine.toString(), mLogData, instrumentationName);
 
         final int numRemainingInstancesBefore = getNumRemainingInstances();
         final InstrumentationParser parser = new InstrumentationParser(mInstanceListerner);
@@ -1616,12 +1608,13 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
      * Pass all remaining tests without running them
      */
     private void fakePassTests(ITestInvocationListener listener) {
-        Map <String, String> emptyMap = Collections.emptyMap();
+        HashMap<String, Metric> emptyMap = new HashMap<>();
         for (TestDescription test : mRemainingTests) {
-            CLog.d("Skipping test '%s', Opengl ES version not supported", test.toString());
             listener.testStarted(test);
             listener.testEnded(test, emptyMap);
         }
+        // Log only once all the skipped tests
+        CLog.d("Opengl ES version not supported. Skipping tests '%s'", mRemainingTests);
         mRemainingTests.clear();
     }
 
@@ -1767,29 +1760,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     }
 
     /**
-     * Install dEQP OnDevice Package
-     */
-    private void installTestApk() throws DeviceNotAvailableException {
-        try {
-            File apkFile = new File(mBuildHelper.getTestsDir(), DEQP_ONDEVICE_APK);
-            String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-            String errorCode = getDevice().installPackage(apkFile, true, options);
-            if (errorCode != null) {
-                CLog.e("Failed to install %s. Reason: %s", DEQP_ONDEVICE_APK, errorCode);
-            }
-        } catch (FileNotFoundException e) {
-            CLog.e("Could not find test apk %s", DEQP_ONDEVICE_APK);
-        }
-    }
-
-    /**
-     * Uninstall dEQP OnDevice Package
-     */
-    private void uninstallTestApk() throws DeviceNotAvailableException {
-        getDevice().uninstallPackage(DEQP_ONDEVICE_PKG);
-    }
-
-    /**
      * Parse gl nature from package name
      */
     private boolean isOpenGlEsPackage() {
@@ -1868,6 +1838,10 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     private static Set<String> getNonPatternFilters(List<String> filters) {
         Set<String> nonPatternFilters = new HashSet<String>();
         for (String filter : filters) {
+            if (filter.startsWith("#") || filter.isEmpty()) {
+                // Skip comments and empty lines
+                continue;
+            }
             if (!filter.contains("*")) {
                 // Deqp usesly only dots for separating between parts of the names
                 // Convert last dot to hash if needed.
@@ -2032,15 +2006,75 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     }
 
     /**
+     * Set up the test environment.
+     */
+    private void setupTestEnvironment() throws DeviceNotAvailableException {
+        try {
+            // Get the system into a known state.
+            // Clear ANGLE Global.Settings values
+            mDevice.executeShellCommand("settings put global angle_gl_driver_selection_pkgs \"\"");
+            mDevice.executeShellCommand("settings put global angle_gl_driver_selection_values \"\"");
+
+            // ANGLE
+            if (mAngle.equals(ANGLE_VULKAN)) {
+                CLog.i("Configuring ANGLE to use: " + mAngle);
+                // Force dEQP to use ANGLE
+                mDevice.executeShellCommand(
+                    "settings put global angle_gl_driver_selection_pkgs " + DEQP_ONDEVICE_PKG);
+                mDevice.executeShellCommand(
+                    "settings put global angle_gl_driver_selection_values angle");
+                // Configure ANGLE to use Vulkan
+                mDevice.executeShellCommand("setprop debug.angle.backend 2");
+            } else if (mAngle.equals(ANGLE_OPENGLES)) {
+                CLog.i("Configuring ANGLE to use: " + mAngle);
+                // Force dEQP to use ANGLE
+                mDevice.executeShellCommand(
+                    "settings put global angle_gl_driver_selection_pkgs " + DEQP_ONDEVICE_PKG);
+                mDevice.executeShellCommand(
+                    "settings put global angle_gl_driver_selection_values angle");
+                // Configure ANGLE to use Vulkan
+                mDevice.executeShellCommand("setprop debug.angle.backend 0");
+            }
+        } catch (DeviceNotAvailableException ex) {
+            // chain forward
+            CLog.e("Failed to set up ANGLE correctly.");
+            throw new DeviceNotAvailableException("Device not available", ex,
+                mDevice.getSerialNumber());
+        }
+    }
+
+    /**
+     * Clean up the test environment.
+     */
+    private void teardownTestEnvironment() throws DeviceNotAvailableException {
+        // ANGLE
+        try {
+            if (!mAngle.equals(ANGLE_NONE)) {
+                CLog.i("Cleaning up ANGLE");
+                // Stop forcing dEQP to use ANGLE
+                mDevice.executeShellCommand("settings put global angle_gl_driver_selection_pkgs \"\"");
+                mDevice.executeShellCommand("settings put global angle_gl_driver_selection_values \"\"");
+            }
+        } catch (DeviceNotAvailableException ex) {
+            // chain forward
+            CLog.e("Failed to clean up ANGLE correctly.");
+            throw new DeviceNotAvailableException("Device not available", ex,
+                mDevice.getSerialNumber());
+        }
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        final Map<String, String> emptyMap = Collections.emptyMap();
+        final HashMap<String, Metric> emptyMap = new HashMap<>();
         // If sharded, split() will load the tests.
         if (mTestInstances == null) {
             loadTests();
         }
+
+        listener = addNativeCoverageListenerIfEnabled(mDevice, listener);
 
         mRemainingTests = new LinkedList<>(mTestInstances.keySet());
         long startTime = System.currentTimeMillis();
@@ -2060,22 +2094,17 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                 // the names of the tests only
                 fakePassTests(listener);
             } else if (!mRemainingTests.isEmpty()) {
-                // Make sure there is no pre-existing package form earlier interrupted test run.
-                uninstallTestApk();
-                installTestApk();
-
                 mInstanceListerner.setSink(listener);
                 mDeviceRecovery.setDevice(mDevice);
+                setupTestEnvironment();
                 runTests();
-
-                uninstallTestApk();
+                teardownTestEnvironment();
             }
         } catch (CapabilityQueryFailureException ex) {
             // Platform is not behaving correctly, for example crashing when trying to create
-            // a window. Instead of silenty failing, signal failure by leaving the rest of the
+            // a window. Instead of silently failing, signal failure by leaving the rest of the
             // test cases in "NotExecuted" state
             CLog.e("Capability query failed - leaving tests unexecuted.");
-            uninstallTestApk();
         } finally {
             listener.testRunEnded(System.currentTimeMillis() - startTime, emptyMap);
         }
@@ -2101,6 +2130,22 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
      * {@inheritDoc}
      */
     @Override
+    public Set<String> getIncludeFilters() {
+        return new HashSet<>(mIncludeFilters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearIncludeFilters() {
+        mIncludeFilters.clear();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void addExcludeFilter(String filter) {
         mExcludeFilters.add(filter);
     }
@@ -2117,9 +2162,27 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
      * {@inheritDoc}
      */
     @Override
+    public Set<String> getExcludeFilters() {
+        return new HashSet<>(mExcludeFilters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearExcludeFilters() {
+        mExcludeFilters.clear();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void setCollectTestsOnly(boolean collectTests) {
         mCollectTestsOnly = collectTests;
     }
+
+    public void setNativeCoverage(boolean coverage) { mCoverage = coverage; }
 
     private static void copyOptions(DeqpTestRunner destination, DeqpTestRunner source) {
         destination.mDeqpPackage = source.mDeqpPackage;
@@ -2135,6 +2198,8 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         destination.mAbi = source.mAbi;
         destination.mLogData = source.mLogData;
         destination.mCollectTestsOnly = source.mCollectTestsOnly;
+        destination.mAngle = source.mAngle;
+        destination.mCoverage = source.mCoverage;
     }
 
     /**
@@ -2193,51 +2258,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     }
 
     /**
-     * This sharding should be deterministic for the same input and independent.
-     * Through this API, each shard could be executed on different machine.
-     */
-    @Override
-    public IRemoteTest getTestShard(int shardCount, int shardIndex) {
-        // TODO: refactor getTestshard and split to share some logic.
-        if (mTestInstances == null) {
-            loadTests();
-        }
-
-        List<IRemoteTest> runners = new ArrayList<>();
-        // NOTE: Use linked hash map to keep the insertion order in iteration
-        Map<TestDescription, Set<BatchRunConfiguration>> currentSet = new LinkedHashMap<>();
-        Map<TestDescription, Set<BatchRunConfiguration>> iterationSet = this.mTestInstances;
-
-        int batchLimit = iterationSet.keySet().size() / shardCount;
-        int i = 1;
-        // Go through tests, split
-        for (TestDescription test: iterationSet.keySet()) {
-            currentSet.put(test, iterationSet.get(test));
-            if (currentSet.size() >= batchLimit && i < shardCount) {
-                runners.add(new DeqpTestRunner(this, currentSet));
-                i++;
-                // NOTE: Use linked hash map to keep the insertion order in iteration
-                currentSet = new LinkedHashMap<>();
-            }
-        }
-        runners.add(new DeqpTestRunner(this, currentSet));
-
-        // Compute new runtime hints
-        updateRuntimeHint(iterationSet.size(), runners);
-
-        // If too many shards were requested, we complete with placeholder.
-        if (runners.size() < shardCount) {
-            for (int j = runners.size(); j < shardCount; j++) {
-                runners.add(new DeqpTestRunner(this,
-                        new LinkedHashMap<TestDescription, Set<BatchRunConfiguration>>()));
-            }
-        }
-
-        CLog.i("Split deqp tests into %d shards, return shard: %s", runners.size(), shardIndex);
-        return runners.get(shardIndex);
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override
@@ -2251,5 +2271,20 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         // Tests normally take something like ~100ms. Some take a
         // second. Let's guess 200ms per test.
         return 200 * mTestInstances.size();
+    }
+
+    /**
+     * Adds a {@link NativeCodeCoverageListener} to the chain if code coverage is enabled.
+     *
+     * @param device the device to pull coverage results from
+     * @param listener the original listener
+     * @return a chained listener if code coverage is enabled, otherwise the original listener
+     */
+    ITestInvocationListener addNativeCoverageListenerIfEnabled(
+            ITestDevice device, ITestInvocationListener listener) {
+        if (mCoverage) {
+            return new NativeCodeCoverageListener(device, listener);
+        }
+        return listener;
     }
 }

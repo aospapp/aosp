@@ -116,9 +116,9 @@ public:
         : _pCommandParser(pCommandParser), _maxCommandUsageLength(0)
     {
         // Help Command
-        addCommandParser("help", NULL, 0, "", "Show commands description and usage");
+        addCommandParser("help", nullptr, 0, "", "Show commands description and usage");
     }
-    ~TRemoteCommandHandlerTemplate()
+    ~TRemoteCommandHandlerTemplate() override
     {
         // FIXME use unique_ptr
         for (auto *parser : _remoteCommandParserVector) {
@@ -147,7 +147,7 @@ public:
 
 private:
     // Command processing
-    bool remoteCommandProcess(const IRemoteCommand &remoteCommand, std::string &strResult)
+    bool remoteCommandProcess(const IRemoteCommand &remoteCommand, std::string &strResult) override
     {
         // Dispatch
         const CRemoteCommandParserItem *pRemoteCommandParserItem =
@@ -216,7 +216,7 @@ private:
                 return pRemoteCommandParserItem;
             }
         }
-        return NULL;
+        return nullptr;
     }
 
 private:

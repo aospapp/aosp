@@ -34,27 +34,29 @@ class video_VideoCapability(test.test):
     def compare_avtest_label_detect(self, dc_results):
         avtest_label = subprocess.check_output(['avtest_label_detect']).strip()
         logging.debug("avtest_label_detect result\n%s", avtest_label)
-        test_failure = False
+        mismatch_list = []
         avtest_detected_labels = set()
         for line in avtest_label.splitlines():
             label = line.split(':')[1].strip()
             if label in video_VideoCapability.avtest_label_to_capability:
                 cap = video_VideoCapability.avtest_label_to_capability[label]
                 avtest_detected_labels.add(cap)
+
         for cap in video_VideoCapability.avtest_label_to_capability.values():
             if dc_results[cap] == 'yes' and cap not in avtest_detected_labels:
                 logging.error('Static capability claims %s is available. '
                               "But avtest_label_detect doesn't detect", cap)
-                test_failure = True
+                mismatch_list.append(cap)
 
             if dc_results[cap] == 'no' and cap in avtest_detected_labels:
                 logging.error("Static capability claims %s isn't available. "
                               'But avtest_label_detect detects', cap)
-                test_failure = True
+                mismatch_list.append(cap)
 
-        if test_failure:
+        if mismatch_list:
             raise error.TestFail("Dynamic capability detection results did not "
-                                 "match static capability configuration.")
+                                 "match static capability configuration. "
+                                 "mismatch_list=%r" % mismatch_list)
 
 
     def run_once(self):

@@ -141,9 +141,6 @@
 
 .extern g_ai2_ihevc_trans_32_transpose
 
-x5_addr: .word 0xfffff000
-x9_addr: .word 0xffff0000
-
 .type ihevc_itrans_recon_32x32_av8, %function
 
 ihevc_itrans_recon_32x32_av8:
@@ -176,8 +173,8 @@ ihevc_itrans_recon_32x32_av8:
 //  x10,x9,x11,x12
     mov         x9,#0xffffff00
     mov         x10,#0xfffffff0
-    ldr         w5, x5_addr
-    ldr         w7, x9_addr
+    mov         w5,#0xfffff000
+    mov         w7,#0xffff0000
     cmp         x12,x10
     mov         x20,#1
     csel        x14, x20, x14,hs
@@ -1588,8 +1585,8 @@ second_stage_dct:
 //    sub   x0,x0,#512
     mov         x11,#0xfffffff0
     mov         x5, #0xffffff00
-    ldr         w6, x5_addr
-    ldr         w9, x9_addr
+    mov         w6,#0xfffff000
+    mov         w9,#0xffff0000
 //    sub         x1,x1,#2048
     mov         x4,x1
     mov         x10,#240

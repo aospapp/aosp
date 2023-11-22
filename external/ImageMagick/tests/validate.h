@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -288,6 +288,8 @@ static const struct ReferenceFormats
     { "KDC", UndefinedCompression, 0.0 },
     { "MATTE", UndefinedCompression, 0.0 },
     { "MIFF", UndefinedCompression, 0.0 },
+    { "MIFF", RLECompression, 0.0 },
+    { "MIFF", ZipCompression, 0.0 },
     { "MNG", UndefinedCompression, 0.0 },
     { "MONO", UndefinedCompression, 0.0 },
     { "MRW", UndefinedCompression, 0.0 },

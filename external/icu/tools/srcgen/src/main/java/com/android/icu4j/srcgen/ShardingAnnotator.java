@@ -63,7 +63,8 @@ class ShardingAnnotator implements Processor {
             // All annotations must be included in cts/tests/tests/icu/AndroidTest.xml.
             ImmutableMap.of(
                     "android.icu.dev.test.format.NumberRegressionTests", "HiMemTestShard",
-                    "android.icu.dev.test.format.TimeUnitTest", "HiMemTestShard"
+                    "android.icu.dev.test.format.TimeUnitTest", "HiMemTestShard",
+                    "android.icu.dev.test.rbbi.RBBIMonkeyTest", "HiMemTestShard"
             );
 
     @Override

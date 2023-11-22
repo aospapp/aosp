@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <base/bind.h>
+#include <base/bind_helpers.h>
 #include <base/location.h>
 #include <base/posix/eintr_wrapper.h>
 #include <gtest/gtest.h>
@@ -20,11 +21,27 @@
 #include <brillo/bind_lambda.h>
 #include <brillo/unittest_utils.h>
 #include <brillo/message_loops/base_message_loop.h>
-#include <brillo/message_loops/glib_message_loop.h>
 #include <brillo/message_loops/message_loop_utils.h>
 
 using base::Bind;
 using base::TimeDelta;
+
+namespace {
+
+// Convenience functions for passing to base::Bind.
+void SetToTrue(bool* b) {
+  *b = true;
+}
+
+bool ReturnBool(bool *b) {
+  return *b;
+}
+
+void Increment(int* i) {
+  (*i)++;
+}
+
+}  // namespace
 
 namespace brillo {
 
@@ -49,11 +66,6 @@ class MessageLoopTest : public ::testing::Test {
 };
 
 template <>
-void MessageLoopTest<GlibMessageLoop>::MessageLoopSetUp() {
-  loop_.reset(new GlibMessageLoop());
-}
-
-template <>
 void MessageLoopTest<BaseMessageLoop>::MessageLoopSetUp() {
   base_loop_.reset(new base::MessageLoopForIO());
   loop_.reset(new BaseMessageLoop(base::MessageLoopForIO::current()));
@@ -61,9 +73,7 @@ void MessageLoopTest<BaseMessageLoop>::MessageLoopSetUp() {
 
 // This setups gtest to run each one of the following TYPED_TEST test cases on
 // on each implementation.
-typedef ::testing::Types<
-  GlibMessageLoop,
-  BaseMessageLoop> MessageLoopTypes;
+typedef ::testing::Types<BaseMessageLoop> MessageLoopTypes;
 TYPED_TEST_CASE(MessageLoopTest, MessageLoopTypes);
 
 
@@ -74,8 +84,7 @@ TYPED_TEST(MessageLoopTest, CancelTaskInvalidValuesTest) {
 
 TYPED_TEST(MessageLoopTest, PostTaskTest) {
   bool called = false;
-  TaskId task_id = this->loop_->PostTask(FROM_HERE,
-                                         Bind([&called]() { called = true; }));
+  TaskId task_id = this->loop_->PostTask(FROM_HERE, Bind(&SetToTrue, &called));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   MessageLoopRunMaxIterations(this->loop_.get(), 100);
   EXPECT_TRUE(called);
@@ -84,8 +93,7 @@ TYPED_TEST(MessageLoopTest, PostTaskTest) {
 // Tests that we can cancel tasks right after we schedule them.
 TYPED_TEST(MessageLoopTest, PostTaskCancelledTest) {
   bool called = false;
-  TaskId task_id = this->loop_->PostTask(FROM_HERE,
-                                         Bind([&called]() { called = true; }));
+  TaskId task_id = this->loop_->PostTask(FROM_HERE, Bind(&SetToTrue, &called));
   EXPECT_TRUE(this->loop_->CancelTask(task_id));
   MessageLoopRunMaxIterations(this->loop_.get(), 100);
   EXPECT_FALSE(called);
@@ -96,13 +104,11 @@ TYPED_TEST(MessageLoopTest, PostTaskCancelledTest) {
 TYPED_TEST(MessageLoopTest, PostDelayedTaskRunsEventuallyTest) {
   bool called = false;
   TaskId task_id = this->loop_->PostDelayedTask(
-      FROM_HERE,
-      Bind([&called]() { called = true; }),
-      TimeDelta::FromMilliseconds(50));
+      FROM_HERE, Bind(&SetToTrue, &called), TimeDelta::FromMilliseconds(50));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   MessageLoopRunUntil(this->loop_.get(),
                       TimeDelta::FromSeconds(10),
-                      Bind([&called]() { return called; }));
+                      Bind(&ReturnBool, &called));
   // Check that the main loop finished before the 10 seconds timeout, so it
   // finished due to the callback being called and not due to the timeout.
   EXPECT_TRUE(called);
@@ -112,7 +118,7 @@ TYPED_TEST(MessageLoopTest, PostDelayedTaskRunsEventuallyTest) {
 // MessageLoop. This is important because only one of the two methods is
 // virtual, so you need to unhide the other when overriding the virtual one.
 TYPED_TEST(MessageLoopTest, PostDelayedTaskWithoutLocation) {
-  this->loop_->PostDelayedTask(Bind(&base::DoNothing), TimeDelta());
+  this->loop_->PostDelayedTask(base::DoNothing(), TimeDelta());
   EXPECT_EQ(1, MessageLoopRunMaxIterations(this->loop_.get(), 100));
 }
 
@@ -120,10 +126,10 @@ TYPED_TEST(MessageLoopTest, WatchForInvalidFD) {
   bool called = false;
   EXPECT_EQ(MessageLoop::kTaskIdNull, this->loop_->WatchFileDescriptor(
       FROM_HERE, -1, MessageLoop::kWatchRead, true,
-      Bind([&called] { called = true; })));
+      Bind(&SetToTrue, &called)));
   EXPECT_EQ(MessageLoop::kTaskIdNull, this->loop_->WatchFileDescriptor(
       FROM_HERE, -1, MessageLoop::kWatchWrite, true,
-      Bind([&called] { called = true; })));
+      Bind(&SetToTrue, &called)));
   EXPECT_EQ(0, MessageLoopRunMaxIterations(this->loop_.get(), 100));
   EXPECT_FALSE(called);
 }
@@ -133,7 +139,7 @@ TYPED_TEST(MessageLoopTest, CancelWatchedFileDescriptor) {
   bool called = false;
   TaskId task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, pipe.reader, MessageLoop::kWatchRead, true,
-      Bind([&called] { called = true; }));
+      Bind(&SetToTrue, &called));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   // The reader end is blocked because we didn't write anything to the writer
   // end.
@@ -152,7 +158,7 @@ TYPED_TEST(MessageLoopTest, WatchFileDescriptorTriggersWhenPipeClosed) {
   pipe.writer = -1;
   TaskId task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, pipe.reader, MessageLoop::kWatchRead, true,
-      Bind([&called] { called = true; }));
+      Bind(&SetToTrue, &called));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   // The reader end is not blocked because we closed the writer end so a read on
   // the reader end would return 0 bytes read.
@@ -170,7 +176,7 @@ TYPED_TEST(MessageLoopTest, WatchFileDescriptorPersistently) {
   int called = 0;
   TaskId task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, pipe.reader, MessageLoop::kWatchRead, true,
-      Bind([&called] { called++; }));
+      Bind(&Increment, &called));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   // We let the main loop run for 20 iterations to give it enough iterations to
   // verify that our callback was called more than one. We only check that our
@@ -187,7 +193,7 @@ TYPED_TEST(MessageLoopTest, WatchFileDescriptorNonPersistent) {
   int called = 0;
   TaskId task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, pipe.reader, MessageLoop::kWatchRead, false,
-      Bind([&called] { called++; }));
+      Bind(&Increment, &called));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   // We let the main loop run for 20 iterations but we just expect it to run
   // at least once. The callback should be called exactly once since we
@@ -206,17 +212,17 @@ TYPED_TEST(MessageLoopTest, WatchFileDescriptorForReadAndWriteSimultaneously) {
 
   TaskId read_task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, socks.left, MessageLoop::kWatchRead, true,
-      Bind([this, &read_task_id] {
-        EXPECT_TRUE(this->loop_->CancelTask(read_task_id))
-            << "task_id" << read_task_id;
-      }));
+      Bind([] (MessageLoop* loop, TaskId* read_task_id) {
+        EXPECT_TRUE(loop->CancelTask(*read_task_id))
+            << "task_id" << *read_task_id;
+      }, this->loop_.get(), &read_task_id));
   EXPECT_NE(MessageLoop::kTaskIdNull, read_task_id);
 
   TaskId write_task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, socks.left, MessageLoop::kWatchWrite, true,
-      Bind([this, &write_task_id] {
-        EXPECT_TRUE(this->loop_->CancelTask(write_task_id));
-      }));
+      Bind([] (MessageLoop* loop, TaskId* write_task_id) {
+        EXPECT_TRUE(loop->CancelTask(*write_task_id));
+      }, this->loop_.get(), &write_task_id));
   EXPECT_NE(MessageLoop::kTaskIdNull, write_task_id);
 
   EXPECT_LT(0, MessageLoopRunMaxIterations(this->loop_.get(), 20));
@@ -228,13 +234,12 @@ TYPED_TEST(MessageLoopTest, WatchFileDescriptorForReadAndWriteSimultaneously) {
 // Test that we can cancel the task we are running, and should just fail.
 TYPED_TEST(MessageLoopTest, DeleteTaskFromSelf) {
   bool cancel_result = true;  // We would expect this to be false.
-  MessageLoop* loop_ptr = this->loop_.get();
   TaskId task_id;
   task_id = this->loop_->PostTask(
       FROM_HERE,
-      Bind([&cancel_result, loop_ptr, &task_id]() {
-        cancel_result = loop_ptr->CancelTask(task_id);
-      }));
+      Bind([](bool* cancel_result, MessageLoop* loop, TaskId* task_id) {
+        *cancel_result = loop->CancelTask(*task_id);
+      }, &cancel_result, this->loop_.get(), &task_id));
   EXPECT_EQ(1, MessageLoopRunMaxIterations(this->loop_.get(), 100));
   EXPECT_FALSE(cancel_result);
 }
@@ -245,10 +250,10 @@ TYPED_TEST(MessageLoopTest, DeleteNonPersistenIOTaskFromSelf) {
   ScopedPipe pipe;
   TaskId task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, pipe.writer, MessageLoop::kWatchWrite, false /* persistent */,
-      Bind([this, &task_id] {
-        EXPECT_FALSE(this->loop_->CancelTask(task_id));
-        task_id = MessageLoop::kTaskIdNull;
-      }));
+      Bind([](MessageLoop* loop, TaskId* task_id) {
+        EXPECT_FALSE(loop->CancelTask(*task_id));
+        *task_id = MessageLoop::kTaskIdNull;
+      }, this->loop_.get(), &task_id));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   EXPECT_EQ(1, MessageLoopRunMaxIterations(this->loop_.get(), 100));
   EXPECT_EQ(MessageLoop::kTaskIdNull, task_id);
@@ -260,10 +265,10 @@ TYPED_TEST(MessageLoopTest, DeletePersistenIOTaskFromSelf) {
   ScopedPipe pipe;
   TaskId task_id = this->loop_->WatchFileDescriptor(
       FROM_HERE, pipe.writer, MessageLoop::kWatchWrite, true /* persistent */,
-      Bind([this, &task_id] {
-        EXPECT_TRUE(this->loop_->CancelTask(task_id));
-        task_id = MessageLoop::kTaskIdNull;
-      }));
+      Bind([](MessageLoop* loop, TaskId* task_id) {
+        EXPECT_TRUE(loop->CancelTask(*task_id));
+        *task_id = MessageLoop::kTaskIdNull;
+      }, this->loop_.get(), &task_id));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
   EXPECT_EQ(1, MessageLoopRunMaxIterations(this->loop_.get(), 100));
   EXPECT_EQ(MessageLoop::kTaskIdNull, task_id);
@@ -282,14 +287,14 @@ TYPED_TEST(MessageLoopTest, DeleteAllPersistenIOTaskFromSelf) {
     task_ids[i] = this->loop_->WatchFileDescriptor(
         FROM_HERE, pipes[i].writer, MessageLoop::kWatchWrite,
         true /* persistent */,
-        Bind([this, &task_ids] {
+        Bind([] (MessageLoop* loop, TaskId* task_ids) {
           for (int j = 0; j < kNumTasks; ++j) {
             // Once we cancel all the tasks, none should run, so this code runs
             // only once from one callback.
-            EXPECT_TRUE(this->loop_->CancelTask(task_ids[j]));
+            EXPECT_TRUE(loop->CancelTask(task_ids[j]));
             task_ids[j] = MessageLoop::kTaskIdNull;
           }
-        }));
+        }, this->loop_.get(), task_ids));
   }
   MessageLoopRunMaxIterations(this->loop_.get(), 100);
   for (int i = 0; i < kNumTasks; ++i) {
@@ -310,13 +315,16 @@ TYPED_TEST(MessageLoopTest, AllTasksAreEqual) {
   base::Closure timeout_callback;
   MessageLoop::TaskId timeout_task;
   timeout_callback = base::Bind(
-      [this, &timeout_called, &total_calls, &timeout_callback, &timeout_task] {
-        timeout_called++;
-        total_calls++;
-        timeout_task = this->loop_->PostTask(FROM_HERE, Bind(timeout_callback));
-        if (total_calls > 100)
-          this->loop_->BreakLoop();
-      });
+      [](MessageLoop* loop, int* timeout_called, int* total_calls,
+         base::Closure* timeout_callback, MessageLoop::TaskId* timeout_task) {
+      (*timeout_called)++;
+      (*total_calls)++;
+      *timeout_task = loop->PostTask(FROM_HERE, *timeout_callback);
+      if (*total_calls > 100)
+        loop->BreakLoop();
+      },
+      this->loop_.get(), &timeout_called, &total_calls, &timeout_callback,
+      &timeout_task);
   timeout_task = this->loop_->PostTask(FROM_HERE, timeout_callback);
 
   // Second, schedule several file descriptor watchers.
@@ -325,14 +333,16 @@ TYPED_TEST(MessageLoopTest, AllTasksAreEqual) {
   MessageLoop::TaskId tasks[kNumTasks];
 
   int reads[kNumTasks] = {};
-  auto fd_callback = [this, &pipes, &reads, &total_calls](int i) {
+  base::Callback<void(int)> fd_callback = base::Bind(
+      [](MessageLoop* loop, ScopedPipe* pipes, int* reads,
+         int* total_calls, int i) {
     reads[i]++;
-    total_calls++;
+    (*total_calls)++;
     char c;
     EXPECT_EQ(1, HANDLE_EINTR(read(pipes[i].reader, &c, 1)));
-    if (total_calls > 100)
-      this->loop_->BreakLoop();
-  };
+    if (*total_calls > 100)
+      loop->BreakLoop();
+  }, this->loop_.get(), pipes, reads, &total_calls);
 
   for (int i = 0; i < kNumTasks; ++i) {
     tasks[i] = this->loop_->WatchFileDescriptor(

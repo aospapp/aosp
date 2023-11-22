@@ -38,16 +38,14 @@ public class InstancesTest extends JDWPSyncTestCase {
 
     static String thisTestName;
 
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/InstancesDebuggee;";
-
-    static final String mockClassSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/MockClass;";
+    static final String mockClassSignature = getClassSignature(MockClass.class);
 
     static final String stringSignature = "Ljava/lang/String;";
 
     static final String intArraySignature = "[I";
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.InstancesDebuggee";
+        return InstancesDebuggee.class.getName();
     }
 
     /**
@@ -63,7 +61,7 @@ public class InstancesTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         long mockClassRefTypeID = getClassIDBySignature(mockClassSignature);
-        long debuggeeRefTypeID = getClassIDBySignature(debuggeeSignature);
+        long debuggeeRefTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         //Get the number of reachable objects in debuggee class
         long reachableObjNumID = debuggeeWrapper.vmMirror.getFieldID(

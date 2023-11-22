@@ -22,7 +22,7 @@ fi
 
 if [[ -d ${src} ]]
 then
-	scp -rq ${src} ${target}:${dest}
+	tar -C $(dirname ${src}) -zcf - $(basename ${src}) | ssh ${target} "tar -C ${dest} -zxf -"
 else
 	scp -q ${src} ${target}:${dest}
 fi

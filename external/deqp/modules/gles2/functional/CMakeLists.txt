@@ -27,6 +27,8 @@ set(DEQP_GLES2_FUNCTIONAL_SRCS
 	es2fLifetimeTests.hpp
 	es2fLightAmountTest.cpp
 	es2fLightAmountTest.hpp
+	es2fMultisampledRenderToTextureTests.cpp
+	es2fMultisampledRenderToTextureTests.hpp
 	es2fNegativeBufferApiTests.cpp
 	es2fNegativeBufferApiTests.hpp
 	es2fNegativeFragmentApiTests.cpp
@@ -162,6 +164,8 @@ set(DEQP_GLES2_FUNCTIONAL_SRCS
 	es2fDebugMarkerTests.cpp
 	es2fDebugMarkerTests.hpp
 	)
+
+PCH(DEQP_GLES2_FUNCTIONAL_SRCS ../../pch.cpp)
 
 add_library(deqp-gles2-functional STATIC ${DEQP_GLES2_FUNCTIONAL_SRCS})
 target_link_libraries(deqp-gles2-functional deqp-gl-shared glutil glutil-sglr tcutil referencerenderer ${DEQP_GLES2_LIBRARIES})

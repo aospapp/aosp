@@ -50,7 +50,6 @@ from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import priorities
-from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.frontend.afe import control_file as control_file_lib
 from autotest_lib.frontend.afe import model_attributes
@@ -64,7 +63,7 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import control_file_getter
-from autotest_lib.server.cros.dynamic_suite import suite as SuiteBase
+from autotest_lib.server.cros.dynamic_suite import suite_common
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
 from autotest_lib.server.lib import status_history
@@ -501,18 +500,15 @@ def host_add_labels(id, labels):
     label_objs = models.Label.smart_get_bulk(labels)
 
     platforms = [label.name for label in label_objs if label.platform]
-    boards = [label.name for label in label_objs
-              if label.name.startswith('board:')]
-    if len(platforms) > 1 or not utils.board_labels_allowed(boards):
+    if len(platforms) > 1:
         raise model_logic.ValidationError(
-            {'labels': ('Adding more than one platform label, or a list of '
-                        'non-compatible board labels.: %s %s' %
-                        (', '.join(platforms), ', '.join(boards)))})
+            {'labels': ('Adding more than one platform: %s' %
+                        ', '.join(platforms))})
 
     host_obj = models.Host.smart_get(id)
     if platforms:
         models.Host.check_no_platform([host_obj])
-    if boards:
+    if any(label_name.startswith('board:') for label_name in labels):
         models.Host.check_board_labels_allowed([host_obj], labels)
     add_labels_to_host(id, labels)
 
@@ -1026,8 +1022,7 @@ def create_job(
     @param drone_set The name of the drone set to run this test on.
     @param image OS image to install before running job.
     @param parent_job_id id of a job considered to be parent of created job.
-    @param test_retry Number of times to retry test if the test did not
-        complete successfully. (optional, default: 0)
+    @param test_retry DEPRECATED
     @param run_reset Should the host be reset before running the test?
     @param require_ssp Set to True to require server-side packaging to run the
                        test. If it's set to None, drone will still try to run
@@ -1067,7 +1062,6 @@ def create_job(
             keyvals=keyvals,
             drone_set=drone_set,
             parent_job_id=parent_job_id,
-            test_retry=test_retry,
             run_reset=run_reset,
             require_ssp=require_ssp)
 
@@ -1713,9 +1707,7 @@ def get_static_data():
     label_exclude_filters = [{'name__startswith': 'cros-version'},
                              {'name__startswith': 'fw-version'},
                              {'name__startswith': 'fwrw-version'},
-                             {'name__startswith': 'fwro-version'},
-                             {'name__startswith': 'ab-version'},
-                             {'name__startswith': 'testbed-version'}]
+                             {'name__startswith': 'fwro-version'}]
     result['labels'] = get_labels(
         label_exclude_filters,
         sort_by=['-platform', 'name'])
@@ -1822,59 +1814,6 @@ def get_hosts_by_attribute(attribute, value):
         return [row.host.hostname for row in rows if row.host.invalid == 0]
 
 
-def canonicalize_suite_name(suite_name):
-    """Canonicalize the suite's name.
-
-    @param suite_name: the name of the suite.
-    """
-    # Do not change this naming convention without updating
-    # site_utils.parse_job_name.
-    return 'test_suites/control.%s' % suite_name
-
-
-def formatted_now():
-    """Format the current datetime."""
-    return datetime.datetime.now().strftime(time_utils.TIME_FMT)
-
-
-def _get_control_file_by_build(build, ds, suite_name):
-    """Return control file contents for |suite_name|.
-
-    Query the dev server at |ds| for the control file |suite_name|, included
-    in |build| for |board|.
-
-    @param build: unique name by which to refer to the image from now on.
-    @param ds: a dev_server.DevServer instance to fetch control file with.
-    @param suite_name: canonicalized suite name, e.g. test_suites/control.bvt.
-    @raises ControlFileNotFound if a unique suite control file doesn't exist.
-    @raises NoControlFileList if we can't list the control files at all.
-    @raises ControlFileEmpty if the control file exists on the server, but
-                             can't be read.
-
-    @return the contents of the desired control file.
-    """
-    getter = control_file_getter.DevServerGetter.create(build, ds)
-    devserver_name = ds.hostname
-    # Get the control file for the suite.
-    try:
-        control_file_in = getter.get_control_file_contents_by_name(suite_name)
-    except error.CrosDynamicSuiteException as e:
-        raise type(e)('Failed to get control file for %s '
-                      '(devserver: %s) (error: %s)' %
-                      (build, devserver_name, e))
-    if not control_file_in:
-        raise error.ControlFileEmpty(
-            "Fetching %s returned no data. (devserver: %s)" %
-            (suite_name, devserver_name))
-    # Force control files to only contain ascii characters.
-    try:
-        control_file_in.encode('ascii')
-    except UnicodeDecodeError as e:
-        raise error.ControlFileMalformed(str(e))
-
-    return control_file_in
-
-
 def _get_control_file_by_suite(suite_name):
     """Get control file contents by suite name.
 
@@ -1885,36 +1824,6 @@ def _get_control_file_by_suite(suite_name):
             [_CONFIG.get_config_value('SCHEDULER',
                                       'drone_installation_directory')])
     return getter.get_control_file_contents_by_name(suite_name)
-
-
-def _stage_build_artifacts(build, hostname=None):
-    """
-    Ensure components of |build| necessary for installing images are staged.
-
-    @param build image we want to stage.
-    @param hostname hostname of a dut may run test on. This is to help to locate
-        a devserver closer to duts if needed. Default is None.
-
-    @raises StageControlFileFailure: if the dev server throws 500 while staging
-        suite control files.
-
-    @return: dev_server.ImageServer instance to use with this build.
-    @return: timings dictionary containing staging start/end times.
-    """
-    timings = {}
-    # Ensure components of |build| necessary for installing images are staged
-    # on the dev server. However set synchronous to False to allow other
-    # components to be downloaded in the background.
-    ds = dev_server.resolve(build, hostname=hostname)
-    ds_name = ds.hostname
-    timings[constants.DOWNLOAD_STARTED_TIME] = formatted_now()
-    try:
-        ds.stage_artifacts(image=build, artifacts=['test_suites'])
-    except dev_server.DevServerException as e:
-        raise error.StageControlFileFailure(
-                "Failed to stage %s on %s: %s" % (build, ds_name, e))
-    timings[constants.PAYLOAD_FINISHED_TIME] = formatted_now()
-    return (ds, timings)
 
 
 @rpc_utils.route_rpc_to_master
@@ -2025,12 +1934,12 @@ def create_suite_job(
 
     sample_dut = rpc_utils.get_sample_dut(board, pool)
 
-    suite_name = canonicalize_suite_name(name)
+    suite_name = suite_common.canonicalize_suite_name(name)
     if run_prod_code:
         ds = dev_server.resolve(test_source_build, hostname=sample_dut)
         keyvals = {}
     else:
-        (ds, keyvals) = _stage_build_artifacts(
+        ds, keyvals = suite_common.stage_build_artifacts(
                 test_source_build, hostname=sample_dut)
     keyvals[constants.SUITE_MIN_DUTS_KEY] = suite_min_duts
 
@@ -2054,7 +1963,7 @@ def create_suite_job(
 
     if not control_file:
         # No control file was supplied so look it up from the build artifacts.
-        control_file = _get_control_file_by_build(
+        control_file = suite_common.get_control_file_by_build(
                 test_source_build, ds, suite_name)
 
     # Prepend builds and board to the control file.
@@ -2063,24 +1972,6 @@ def create_suite_job(
 
     if suite_args is None:
         suite_args = dict()
-
-    # TODO(crbug.com/758427): suite_args_raw is needed to run old tests.
-    # Can be removed after R64.
-    if 'tests' in suite_args:
-        # TODO(crbug.com/758427): test_that used to have its own
-        # snowflake implementation of parsing command line arguments in
-        # the test
-        suite_args_raw = ' '.join([':lab:'] + suite_args['tests'])
-    # TODO(crbug.com/760675): Needed for CTS/GTS as above, but when
-    # 'tests' is not passed.  Can be removed after R64.
-    elif name.rpartition('/')[-1] in {'control.cts_N',
-                                      'control.cts_N_preconditions',
-                                      'control.gts'}:
-        suite_args_raw = ''
-    else:
-        # TODO(crbug.com/758427): This is for suite_attr_wrapper.  Can
-        # be removed after R64.
-        suite_args_raw = repr(suite_args)
 
     inject_dict = {
         'board': board,
@@ -2096,9 +1987,6 @@ def create_suite_job(
         'timeout_mins': timeout_mins,
         'devserver_url': ds.url(),
         'priority': priority,
-        # TODO(crbug.com/758427): injecting suite_args is needed to run
-        # old tests
-        'suite_args' : suite_args_raw,
         'wait_for_results': wait_for_results,
         'job_retry': job_retry,
         'max_retries': max_retries,
@@ -2359,8 +2247,8 @@ def delete_shard(hostname):
             clear_jobs = True
             assert shard.id is not None
             while clear_jobs:
-                res = cursor.execute(QUERY % shard.id).fetchone()
-                clear_jobs = bool(res)
+                cursor.execute(QUERY % shard.id)
+                clear_jobs = bool(cursor.fetchone())
     # Unit tests use sqlite backend instead of MySQL. sqlite does not support
     # UPDATE ... LIMIT, so fall back to the old behavior.
     except DatabaseError as e:
@@ -2398,14 +2286,17 @@ def get_stable_version(board=stable_version_utils.DEFAULT, android=False):
     """Get stable version for the given board.
 
     @param board: Name of the board.
-    @param android: If True, the given board is an Android-based device. If
-                    False, assume its a Chrome OS-based device.
+    @param android: Unused legacy parameter.  This is maintained for the
+            sake of clients on old branches that still pass the
+            parameter.  TODO(jrbarnette) Remove this completely once R68
+            drops off stable.
 
     @return: Stable version of the given board. Return global configure value
              of CROS.stable_cros_version if stable_versinos table does not have
              entry of board DEFAULT.
     """
-    return stable_version_utils.get(board=board, android=android)
+    assert not android, 'get_stable_version no longer supports `android`.'
+    return stable_version_utils.get(board=board)
 
 
 @rpc_utils.route_rpc_to_master
@@ -2449,7 +2340,7 @@ def get_tests_by_build(build, ignore_invalid_tests=True):
     """
     # Collect the control files specified in this build
     cfile_getter = control_file_lib._initialize_control_file_getter(build)
-    if SuiteBase.ENABLE_CONTROLS_IN_BATCH:
+    if suite_common.ENABLE_CONTROLS_IN_BATCH:
         control_file_info_list = cfile_getter.get_suite_info()
         control_file_list = control_file_info_list.keys()
     else:
@@ -2459,7 +2350,7 @@ def get_tests_by_build(build, ignore_invalid_tests=True):
     _id = 0
     for control_file_path in control_file_list:
         # Read and parse the control file
-        if SuiteBase.ENABLE_CONTROLS_IN_BATCH:
+        if suite_common.ENABLE_CONTROLS_IN_BATCH:
             control_file = control_file_info_list[control_file_path]
         else:
             control_file = cfile_getter.get_control_file_contents(
@@ -2476,7 +2367,7 @@ def get_tests_by_build(build, ignore_invalid_tests=True):
         # are required by the AFE
         keys = ['author', 'doc', 'name', 'time', 'test_type', 'experimental',
                 'test_category', 'test_class', 'dependencies', 'run_verify',
-                'sync_count', 'job_retries', 'retries', 'path']
+                'sync_count', 'job_retries', 'path']
 
         test_object = {}
         for key in keys:
@@ -2493,7 +2384,9 @@ def get_tests_by_build(build, ignore_invalid_tests=True):
         test_object['run_reset'] = True
         test_object['description'] = test_object.get('doc', '')
         test_object['test_time'] = test_object.get('time', 0)
-        test_object['test_retry'] = test_object.get('retries', 0)
+
+        # TODO(crbug.com/873716) DEPRECATED. Remove entirely.
+        test_object['test_retry'] = 0
 
         # Fix the test name to be consistent with the current presentation
         # of test names in the AFE.

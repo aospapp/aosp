@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_PARSING_EXPRESSION_CLASSIFIER_H
-#define V8_PARSING_EXPRESSION_CLASSIFIER_H
+#ifndef V8_PARSING_EXPRESSION_CLASSIFIER_H_
+#define V8_PARSING_EXPRESSION_CLASSIFIER_H_
 
 #include "src/messages.h"
 #include "src/parsing/scanner.h"
+#include "src/zone/zone-containers.h"
 
 namespace v8 {
 namespace internal {
@@ -61,18 +62,15 @@ class ExpressionClassifier {
         : location(Scanner::Location::invalid()),
           message(MessageTemplate::kNone),
           kind(kUnusedError),
-          type(kSyntaxError),
           arg(nullptr) {}
     V8_INLINE explicit Error(Scanner::Location loc,
                              MessageTemplate::Template msg, ErrorKind k,
-                             const char* a = nullptr,
-                             ParseErrorType t = kSyntaxError)
-        : location(loc), message(msg), kind(k), type(t), arg(a) {}
+                             const char* a = nullptr)
+        : location(loc), message(msg), kind(k), arg(a) {}
 
     Scanner::Location location;
-    MessageTemplate::Template message : 26;
+    MessageTemplate::Template message : 28;
     unsigned kind : 4;
-    ParseErrorType type : 2;
     const char* arg;
   };
 
@@ -88,23 +86,17 @@ class ExpressionClassifier {
   };
   // clang-format on
 
-  enum FunctionProperties : unsigned {
-    NonSimpleParameter = 1 << 0
-  };
-
   explicit ExpressionClassifier(typename Types::Base* base,
                                 DuplicateFinder* duplicate_finder = nullptr)
       : base_(base),
         previous_(base->classifier_),
         zone_(base->impl()->zone()),
-        non_patterns_to_rewrite_(base->impl()->GetNonPatternList()),
         reported_errors_(base->impl()->GetReportedErrorList()),
         duplicate_finder_(duplicate_finder),
         invalid_productions_(0),
-        function_properties_(0) {
+        is_non_simple_parameter_list_(0) {
     base->classifier_ = this;
-    reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
-    non_pattern_begin_ = non_patterns_to_rewrite_->length();
+    reported_errors_begin_ = reported_errors_end_ = reported_errors_->size();
   }
 
   V8_INLINE ~ExpressionClassifier() {
@@ -195,11 +187,11 @@ class ExpressionClassifier {
   }
 
   V8_INLINE bool is_simple_parameter_list() const {
-    return !(function_properties_ & NonSimpleParameter);
+    return !is_non_simple_parameter_list_;
   }
 
   V8_INLINE void RecordNonSimpleParameter() {
-    function_properties_ |= NonSimpleParameter;
+    is_non_simple_parameter_list_ = 1;
   }
 
   void RecordExpressionError(const Scanner::Location& loc,
@@ -208,14 +200,6 @@ class ExpressionClassifier {
     if (!is_valid_expression()) return;
     invalid_productions_ |= ExpressionProduction;
     Add(Error(loc, message, kExpressionProduction, arg));
-  }
-
-  void RecordExpressionError(const Scanner::Location& loc,
-                             MessageTemplate::Template message,
-                             ParseErrorType type, const char* arg = nullptr) {
-    if (!is_valid_expression()) return;
-    invalid_productions_ |= ExpressionProduction;
-    Add(Error(loc, message, kExpressionProduction, arg, type));
   }
 
   void RecordFormalParameterInitializerError(const Scanner::Location& loc,
@@ -291,19 +275,10 @@ class ExpressionClassifier {
     Add(Error(loc, message, kLetPatternProduction, arg));
   }
 
-  void Accumulate(ExpressionClassifier* inner, unsigned productions,
-                  bool merge_non_patterns = true) {
+  void Accumulate(ExpressionClassifier* inner, unsigned productions) {
     DCHECK_EQ(inner->reported_errors_, reported_errors_);
     DCHECK_EQ(inner->reported_errors_begin_, reported_errors_end_);
-    DCHECK_EQ(inner->reported_errors_end_, reported_errors_->length());
-    DCHECK_EQ(inner->non_patterns_to_rewrite_, non_patterns_to_rewrite_);
-    DCHECK_LE(non_pattern_begin_, inner->non_pattern_begin_);
-    DCHECK_LE(inner->non_pattern_begin_, non_patterns_to_rewrite_->length());
-    // Merge non-patterns from the inner classifier, or discard them.
-    if (merge_non_patterns)
-      inner->non_pattern_begin_ = non_patterns_to_rewrite_->length();
-    else
-      non_patterns_to_rewrite_->Rewind(inner->non_pattern_begin_);
+    DCHECK_EQ(inner->reported_errors_end_, reported_errors_->size());
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
@@ -316,9 +291,9 @@ class ExpressionClassifier {
       bool copy_BP_to_AFP = false;
       if (productions & ArrowFormalParametersProduction &&
           is_valid_arrow_formal_parameters()) {
-        // Also copy function properties if expecting an arrow function
-        // parameter.
-        function_properties_ |= inner->function_properties_;
+        // Also whether we've seen any non-simple parameters
+        // if expecting an arrow function parameter.
+        is_non_simple_parameter_list_ |= inner->is_non_simple_parameter_list_;
         if (!inner->is_valid_binding_pattern()) {
           copy_BP_to_AFP = true;
           invalid_productions_ |= ArrowFormalParametersProduction;
@@ -363,21 +338,17 @@ class ExpressionClassifier {
         }
       }
     }
-    reported_errors_->Rewind(reported_errors_end_);
+    reported_errors_->resize(reported_errors_end_);
     inner->reported_errors_begin_ = inner->reported_errors_end_ =
         reported_errors_end_;
   }
 
-  V8_INLINE int GetNonPatternBegin() const { return non_pattern_begin_; }
-
   V8_INLINE void Discard() {
-    if (reported_errors_end_ == reported_errors_->length()) {
-      reported_errors_->Rewind(reported_errors_begin_);
+    if (reported_errors_end_ == reported_errors_->size()) {
+      reported_errors_->resize(reported_errors_begin_);
       reported_errors_end_ = reported_errors_begin_;
     }
     DCHECK_EQ(reported_errors_begin_, reported_errors_end_);
-    DCHECK_LE(non_pattern_begin_, non_patterns_to_rewrite_->length());
-    non_patterns_to_rewrite_->Rewind(non_pattern_begin_);
   }
 
   ExpressionClassifier* previous() const { return previous_; }
@@ -404,8 +375,8 @@ class ExpressionClassifier {
   // Adds e to the end of the list of reported errors for this classifier.
   // It is expected that this classifier is the last one in the stack.
   V8_INLINE void Add(const Error& e) {
-    DCHECK_EQ(reported_errors_end_, reported_errors_->length());
-    reported_errors_->Add(e, zone_);
+    DCHECK_EQ(reported_errors_end_, reported_errors_->size());
+    reported_errors_->push_back(e);
     reported_errors_end_++;
   }
 
@@ -415,7 +386,7 @@ class ExpressionClassifier {
   // in an inner classifier) or it could be an existing error (in case a
   // copy is needed).
   V8_INLINE void Copy(int i) {
-    DCHECK_LT(i, reported_errors_->length());
+    DCHECK_LT(i, reported_errors_->size());
     if (reported_errors_end_ != i)
       reported_errors_->at(reported_errors_end_) = reported_errors_->at(i);
     reported_errors_end_++;
@@ -424,18 +395,10 @@ class ExpressionClassifier {
   typename Types::Base* base_;
   ExpressionClassifier* previous_;
   Zone* zone_;
-  ZoneList<typename Types::Expression>* non_patterns_to_rewrite_;
-  ZoneList<Error>* reported_errors_;
+  ZoneVector<Error>* reported_errors_;
   DuplicateFinder* duplicate_finder_;
-  // The uint16_t for non_pattern_begin_ will not be enough in the case,
-  // e.g., of an array literal containing more than 64K inner array
-  // literals with spreads, as in:
-  // var N=65536; eval("var x=[];" + "[" + "[...x],".repeat(N) + "].length");
-  // An implementation limit error in ParserBase::AddNonPatternForRewriting
-  // will be triggered in this case.
-  uint16_t non_pattern_begin_;
-  unsigned invalid_productions_ : 14;
-  unsigned function_properties_ : 2;
+  unsigned invalid_productions_ : 15;
+  unsigned is_non_simple_parameter_list_ : 1;
   // The uint16_t for reported_errors_begin_ and reported_errors_end_ will
   // not be enough in the case of a long series of expressions using nested
   // classifiers, e.g., a long sequence of assignments, as in:
@@ -456,4 +419,4 @@ class ExpressionClassifier {
 }  // namespace internal
 }  // namespace v8
 
-#endif  // V8_PARSING_EXPRESSION_CLASSIFIER_H
+#endif  // V8_PARSING_EXPRESSION_CLASSIFIER_H_

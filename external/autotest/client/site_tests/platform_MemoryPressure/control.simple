@@ -1,0 +1,18 @@
+NAME = "platform_SimpleMemoryPressure"
+PURPOSE = "Verify tab discarding occurs and is sane."
+CRITERIA = """
+This test fails if it times out or if the kernel crashes.
+"""
+
+AUTHOR="Luigi Semenzato"
+TIME = "MEDIUM"
+TEST_CATEGORY = "Functional"
+TEST_CLASS = "platform"
+TEST_TYPE = "client"
+DOC = """
+  This test opens tabs until a tab discard occurs.
+  Each tab contains JS code which allocates and
+  touches large arrays.
+"""
+
+job.run_test('platform_MemoryPressure', flavor='simple')

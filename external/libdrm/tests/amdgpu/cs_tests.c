@@ -21,10 +21,6 @@
  *
 */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 
 #include "CUnit/Basic.h"
@@ -32,7 +28,7 @@
 #include "util_math.h"
 
 #include "amdgpu_test.h"
-#include "uvd_messages.h"
+#include "decode_messages.h"
 #include "amdgpu_drm.h"
 #include "amdgpu_internal.h"
 
@@ -65,6 +61,26 @@ CU_TestInfo cs_tests[] = {
 	{ "UVD destroy",  amdgpu_cs_uvd_destroy },
 	CU_TEST_INFO_NULL,
 };
+
+CU_BOOL suite_cs_tests_enable(void)
+{
+	if (amdgpu_device_initialize(drm_amdgpu[0], &major_version,
+					     &minor_version, &device_handle))
+		return CU_FALSE;
+
+	family_id = device_handle->info.family_id;
+
+	if (amdgpu_device_deinitialize(device_handle))
+		return CU_FALSE;
+
+
+	if (family_id >= AMDGPU_FAMILY_RV || family_id == AMDGPU_FAMILY_SI) {
+		printf("\n\nThe ASIC NOT support UVD, suite disabled\n");
+		return CU_FALSE;
+	}
+
+	return CU_TRUE;
+}
 
 int suite_cs_tests_init(void)
 {
@@ -175,11 +191,11 @@ static int submit(unsigned ndw, unsigned ip)
 
 static void uvd_cmd(uint64_t addr, unsigned cmd, int *idx)
 {
-	ib_cpu[(*idx)++] = 0x3BC4;
+	ib_cpu[(*idx)++] = (family_id < AMDGPU_FAMILY_AI) ? 0x3BC4 : 0x81C4;
 	ib_cpu[(*idx)++] = addr;
-	ib_cpu[(*idx)++] = 0x3BC5;
+	ib_cpu[(*idx)++] = (family_id < AMDGPU_FAMILY_AI) ? 0x3BC5 : 0x81C5;
 	ib_cpu[(*idx)++] = addr >> 32;
-	ib_cpu[(*idx)++] = 0x3BC3;
+	ib_cpu[(*idx)++] = (family_id < AMDGPU_FAMILY_AI) ? 0x3BC3 : 0x81C3;
 	ib_cpu[(*idx)++] = cmd << 1;
 }
 
@@ -211,10 +227,13 @@ static void amdgpu_cs_uvd_create(void)
 	CU_ASSERT_EQUAL(r, 0);
 
 	memcpy(msg, uvd_create_msg, sizeof(uvd_create_msg));
+
 	if (family_id >= AMDGPU_FAMILY_VI) {
 		((uint8_t*)msg)[0x10] = 7;
-		/* chip polaris 10/11 */
-		if (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A) {
+		/* chip beyond polaris 10/11 */
+		if ((family_id == AMDGPU_FAMILY_AI) ||
+		    (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A ||
+		     chip_id == chip_rev+0x64)) {
 			/* dpb size */
 			((uint8_t*)msg)[0x28] = 0x00;
 			((uint8_t*)msg)[0x29] = 0x94;
@@ -250,7 +269,7 @@ static void amdgpu_cs_uvd_create(void)
 
 static void amdgpu_cs_uvd_decode(void)
 {
-	const unsigned dpb_size = 15923584, ctx_size = 5287680, dt_size = 737280;
+	const unsigned dpb_size = 15923584, dt_size = 737280;
 	uint64_t msg_addr, fb_addr, bs_addr, dpb_addr, ctx_addr, dt_addr, it_addr;
 	struct amdgpu_bo_alloc_request req = {0};
 	amdgpu_bo_handle buf_handle;
@@ -286,14 +305,18 @@ static void amdgpu_cs_uvd_decode(void)
 	r = amdgpu_bo_cpu_map(buf_handle, (void **)&ptr);
 	CU_ASSERT_EQUAL(r, 0);
 
-	memcpy(ptr, uvd_decode_msg, sizeof(uvd_create_msg));
+	memcpy(ptr, uvd_decode_msg, sizeof(uvd_decode_msg));
+	memcpy(ptr + sizeof(uvd_decode_msg), avc_decode_msg, sizeof(avc_decode_msg));
+
 	if (family_id >= AMDGPU_FAMILY_VI) {
 		ptr[0x10] = 7;
 		ptr[0x98] = 0x00;
 		ptr[0x99] = 0x02;
-		/* chip polaris10/11 */
-		if (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A) {
-			/*dpb size */
+		/* chip beyond polaris10/11 */
+		if ((family_id == AMDGPU_FAMILY_AI) ||
+		    (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A ||
+		     chip_id == chip_rev+0x64)) {
+			/* dpb size */
 			ptr[0x24] = 0x00;
 			ptr[0x25] = 0x94;
 			ptr[0x26] = 0x6B;
@@ -335,9 +358,12 @@ static void amdgpu_cs_uvd_decode(void)
 		bs_addr = fb_addr + 4*1024;
 	dpb_addr = ALIGN(bs_addr + sizeof(uvd_bitstream), 4*1024);
 
-	if ((family_id >= AMDGPU_FAMILY_VI) &&
-		(chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A)) {
-		ctx_addr = ALIGN(dpb_addr + 0x006B9400, 4*1024);
+	if (family_id >= AMDGPU_FAMILY_VI) {
+		if ((family_id == AMDGPU_FAMILY_AI) ||
+		    (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A ||
+		     chip_id == chip_rev+0x64)) {
+			ctx_addr = ALIGN(dpb_addr + 0x006B9400, 4*1024);
+		}
 	}
 
 	dt_addr = ALIGN(dpb_addr + dpb_size, 4*1024);
@@ -348,12 +374,16 @@ static void amdgpu_cs_uvd_decode(void)
 	uvd_cmd(dt_addr, 0x2, &i);
 	uvd_cmd(fb_addr, 0x3, &i);
 	uvd_cmd(bs_addr, 0x100, &i);
+
 	if (family_id >= AMDGPU_FAMILY_VI) {
 		uvd_cmd(it_addr, 0x204, &i);
-		if (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A)
+		if ((family_id == AMDGPU_FAMILY_AI) ||
+		    (chip_id == chip_rev+0x50 || chip_id == chip_rev+0x5A ||
+		     chip_id == chip_rev+0x64))
 			uvd_cmd(ctx_addr, 0x206, &i);
-}
-	ib_cpu[i++] = 0x3BC6;
+	}
+
+	ib_cpu[i++] = (family_id < AMDGPU_FAMILY_AI) ? 0x3BC6 : 0x81C6;
 	ib_cpu[i++] = 0x1;
 	for (; i % 16; ++i)
 		ib_cpu[i] = 0x80000000;
@@ -364,7 +394,7 @@ static void amdgpu_cs_uvd_decode(void)
 	/* TODO: use a real CRC32 */
 	for (i = 0, sum = 0; i < dt_size; ++i)
 		sum += ptr[i];
-	CU_ASSERT_EQUAL(sum, 0x20345d8);
+	CU_ASSERT_EQUAL(sum, SUM_DECODE);
 
 	r = amdgpu_bo_cpu_unmap(buf_handle);
 	CU_ASSERT_EQUAL(r, 0);

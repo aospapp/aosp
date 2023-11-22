@@ -5,13 +5,14 @@
 import logging
 import pprint
 import time
+import re
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest
-from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
-class firmware_Cr50DeviceState(FirmwareTest):
+class firmware_Cr50DeviceState(Cr50Test):
     """Verify Cr50 tracks the EC and AP state correctly.
 
     Put the device through S0, S0ix, S3, and G3. Cr50 responds to these state
@@ -74,11 +75,11 @@ class firmware_Cr50DeviceState(FirmwareTest):
         KEY_RESET : [0, 0],
         KEY_DEEP_SLEEP : [0, DEEP_SLEEP_MAX],
         KEY_TIME : [0, CONSERVATIVE_WAIT_TIME],
-        'S0ix ' + DEEP_SLEEP_STEP_SUFFIX : [0, 0],
+        'S0ix' + DEEP_SLEEP_STEP_SUFFIX : [0, 0],
         # Cr50 may enter deep sleep an extra time, because of how the test
         # collects taskinfo counts. Just verify that it does enter deep sleep
-        'S3 ' + DEEP_SLEEP_STEP_SUFFIX : [1, 2],
-        'G3 ' + DEEP_SLEEP_STEP_SUFFIX : [1, 2],
+        'S3' + DEEP_SLEEP_STEP_SUFFIX : [1, 2],
+        'G3' + DEEP_SLEEP_STEP_SUFFIX : [1, 2],
         # ARM devices don't enter deep sleep in S3
         ARM + 'S3' + DEEP_SLEEP_STEP_SUFFIX : [0, 0],
         ARM + 'G3' + DEEP_SLEEP_STEP_SUFFIX : [1, 2],
@@ -91,22 +92,33 @@ class firmware_Cr50DeviceState(FirmwareTest):
     INCREASE = '+'
     DS_RESUME = 'DS'
 
+
+    def initialize(self, host, cmdline_args, full_args):
+        super(firmware_Cr50DeviceState, self).initialize(host, cmdline_args,
+                                                         full_args)
+        # Don't bother if there is no Chrome EC or if EC hibernate doesn't work.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
+
+
     def get_taskinfo_output(self):
         """Return a dict with the irq numbers as keys and counts as values"""
         output = self.cr50.send_command_get_output('taskinfo',
             self.GET_TASKINFO)[0][1].strip()
+        logging.info(output)
         return output
 
 
     def get_irq_counts(self):
         """Return a dict with the irq numbers as keys and counts as values"""
         output = self.get_taskinfo_output()
-        irq_list = output.split('\n')
+        irq_list = re.findall('\d+\s+\d+\r', output)
         # Make sure the regular sleep irq is in the dictionary, even if cr50
         # hasn't seen any interrupts. It's important the test sees that there's
         # never an interrupt.
         irq_counts = { self.KEY_REGULAR_SLEEP : 0 }
         for irq_info in irq_list:
+            logging.debug(irq_info)
             num, count = irq_info.split()
             irq_counts[int(num)] = int(count)
         irq_counts[self.KEY_RESET] = int(self.servo.get('cr50_reset_count'))
@@ -130,6 +142,11 @@ class firmware_Cr50DeviceState(FirmwareTest):
             self.DEEP_SLEEP_STEP_SUFFIX in str(irq_key)):
             return [0, 0]
         if irq_key == self.KEY_REGULAR_SLEEP:
+            # If cr50_time is really low, we probably woke cr50 up using
+            # taskinfo, which would be a pmu wakeup.
+            if cr50_time == 0:
+                return [0, 1]
+
             min_count = max(cr50_time - self.SLEEP_DELAY, 0)
             # Just checking there is not a lot of extra sleep wakeups. Add 1 to
             # the sleep rate so cr50 can have some extra wakeups, but not too
@@ -262,11 +279,16 @@ class firmware_Cr50DeviceState(FirmwareTest):
             self.run_errors.update(errors)
 
 
+    def trigger_s0(self):
+        """Press the power button so the DUT will wake up."""
+        self.servo.power_short_press()
+
+
     def enter_state(self, state):
         """Get the command to enter the power state"""
         self.stage_irq_add(self.get_irq_counts(), 'start %s' % state)
         if state == 'S0':
-            self.servo.power_short_press()
+            self.trigger_s0()
         else:
             if state == 'S0ix':
                 full_command = 'echo freeze > /sys/power/state &'
@@ -277,7 +299,7 @@ class firmware_Cr50DeviceState(FirmwareTest):
             self.faft_client.system.run_shell_command(full_command)
 
         time.sleep(self.SHORT_WAIT);
-        # check S3 state transition
+        # check state transition
         if not self.wait_power_state(state, self.SHORT_WAIT):
             raise error.TestFail('Platform failed to reach %s state.' % state)
         self.stage_irq_add(self.get_irq_counts(), 'in %s' % state)
@@ -298,10 +320,10 @@ class firmware_Cr50DeviceState(FirmwareTest):
 
 
     def run_transition(self, state):
-        """Verify there are no Cr50 interrupt storms in the power state.
+        """Enter the given power state and reenter s0
 
-        Enter the power state, return to S0, and then verify that Cr50 behaved
-        correctly.
+        Enter the power state and return to S0. Wait long enough to ensure cr50
+        will enter sleep mode, so we can verify that as well.
 
         Args:
             state: the power state: S0ix, S3, or G3
@@ -316,6 +338,16 @@ class firmware_Cr50DeviceState(FirmwareTest):
 
         # Return to S0
         self.enter_state('S0')
+
+
+    def verify_state(self, state):
+        """Verify cr50 behavior while running through the power state"""
+
+        try:
+            self.run_transition(state)
+        finally:
+            # reset the system to S0 no matter what happens
+            self.trigger_s0()
 
         # Check that the progress of the irq counts seems reasonable
         self.check_for_errors(state)
@@ -339,17 +371,22 @@ class firmware_Cr50DeviceState(FirmwareTest):
         # Make sure the DUT is in s0
         self.enter_state('S0')
 
-        # Login before entering S0ix so cr50 will be able to enter regular sleep
-        if not self.is_arm:
+        # Check if the device supports S0ix. The exit status will be 0 if it
+        # does 1 if it doesn't.
+        result = self.host.run('check_powerd_config --suspend_to_idle',
+                ignore_status=True)
+        if not result.exit_status:
+            # Login before entering S0ix so cr50 will be able to enter regular
+            # sleep
             client_at = autotest.Autotest(self.host)
             client_at.run_test('login_LoginSuccess')
-            self.run_transition('S0ix')
+            self.verify_state('S0ix')
 
         # Enter S3
-        self.run_transition('S3')
+        self.verify_state('S3')
 
         # Enter G3
-        self.run_transition('G3')
+        self.verify_state('G3')
         if self.run_errors:
             self.all_errors[self.ccd_str] = self.run_errors
 
@@ -359,20 +396,32 @@ class firmware_Cr50DeviceState(FirmwareTest):
         self.all_errors = {}
         self.host = host
         self.is_arm = self.is_arm_family()
-        self.cr50.ccd_disable(raise_error=False)
+        supports_dts_control = self.cr50.servo_v4_supports_dts_mode()
+
+        if supports_dts_control:
+            self.cr50.ccd_disable(raise_error=True)
+
         self.ccd_enabled = self.cr50.ccd_is_enabled()
         self.run_through_power_states()
 
-        ccd_was_enabled = self.ccd_enabled
-        self.cr50.ccd_enable(raise_error=False)
-        self.ccd_enabled = self.cr50.ccd_is_enabled()
-        # If the first run had ccd disabled, and the test was able to enable
-        # ccd, run through the states again to make sure there are no issues
-        # come up when ccd is enabled.
-        if not ccd_was_enabled and self.ccd_enabled:
-            # Reboot the EC to reset the device
-            self.ec.reboot()
-            self.run_through_power_states()
+        if supports_dts_control:
+            ccd_was_enabled = self.ccd_enabled
+            self.cr50.ccd_enable(raise_error=supports_dts_control)
+            self.ccd_enabled = self.cr50.ccd_is_enabled()
+            # If the first run had ccd disabled, and the test was able to enable
+            # ccd, run through the states again to make sure there are no issues
+            # come up when ccd is enabled.
+            if not ccd_was_enabled and self.ccd_enabled:
+                self.run_through_power_states()
+        else:
+            logging.info('Current setup only supports test with ccd %sabled.',
+                    'en' if self.ccd_enabled else 'dis')
 
+        self.trigger_s0()
         if self.all_errors:
-            raise error.TestFail('Unexpected IRQ counts: %s' % self.all_errors)
+            raise error.TestFail('Unexpected Device State: %s' %
+                    self.all_errors)
+        if not supports_dts_control:
+            raise error.TestNAError('Verified device state with %s. Please '
+                    'run with type c servo v4 to test full device state.' %
+                    self.ccd_str)

@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 	struct sp_plane **plane = NULL;
 	struct sp_crtc *test_crtc;
 	fd_set fds;
-	drmModePropertySetPtr pset;
+	drmModeAtomicReqPtr pset;
 	drmEventContext event_context = {
 		.version = DRM_EVENT_CONTEXT_VERSION,
 		.page_flip_handler = page_flip_handler,
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 		fill_bo(plane[i]->bo, 0xFF, 0xFF, 0xFF, 0xFF);
 	}
 
-	pset = drmModePropertySetAlloc();
+	pset = drmModeAtomicAlloc();
 	if (!pset) {
 		printf("Failed to allocate the property set\n");
 		goto out;
@@ -124,8 +124,8 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		ret = drmModePropertySetCommit(dev->fd,
-				DRM_MODE_PAGE_FLIP_EVENT, NULL, pset);
+		ret = drmModeAtomicCommit(dev->fd, pset,
+					DRM_MODE_PAGE_FLIP_EVENT, NULL);
 		if (ret) {
 			printf("failed to commit properties ret=%d\n", ret);
 			goto out;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 			drmHandleEvent(dev->fd, &event_context);
 	}
 
-	drmModePropertySetFree(pset);
+	drmModeAtomicFree(pset);
 
 	for (i = 0; i < num_test_planes; i++)
 		put_sp_plane(plane[i]);

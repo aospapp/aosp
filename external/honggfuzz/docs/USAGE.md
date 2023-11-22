@@ -13,12 +13,11 @@ Honggfuzz is a security oriented, feedback-driven, evolutionary, easy-to-use fuz
   * It's blazingly fast (specifically in the [persistent fuzzing mode](https://github.com/google/honggfuzz/blob/master/docs/PersistentFuzzing.md)). A simple _LLVMFuzzerTestOneInput_ function can be tested with __up to 1
 mo iterations per second__ on a relatively modern CPU (e.g. i7-6600K)
   * Has a nice track record of uncovered security bugs: e.g. the __only__ (to the date) __vulnerability in OpenSSL with the [critical](https://www.openssl.org/news/secadv/20160926.txt) score mark__ was discovered by honggfuzz
-  * Uses low-level interfaces to monitor processes (e.g. _ptrace_ under Linux). As opposed to other fuzzers, it __will discover and report hidden signals__ (caught and potentially hidden by signal handlers)
+  * Uses low-level interfaces to monitor processes (e.g. _ptrace_ under Linux and NetBSD). As opposed to other fuzzers, it __will discover and report hidden signals__ (caught and potentially hidden by signal handlers)
   * Easy-to-use, feed it a simple input corpus (__can even consist of a single, 1-byte file__) and it will work its way up expanding it utilizing feedback-based coverage metrics
   * Supports several (more than any other coverage-based feedback-driven fuzzer) hardware-based (CPU: branch/instruction counting, __Intel BTS__, __Intel PT__) and software-based [feedback-driven fuzzing](https://github.com/google/honggfuzz/blob/master/docs/FeedbackDrivenFuzzing.md) methods known from other fuzzers (libfuzzer, afl)
-  * Works (at least) under GNU/Linux, FreeBSD, Mac OS X, Windows/CygWin and [Android](https://github.com/google/honggfuzz/blob/master/docs/Android.md)
+  * Works (at least) under GNU/Linux, FreeBSD, NetBSD, Mac OS X, Windows/CygWin and [Android](https://github.com/google/honggfuzz/blob/master/docs/Android.md)
   * Supports __persistent fuzzing mode__ (long-lived process calling a fuzzed API repeatedly) with libhfuzz/libhfuzz.a. More on that can be found [here](https://github.com/google/honggfuzz/blob/master/docs/PersistentFuzzing.md)
-  * [Can fuzz remote/standalone long-lasting processes](https://github.com/google/honggfuzz/blob/master/docs/AttachingToPid.md) (e.g. network servers like __Apache's httpd__ and __ISC's bind__)
   * It comes with the __[examples](https://github.com/google/honggfuzz/tree/master/examples) directory__, consisting of real world fuzz setups for widely-used software (e.g. Apache and OpenSSL)
 
 # REQUIREMENTS #
@@ -39,6 +38,7 @@ It should work under the following operating systems:
 |:-------|:-----------|:----------|
 | **GNU/Linux** | Works | ptrace() API (x86, x86-64 disassembly support)|
 | **FreeBSD** | Works | POSIX signal interface |
+| **NetBSD** | Works | ptrace() API (x86, x86-64 disassembly support)|
 | **Mac OS X** | Works | POSIX signal interface/Mac OS X crash reports (x86-64/x86 disassembly support) |
 | **Android** | Works | ptrace() API (x86, x86-64 disassembly support) |
 | **MS Windows** | Works | POSIX signal interface via CygWin |
@@ -61,8 +61,6 @@ Options:
 	*DEFAULT-MODE-BY-DEFAULT* Enable compile-time instrumentation (use hfuzz_cc/hfuzz-clang to compile code)
  --noinst|-x 
 	Static mode (dry-mode), disable any instrumentation (hw/sw)
- --sancov|-C 
-	Enable sanitizer coverage feedback
  --keep_output|-Q 
 	Don't close children's stdin, stdout, stderr; can be noisy
  --timeout|-t VALUE
@@ -155,6 +153,16 @@ Options:
 	Use Linux PID namespace isolation
  --linux_ns_ipc 
 	Use Linux IPC namespace isolation
+ --netbsd_symbols_bl VALUE
+	Symbols blacklist filter file (one entry per line)
+ --netbsd_symbols_wl VALUE
+	Symbols whitelist filter file (one entry per line)
+ --netbsd_pid|-p VALUE
+	Attach to a pid (and its thread group)
+ --netbsd_file_pid VALUE
+	Attach to pid (and its thread group) read from file
+ --netbsd_addr_low_limit VALUE
+	Address limit (from si.si_addr) below which crashes are not reported, (default: '0')
 
 Examples:
  Run the binary over a mutated file chosen from the directory. Disable fuzzing feedback (dry/static mode)
@@ -163,8 +171,6 @@ Examples:
   honggfuzz -f input_dir -x -s -- /usr/bin/djpeg
  Use compile-time instrumentation (libhfuzz/instrument.c):
   honggfuzz -f input_dir -- /usr/bin/djpeg ___FILE___
- Use SANCOV instrumentation:
-  honggfuzz -f input_dir -C -- /usr/bin/djpeg ___FILE___
  Use persistent mode (libhfuzz/persistent.c) w/o instrumentation:
   honggfuzz -f input_dir -P -x -- /usr/bin/djpeg_persistent_mode
  Use persistent mode (libhfuzz/persistent.c) and compile-time instrumentation:
@@ -183,7 +189,7 @@ Examples:
 
 | **Mode** | **Output file** |
 |:---------|:----------------|
-| Linux | **SIGSEGV.PC.4ba1ae.STACK.13599d485.CODE.1.ADDR.0x10.INSTR.mov____0x10(%rbx),%rax.fuzz** |
+| Linux,NetBSD | **SIGSEGV.PC.4ba1ae.STACK.13599d485.CODE.1.ADDR.0x10.INSTR.mov____0x10(%rbx),%rax.fuzz** |
 | POSIX signal interface | **SIGSEGV.22758.2010-07-01.17.24.41.tif** |
 
 ## Description ##

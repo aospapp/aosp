@@ -1,0 +1,16 @@
+name: "pyasn1-modules"
+description:
+    "A collection of ASN.1-based protocols modules."
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://pypi.python.org/pypi/pyasn1-modules"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/etingof/pyasn1-modules"
+  }
+  version: "0.2.1"
+  last_upgrade_date { year: 2018 month: 6 day: 13 }
+}

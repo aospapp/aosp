@@ -42,11 +42,6 @@ void InstanceDriver::getPhysicalDeviceMemoryProperties (VkPhysicalDevice physica
 	m_vk.getPhysicalDeviceMemoryProperties(physicalDevice, pMemoryProperties);
 }
 
-PFN_vkVoidFunction InstanceDriver::getDeviceProcAddr (VkDevice device, const char* pName) const
-{
-	return m_vk.getDeviceProcAddr(device, pName);
-}
-
 VkResult InstanceDriver::createDevice (VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice) const
 {
 	return m_vk.createDevice(physicalDevice, pCreateInfo, pAllocator, pDevice);
@@ -300,6 +295,26 @@ VkResult InstanceDriver::getPhysicalDeviceSurfaceCapabilities2KHR (VkPhysicalDev
 VkResult InstanceDriver::getPhysicalDeviceSurfaceFormats2KHR (VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, deUint32* pSurfaceFormatCount, VkSurfaceFormat2KHR* pSurfaceFormats) const
 {
 	return m_vk.getPhysicalDeviceSurfaceFormats2KHR(physicalDevice, pSurfaceInfo, pSurfaceFormatCount, pSurfaceFormats);
+}
+
+VkResult InstanceDriver::getPhysicalDeviceDisplayProperties2KHR (VkPhysicalDevice physicalDevice, deUint32* pPropertyCount, VkDisplayProperties2KHR* pProperties) const
+{
+	return m_vk.getPhysicalDeviceDisplayProperties2KHR(physicalDevice, pPropertyCount, pProperties);
+}
+
+VkResult InstanceDriver::getPhysicalDeviceDisplayPlaneProperties2KHR (VkPhysicalDevice physicalDevice, deUint32* pPropertyCount, VkDisplayPlaneProperties2KHR* pProperties) const
+{
+	return m_vk.getPhysicalDeviceDisplayPlaneProperties2KHR(physicalDevice, pPropertyCount, pProperties);
+}
+
+VkResult InstanceDriver::getDisplayModeProperties2KHR (VkPhysicalDevice physicalDevice, VkDisplayKHR display, deUint32* pPropertyCount, VkDisplayModeProperties2KHR* pProperties) const
+{
+	return m_vk.getDisplayModeProperties2KHR(physicalDevice, display, pPropertyCount, pProperties);
+}
+
+VkResult InstanceDriver::getDisplayPlaneCapabilities2KHR (VkPhysicalDevice physicalDevice, const VkDisplayPlaneInfo2KHR* pDisplayPlaneInfo, VkDisplayPlaneCapabilities2KHR* pCapabilities) const
+{
+	return m_vk.getDisplayPlaneCapabilities2KHR(physicalDevice, pDisplayPlaneInfo, pCapabilities);
 }
 
 VkResult InstanceDriver::createDebugReportCallbackEXT (VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) const

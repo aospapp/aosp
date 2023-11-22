@@ -56,13 +56,20 @@
 /* Get access to Native Platform Toolkit functions */
 #include "npt.h"
 
+/* ANDROID-CHANGED: We want to avoid allocating jweaks on android so if !isStrong we will use the
+ * node-pointer tag as the weak-reference.
+ */
 /* Definition of a CommonRef tracked by the backend for the frontend */
 typedef struct RefNode {
     jlong        seqNum;        /* ID of reference, also key for hash table */
-    jobject      ref;           /* could be strong or weak */
+    jobject      ref;           /* ANDROID-CHANGED: Always the strong reference if isStrong, NULL
+                                 * otherwise.
+                                 */
     struct RefNode *next;       /* next RefNode* in bucket chain */
+    struct RefNode *prev;       /* ANDROID-CHANGED: Previous RefNode* in bucket chain. Used to allow
+                                 * us to remove arbitrary elements. */
     jint         count;         /* count of references */
-    unsigned     isStrong : 1;  /* 1 means this is a string reference */
+    unsigned     isStrong : 1;  /* 1 means this is a strong reference */
 } RefNode;
 
 /* Value of a NULL ID */
@@ -82,6 +89,7 @@ typedef jvmtiError (*DdmProcessChunk)(jvmtiEnv* jvmti,
                                       jint* type_out,
                                       jint* length_out,
                                       jbyte** data_out);
+typedef jvmtiError (*RawMonitorEnterNoSuspend)(jvmtiEnv* env, jrawMonitorID mon);
 
 typedef struct {
     jvmtiEnv *jvmti;
@@ -147,6 +155,7 @@ typedef struct {
 
      /* ANDROID-CHANGED: com.android.art.internal.ddm.process_chunk extension function */
      DdmProcessChunk ddm_process_chunk;
+     RawMonitorEnterNoSuspend raw_monitor_enter_no_suspend;
 
      /* ANDROID-CHANGED: Need to keep track of if ddm is initially active. */
      jboolean ddmInitiallyActive;
@@ -380,6 +389,12 @@ jboolean canSuspendResumeThreadLists(void);
 jrawMonitorID debugMonitorCreate(char *name);
 void debugMonitorEnter(jrawMonitorID theLock);
 void debugMonitorExit(jrawMonitorID theLock);
+
+/* ANDROID-CHANGED: extension functions that will enter and exit a mutex without allowing suspension
+ * to occur. Caller must not use monitor-wait.
+ */
+void debugMonitorEnterNoSuspend(jrawMonitorID theLock);
+
 void debugMonitorWait(jrawMonitorID theLock);
 void debugMonitorTimedWait(jrawMonitorID theLock, jlong millis);
 void debugMonitorNotify(jrawMonitorID theLock);
@@ -389,6 +404,9 @@ void debugMonitorDestroy(jrawMonitorID theLock);
 jthread *allThreads(jint *count);
 
 void threadGroupInfo(jthreadGroup, jvmtiThreadGroupInfo *info);
+
+/* ANDROID-CHANGED: Add isArrayClass */
+jboolean isArrayClass(jclass);
 
 char *getClassname(jclass);
 jvmtiError classSignature(jclass, char**, char**);

@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.MissingResourceException;
+import java.util.Objects;
 import java.util.Set;
 
 import android.icu.impl.ICUCache;
@@ -28,7 +29,6 @@ import android.icu.impl.SimpleCache;
 import android.icu.impl.UResource;
 import android.icu.impl.UResource.Key;
 import android.icu.impl.UResource.Value;
-import android.icu.impl.Utility;
 import android.icu.util.Calendar;
 import android.icu.util.Freezable;
 import android.icu.util.ICUCloneNotSupportedException;
@@ -240,8 +240,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         public boolean equals(Object a) {
             if (a instanceof PatternInfo) {
                 PatternInfo patternInfo = (PatternInfo)a;
-                return Utility.objectEquals(fIntervalPatternFirstPart, patternInfo.fIntervalPatternFirstPart) &&
-                       Utility.objectEquals(fIntervalPatternSecondPart, patternInfo.fIntervalPatternSecondPart) &&
+                return Objects.equals(fIntervalPatternFirstPart, patternInfo.fIntervalPatternFirstPart) &&
+                       Objects.equals(fIntervalPatternSecondPart, patternInfo.fIntervalPatternSecondPart) &&
                        fFirstDateInPtnIsLaterDate == patternInfo.fFirstDateInPtnIsLaterDate;
             }
             return false;
@@ -265,10 +265,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
 
         /**
          * {@inheritDoc}
-         * @deprecated This API is ICU internal only.
-         * @hide draft / provisional / internal are hidden on Android
          */
-        @Deprecated
         @Override
         public String toString() {
             return "{first=«" + fIntervalPatternFirstPart + "», second=«" + fIntervalPatternSecondPart + "», reversed:" + fFirstDateInPtnIsLaterDate + "}";
@@ -302,7 +299,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
     private static String EARLIEST_FIRST_PREFIX = "earliestFirst:";
 
     // DateIntervalInfo cache
-    private final static ICUCache<String, DateIntervalInfo> DIICACHE = new SimpleCache<String, DateIntervalInfo>();
+    private final static ICUCache<String, DateIntervalInfo> DIICACHE = new SimpleCache<>();
 
 
     // default interval pattern on the skeleton, {0} - {1}
@@ -340,7 +337,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
     @Deprecated
     public DateIntervalInfo()
     {
-        fIntervalPatterns = new HashMap<String, Map<String, PatternInfo>>();
+        fIntervalPatterns = new HashMap<>();
         fFallbackIntervalPattern = "{0} \u2013 {1}";
     }
 
@@ -561,7 +558,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
      */
     private void setup(ULocale locale) {
         int DEFAULT_HASH_SIZE = 19;
-        fIntervalPatterns = new HashMap<String, Map<String, PatternInfo>>(DEFAULT_HASH_SIZE);
+        fIntervalPatterns = new HashMap<>(DEFAULT_HASH_SIZE);
         // initialize to guard if there is no interval date format defined in
         // resource files
         fFallbackIntervalPattern = "{0} \u2013 {1}";
@@ -589,7 +586,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
             setFallbackIntervalPattern(fallbackPattern);
 
             // Already loaded calendar types
-            Set<String> loadedCalendarTypes = new HashSet<String>();
+            Set<String> loadedCalendarTypes = new HashSet<>();
 
             while (calendarTypeToUse != null) {
                 // Throw an exception when a loop is detected
@@ -766,7 +763,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         Map<String, PatternInfo> patternsOfOneSkeleton = fIntervalPatterns.get(skeleton);
         boolean emptyHash = false;
         if (patternsOfOneSkeleton == null) {
-            patternsOfOneSkeleton = new HashMap<String, PatternInfo>();
+            patternsOfOneSkeleton = new HashMap<>();
             emptyHash = true;
         }
         boolean order = fFirstDateInPtnIsLaterDate;
@@ -953,11 +950,11 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
 
     private static Map<String, Map<String, PatternInfo>> cloneIntervalPatterns(
             Map<String, Map<String, PatternInfo>> patterns) {
-        Map<String, Map<String, PatternInfo>> result = new HashMap<String, Map<String, PatternInfo>>();
+        Map<String, Map<String, PatternInfo>> result = new HashMap<>();
         for (Entry<String, Map<String, PatternInfo>> skeletonEntry : patterns.entrySet()) {
             String skeleton = skeletonEntry.getKey();
             Map<String, PatternInfo> patternsOfOneSkeleton = skeletonEntry.getValue();
-            Map<String, PatternInfo> oneSetPtn = new HashMap<String, PatternInfo>();
+            Map<String, PatternInfo> oneSetPtn = new HashMap<>();
             for (Entry<String, PatternInfo> calEntry : patternsOfOneSkeleton.entrySet()) {
                 String calField = calEntry.getKey();
                 PatternInfo value = calEntry.getValue();
@@ -1148,9 +1145,9 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
      */
     @Deprecated
     public Map<String,Set<String>> getPatterns() {
-        LinkedHashMap<String,Set<String>> result = new LinkedHashMap<String,Set<String>>();
+        LinkedHashMap<String,Set<String>> result = new LinkedHashMap<>();
         for (Entry<String, Map<String, PatternInfo>> entry : fIntervalPatterns.entrySet()) {
-            result.put(entry.getKey(), new LinkedHashSet<String>(entry.getValue().keySet()));
+            result.put(entry.getKey(), new LinkedHashSet<>(entry.getValue().keySet()));
         }
         return result;
     }
@@ -1163,9 +1160,9 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
      */
     @Deprecated
     public Map<String, Map<String, PatternInfo>> getRawPatterns() {
-        LinkedHashMap<String, Map<String, PatternInfo>> result = new LinkedHashMap<String, Map<String, PatternInfo>>();
+        LinkedHashMap<String, Map<String, PatternInfo>> result = new LinkedHashMap<>();
         for (Entry<String, Map<String, PatternInfo>> entry : fIntervalPatterns.entrySet()) {
-            result.put(entry.getKey(), new LinkedHashMap<String, PatternInfo>(entry.getValue()));
+            result.put(entry.getKey(), new LinkedHashMap<>(entry.getValue()));
         }
         return result;
     }

@@ -38,40 +38,60 @@ class HParamsTest(test.TestCase):
     self.assertFalse('bar' in hparams)
 
   def testSomeValues(self):
-    hparams = hparam.HParams(aaa=1, b=2.0, c_c='relu6')
-    self.assertDictEqual({'aaa': 1, 'b': 2.0, 'c_c': 'relu6'}, hparams.values())
-    expected_str = '[(\'aaa\', 1), (\'b\', 2.0), (\'c_c\', \'relu6\')]'
+    hparams = hparam.HParams(aaa=1, b=2.0, c_c='relu6', d='/a/b=c/d')
+    self.assertDictEqual(
+        {'aaa': 1, 'b': 2.0, 'c_c': 'relu6', 'd': '/a/b=c/d'},
+        hparams.values())
+    expected_str = ('[(\'aaa\', 1), (\'b\', 2.0), (\'c_c\', \'relu6\'), '
+                    '(\'d\', \'/a/b=c/d\')]')
     self.assertEqual(expected_str, str(hparams.__str__()))
     self.assertEqual(expected_str, str(hparams))
     self.assertEqual(1, hparams.aaa)
     self.assertEqual(2.0, hparams.b)
     self.assertEqual('relu6', hparams.c_c)
+    self.assertEqual('/a/b=c/d', hparams.d)
     hparams.parse('aaa=12')
     self.assertDictEqual({
         'aaa': 12,
         'b': 2.0,
-        'c_c': 'relu6'
+        'c_c': 'relu6',
+        'd': '/a/b=c/d'
     }, hparams.values())
     self.assertEqual(12, hparams.aaa)
     self.assertEqual(2.0, hparams.b)
     self.assertEqual('relu6', hparams.c_c)
+    self.assertEqual('/a/b=c/d', hparams.d)
     hparams.parse('c_c=relu4, b=-2.0e10')
     self.assertDictEqual({
         'aaa': 12,
         'b': -2.0e10,
-        'c_c': 'relu4'
+        'c_c': 'relu4',
+        'd': '/a/b=c/d'
     }, hparams.values())
     self.assertEqual(12, hparams.aaa)
     self.assertEqual(-2.0e10, hparams.b)
     self.assertEqual('relu4', hparams.c_c)
+    self.assertEqual('/a/b=c/d', hparams.d)
     hparams.parse('c_c=,b=0,')
-    self.assertDictEqual({'aaa': 12, 'b': 0, 'c_c': ''}, hparams.values())
+    self.assertDictEqual({'aaa': 12, 'b': 0, 'c_c': '', 'd': '/a/b=c/d'},
+                         hparams.values())
     self.assertEqual(12, hparams.aaa)
     self.assertEqual(0.0, hparams.b)
     self.assertEqual('', hparams.c_c)
+    self.assertEqual('/a/b=c/d', hparams.d)
     hparams.parse('c_c=2.3",b=+2,')
     self.assertEqual(2.0, hparams.b)
     self.assertEqual('2.3"', hparams.c_c)
+    hparams.parse('d=/a/b/c/d,aaa=11,')
+    self.assertEqual(11, hparams.aaa)
+    self.assertEqual(2.0, hparams.b)
+    self.assertEqual('2.3"', hparams.c_c)
+    self.assertEqual('/a/b/c/d', hparams.d)
+    hparams.parse('b=1.5,d=/a=b/c/d,aaa=10,')
+    self.assertEqual(10, hparams.aaa)
+    self.assertEqual(1.5, hparams.b)
+    self.assertEqual('2.3"', hparams.c_c)
+    self.assertEqual('/a=b/c/d', hparams.d)
     with self.assertRaisesRegexp(ValueError, 'Unknown hyperparameter'):
       hparams.parse('x=123')
     with self.assertRaisesRegexp(ValueError, 'Could not parse'):
@@ -84,17 +104,34 @@ class HParamsTest(test.TestCase):
       hparams.parse('b=relu')
     with self.assertRaisesRegexp(ValueError, 'Must not pass a list'):
       hparams.parse('aaa=[123]')
-    self.assertEqual(12, hparams.aaa)
-    self.assertEqual(2.0, hparams.b)
+    self.assertEqual(10, hparams.aaa)
+    self.assertEqual(1.5, hparams.b)
     self.assertEqual('2.3"', hparams.c_c)
+    self.assertEqual('/a=b/c/d', hparams.d)
     # Exports to proto.
     hparam_def = hparams.to_proto()
     # Imports from proto.
     hparams2 = hparam.HParams(hparam_def=hparam_def)
     # Verifies that all hparams are restored.
-    self.assertEqual(12, hparams2.aaa)
-    self.assertEqual(2.0, hparams2.b)
+    self.assertEqual(10, hparams2.aaa)
+    self.assertEqual(1.5, hparams2.b)
     self.assertEqual('2.3"', hparams2.c_c)
+    self.assertEqual('/a=b/c/d', hparams2.d)
+
+  def testWithPeriodInVariableName(self):
+    hparams = hparam.HParams()
+    hparams.add_hparam(name='a.b', value=0.0)
+    hparams.parse('a.b=1.0')
+    self.assertEqual(1.0, getattr(hparams, 'a.b'))
+    hparams.add_hparam(name='c.d', value=0.0)
+    with self.assertRaisesRegexp(ValueError, 'Could not parse'):
+      hparams.parse('c.d=abc')
+    hparams.add_hparam(name='e.f', value='')
+    hparams.parse('e.f=abc')
+    self.assertEqual('abc', getattr(hparams, 'e.f'))
+    hparams.add_hparam(name='d..', value=0.0)
+    hparams.parse('d..=10.0')
+    self.assertEqual(10.0, getattr(hparams, 'd..'))
 
   def testSetFromMap(self):
     hparams = hparam.HParams(a=1, b=2.0, c='tanh')
@@ -179,9 +216,25 @@ class HParamsTest(test.TestCase):
     self.assertTrue(isinstance(parse_dict['arr'], dict))
     self.assertDictEqual(parse_dict['arr'], {1: 10})
 
+  def testParseValuesWithIndexAssigment1_IgnoreUnknown(self):
+    """Assignment to an index position."""
+    parse_dict = hparam.parse_values(
+        'arr[1]=10,b=5', {'arr': int}, ignore_unknown=True)
+    self.assertEqual(len(parse_dict), 1)
+    self.assertTrue(isinstance(parse_dict['arr'], dict))
+    self.assertDictEqual(parse_dict['arr'], {1: 10})
+
   def testParseValuesWithIndexAssigment2(self):
     """Assignment to multiple index positions."""
     parse_dict = hparam.parse_values('arr[0]=10,arr[5]=20', {'arr': int})
+    self.assertEqual(len(parse_dict), 1)
+    self.assertTrue(isinstance(parse_dict['arr'], dict))
+    self.assertDictEqual(parse_dict['arr'], {0: 10, 5: 20})
+
+  def testParseValuesWithIndexAssigment2_IgnoreUnknown(self):
+    """Assignment to multiple index positions."""
+    parse_dict = hparam.parse_values(
+        'arr[0]=10,arr[5]=20,foo=bar', {'arr': int}, ignore_unknown=True)
     self.assertEqual(len(parse_dict), 1)
     self.assertTrue(isinstance(parse_dict['arr'], dict))
     self.assertDictEqual(parse_dict['arr'], {0: 10, 5: 20})
@@ -197,12 +250,34 @@ class HParamsTest(test.TestCase):
     self.assertTrue(isinstance(parse_dict['L'], dict))
     self.assertDictEqual(parse_dict['L'], {5: 100, 10: 200})
 
+  def testParseValuesWithIndexAssigment3_IgnoreUnknown(self):
+    """Assignment to index positions in multiple names."""
+    parse_dict = hparam.parse_values(
+        'arr[0]=10,C=5,arr[1]=20,B[0]=kkk,L[5]=100,L[10]=200',
+        {'arr': int, 'L': int}, ignore_unknown=True)
+    self.assertEqual(len(parse_dict), 2)
+    self.assertTrue(isinstance(parse_dict['arr'], dict))
+    self.assertDictEqual(parse_dict['arr'], {0: 10, 1: 20})
+    self.assertTrue(isinstance(parse_dict['L'], dict))
+    self.assertDictEqual(parse_dict['L'], {5: 100, 10: 200})
+
   def testParseValuesWithIndexAssigment4(self):
     """Assignment of index positions and scalars."""
     parse_dict = hparam.parse_values('x=10,arr[1]=20,y=30',
                                      {'x': int,
                                       'y': int,
                                       'arr': int})
+    self.assertEqual(len(parse_dict), 3)
+    self.assertTrue(isinstance(parse_dict['arr'], dict))
+    self.assertDictEqual(parse_dict['arr'], {1: 20})
+    self.assertEqual(parse_dict['x'], 10)
+    self.assertEqual(parse_dict['y'], 30)
+
+  def testParseValuesWithIndexAssigment4_IgnoreUnknown(self):
+    """Assignment of index positions and scalars."""
+    parse_dict = hparam.parse_values(
+        'x=10,foo[0]=bar,arr[1]=20,zzz=78,y=30',
+        {'x': int, 'y': int, 'arr': int}, ignore_unknown=True)
     self.assertEqual(len(parse_dict), 3)
     self.assertTrue(isinstance(parse_dict['arr'], dict))
     self.assertDictEqual(parse_dict['arr'], {1: 20})
@@ -227,11 +302,34 @@ class HParamsTest(test.TestCase):
     self.assertTrue(isinstance(parse_dict['d'], dict))
     self.assertDictEqual(parse_dict['d'], {3: 3.14})
 
+  def testParseValuesWithIndexAssigment5_IgnoreUnknown(self):
+    """Different variable types."""
+    parse_dict = hparam.parse_values(
+        'a[0]=5,cc=4,b[1]=true,c[2]=abc,mm=2,d[3]=3.14',
+        {'a': int, 'b': bool, 'c': str, 'd': float},
+        ignore_unknown=True)
+    self.assertEqual(set(parse_dict.keys()), {'a', 'b', 'c', 'd'})
+    self.assertTrue(isinstance(parse_dict['a'], dict))
+    self.assertDictEqual(parse_dict['a'], {0: 5})
+    self.assertTrue(isinstance(parse_dict['b'], dict))
+    self.assertDictEqual(parse_dict['b'], {1: True})
+    self.assertTrue(isinstance(parse_dict['c'], dict))
+    self.assertDictEqual(parse_dict['c'], {2: 'abc'})
+    self.assertTrue(isinstance(parse_dict['d'], dict))
+    self.assertDictEqual(parse_dict['d'], {3: 3.14})
+
   def testParseValuesWithBadIndexAssigment1(self):
     """Reject assignment of list to variable type."""
     with self.assertRaisesRegexp(ValueError,
                                  r'Assignment of a list to a list index.'):
       hparam.parse_values('arr[1]=[1,2,3]', {'arr': int})
+
+  def testParseValuesWithBadIndexAssigment1_IgnoreUnknown(self):
+    """Reject assignment of list to variable type."""
+    with self.assertRaisesRegexp(ValueError,
+                                 r'Assignment of a list to a list index.'):
+      hparam.parse_values(
+          'arr[1]=[1,2,3],c=8', {'arr': int}, ignore_unknown=True)
 
   def testParseValuesWithBadIndexAssigment2(self):
     """Reject if type missing."""
@@ -239,11 +337,19 @@ class HParamsTest(test.TestCase):
                                  r'Unknown hyperparameter type for arr'):
       hparam.parse_values('arr[1]=5', {})
 
+  def testParseValuesWithBadIndexAssigment2_IgnoreUnknown(self):
+    """Ignore missing type."""
+    hparam.parse_values('arr[1]=5', {}, ignore_unknown=True)
+
   def testParseValuesWithBadIndexAssigment3(self):
     """Reject type of the form name[index]."""
     with self.assertRaisesRegexp(ValueError,
                                  'Unknown hyperparameter type for arr'):
       hparam.parse_values('arr[1]=1', {'arr[1]': int})
+
+  def testParseValuesWithBadIndexAssigment3_IgnoreUnknown(self):
+    """Ignore type of the form name[index]."""
+    hparam.parse_values('arr[1]=1', {'arr[1]': int}, ignore_unknown=True)
 
   def testWithReusedVariables(self):
     with self.assertRaisesRegexp(ValueError,
@@ -416,6 +522,22 @@ class HParamsTest(test.TestCase):
     self.assertEqual(None, hparams.get('unknown'))
     self.assertEqual(123, hparams.get('unknown', 123))
     self.assertEqual([1, 2, 3], hparams.get('unknown', [1, 2, 3]))
+
+  def testDel(self):
+    hparams = hparam.HParams(aaa=1, b=2.0)
+
+    with self.assertRaises(ValueError):
+      hparams.set_hparam('aaa', 'will fail')
+
+    with self.assertRaises(ValueError):
+      hparams.add_hparam('aaa', 'will fail')
+
+    hparams.del_hparam('aaa')
+    hparams.add_hparam('aaa', 'will work')
+    self.assertEqual('will work', hparams.get('aaa'))
+
+    hparams.set_hparam('aaa', 'still works')
+    self.assertEqual('still works', hparams.get('aaa'))
 
 
 if __name__ == '__main__':

@@ -12,6 +12,8 @@ extern "C" {
 
 #include "cras_dsp_ini.h"
 
+#define MAX_EXT_DSP_PORTS 8
+
 /* Holds the functions we can use on a dsp module. */
 struct dsp_module {
 	/* Opaque data used by the implementation of this module */
@@ -70,9 +72,48 @@ struct dsp_module {
 	void (*dump)(struct dsp_module *mod, struct dumper *d);
 };
 
+
+/* An external module interface working with existing dsp pipeline.
+ * __________  ___________        ____________      __________
+ * |        |  |         |        |          |      |        |
+ * |        |->| dsp mod |-> ...->| dsp mod  | ---> |        |
+ * | device |  |_________|        |__________|      | stream |
+ * |        |                      | ___________    |        |
+ * |        |                      | | ext     |    |        |
+ * |        |                      ->| dsp mod | -> |        |
+ * |________|                        |_________|    |________|
+ *
+ * According to above diagram, an ext_dsp_module works by appending to
+ * the sink of existing dsp pipeline. For audio input, this creates a
+ * multiple output pipeline that stream can read processed buffer from.
+ * This is useful for a stream to apply special processing effects while
+ * sharing the common dsp with the other streams.
+ *
+ * Members:
+ *    ports - A list of ports can connect to existing dsp ports in a pipeline.
+ *    run - Processes |nframes| of data.
+ *    configure - Configures given external dsp module by the device buffer
+ *        size, rate, and number of channels of the format of the device that
+ *        the associated pipeline runs for.
+ */
+struct ext_dsp_module {
+	float *ports[MAX_EXT_DSP_PORTS];
+	void (*run)(struct ext_dsp_module *ext,
+		    unsigned int nframes);
+	void (*configure)(struct ext_dsp_module *ext,
+			  unsigned int buffer_size,
+			  unsigned int num_channels,
+			  unsigned int rate);
+};
+
+
 enum {
 	MODULE_INPLACE_BROKEN = 1  /* See ladspa.h for explanation */
 };
+
+/* Connects an external dsp module to a builtin sink module. */
+void cras_dsp_module_set_sink_ext_module(struct dsp_module *module,
+					 struct ext_dsp_module *ext_module);
 
 struct dsp_module *cras_dsp_module_load_ladspa(struct plugin *plugin);
 struct dsp_module *cras_dsp_module_load_builtin(struct plugin *plugin);

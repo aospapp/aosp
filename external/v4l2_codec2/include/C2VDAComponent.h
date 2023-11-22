@@ -5,6 +5,7 @@
 #ifndef ANDROID_C2_VDA_COMPONENT_H
 #define ANDROID_C2_VDA_COMPONENT_H
 
+#include <C2VDACommon.h>
 #include <VideoDecodeAcceleratorAdaptor.h>
 
 #include <rect.h>
@@ -47,8 +48,22 @@ public:
         c2_status_t status() const { return mInitStatus; }
         media::VideoCodecProfile getCodecProfile() const { return mCodecProfile; }
         C2BlockPool::local_id_t getBlockPoolId() const { return mOutputBlockPoolIds->m.values[0]; }
+        InputCodec getInputCodec() const { return mInputCodec; }
 
     private:
+        // Configurable parameter setters.
+        static C2R ProfileLevelSetter(bool mayBlock, C2P<C2StreamProfileLevelInfo::input>& info);
+
+        static C2R SizeSetter(bool mayBlock, C2P<C2StreamPictureSizeInfo::output>& videoSize);
+
+        template <typename T>
+        static C2R DefaultColorAspectsSetter(bool mayBlock, C2P<T>& def);
+
+        static C2R MergedColorAspectsSetter(bool mayBlock,
+                                            C2P<C2StreamColorAspectsInfo::output>& merged,
+                                            const C2P<C2StreamColorAspectsTuning::output>& def,
+                                            const C2P<C2StreamColorAspectsInfo::input>& coded);
+
         // The input format kind; should be C2FormatCompressed.
         std::shared_ptr<C2StreamBufferTypeSetting::input> mInputFormat;
         // The output format kind; should be C2FormatVideo.
@@ -57,17 +72,37 @@ public:
         std::shared_ptr<C2PortMediaTypeSetting::input> mInputMediaType;
         // The MIME type of output port; should be MEDIA_MIMETYPE_VIDEO_RAW.
         std::shared_ptr<C2PortMediaTypeSetting::output> mOutputMediaType;
+        // The input codec profile and level. For now configuring this parameter is useless since
+        // the component always uses fixed codec profile to initialize accelerator. It is only used
+        // for the client to query supported profile and level values.
+        // TODO: use configured profile/level to initialize accelerator.
+        std::shared_ptr<C2StreamProfileLevelInfo::input> mProfileLevel;
         // Decoded video size for output.
         std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
+        // Maximum size of one input buffer.
+        std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mMaxInputSize;
         // The suggested usage of input buffer allocator ID.
         std::shared_ptr<C2PortAllocatorsTuning::input> mInputAllocatorIds;
         // The suggested usage of output buffer allocator ID.
         std::shared_ptr<C2PortAllocatorsTuning::output> mOutputAllocatorIds;
+        // The suggested usage of output buffer allocator ID with surface.
+        std::shared_ptr<C2PortSurfaceAllocatorTuning::output> mOutputSurfaceAllocatorId;
         // Compnent uses this ID to fetch corresponding output block pool from platform.
         std::shared_ptr<C2PortBlockPoolsTuning::output> mOutputBlockPoolIds;
+        // The color aspects parsed from input bitstream. This parameter should be configured by
+        // component while decoding.
+        std::shared_ptr<C2StreamColorAspectsInfo::input> mCodedColorAspects;
+        // The default color aspects specified by requested output format. This parameter should be
+        // configured by client.
+        std::shared_ptr<C2StreamColorAspectsTuning::output> mDefaultColorAspects;
+        // The combined color aspects by |mCodedColorAspects| and |mDefaultColorAspects|, and the
+        // former has higher priority. This parameter is used for component to provide color aspects
+        // as C2Info in decoded output buffers.
+        std::shared_ptr<C2StreamColorAspectsInfo::output> mColorAspects;
 
         c2_status_t mInitStatus;
         media::VideoCodecProfile mCodecProfile;
+        InputCodec mInputCodec;
     };
 
     C2VDAComponent(C2String name, c2_node_id_t id,
@@ -132,10 +167,6 @@ private:
         ERROR,
     };
 
-    enum {
-        kDpbOutputBufferExtraCount = 3,  // Use the same number as ACodec.
-    };
-
     // This constant is used to tell apart from drain_mode_t enumerations in C2Component.h, which
     // means no drain request.
     // Note: this value must be different than all enumerations in drain_mode_t.
@@ -155,14 +186,19 @@ private:
             OWNED_BY_CLIENT,       // Owned by client.
         };
 
+        // The ID of this block used for accelerator.
         int32_t mBlockId = -1;
+        // The ID of this block used in block pool. It indicates slot index for bufferqueue-backed
+        // block pool, and buffer ID of BufferPoolData for bufferpool block pool.
+        uint32_t mPoolId = 0;
         State mState = State::OWNED_BY_COMPONENT;
-        // Graphic block buffer allocated from allocator. This should be reused.
+        // Graphic block buffer allocated from allocator. The graphic block should be owned until
+        // it is passed to client.
         std::shared_ptr<C2GraphicBlock> mGraphicBlock;
         // HAL pixel format used while importing to VDA.
         HalPixelFormat mPixelFormat;
         // The handle dupped from graphic block for importing to VDA.
-        base::ScopedFD mHandle;
+        ::base::ScopedFD mHandle;
         // VideoFramePlane information for importing to VDA.
         std::vector<VideoFramePlane> mPlanes;
     };
@@ -178,12 +214,15 @@ private:
                     media::Rect visibleRect);
     };
 
-    // Used as the release callback for C2VDAGraphicBuffer to get back the output buffer.
-    void returnOutputBuffer(int32_t pictureBufferId);
+    // Internal struct for the information of output buffer returned from the accelerator.
+    struct OutputBufferInfo {
+        int32_t mBitstreamId;
+        int32_t mBlockId;
+    };
 
     // These tasks should be run on the component thread |mThread|.
     void onDestroy();
-    void onStart(media::VideoCodecProfile profile, base::WaitableEvent* done);
+    void onStart(media::VideoCodecProfile profile, ::base::WaitableEvent* done);
     void onQueueWork(std::unique_ptr<C2Work> work);
     void onDequeueWork();
     void onInputBufferDone(int32_t bitstreamId);
@@ -191,41 +230,70 @@ private:
     void onDrain(uint32_t drainMode);
     void onDrainDone();
     void onFlush();
-    void onStop(base::WaitableEvent* done);
+    void onStop(::base::WaitableEvent* done);
     void onResetDone();
     void onFlushDone();
     void onStopDone();
     void onOutputFormatChanged(std::unique_ptr<VideoFormat> format);
     void onVisibleRectChanged(const media::Rect& cropRect);
-    void onOutputBufferReturned(int32_t pictureBufferId);
+    void onOutputBufferReturned(std::shared_ptr<C2GraphicBlock> block, uint32_t poolId);
+    void onSurfaceChanged();
 
     // Send input buffer to accelerator with specified bitstream id.
     void sendInputBufferToAccelerator(const C2ConstLinearBlock& input, int32_t bitstreamId);
-    // Send output buffer to accelerator.
-    void sendOutputBufferToAccelerator(GraphicBlockInfo* info);
+    // Send output buffer to accelerator. If |passToAccelerator|, change the ownership to
+    // OWNED_BY_ACCELERATOR of this buffer.
+    void sendOutputBufferToAccelerator(GraphicBlockInfo* info, bool passToAccelerator);
     // Set crop rectangle infomation to output format.
     void setOutputFormatCrop(const media::Rect& cropRect);
     // Helper function to get the specified GraphicBlockInfo object by its id.
     GraphicBlockInfo* getGraphicBlockById(int32_t blockId);
-    // Helper function to get the specified work in mPendingWorks by bitstream id.
+    // Helper function to get the specified GraphicBlockInfo object by its pool id.
+    GraphicBlockInfo* getGraphicBlockByPoolId(uint32_t poolId);
+    // Helper function to find the work iterator in |mPendingWorks| by bitstream id.
+    std::deque<std::unique_ptr<C2Work>>::iterator findPendingWorkByBitstreamId(int32_t bitstreamId);
+    // Helper function to get the specified work in |mPendingWorks| by bitstream id.
     C2Work* getPendingWorkByBitstreamId(int32_t bitstreamId);
     // Try to apply the output format change.
     void tryChangeOutputFormat();
     // Allocate output buffers (graphic blocks) from block allocator.
     c2_status_t allocateBuffersFromBlockAllocator(const media::Size& size, uint32_t pixelFormat);
-    // Append allocated buffer (graphic block) to mGraphicBlocks.
-    void appendOutputBuffer(std::shared_ptr<C2GraphicBlock> block);
+    // Append allocated buffer (graphic block) to |mGraphicBlocks|.
+    void appendOutputBuffer(std::shared_ptr<C2GraphicBlock> block, uint32_t poolId);
+    // Append allocated buffer (graphic block) to |mGraphicBlocks| in secure mode.
+    void appendSecureOutputBuffer(std::shared_ptr<C2GraphicBlock> block, uint32_t poolId);
+    // Parse coded color aspects from bitstream and configs parameter if applicable.
+    bool parseCodedColorAspects(const C2ConstLinearBlock& input);
+    // Update color aspects for current output buffer.
+    c2_status_t updateColorAspects();
+    // Dequeue |mPendingBuffersToWork| to put output buffer to corresponding work and report if
+    // finished as many as possible. If |dropIfUnavailable|, drop all pending existing frames
+    // without blocking.
+    void sendOutputBufferToWorkIfAny(bool dropIfUnavailable);
+    // Update |mUndequeuedBlockIds| FIFO by pushing |blockId|.
+    void updateUndequeuedBlockIds(int32_t blockId);
 
-    // Check for finished works in mPendingWorks. If any, make onWorkDone call to listener.
-    void reportFinishedWorkIfAny();
-    // Make onWorkDone call to listener for reporting EOS work in mPendingWorks.
+    // Check if the corresponding work is finished by |bitstreamId|. If yes, make onWorkDone call to
+    // listener and erase the work from |mPendingWorks|.
+    void reportWorkIfFinished(int32_t bitstreamId);
+    // Make onWorkDone call to listener for reporting EOS work in |mPendingWorks|.
     void reportEOSWork();
-    // Abandon all works in mPendingWorks.
+    // Abandon all works in |mPendingWorks| and |mAbandonedWorks|.
     void reportAbandonedWorks();
     // Make onError call to listener for reporting errors.
     void reportError(c2_status_t error);
     // Helper function to determine if the work is finished.
     bool isWorkDone(const C2Work* work) const;
+
+    // Start dequeue thread, return true on success. If |resetBuffersInClient|, reset the counter
+    // |mBuffersInClient| on start.
+    bool startDequeueThread(const media::Size& size, uint32_t pixelFormat,
+                            std::shared_ptr<C2BlockPool> blockPool, bool resetBuffersInClient);
+    // Stop dequeue thread.
+    void stopDequeueThread();
+    // The rountine task running on dequeue thread.
+    void dequeueThreadLoop(const media::Size& size, uint32_t pixelFormat,
+                           std::shared_ptr<C2BlockPool> blockPool);
 
     // The pointer of component interface implementation.
     std::shared_ptr<IntfImpl> mIntfImpl;
@@ -235,9 +303,16 @@ private:
     std::shared_ptr<Listener> mListener;
 
     // The main component thread.
-    base::Thread mThread;
+    ::base::Thread mThread;
     // The task runner on component thread.
-    scoped_refptr<base::SingleThreadTaskRunner> mTaskRunner;
+    scoped_refptr<::base::SingleThreadTaskRunner> mTaskRunner;
+
+    // The dequeue buffer loop thread.
+    ::base::Thread mDequeueThread;
+    // The stop signal for dequeue loop which should be atomic (toggled by main thread).
+    std::atomic<bool> mDequeueLoopStop;
+    // The count of buffers owned by client which should be atomic.
+    std::atomic<uint32_t> mBuffersInClient;
 
     // The following members should be utilized on component thread |mThread|.
 
@@ -247,12 +322,13 @@ private:
     std::unique_ptr<VideoDecodeAcceleratorAdaptor> mVDAAdaptor;
     // The done event pointer of stop procedure. It should be restored in onStop() and signaled in
     // onStopDone().
-    base::WaitableEvent* mStopDoneEvent;
+    ::base::WaitableEvent* mStopDoneEvent;
     // The state machine on component thread.
     ComponentState mComponentState;
-    // The indicator of drain mode (true for draining with EOS). This should be always set along
-    // with component going to DRAINING state, and only regarded under DRAINING state.
-    bool mDrainWithEOS;
+    // The indicator of draining with EOS. This should be always set along with component going to
+    // DRAINING state, and will be unset either after reportEOSWork() (EOS is outputted), or
+    // reportAbandonedWorks() (drain is cancelled and works are abandoned).
+    bool mPendingOutputEOS;
     // The vector of storing allocated output graphic block information.
     std::vector<GraphicBlockInfo> mGraphicBlocks;
     // The work queue. Works are queued along with drain mode from component API queue_nb and
@@ -261,6 +337,9 @@ private:
     // Store all pending works. The dequeued works are placed here until they are finished and then
     // sent out by onWorkDone call to listener.
     std::deque<std::unique_ptr<C2Work>> mPendingWorks;
+    // Store all abandoned works. When component gets flushed/stopped, remaining works in queue are
+    // dumped here and sent out by onWorkDone call to listener after flush/stop is finished.
+    std::vector<std::unique_ptr<C2Work>> mAbandonedWorks;
     // Store the visible rect provided from VDA. If this is changed, component should issue a
     // visible size change event.
     media::Rect mRequestedVisibleRect;
@@ -269,11 +348,25 @@ private:
     // The pending output format. We need to wait until all buffers are returned back to apply the
     // format change.
     std::unique_ptr<VideoFormat> mPendingOutputFormat;
-    // Record the timestamp of the last output buffer. This is used to determine if the work is
-    // finished.
-    int64_t mLastOutputTimestamp;
-    // The pointer of output block pool.
-    std::shared_ptr<C2BlockPool> mOutputBlockPool;
+    // The color aspects parameter for current decoded output buffers.
+    std::shared_ptr<C2StreamColorAspectsInfo::output> mCurrentColorAspects;
+    // The flag of pending color aspects change. This should be set once we have parsed color
+    // aspects from bitstream by parseCodedColorAspects(), at the same time recorded input frame
+    // index into |mPendingColorAspectsChangeFrameIndex|.
+    // When this flag is true and the corresponding frame index is not less than
+    // |mPendingColorAspectsChangeFrameIndex| for the output buffer in onOutputBufferDone(), update
+    // |mCurrentColorAspects| from component interface and reset the flag.
+    bool mPendingColorAspectsChange;
+    // The record of frame index to update color aspects. Details as above.
+    uint64_t mPendingColorAspectsChangeFrameIndex;
+    // The record of bitstream and block ID of pending output buffers returned from accelerator.
+    std::deque<OutputBufferInfo> mPendingBuffersToWork;
+    // A FIFO queue to record the block IDs which are currently undequequed for display. The size
+    // of this queue will be equal to the minimum number of undequeued buffers.
+    std::deque<int32_t> mUndequeuedBlockIds;
+
+    // The indicator of whether component is in secure mode.
+    bool mSecureMode;
 
     // The following members should be utilized on parent thread.
 
@@ -285,7 +378,7 @@ private:
     std::mutex mStartStopLock;
 
     // The WeakPtrFactory for getting weak pointer of this.
-    base::WeakPtrFactory<C2VDAComponent> mWeakThisFactory;
+    ::base::WeakPtrFactory<C2VDAComponent> mWeakThisFactory;
 
     DISALLOW_COPY_AND_ASSIGN(C2VDAComponent);
 };

@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -101,6 +101,8 @@ extern WandExport MagickBooleanType
   MagickCharcoalImage(MagickWand *,const double,const double),
   MagickChopImage(MagickWand *,const size_t,const size_t,const ssize_t,
     const ssize_t),
+  MagickCLAHEImage(MagickWand *,const size_t,const size_t,const double,
+    const double),
   MagickClampImage(MagickWand *),
   MagickClipImage(MagickWand *),
   MagickClipImagePath(MagickWand *,const char *,const MagickBooleanType),
@@ -111,8 +113,8 @@ extern WandExport MagickBooleanType
   MagickCommentImage(MagickWand *,const char *),
   MagickCompositeImage(MagickWand *,const MagickWand *,const CompositeOperator,
     const MagickBooleanType,const ssize_t,const ssize_t),
-  MagickCompositeImageGravity(MagickWand *,const MagickWand *,const CompositeOperator,
-    const GravityType),
+  MagickCompositeImageGravity(MagickWand *,const MagickWand *,
+    const CompositeOperator,const GravityType),
   MagickCompositeLayers(MagickWand *,const MagickWand *,const CompositeOperator,
     const ssize_t,const ssize_t),
   MagickConstituteImage(MagickWand *,const size_t,const size_t,const char *,
@@ -153,7 +155,6 @@ extern WandExport MagickBooleanType
   MagickGammaImage(MagickWand *,const double),
   MagickGaussianBlurImage(MagickWand *,const double,const double),
   MagickGetImageAlphaChannel(MagickWand *),
-  MagickGetImageAlphaColor(MagickWand *,PixelWand *),
   MagickGetImageBackgroundColor(MagickWand *,PixelWand *),
   MagickGetImageBluePrimary(MagickWand *,double *,double *,double *),
   MagickGetImageBorderColor(MagickWand *,PixelWand *),
@@ -165,6 +166,7 @@ extern WandExport MagickBooleanType
     double *),
   MagickGetImageGreenPrimary(MagickWand *,double *,double *,double *),
   MagickGetImageLength(MagickWand *,MagickSizeType *),
+  MagickGetImageMatteColor(MagickWand *,PixelWand *),
   MagickGetImagePage(MagickWand *,size_t *,size_t *,ssize_t *,
     ssize_t *),
   MagickGetImagePixelColor(MagickWand *,const ssize_t,const ssize_t,
@@ -245,7 +247,6 @@ extern WandExport MagickBooleanType
   MagickSetImage(MagickWand *,const MagickWand *),
   MagickSetImageAlpha(MagickWand *,const double),
   MagickSetImageAlphaChannel(MagickWand *,const AlphaChannelOption),
-  MagickSetImageAlphaColor(MagickWand *,const PixelWand *),
   MagickSetImageBackgroundColor(MagickWand *,const PixelWand *),
   MagickSetImageBluePrimary(MagickWand *,const double,const double,
     const double),
@@ -273,6 +274,7 @@ extern WandExport MagickBooleanType
   MagickSetImageInterpolateMethod(MagickWand *,const PixelInterpolateMethod),
   MagickSetImageIterations(MagickWand *,const size_t),
   MagickSetImageMatte(MagickWand *,const MagickBooleanType),
+  MagickSetImageMatteColor(MagickWand *,const PixelWand *),
   MagickSetImageOrientation(MagickWand *,const OrientationType),
   MagickSetImagePage(MagickWand *,const size_t,const size_t,const ssize_t,
     const ssize_t),

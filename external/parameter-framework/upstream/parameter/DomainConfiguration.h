@@ -92,7 +92,7 @@ public:
      * @return true if success false otherwise
      */
     bool restore(CParameterBlackboard *pMainBlackboard, bool bSync,
-                 core::Results *errors = NULL) const;
+                 core::Results *errors = nullptr) const;
 
     // Ensure validity for configurable element area configuration
     void validate(const CConfigurableElement *pConfigurableElement,
@@ -122,7 +122,7 @@ public:
                          CXmlDomainExportContext &context) const;
 
     // Class kind
-    virtual std::string getKind() const;
+    std::string getKind() const override;
 
 private:
     using AreaConfiguration = std::unique_ptr<CAreaConfiguration>;
@@ -130,7 +130,7 @@ private:
 
     // Returns true if children dynamic creation is to be dealt with (here, will allow child
     // deletion upon clean)
-    virtual bool childrenAreDynamic() const;
+    bool childrenAreDynamic() const override;
     // XML configuration settings serializing
     bool importOneConfigurableElementSettings(CAreaConfiguration *areaConfiguration,
                                               CXmlElement &xmlConfigurableElementSettingsElement,

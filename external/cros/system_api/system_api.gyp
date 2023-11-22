@@ -35,6 +35,7 @@
         'proto_out_dir': 'include/power_manager/proto_bindings',
       },
       'sources': [
+        '<(proto_in_dir)/backlight.proto',
         '<(proto_in_dir)/idle.proto',
         '<(proto_in_dir)/input_event.proto',
         '<(proto_in_dir)/peripheral_battery_status.proto',
@@ -53,6 +54,7 @@
         'system_api-power_manager-protos-gen',
       ],
       'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/include/power_manager/proto_bindings/backlight.pb.cc',
         '<(SHARED_INTERMEDIATE_DIR)/include/power_manager/proto_bindings/idle.pb.cc',
         '<(SHARED_INTERMEDIATE_DIR)/include/power_manager/proto_bindings/input_event.pb.cc',
         '<(SHARED_INTERMEDIATE_DIR)/include/power_manager/proto_bindings/peripheral_battery_status.pb.cc',
@@ -190,6 +192,29 @@
       ]
     },
     {
+      'target_name': 'system_api-metrics_event-protos-gen',
+      'type': 'none',
+      'variables': {
+        'proto_in_dir': 'dbus/metrics_event',
+        'proto_out_dir': 'include/metrics_event/proto_bindings',
+      },
+      'sources': [
+        '<(proto_in_dir)/metrics_event.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-metrics_event-protos',
+      'type': 'static_library',
+      'standalone_static_library': 1,
+      'dependencies': [
+        'system_api-metrics_event-protos-gen',
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/include/metrics_event/proto_bindings/metrics_event.pb.cc',
+      ]
+    },
+    {
       'target_name': 'system_api-smbprovider-protos-gen',
       'type': 'none',
       'variables': {
@@ -213,11 +238,60 @@
       ]
     },
     {
+      'target_name': 'system_api-vm_cicerone-protos-gen',
+      'type': 'none',
+      'variables': {
+        'proto_in_dir': 'dbus/vm_cicerone',
+        'proto_out_dir': 'include/vm_cicerone/proto_bindings',
+      },
+      'sources': [
+        '<(proto_in_dir)/cicerone_service.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-vm_cicerone-goprotos-gen',
+      'type': 'none',
+      'variables': {
+        'gen_go': 1,
+        'proto_in_dir': 'dbus/vm_cicerone',
+        'proto_out_dir': 'go/src/chromiumos/system_api/vm_cicerone_proto',
+      },
+      'sources': [
+        '<(proto_in_dir)/cicerone_service.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-vm_cicerone-protos',
+      'type': 'static_library',
+      'standalone_static_library': 1,
+      'dependencies': [
+        'system_api-vm_cicerone-protos-gen',
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/include/vm_cicerone/proto_bindings/cicerone_service.pb.cc',
+      ]
+    },
+    {
       'target_name': 'system_api-vm_concierge-protos-gen',
       'type': 'none',
       'variables': {
         'proto_in_dir': 'dbus/vm_concierge',
         'proto_out_dir': 'include/vm_concierge/proto_bindings',
+      },
+      'sources': [
+        '<(proto_in_dir)/service.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-vm_concierge-goprotos-gen',
+      'type': 'none',
+      'variables': {
+        'gen_go': 1,
+        'proto_in_dir': 'dbus/vm_concierge',
+        'proto_out_dir': 'go/src/chromiumos/system_api/vm_concierge_proto',
       },
       'sources': [
         '<(proto_in_dir)/service.proto',
@@ -235,5 +309,74 @@
         '<(SHARED_INTERMEDIATE_DIR)/include/vm_concierge/proto_bindings/service.pb.cc',
       ]
     },
-  ]
+    {
+      'target_name': 'system_api-vm_applications-protos-gen',
+      'type': 'none',
+      'variables': {
+        'proto_in_dir': 'dbus/vm_applications',
+        'proto_out_dir': 'include/vm_applications/proto_bindings',
+      },
+      'sources': [
+        '<(proto_in_dir)/apps.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-vm_applications-protos',
+      'type': 'static_library',
+      'standalone_static_library': 1,
+      'dependencies': [
+        'system_api-vm_applications-protos-gen',
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/include/vm_applications/proto_bindings/apps.pb.cc',
+      ]
+    },
+    {
+      'target_name': 'system_api-seneschal-protos-gen',
+      'type': 'none',
+      'variables': {
+        'proto_in_dir': 'dbus/seneschal',
+        'proto_out_dir': 'include/seneschal/proto_bindings',
+      },
+      'sources': [
+        '<(proto_in_dir)/seneschal_service.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-seneschal-protos',
+      'type': 'static_library',
+      'standalone_static_library': 1,
+      'dependencies': [
+        'system_api-seneschal-protos-gen',
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/include/seneschal/proto_bindings/seneschal_service.pb.cc',
+      ]
+    },
+    {
+      'target_name': 'system_api-oobe_config-protos-gen',
+      'type': 'none',
+      'variables': {
+        'proto_in_dir': 'dbus/oobe_config',
+        'proto_out_dir': 'include/oobe_config/proto_bindings',
+      },
+      'sources': [
+        '<(proto_in_dir)/oobe_config.proto',
+      ],
+      'includes': ['../../platform2/common-mk/protoc.gypi'],
+    },
+    {
+      'target_name': 'system_api-oobe_config-protos',
+      'type': 'static_library',
+      'standalone_static_library': 1,
+      'dependencies': [
+        'system_api-oobe_config-protos-gen',
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/include/oobe_config/proto_bindings/oobe_config.pb.cc',
+      ]
+    },
+  ],
 }

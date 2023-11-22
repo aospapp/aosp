@@ -38,6 +38,32 @@ static int wpas_mbo_validate_non_pref_chan(u8 oper_class, u8 chan, u8 reason)
 }
 
 
+const u8 * mbo_attr_from_mbo_ie(const u8 *mbo_ie, enum mbo_attr_id attr)
+{
+	const u8 *mbo;
+	u8 ie_len = mbo_ie[1];
+
+	if (ie_len < MBO_IE_HEADER - 2)
+		return NULL;
+	mbo = mbo_ie + MBO_IE_HEADER;
+
+	return get_ie(mbo, 2 + ie_len - MBO_IE_HEADER, attr);
+}
+
+
+const u8 * mbo_get_attr_from_ies(const u8 *ies, size_t ies_len,
+				 enum mbo_attr_id attr)
+{
+	const u8 *mbo_ie;
+
+	mbo_ie = get_vendor_ie(ies, ies_len, MBO_IE_VENDOR_TYPE);
+	if (!mbo_ie)
+		return NULL;
+
+	return mbo_attr_from_mbo_ie(mbo_ie, attr);
+}
+
+
 const u8 * wpas_mbo_get_bss_attr(struct wpa_bss *bss, enum mbo_attr_id attr)
 {
 	const u8 *mbo, *end;
@@ -72,6 +98,13 @@ static void wpas_mbo_non_pref_chan_attr_body(struct wpa_supplicant *wpa_s,
 }
 
 
+static void wpas_mbo_non_pref_chan_attr_hdr(struct wpabuf *mbo, size_t size)
+{
+	wpabuf_put_u8(mbo, MBO_ATTR_ID_NON_PREF_CHAN_REPORT);
+	wpabuf_put_u8(mbo, size); /* Length */
+}
+
+
 static void wpas_mbo_non_pref_chan_attr(struct wpa_supplicant *wpa_s,
 					struct wpabuf *mbo, u8 start, u8 end)
 {
@@ -80,9 +113,7 @@ static void wpas_mbo_non_pref_chan_attr(struct wpa_supplicant *wpa_s,
 	if (size + 2 > wpabuf_tailroom(mbo))
 		return;
 
-	wpabuf_put_u8(mbo, MBO_ATTR_ID_NON_PREF_CHAN_REPORT);
-	wpabuf_put_u8(mbo, size); /* Length */
-
+	wpas_mbo_non_pref_chan_attr_hdr(mbo, size);
 	wpas_mbo_non_pref_chan_attr_body(wpa_s, mbo, start, end);
 }
 
@@ -119,6 +150,8 @@ static void wpas_mbo_non_pref_chan_attrs(struct wpa_supplicant *wpa_s,
 	if (!wpa_s->non_pref_chan || !wpa_s->non_pref_chan_num) {
 		if (subelement)
 			wpas_mbo_non_pref_chan_subelem_hdr(mbo, 4);
+		else
+			wpas_mbo_non_pref_chan_attr_hdr(mbo, 0);
 		return;
 	}
 	start_pref = &wpa_s->non_pref_chan[0];
@@ -149,7 +182,8 @@ static void wpas_mbo_non_pref_chan_attrs(struct wpa_supplicant *wpa_s,
 }
 
 
-int wpas_mbo_ie(struct wpa_supplicant *wpa_s, u8 *buf, size_t len)
+int wpas_mbo_ie(struct wpa_supplicant *wpa_s, u8 *buf, size_t len,
+		int add_oce_capa)
 {
 	struct wpabuf *mbo;
 	int res;
@@ -175,7 +209,7 @@ int wpas_mbo_ie(struct wpa_supplicant *wpa_s, u8 *buf, size_t len)
 	wpabuf_put_u8(mbo, wpa_s->conf->mbo_cell_capa);
 
 	/* Add OCE capability indication attribute if OCE is enabled */
-	if (wpa_s->enable_oce & OCE_STA) {
+	if ((wpa_s->enable_oce & OCE_STA) && add_oce_capa) {
 		wpabuf_put_u8(mbo, OCE_ATTR_ID_CAPA_IND);
 		wpabuf_put_u8(mbo, 1);
 		wpabuf_put_u8(mbo, OCE_RELEASE);
@@ -241,6 +275,7 @@ static void wpas_mbo_non_pref_chan_changed(struct wpa_supplicant *wpa_s)
 	wpas_mbo_non_pref_chan_attrs(wpa_s, buf, 1);
 	wpas_mbo_send_wnm_notification(wpa_s, wpabuf_head_u8(buf),
 				       wpabuf_len(buf));
+	wpas_update_mbo_connect_params(wpa_s);
 	wpabuf_free(buf);
 }
 
@@ -266,10 +301,10 @@ static int wpa_non_pref_chan_cmp(const void *_a, const void *_b)
 	const struct wpa_mbo_non_pref_channel *a = _a, *b = _b;
 
 	if (a->oper_class != b->oper_class)
-		return a->oper_class - b->oper_class;
+		return (int) a->oper_class - (int) b->oper_class;
 	if (a->reason != b->reason)
-		return a->reason - b->reason;
-	return a->preference - b->preference;
+		return (int) a->reason - (int) b->reason;
+	return (int) a->preference - (int) b->preference;
 }
 
 
@@ -487,7 +522,7 @@ void wpas_mbo_ie_trans_req(struct wpa_supplicant *wpa_s, const u8 *mbo_ie,
 
 	if (disallowed_sec && wpa_s->current_bss)
 		wpa_bss_tmp_disallow(wpa_s, wpa_s->current_bss->bssid,
-				     disallowed_sec);
+				     disallowed_sec, 0);
 
 	return;
 fail:
@@ -531,6 +566,7 @@ void wpas_mbo_update_cell_capa(struct wpa_supplicant *wpa_s, u8 mbo_cell_capa)
 
 	wpas_mbo_send_wnm_notification(wpa_s, cell_capa, 7);
 	wpa_supplicant_set_default_scan_ies(wpa_s);
+	wpas_update_mbo_connect_params(wpa_s);
 }
 
 

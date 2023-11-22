@@ -29,6 +29,7 @@ py_library(
         "//tensorflow/python:platform",
         "//tensorflow/python:util",
         "//tensorflow/python:weights_broadcast_ops",
+        "//tensorflow/python/distribute:distribute_lib",
     ],
 )
 
@@ -42,16 +43,4 @@ py_test(
         "//tensorflow/python:client_testlib",
         "//tensorflow/python:framework_for_generated_wrappers",
     ],
-)
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
-    visibility = ["//tensorflow:__subpackages__"],
 )

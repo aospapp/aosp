@@ -19,6 +19,7 @@ import common
 from autotest_lib.client.bin.result_tools import utils as result_utils
 from autotest_lib.client.bin.result_tools import utils_lib as result_utils_lib
 from autotest_lib.client.bin.result_tools import view as result_view
+from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
@@ -191,11 +192,10 @@ def get_build_from_afe(hostname, afe):
              were multiple build labels assigned to this host.
 
     """
-    for prefix in [provision.CROS_VERSION_PREFIX,
-                   provision.ANDROID_BUILD_VERSION_PREFIX]:
-        build = get_label_from_afe(hostname, prefix + ':', afe)
-        if build:
-            return build
+    prefix = provision.CROS_VERSION_PREFIX
+    build = get_label_from_afe(hostname, prefix + ':', afe)
+    if build:
+        return build
     return None
 
 
@@ -340,6 +340,12 @@ def check_lab_status(build):
     _decode_lab_status(json_status, build)
 
 
+def host_in_lab(hostname):
+    return (not utils.in_moblab_ssp()
+            and not lsbrelease_utils.is_moblab()
+            and utils.host_is_in_lab_zone(hostname))
+
+
 def lock_host_with_labels(afe, lock_manager, labels):
     """Lookup and lock one host that matches the list of input labels.
 
@@ -450,6 +456,8 @@ def setup_logging(logfile=None, prefix=False):
     @param prefix: Flag for log prefix. Set to True to add prefix to log
         entries to include timestamp and log level. Default is False.
     """
+    # TODO (xixuan): Delete this code when finishing replacing run_suite.py &
+    # abort_suite.py in skylab.
     # Remove all existing handlers. client/common_lib/logging_config adds
     # a StreamHandler to logger when modules are imported, e.g.,
     # autotest_lib.client.bin.utils. A new StreamHandler will be added here to
@@ -677,31 +685,6 @@ def parse_job_name(name):
     return info
 
 
-def add_label_detector(label_function_list, label_list=None, label=None):
-    """Decorator used to group functions together into the provided list.
-
-    This is a helper function to automatically add label functions that have
-    the label decorator.  This is to help populate the class list of label
-    functions to be retrieved by the get_labels class method.
-
-    @param label_function_list: List of label detecting functions to add
-                                decorated function to.
-    @param label_list: List of detectable labels to add detectable labels to.
-                       (Default: None)
-    @param label: Label string that is detectable by this detection function
-                  (Default: None)
-    """
-    def add_func(func):
-        """
-        @param func: The function to be added as a detector.
-        """
-        label_function_list.append(func)
-        if label and label_list is not None:
-            label_list.append(label)
-        return func
-    return add_func
-
-
 def verify_not_root_user():
     """Simple function to error out if running with uid == 0"""
     if os.getuid() == 0:
@@ -762,20 +745,6 @@ def get_creds_abspath(creds_file):
     if not creds_dir or not os.path.exists(creds_dir):
         creds_dir = common.autotest_dir
     return os.path.join(creds_dir, creds_file)
-
-
-def machine_is_testbed(machine):
-    """Checks if the machine is a testbed.
-
-    The signal we use to determine if the machine is a testbed
-    is if the host attributes contain more than 1 serial.
-
-    @param machine: is a list of dicts
-
-    @return: True if the machine is a testbed, False otherwise.
-    """
-    _, afe_host = get_host_info_from_machine(machine)
-    return len(afe_host.attributes.get('serials', '').split(',')) > 1
 
 
 def SetupTsMonGlobalState(*args, **kwargs):
@@ -875,27 +844,6 @@ def lock_duts_and_wait(duts, afe, lock_msg='default lock message',
         yield wait_for_idle_duts(locked_duts, afe, max_wait)
     finally:
         afe.unlock_hosts(locked_duts)
-
-
-def board_labels_allowed(boards):
-    """Check if the list of board labels can be set to a single host.
-
-    The only case multiple board labels can be set to a single host is for
-    testbed, which may have a list of board labels like
-    board:angler-1, board:angler-2, board:angler-3, board:marlin-1'
-
-    @param boards: A list of board labels (may include platform label).
-
-    @returns True if the the list of boards can be set to a single host.
-    """
-    # Filter out any non-board labels
-    boards = [b for b in boards if re.match('board:.*', b)]
-    if len(boards) <= 1:
-        return True
-    for board in boards:
-        if not re.match('board:[^-]+-\d+', board):
-            return False
-    return True
 
 
 def _get_default_size_info(path):

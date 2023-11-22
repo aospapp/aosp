@@ -181,6 +181,7 @@ public class ChineseDateFormat extends SimpleDateFormat {
      * constants defined here.
      * <p>
      * @deprecated ICU 50
+     * @hide Only a subset of ICU is exposed in Android
      */
     @Deprecated
     public static class Field extends DateFormat.Field {

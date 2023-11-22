@@ -49,7 +49,6 @@ class Host(hosts.Host):
     """
 
     bootloader = None
-    support_devserver_provision = False
 
 
     def __init__(self, *args, **dargs):
@@ -68,6 +67,7 @@ class Host(hosts.Host):
 
 
     def close(self):
+        """Release resources held by this Host instance."""
         super(Host, self).close()
 
         if self.job:

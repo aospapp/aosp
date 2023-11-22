@@ -11,11 +11,14 @@ import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import hosts
+from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server import afe_utils
 from autotest_lib.server import crashcollect
-from autotest_lib.server.hosts import repair
+from autotest_lib.server.cros import autoupdater
+from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.hosts import cros_firmware
+from autotest_lib.server.hosts import repair_utils
 
 # _DEV_MODE_ALLOW_POOLS - The set of pools that are allowed to be
 # in dev mode (usually, those should be unmanaged devices)
@@ -71,26 +74,21 @@ class ACPowerVerifier(hosts.Verifier):
     """Check for AC power and a reasonable battery charge."""
 
     def verify(self, host):
-        # Temporarily work around a problem caused by some old FSI
-        # builds that don't have the power_supply_info command by
-        # ignoring failures.  The repair triggers believe that this
-        # verifier can't be fixed by re-installing, which means if a DUT
-        # gets stuck with one of those old builds, it can't be repaired.
-        #
-        # TODO(jrbarnette): This is for crbug.com/599158; we need a
-        # better solution.
+        # pylint: disable=missing-docstring
         try:
             info = host.get_power_supply_info()
-        except:
-            logging.exception('get_power_supply_info() failed')
-            return
+        except error.AutoservRunError:
+            raise hosts.AutoservVerifyError(
+                    'Failed to get power supply info')
+
         try:
             if info['Line Power']['online'] != 'yes':
                 raise hosts.AutoservVerifyError(
                         'AC power is not plugged in')
         except KeyError:
-            logging.info('Cannot determine AC power status - '
-                         'skipping check.')
+            raise hosts.AutoservVerifyError(
+                    'Cannot determine AC power status')
+
         try:
             if float(info['Battery']['percentage']) < 50.0:
                 raise hosts.AutoservVerifyError(
@@ -101,6 +99,7 @@ class ACPowerVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'The DUT is plugged in to AC power'
 
 
@@ -129,6 +128,7 @@ class WritableVerifier(hosts.Verifier):
     _TEST_DIRECTORIES = ['/mnt/stateful_partition', '/var/tmp']
 
     def verify(self, host):
+        # pylint: disable=missing-docstring
         # This deliberately stops looking after the first error.
         # See above for the details.
         for testdir in self._TEST_DIRECTORIES:
@@ -141,6 +141,7 @@ class WritableVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'The stateful filesystems are writable'
 
 
@@ -149,6 +150,7 @@ class EXT4fsErrorVerifier(hosts.Verifier):
     Confirm we have not seen critical file system kernel errors.
     """
     def verify(self, host):
+        # pylint: disable=missing-docstring
         # grep for stateful FS errors of the type "EXT4-fs error (device sda1):"
         command = ("dmesg | grep -E \"EXT4-fs error \(device "
                    "$(cut -d ' ' -f 5,9 /proc/$$/mountinfo | "
@@ -170,6 +172,7 @@ class EXT4fsErrorVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Did not find critical file system errors'
 
 
@@ -178,16 +181,17 @@ class UpdateSuccessVerifier(hosts.Verifier):
     Checks that the DUT successfully finished its last provision job.
 
     At the start of any update (e.g. for a Provision job), the code
-    creates a marker file named `host.PROVISION_FAILED`.  The file is
-    located in a part of the stateful partition that will be removed if
-    an update finishes successfully.  Thus, the presence of the file
+    creates a marker file named `PROVISION_FAILED`.  The file is located
+    in a part of the stateful partition that will be removed if an
+    update finishes successfully.  Thus, the presence of the file
     indicates that a prior update failed.
 
     The verifier tests for the existence of the marker file and fails if
     it still exists.
     """
     def verify(self, host):
-        result = host.run('test -f %s' % host.PROVISION_FAILED,
+        # pylint: disable=missing-docstring
+        result = host.run('test -f %s' % autoupdater.PROVISION_FAILED,
                           ignore_status=True)
         if result.exit_status == 0:
             raise hosts.AutoservVerifyError(
@@ -195,6 +199,7 @@ class UpdateSuccessVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'The most recent AU attempt on this DUT succeeded'
 
 
@@ -202,41 +207,17 @@ class TPMStatusVerifier(hosts.Verifier):
     """Verify that the host's TPM is in a good state."""
 
     def verify(self, host):
-        if _is_virual_machine(host):
+        # pylint: disable=missing-docstring
+        if _is_virtual_machine(host):
             # We do not forward host TPM / emulated TPM to qemu VMs, so skip
             # this verification step.
             logging.debug('Skipped verification %s on VM', self)
             return
 
-        # This cryptohome command emits status information in JSON format. It
-        # looks something like this:
-        # {
-        #    "installattrs": {
-        #       ...
-        #    },
-        #    "mounts": [ {
-        #       ...
-        #    } ],
-        #    "tpm": {
-        #       "being_owned": false,
-        #       "can_connect": true,
-        #       "can_decrypt": false,
-        #       "can_encrypt": false,
-        #       "can_load_srk": true,
-        #       "can_load_srk_pubkey": true,
-        #       "enabled": true,
-        #       "has_context": true,
-        #       "has_cryptohome_key": false,
-        #       "has_key_handle": false,
-        #       "last_error": 0,
-        #       "owned": true
-        #    }
-        # }
-        output = host.run('cryptohome --action=status').stdout.strip()
         try:
-            status = json.loads(output)
-        except ValueError:
-            logging.info('Cannot determine the Crytohome valid status - '
+            status = CryptohomeStatus(host)
+        except hosts.AutoservVerifyError:
+            logging.info('Cannot determine the Cryptohome valid status - '
                          'skipping check.')
             return
         try:
@@ -260,6 +241,7 @@ class TPMStatusVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'The host\'s TPM is available and working'
 
 
@@ -267,6 +249,7 @@ class PythonVerifier(hosts.Verifier):
     """Confirm the presence of a working Python interpreter."""
 
     def verify(self, host):
+        # pylint: disable=missing-docstring
         result = host.run('python -c "import cPickle"',
                           ignore_status=True)
         if result.exit_status != 0:
@@ -280,6 +263,7 @@ class PythonVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Python on the host is installed and working'
 
 
@@ -287,6 +271,7 @@ class DevModeVerifier(hosts.Verifier):
     """Verify that the host is not in dev mode."""
 
     def verify(self, host):
+        # pylint: disable=missing-docstring
         # Some pools are allowed to be in dev mode
         info = host.host_info_store.get()
         if (_DEV_MODE_ALWAYS_ALLOWED or
@@ -299,6 +284,7 @@ class DevModeVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'The host should not be in dev mode'
 
 
@@ -306,6 +292,7 @@ class HWIDVerifier(hosts.Verifier):
     """Verify that the host has HWID & serial number."""
 
     def verify(self, host):
+        # pylint: disable=missing-docstring
         try:
             info = host.host_info_store.get()
 
@@ -326,7 +313,67 @@ class HWIDVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'The host should have valid HWID and Serial Number'
+
+
+class JetstreamTpmVerifier(hosts.Verifier):
+    """Verify that Jetstream TPM is in a good state."""
+
+    @retry.retry(error.AutoservError, timeout_min=2, delay_sec=10)
+    def verify(self, host):
+        # pylint: disable=missing-docstring
+        try:
+            status = CryptohomeStatus(host)
+            if not status.tpm_enabled:
+                raise hosts.AutoservVerifyError('TPM is not enabled')
+            if not status.tpm_owned:
+                raise hosts.AutoservVerifyError('TPM is not owned')
+            if not status.tpm_can_load_srk:
+                raise hosts.AutoservVerifyError('TPM cannot load SRK')
+            if not status.tpm_can_load_srk_pubkey:
+                raise hosts.AutoservVerifyError('TPM cannot load SRK pubkey')
+
+            # Check that the TPM is fully initialized. The output of this
+            # command is line-oriented property/value pairs.
+            result = host.run('cryptohome --action=tpm_status')
+            if 'TPM Ready: true' not in result.stdout:
+                raise hosts.AutoservVerifyError('TPM is not ready')
+        except error.AutoservRunError:
+            raise hosts.AutoservVerifyError(
+                    'Could not determine TPM status')
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Jetstream TPM state check'
+
+
+class JetstreamAttestationVerifier(hosts.Verifier):
+    """Verify that Jetstream attestation client has a certificate."""
+
+    @retry.retry(error.AutoservError, timeout_min=2, delay_sec=10)
+    def verify(self, host):
+        # pylint: disable=missing-docstring
+        try:
+            # This output is in text protobuf format.
+            result = host.run('cryptohome --action=tpm_more_status')
+            if 'attestation_prepared: true' not in result.stdout:
+                raise hosts.AutoservVerifyError(
+                        'Attestation has not been prepared')
+
+            result = host.run('cryptohome --action=tpm_attestation_get_ek')
+            if 'EK Certificate' not in result.stdout:
+                raise hosts.AutoservVerifyError(
+                        'Endorsement certificate not found')
+        except error.AutoservRunError:
+            raise hosts.AutoservVerifyError(
+                    'Unable to fetch endorsement certificate')
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Jetstream attestation endorsement check'
 
 
 class JetstreamServicesVerifier(hosts.Verifier):
@@ -335,6 +382,7 @@ class JetstreamServicesVerifier(hosts.Verifier):
     # Retry for b/62576902
     @retry.retry(error.AutoservError, timeout_min=1, delay_sec=10)
     def verify(self, host):
+        # pylint: disable=missing-docstring
         try:
             if not host.upstart_status('ap-controller'):
                 raise hosts.AutoservVerifyError(
@@ -351,7 +399,24 @@ class JetstreamServicesVerifier(hosts.Verifier):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Jetstream services must be running'
+
+
+class KvmExistsVerifier(hosts.Verifier):
+    """Verify that /dev/kvm exists if it should be there"""
+
+    def verify(self, host):
+        # pylint: disable=missing-docstring
+        result = host.run('[ ! -e /dev/kvm -a -f /usr/bin/vm_concierge ]',
+                          ignore_status=True)
+        if result.exit_status == 0:
+            raise hosts.AutoservVerifyError('/dev/kvm is missing')
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return '/dev/kvm should exist if device supports Linux VMs'
 
 
 class _ResetRepairAction(hosts.RepairAction):
@@ -376,13 +441,13 @@ class _ResetRepairAction(hosts.RepairAction):
                 # If the DUT is up, we want to declare success, even if
                 # log gathering fails for some reason.  So, if there's
                 # a failure, just log it and move on.
-                logging.exception('Unexpected failure in log '
+                logging.exception('Non-critical failure in log '
                                   'collection during %s.',
                                   self.tag)
             return
         raise hosts.AutoservRepairError(
                 'Host %s is still offline after %s.' %
-                (host.hostname, self.tag))
+                (host.hostname, self.tag), 'failed_to_boot_after_' + self.tag)
 
 
 class ServoSysRqRepair(_ResetRepairAction):
@@ -395,9 +460,8 @@ class ServoSysRqRepair(_ResetRepairAction):
     """
 
     def repair(self, host):
-        if not host.servo:
-            raise hosts.AutoservRepairError(
-                    '%s has no servo support.' % host.hostname)
+        # pylint: disable=missing-docstring
+        repair_utils.require_servo(host)
         # Press 3 times Alt+VolUp+X
         # no checking DUT health between each press as
         # killing Chrome is not really likely to fix the DUT SSH.
@@ -406,13 +470,15 @@ class ServoSysRqRepair(_ResetRepairAction):
                 host.servo.sysrq_x()
             except error.TestFail, ex:
                 raise hosts.AutoservRepairError(
-                      'cannot press sysrq-x: %s.' % str(ex))
+                      'cannot press sysrq-x: %s.' % str(ex),
+                      'cannot_press_sysrq_x')
             # less than 5 seconds between presses.
             time.sleep(2.0)
         self._check_reset_success(host)
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Reset the DUT via keyboard sysrq-x'
 
 
@@ -420,21 +486,22 @@ class ServoResetRepair(_ResetRepairAction):
     """Repair a Chrome device by resetting it with servo."""
 
     def repair(self, host):
-        if not host.servo:
-            raise hosts.AutoservRepairError(
-                    '%s has no servo support.' % host.hostname)
+        # pylint: disable=missing-docstring
+        repair_utils.require_servo(host)
         host.servo.get_power_state_controller().reset()
         self._check_reset_success(host)
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Reset the DUT via servo'
 
 
-class CrosRebootRepair(repair.RebootRepair):
+class CrosRebootRepair(repair_utils.RebootRepair):
     """Repair a CrOS target by clearing dev mode and rebooting it."""
 
     def repair(self, host):
+        # pylint: disable=missing-docstring
         # N.B. We need to reboot regardless of whether clearing
         # dev_mode succeeds or fails.
         host.run('/usr/share/vboot/bin/set_gbb_flags.sh 0',
@@ -445,6 +512,7 @@ class CrosRebootRepair(repair.RebootRepair):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Reset GBB flags and Reboot the host'
 
 
@@ -457,10 +525,18 @@ class AutoUpdateRepair(hosts.RepairAction):
     """
 
     def repair(self, host):
-        afe_utils.machine_install_and_update_labels(host, repair=True)
+        # pylint: disable=missing-docstring
+        image_name = host.get_cros_repair_image_name()
+        logging.info('Staging build for AU: %s', image_name)
+        devserver = dev_server.ImageServer.resolve(image_name, host.hostname)
+        devserver.trigger_download(image_name, synchronous=False)
+        update_url = tools.image_url_pattern() % (
+                devserver.url(), image_name)
+        afe_utils.machine_install_and_update_labels(host, update_url)
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Re-install the stable build via AU'
 
 
@@ -473,6 +549,7 @@ class PowerWashRepair(AutoUpdateRepair):
     """
 
     def repair(self, host):
+        # pylint: disable=missing-docstring
         host.run('echo "fast safe" > '
                  '/mnt/stateful_partition/factory_install_reset')
         host.reboot(timeout=host.POWERWASH_BOOT_TIMEOUT, wait=True)
@@ -480,6 +557,7 @@ class PowerWashRepair(AutoUpdateRepair):
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Powerwash and then re-install the stable build via AU'
 
 
@@ -492,24 +570,62 @@ class ServoInstallRepair(hosts.RepairAction):
     """
 
     def repair(self, host):
-        if not host.servo:
-            raise hosts.AutoservRepairError(
-                    '%s has no servo support.' % host.hostname)
+        # pylint: disable=missing-docstring
+        repair_utils.require_servo(host)
         host.servo_install(host.stage_image_for_servo())
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Reinstall from USB using servo'
 
 
-class JetstreamRepair(hosts.RepairAction):
-    """Repair by restarting Jetstrem services."""
+class ColdRebootRepair(_ResetRepairAction):
+    """
+    Repair a Chrome device by performing a cold reboot that resets the EC.
+
+    Use ectool to perform a cold reboot which will reset the EC.
+    """
 
     def repair(self, host):
+        # pylint: disable=missing-docstring
+        host.reboot(reboot_cmd='ectool reboot_ec cold')
+        self._check_reset_success(host)
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Reset the DUT via cold reboot with ectool'
+
+
+class JetstreamTpmRepair(hosts.RepairAction):
+    """Repair by resetting TPM and rebooting."""
+
+    def repair(self, host):
+        # pylint: disable=missing-docstring
+        host.run('rm -f /var/cache/ap/setup-network', ignore_status=True)
+        host.run('rm -f /home/chronos/.oobe_completed', ignore_status=True)
+        host.run('rm -f /home/.shadow/.can_attempt_ownership',
+                 ignore_status=True)
+        host.run('crossystem clear_tpm_owner_request=1', ignore_status=True)
+        host.reboot()
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Reset TPM and reboot'
+
+
+class JetstreamServiceRepair(hosts.RepairAction):
+    """Repair by restarting Jetstream services."""
+
+    def repair(self, host):
+        # pylint: disable=missing-docstring
         host.cleanup_services()
 
     @property
     def description(self):
+        # pylint: disable=missing-docstring
         return 'Restart Jetstream services'
 
 
@@ -518,18 +634,19 @@ def _cros_verify_dag():
     FirmwareStatusVerifier = cros_firmware.FirmwareStatusVerifier
     FirmwareVersionVerifier = cros_firmware.FirmwareVersionVerifier
     verify_dag = (
-        (repair.SshVerifier,         'ssh',      ()),
-        (DevModeVerifier,            'devmode',  ('ssh',)),
-        (HWIDVerifier,               'hwid',     ('ssh',)),
-        (ACPowerVerifier,            'power',    ('ssh',)),
-        (EXT4fsErrorVerifier,        'ext4',     ('ssh',)),
-        (WritableVerifier,           'writable', ('ssh',)),
-        (TPMStatusVerifier,          'tpm',      ('ssh',)),
-        (UpdateSuccessVerifier,      'good_au',  ('ssh',)),
-        (FirmwareStatusVerifier,     'fwstatus', ('ssh',)),
-        (FirmwareVersionVerifier,    'rwfw',     ('ssh',)),
-        (PythonVerifier,             'python',   ('ssh',)),
-        (repair.LegacyHostVerifier,  'cros',     ('ssh',)),
+        (repair_utils.SshVerifier,        'ssh',      ()),
+        (DevModeVerifier,                 'devmode',  ('ssh',)),
+        (HWIDVerifier,                    'hwid',     ('ssh',)),
+        (ACPowerVerifier,                 'power',    ('ssh',)),
+        (EXT4fsErrorVerifier,             'ext4',     ('ssh',)),
+        (WritableVerifier,                'writable', ('ssh',)),
+        (TPMStatusVerifier,               'tpm',      ('ssh',)),
+        (UpdateSuccessVerifier,           'good_au',  ('ssh',)),
+        (FirmwareStatusVerifier,          'fwstatus', ('ssh',)),
+        (FirmwareVersionVerifier,         'rwfw',     ('ssh',)),
+        (PythonVerifier,                  'python',   ('ssh',)),
+        (repair_utils.LegacyHostVerifier, 'cros',     ('ssh',)),
+        (KvmExistsVerifier,               'ec_reset', ('ssh',)),
     )
     return verify_dag
 
@@ -540,7 +657,7 @@ def _cros_basic_repair_actions():
     repair_actions = (
         # RPM cycling must precede Servo reset:  if the DUT has a dead
         # battery, we need to reattach AC power before we reset via servo.
-        (repair.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
+        (repair_utils.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
         (ServoSysRqRepair, 'sysrq', (), ('ssh',)),
         (ServoResetRepair, 'servoreset', (), ('ssh',)),
 
@@ -553,6 +670,8 @@ def _cros_basic_repair_actions():
         (FirmwareRepair, 'firmware', (), ('ssh', 'fwstatus', 'good_au',)),
 
         (CrosRebootRepair, 'reboot', ('ssh',), ('devmode', 'writable',)),
+
+        (ColdRebootRepair, 'coldboot', ('ssh',), ('ec_reset',)),
     )
     return repair_actions
 
@@ -589,18 +708,18 @@ def create_cros_repair_strategy():
     """Return a `RepairStrategy` for a `CrosHost`."""
     verify_dag = _cros_verify_dag()
     repair_actions = _cros_repair_actions()
-    return hosts.RepairStrategy(verify_dag, repair_actions)
+    return hosts.RepairStrategy(verify_dag, repair_actions, 'cros')
 
 
 def _moblab_verify_dag():
     """Return the verification DAG for a `MoblabHost`."""
     FirmwareVersionVerifier = cros_firmware.FirmwareVersionVerifier
     verify_dag = (
-        (repair.SshVerifier,         'ssh',     ()),
-        (ACPowerVerifier,            'power',   ('ssh',)),
-        (FirmwareVersionVerifier,    'rwfw',    ('ssh',)),
-        (PythonVerifier,             'python',  ('ssh',)),
-        (repair.LegacyHostVerifier,  'cros',    ('ssh',)),
+        (repair_utils.SshVerifier,        'ssh',     ()),
+        (ACPowerVerifier,                 'power',   ('ssh',)),
+        (FirmwareVersionVerifier,         'rwfw',    ('ssh',)),
+        (PythonVerifier,                  'python',  ('ssh',)),
+        (repair_utils.LegacyHostVerifier, 'cros',    ('ssh',)),
     )
     return verify_dag
 
@@ -608,7 +727,7 @@ def _moblab_verify_dag():
 def _moblab_repair_actions():
     """Return the repair actions for a `MoblabHost`."""
     repair_actions = (
-        (repair.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
+        (repair_utils.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
         (AutoUpdateRepair, 'au', ('ssh',), _CROS_AU_TRIGGERS),
     )
     return repair_actions
@@ -626,9 +745,9 @@ def create_moblab_repair_strategy():
         verifier.  TODO(jrbarnette)  This assertion is unproven.
 
     'good_au':  This verifier can't pass, because the Moblab AU
-        procedure doesn't properly delete CrosHost.PROVISION_FAILED.
-        TODO(jrbarnette) We should refactor _machine_install() so that
-        it can be different for Moblab.
+        procedure doesn't properly delete the PROVISION_FAILED file.
+        TODO(jrbarnette) We should refactor ChromiumOSUpdater so
+        that it can be different for Moblab.
 
     'firmware':  Moblab DUTs shouldn't be in FAFT pools, so we don't try
         this.
@@ -638,25 +757,37 @@ def create_moblab_repair_strategy():
     """
     verify_dag = _moblab_verify_dag()
     repair_actions = _moblab_repair_actions()
-    return hosts.RepairStrategy(verify_dag, repair_actions)
+    return hosts.RepairStrategy(verify_dag, repair_actions, 'moblab')
 
 
 def _jetstream_repair_actions():
     """Return the repair actions for a `JetstreamHost`."""
-    au_triggers = _CROS_AU_TRIGGERS + ('jetstream_services',)
+    au_triggers = _CROS_AU_TRIGGERS
+    jetstream_tpm_triggers = ('jetstream_tpm', 'jetstream_attestation')
+    jetstream_service_triggers = (jetstream_tpm_triggers +
+                                  ('jetstream_services',))
     repair_actions = (
         _cros_basic_repair_actions() +
         (
-            (JetstreamRepair, 'jetstream_repair',
-             _CROS_USB_TRIGGERS + _CROS_POWERWASH_TRIGGERS, au_triggers),
+            (JetstreamTpmRepair, 'jetstream_tpm_repair',
+             _CROS_USB_TRIGGERS + _CROS_POWERWASH_TRIGGERS,
+             au_triggers + jetstream_tpm_triggers),
+
+            (JetstreamServiceRepair, 'jetstream_service_repair',
+             _CROS_USB_TRIGGERS + _CROS_POWERWASH_TRIGGERS + (
+                 'jetstream_tpm', 'jetstream_attestation'),
+             au_triggers + jetstream_service_triggers),
         ) +
-        _cros_extended_repair_actions(au_triggers=au_triggers))
+        _cros_extended_repair_actions(
+            au_triggers=au_triggers + jetstream_service_triggers))
     return repair_actions
 
 
 def _jetstream_verify_dag():
     """Return the verification DAG for a `JetstreamHost`."""
     verify_dag = _cros_verify_dag() + (
+        (JetstreamTpmVerifier, 'jetstream_tpm', ('ssh',)),
+        (JetstreamAttestationVerifier, 'jetstream_attestation', ('ssh',)),
         (JetstreamServicesVerifier, 'jetstream_services', ('ssh',)),
     )
     return verify_dag
@@ -671,16 +802,90 @@ def create_jetstream_repair_strategy():
     """
     verify_dag = _jetstream_verify_dag()
     repair_actions = _jetstream_repair_actions()
-    return hosts.RepairStrategy(verify_dag, repair_actions)
+    return hosts.RepairStrategy(verify_dag, repair_actions, 'jetstream')
 
 
 # TODO(pprabhu) Move this to a better place. I have no idea what that place
 # would be.
-def _is_virual_machine(host):
+def _is_virtual_machine(host):
     """Determine whether the given |host| is a virtual machine.
 
     @param host: a hosts.Host object.
     @returns True if the host is a virtual machine, False otherwise.
     """
-    output = host.run('cat /proc/cpuinfo | grep "model name"')
-    return output.stdout and 'qemu' in output.stdout.lower()
+    output = host.run('cat /proc/cpuinfo | grep "model name"',
+                      ignore_status=True)
+    return (output.exit_status == 0 and output.stdout and
+            'qemu' in output.stdout.lower())
+
+
+class CryptohomeStatus(dict):
+    """Wrapper for getting cryptohome status from a host."""
+
+    def __init__(self, host):
+        super(CryptohomeStatus, self).__init__()
+        self.update(_get_cryptohome_status(host))
+        self.tpm = self['tpm']
+
+    @property
+    def tpm_enabled(self):
+        # pylint: disable=missing-docstring
+        return self.tpm.get('enabled') == True
+
+    @property
+    def tpm_owned(self):
+        # pylint: disable=missing-docstring
+        return self.tpm.get('owned') == True
+
+    @property
+    def tpm_can_load_srk(self):
+        # pylint: disable=missing-docstring
+        return self.tpm.get('can_load_srk') == True
+
+    @property
+    def tpm_can_load_srk_pubkey(self):
+        # pylint: disable=missing-docstring
+        return self.tpm.get('can_load_srk_pubkey') == True
+
+
+def _get_cryptohome_status(host):
+    """Returns a dictionary containing the cryptohome status.
+
+    @param host: a hosts.Host object.
+    @returns A dictionary containing the cryptohome status.
+    @raises AutoservVerifyError: if the output could not be parsed or the TPM
+       status is missing.
+    @raises hosts.AutoservRunError: if the cryptohome command failed.
+    """
+    # This cryptohome command emits status information in JSON format. It
+    # looks something like this:
+    # {
+    #    "installattrs": {
+    #       ...
+    #    },
+    #    "mounts": [ {
+    #       ...
+    #    } ],
+    #    "tpm": {
+    #       "being_owned": false,
+    #       "can_connect": true,
+    #       "can_decrypt": false,
+    #       "can_encrypt": false,
+    #       "can_load_srk": true,
+    #       "can_load_srk_pubkey": true,
+    #       "enabled": true,
+    #       "has_context": true,
+    #       "has_cryptohome_key": false,
+    #       "has_key_handle": false,
+    #       "last_error": 0,
+    #       "owned": true
+    #    }
+    # }
+    try:
+        output = host.run('cryptohome --action=status').stdout.strip()
+        status = json.loads(output)
+        if 'tpm' not in status:
+            raise hosts.AutoservVerifyError('TPM status is missing')
+        return status
+    except ValueError:
+        raise hosts.AutoservVerifyError('Unable to parse cryptohome status')

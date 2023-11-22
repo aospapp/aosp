@@ -13,13 +13,14 @@
 
 %pythoncode %{
 
-import shutil, os, errno, stat
+import shutil
+import os
 
 DISABLED = -1
 PERMISSIVE = 0
 ENFORCING = 1
 
-def restorecon(path, recursive=False, verbose=False):
+def restorecon(path, recursive=False, verbose=False, force=False):
     """ Restore SELinux context on a given path
 
     Arguments:
@@ -28,6 +29,9 @@ def restorecon(path, recursive=False, verbose=False):
     Keyword arguments:
     recursive -- Change files and directories file labels recursively (default False)
     verbose -- Show changes in file labels (default False)
+    force -- Force reset of context to match file_context for customizable files,
+    and the default file context, changing the user, role, range portion  as well
+    as the type (default False)
     """
 
     restorecon_flags = SELINUX_RESTORECON_IGNORE_DIGEST | SELINUX_RESTORECON_REALPATH
@@ -35,6 +39,8 @@ def restorecon(path, recursive=False, verbose=False):
         restorecon_flags |= SELINUX_RESTORECON_RECURSE
     if verbose:
         restorecon_flags |= SELINUX_RESTORECON_VERBOSE
+    if force:
+        restorecon_flags |= SELINUX_RESTORECON_SET_SPECFILE_CTX
     selinux_restorecon(os.path.expanduser(path), restorecon_flags)
 
 def chcon(path, context, recursive=False):
@@ -43,7 +49,7 @@ def chcon(path, context, recursive=False):
     if recursive:
         for root, dirs, files in os.walk(path):
             for name in files + dirs:
-               lsetfilecon(os.path.join(root,name), context)
+                lsetfilecon(os.path.join(root, name), context)
 
 def copytree(src, dest):
     """ An SELinux-friendly shutil.copytree method """

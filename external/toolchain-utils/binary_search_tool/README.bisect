@@ -1,10 +1,11 @@
 
-bisect.py is a wrapper around the general purpose binary_search_state.py. It
-provides a user friendly interface for bisecting various compilation errors.
-The 2 currently provided methods of bisecting are ChromeOS package and object
-bisection. Each method defines a default set of options to pass to
-binary_search_state.py and allow the user to override these defaults (see
-the "Overriding" section).
+bisect.py is a wrapper around the general purpose
+binary_search_state.py. It provides a user friendly interface for
+bisecting various compilation errors.  The 2 currently provided
+methods of bisecting are ChromeOS package and object bisection. Each
+method defines a default set of options to pass to
+binary_search_state.py and allow the user to override these defaults
+(see the "Overriding" section).
 
 ** NOTE **
 All commands, examples, scripts, etc. are to be run from your chroot unless
@@ -31,8 +32,9 @@ Bisection Methods:
       /build/${board}.work - A full copy of /build/${board}.bad
 
   b) Cleanup:
-    bisect.py does most cleanup for you, the only thing required by the user is
-    to cleanup all built images and the three build trees made in /build/
+    bisect.py does most cleanup for you, the only
+    thing required by the user is to cleanup all built images and the
+    three build trees made in /build/
 
   c) Default Arguments:
     --get_initial_items='cros_pkg/get_initial_items.sh'
@@ -187,16 +189,18 @@ Bisection Methods:
         --test_script=sysroot_wrapper/boot_test.sh
 
 Resuming:
-  bisect.py and binary_search_state.py offer the ability to resume a bisection
-  in case it was interrupted by a SIGINT, power failure, etc. Every time the
-  tool completes a bisection iteration its state is saved to disk (usually to
-  the file "./bisect.py.state"). If passed the --resume option, the tool
+  bisect.py and binary_search_state.py offer the
+  ability to resume a bisection in case it was interrupted by a
+  SIGINT, power failure, etc. Every time the tool completes a
+  bisection iteration its state is saved to disk (usually to the file
+  "./bisect_driver.py.state"). If passed the --resume option, the tool
   it will automatically detect the state file and resume from the last
   completed iteration.
 
 Overriding:
-  You can run ./bisect.py --help or ./binary_search_state.py --help for a full
-  list of arguments that can be overriden. Here are a couple of examples:
+  You can run ./bisect.py --help or ./binary_search_state.py
+  --help for a full list of arguments that can be overriden. Here are
+  a couple of examples:
 
   Example 1 (do boot test instead of interactive test):
   ./bisect.py package daisy 172.17.211.182 --test_script=cros_pkg/boot_test.sh

@@ -27,6 +27,9 @@
 #include "deSTLUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
+#include "vkPlatform.hpp"
+
+#include <limits>
 
 namespace vkt
 {
@@ -35,74 +38,93 @@ namespace SpirVAssembly
 
 using namespace vk;
 
-namespace
+bool is8BitStorageFeaturesSupported (const Context& context, Extension8BitStorageFeatures toCheck)
 {
+	VkPhysicalDevice8BitStorageFeaturesKHR extensionFeatures = context.get8BitStorageFeatures();
 
-VkPhysicalDeviceFeatures filterDefaultDeviceFeatures (const VkPhysicalDeviceFeatures& deviceFeatures)
-{
-	VkPhysicalDeviceFeatures enabledDeviceFeatures = deviceFeatures;
+	if ((toCheck & EXT8BITSTORAGEFEATURES_STORAGE_BUFFER) != 0 && extensionFeatures.storageBuffer8BitAccess == VK_FALSE)
+		TCU_FAIL("storageBuffer8BitAccess has to be supported");
 
-	// Disable robustness by default, as it has an impact on performance on some HW.
-	enabledDeviceFeatures.robustBufferAccess = false;
+	if ((toCheck & EXT8BITSTORAGEFEATURES_UNIFORM_STORAGE_BUFFER) != 0 && extensionFeatures.uniformAndStorageBuffer8BitAccess == VK_FALSE)
+		return false;
 
-	return enabledDeviceFeatures;
+	if ((toCheck & EXT8BITSTORAGEFEATURES_PUSH_CONSTANT) != 0 && extensionFeatures.storagePushConstant8 == VK_FALSE)
+		return false;
+
+	return true;
 }
 
-VkPhysicalDevice16BitStorageFeatures	querySupported16BitStorageFeatures (const deUint32 apiVersion, const InstanceInterface& vki, VkPhysicalDevice device, const std::vector<std::string>& instanceExtensions)
+#define IS_CORE_FEATURE_AVAILABLE(CHECKED, AVAILABLE, FEATURE)	\
+	if ((CHECKED.FEATURE != DE_FALSE) && (AVAILABLE.FEATURE == DE_FALSE)) { *missingFeature = #FEATURE; return false; }
+
+bool isCoreFeaturesSupported (const Context&						context,
+							  const vk::VkPhysicalDeviceFeatures&	toCheck,
+							  const char**							missingFeature)
 {
-	VkPhysicalDevice16BitStorageFeatures	extensionFeatures	=
-	{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR,	// sType
-		DE_NULL,														// pNext
-		false,															// storageUniformBufferBlock16
-		false,															// storageUniform16
-		false,															// storagePushConstant16
-		false,															// storageInputOutput16
-	};
-	VkPhysicalDeviceFeatures2			features;
+	const VkPhysicalDeviceFeatures&	availableFeatures	= context.getDeviceFeatures();
 
-	deMemset(&features, 0, sizeof(features));
-	features.sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	features.pNext	= &extensionFeatures;
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, robustBufferAccess);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, fullDrawIndexUint32);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, imageCubeArray);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, independentBlend);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, geometryShader);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, tessellationShader);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sampleRateShading);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, dualSrcBlend);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, logicOp);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, multiDrawIndirect);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, drawIndirectFirstInstance);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, depthClamp);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, depthBiasClamp);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, fillModeNonSolid);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, depthBounds);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, wideLines);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, largePoints);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, alphaToOne);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, multiViewport);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, samplerAnisotropy);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, textureCompressionETC2);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, textureCompressionASTC_LDR);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, textureCompressionBC);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, occlusionQueryPrecise);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, pipelineStatisticsQuery);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, vertexPipelineStoresAndAtomics);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, fragmentStoresAndAtomics);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderTessellationAndGeometryPointSize);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderImageGatherExtended);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderStorageImageExtendedFormats);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderStorageImageMultisample);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderStorageImageReadWithoutFormat);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderStorageImageWriteWithoutFormat);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderUniformBufferArrayDynamicIndexing);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderSampledImageArrayDynamicIndexing);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderStorageBufferArrayDynamicIndexing);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderStorageImageArrayDynamicIndexing);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderClipDistance);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderCullDistance);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderFloat64);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderInt64);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderInt16);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderResourceResidency);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, shaderResourceMinLod);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseBinding);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidencyBuffer);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidencyImage2D);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidencyImage3D);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidency2Samples);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidency4Samples);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidency8Samples);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidency16Samples);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, sparseResidencyAliased);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, variableMultisampleRate);
+	IS_CORE_FEATURE_AVAILABLE(toCheck, availableFeatures, inheritedQueries);
 
-	// Call the getter only if supported. Otherwise above "zero" defaults are used
-	if(isInstanceExtensionSupported(apiVersion, instanceExtensions, "VK_KHR_get_physical_device_properties2"))
-	{
-		vki.getPhysicalDeviceFeatures2(device, &features);
-	}
-
-	return extensionFeatures;
+	return true;
 }
 
-VkPhysicalDeviceVariablePointerFeatures querySupportedVariablePointersFeatures (const deUint32 apiVersion, const InstanceInterface& vki, VkPhysicalDevice device, const std::vector<std::string>& instanceExtensions)
+bool is16BitStorageFeaturesSupported (const Context& context, Extension16BitStorageFeatures toCheck)
 {
-	VkPhysicalDeviceVariablePointerFeatures extensionFeatures	=
-	{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES_KHR,	// sType
-		DE_NULL,															// pNext
-		false,																// variablePointersStorageBuffer
-		false,																// variablePointers
-	};
-
-	VkPhysicalDeviceFeatures2	features;
-	deMemset(&features, 0, sizeof(features));
-	features.sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	features.pNext	= &extensionFeatures;
-
-	// Call the getter only if supported. Otherwise above "zero" defaults are used
-	if(isInstanceExtensionSupported(apiVersion, instanceExtensions, "VK_KHR_get_physical_device_properties2"))
-	{
-		vki.getPhysicalDeviceFeatures2(device, &features);
-	}
-
-	return extensionFeatures;
-}
-
-} // anonymous
-
-bool is16BitStorageFeaturesSupported (const deUint32 apiVersion, const InstanceInterface& vki, VkPhysicalDevice device, const std::vector<std::string>& instanceExtensions, Extension16BitStorageFeatures toCheck)
-{
-	VkPhysicalDevice16BitStorageFeatures extensionFeatures	= querySupported16BitStorageFeatures(apiVersion, vki, device, instanceExtensions);
+	const VkPhysicalDevice16BitStorageFeatures& extensionFeatures = context.get16BitStorageFeatures();
 
 	if ((toCheck & EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK) != 0 && extensionFeatures.storageBuffer16BitAccess == VK_FALSE)
 		return false;
@@ -119,9 +141,9 @@ bool is16BitStorageFeaturesSupported (const deUint32 apiVersion, const InstanceI
 	return true;
 }
 
-bool isVariablePointersFeaturesSupported (const deUint32 apiVersion, const InstanceInterface& vki, VkPhysicalDevice device, const std::vector<std::string>& instanceExtensions, ExtensionVariablePointersFeatures toCheck)
+bool isVariablePointersFeaturesSupported (const Context& context, ExtensionVariablePointersFeatures toCheck)
 {
-	VkPhysicalDeviceVariablePointerFeatures extensionFeatures = querySupportedVariablePointersFeatures(apiVersion, vki, device, instanceExtensions);
+	const VkPhysicalDeviceVariablePointerFeatures& extensionFeatures = context.getVariablePointerFeatures();
 
 	if ((toCheck & EXTVARIABLEPOINTERSFEATURES_VARIABLE_POINTERS_STORAGEBUFFER) != 0 && extensionFeatures.variablePointersStorageBuffer == VK_FALSE)
 		return false;
@@ -132,85 +154,69 @@ bool isVariablePointersFeaturesSupported (const deUint32 apiVersion, const Insta
 	return true;
 }
 
-Move<VkDevice> createDeviceWithExtensions (Context&							context,
-										   const deUint32					queueFamilyIndex,
-										   const std::vector<std::string>&	supportedExtensions,
-										   const std::vector<std::string>&	requiredExtensions)
+bool isFloat16Int8FeaturesSupported (const Context& context, ExtensionFloat16Int8Features toCheck)
 {
-	const InstanceInterface&					vki							= context.getInstanceInterface();
-	const VkPhysicalDevice						physicalDevice				= context.getPhysicalDevice();
-	std::vector<const char*>					extensions;
-	void*										pExtension					= DE_NULL;
-	const VkPhysicalDeviceFeatures				deviceFeatures				= getPhysicalDeviceFeatures(vki, physicalDevice);
-	VkPhysicalDevice16BitStorageFeatures		ext16BitStorageFeatures;
-	VkPhysicalDeviceVariablePointerFeatures		extVariablePointerFeatures;
+	const VkPhysicalDeviceFloat16Int8FeaturesKHR& extensionFeatures = context.getFloat16Int8Features();
 
-	for (deUint32 extNdx = 0; extNdx < requiredExtensions.size(); ++extNdx)
-	{
-		const std::string&	ext = requiredExtensions[extNdx];
+	if ((toCheck & EXTFLOAT16INT8FEATURES_FLOAT16) != 0 && extensionFeatures.shaderFloat16 == VK_FALSE)
+		return false;
 
-		// Check that all required extensions are supported first.
-		if (!isDeviceExtensionSupported(context.getUsedApiVersion(), supportedExtensions, ext))
-		{
-			TCU_THROW(NotSupportedError, (std::string("Device extension not supported: ") + ext).c_str());
-		}
+	if ((toCheck & EXTFLOAT16INT8FEATURES_INT8) != 0 && extensionFeatures.shaderInt8 == VK_FALSE)
+		return false;
 
-		// Currently don't support enabling multiple extensions at the same time.
-		if (ext == "VK_KHR_16bit_storage")
-		{
-			// For the 16bit storage extension, we have four features to test. Requesting all features supported.
-			// Note that we don't throw NotImplemented errors here if a specific feature is not supported;
-			// that should be done when actually trying to use that specific feature.
-			ext16BitStorageFeatures	= querySupported16BitStorageFeatures(context.getUsedApiVersion(), vki, physicalDevice, context.getInstanceExtensions());
-			pExtension = &ext16BitStorageFeatures;
-		}
-		else if (ext == "VK_KHR_variable_pointers")
-		{
-			// For the VariablePointers extension, we have two features to test. Requesting all features supported.
-			extVariablePointerFeatures	= querySupportedVariablePointersFeatures(context.getUsedApiVersion(), vki, physicalDevice, context.getInstanceExtensions());
-			pExtension = &extVariablePointerFeatures;
-		}
-
-		if (!isCoreDeviceExtension(context.getUsedApiVersion(), ext))
-			extensions.push_back(ext.c_str());
-	}
-
-	const float						queuePriorities[]	= { 1.0f };
-	const VkDeviceQueueCreateInfo	queueInfos[]		=
-	{
-		{
-			VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-			DE_NULL,
-			(VkDeviceQueueCreateFlags)0,
-			queueFamilyIndex,
-			DE_LENGTH_OF_ARRAY(queuePriorities),
-			&queuePriorities[0]
-		}
-	};
-	const VkPhysicalDeviceFeatures	features			= filterDefaultDeviceFeatures(deviceFeatures);
-	const VkDeviceCreateInfo		deviceParams		=
-	{
-		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		pExtension,
-		(VkDeviceCreateFlags)0,
-		DE_LENGTH_OF_ARRAY(queueInfos),
-		&queueInfos[0],
-		0u,
-		DE_NULL,
-		(deUint32)extensions.size(),
-		extensions.empty() ? DE_NULL : &extensions[0],
-		&features
-	};
-
-	return vk::createDevice(vki, physicalDevice, &deviceParams);
+	return true;
 }
 
-Allocator* createAllocator (const InstanceInterface& instanceInterface, const VkPhysicalDevice physicalDevice, const DeviceInterface& deviceInterface, const VkDevice device)
+bool isFloatControlsFeaturesSupported (const Context& context, const ExtensionFloatControlsFeatures& toCheck)
 {
-	const VkPhysicalDeviceMemoryProperties memoryProperties = getPhysicalDeviceMemoryProperties(instanceInterface, physicalDevice);
+	ExtensionFloatControlsFeatures refControls;
+	deMemset(&refControls, 0, sizeof(ExtensionFloatControlsFeatures));
 
-	// \todo [2015-07-24 jarkko] support allocator selection/configuration from command line (or compile time)
-	return new SimpleAllocator(deviceInterface, device, memoryProperties);
+	// compare with all flags set to false to verify if any float control features are actualy requested by the test
+	if (deMemCmp(&toCheck, &refControls, sizeof(ExtensionFloatControlsFeatures)) == 0)
+		return true;
+
+	// return false when float control features are requested and proper extension is not supported
+	const std::vector<std::string>& deviceExtensions = context.getDeviceExtensions();
+	if (!isDeviceExtensionSupported(context.getUsedApiVersion(), deviceExtensions, "VK_KHR_shader_float_controls"))
+		return false;
+
+	// perform query to get supported float control properties
+	{
+		refControls.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES_KHR;
+		refControls.pNext = DE_NULL;
+
+		VkPhysicalDeviceProperties2 deviceProperties;
+		deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		deviceProperties.pNext = &refControls;
+
+		const VkPhysicalDevice			physicalDevice		= context.getPhysicalDevice();
+		const vk::InstanceInterface&	instanceInterface	= context.getInstanceInterface();
+
+		instanceInterface.getPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
+	}
+
+	// check if flags needed by the test are not supported by the device
+	bool requiredFeaturesNotSupported =
+		(toCheck.shaderDenormFlushToZeroFloat16			&& !refControls.shaderDenormFlushToZeroFloat16) ||
+		(toCheck.shaderDenormPreserveFloat16			&& !refControls.shaderDenormPreserveFloat16) ||
+		(toCheck.shaderRoundingModeRTEFloat16			&& !refControls.shaderRoundingModeRTEFloat16) ||
+		(toCheck.shaderRoundingModeRTZFloat16			&& !refControls.shaderRoundingModeRTZFloat16) ||
+		(toCheck.shaderSignedZeroInfNanPreserveFloat16	&& !refControls.shaderSignedZeroInfNanPreserveFloat16) ||
+		(toCheck.shaderDenormFlushToZeroFloat32			&& !refControls.shaderDenormFlushToZeroFloat32) ||
+		(toCheck.shaderDenormPreserveFloat32			&& !refControls.shaderDenormPreserveFloat32) ||
+		(toCheck.shaderRoundingModeRTEFloat32			&& !refControls.shaderRoundingModeRTEFloat32) ||
+		(toCheck.shaderRoundingModeRTZFloat32			&& !refControls.shaderRoundingModeRTZFloat32) ||
+		(toCheck.shaderSignedZeroInfNanPreserveFloat32	&& !refControls.shaderSignedZeroInfNanPreserveFloat32) ||
+		(toCheck.shaderDenormFlushToZeroFloat64			&& !refControls.shaderDenormFlushToZeroFloat64) ||
+		(toCheck.shaderDenormPreserveFloat64			&& !refControls.shaderDenormPreserveFloat64) ||
+		(toCheck.shaderRoundingModeRTEFloat64			&& !refControls.shaderRoundingModeRTEFloat64) ||
+		(toCheck.shaderRoundingModeRTZFloat64			&& !refControls.shaderRoundingModeRTZFloat64) ||
+		(toCheck.shaderSignedZeroInfNanPreserveFloat64	&& !refControls.shaderSignedZeroInfNanPreserveFloat64);
+
+	// we checked if required features are not supported - we need to
+	// negate the result to know if all required features are available
+	return !requiredFeaturesNotSupported;
 }
 
 deUint32 getMinRequiredVulkanVersion (const SpirvVersion version)
@@ -232,6 +238,365 @@ deUint32 getMinRequiredVulkanVersion (const SpirvVersion version)
 std::string	getVulkanName (const deUint32 version)
 {
 	return std::string(version == VK_API_VERSION_1_1 ? "1.1" : "1.0");
+}
+
+// Generate and return 64-bit integers.
+//
+// Expected count to be at least 16.
+std::vector<deInt64> getInt64s (de::Random& rnd, const deUint32 count)
+{
+	std::vector<deInt64> data;
+
+	data.reserve(count);
+
+	// Make sure we have boundary numbers.
+	data.push_back(deInt64(0x0000000000000000));  // 0
+	data.push_back(deInt64(0x0000000000000001));  // 1
+	data.push_back(deInt64(0x000000000000002a));  // 42
+	data.push_back(deInt64(0x000000007fffffff));  // 2147483647
+	data.push_back(deInt64(0x0000000080000000));  // 2147483648
+	data.push_back(deInt64(0x00000000ffffffff));  // 4294967295
+	data.push_back(deInt64(0x0000000100000000));  // 4294967296
+	data.push_back(deInt64(0x7fffffffffffffff));  // 9223372036854775807
+	data.push_back(deInt64(0x8000000000000000));  // -9223372036854775808
+	data.push_back(deInt64(0x8000000000000001));  // -9223372036854775807
+	data.push_back(deInt64(0xffffffff00000000));  // -4294967296
+	data.push_back(deInt64(0xffffffff00000001));  // -4294967295
+	data.push_back(deInt64(0xffffffff80000000));  // -2147483648
+	data.push_back(deInt64(0xffffffff80000001));  // -2147483647
+	data.push_back(deInt64(0xffffffffffffffd6));  // -42
+	data.push_back(deInt64(0xffffffffffffffff));  // -1
+
+	DE_ASSERT(count >= data.size());
+
+	for (deUint32 numNdx = static_cast<deUint32>(data.size()); numNdx < count; ++numNdx)
+		data.push_back(static_cast<deInt64>(rnd.getUint64()));
+
+	return data;
+}
+
+// Generate and return 32-bit integers.
+//
+// Expected count to be at least 16.
+std::vector<deInt32> getInt32s (de::Random& rnd, const deUint32 count)
+{
+	std::vector<deInt32> data;
+
+	data.reserve(count);
+
+	// Make sure we have boundary numbers.
+	data.push_back(deInt32(0x00000000));  // 0
+	data.push_back(deInt32(0x00000001));  // 1
+	data.push_back(deInt32(0x0000002a));  // 42
+	data.push_back(deInt32(0x00007fff));  // 32767
+	data.push_back(deInt32(0x00008000));  // 32768
+	data.push_back(deInt32(0x0000ffff));  // 65535
+	data.push_back(deInt32(0x00010000));  // 65536
+	data.push_back(deInt32(0x7fffffff));  // 2147483647
+	data.push_back(deInt32(0x80000000));  // -2147483648
+	data.push_back(deInt32(0x80000001));  // -2147483647
+	data.push_back(deInt32(0xffff0000));  // -65536
+	data.push_back(deInt32(0xffff0001));  // -65535
+	data.push_back(deInt32(0xffff8000));  // -32768
+	data.push_back(deInt32(0xffff8001));  // -32767
+	data.push_back(deInt32(0xffffffd6));  // -42
+	data.push_back(deInt32(0xffffffff));  // -1
+
+	DE_ASSERT(count >= data.size());
+
+	for (deUint32 numNdx = static_cast<deUint32>(data.size()); numNdx < count; ++numNdx)
+		data.push_back(static_cast<deInt32>(rnd.getUint32()));
+
+	return data;
+}
+
+// Generate and return 16-bit integers.
+//
+// Expected count to be at least 8.
+std::vector<deInt16> getInt16s (de::Random& rnd, const deUint32 count)
+{
+	std::vector<deInt16> data;
+
+	data.reserve(count);
+
+	// Make sure we have boundary numbers.
+	data.push_back(deInt16(0x0000));  // 0
+	data.push_back(deInt16(0x0001));  // 1
+	data.push_back(deInt16(0x002a));  // 42
+	data.push_back(deInt16(0x7fff));  // 32767
+	data.push_back(deInt16(0x8000));  // -32868
+	data.push_back(deInt16(0x8001));  // -32767
+	data.push_back(deInt16(0xffd6));  // -42
+	data.push_back(deInt16(0xffff));  // -1
+
+	DE_ASSERT(count >= data.size());
+
+	for (deUint32 numNdx = static_cast<deUint32>(data.size()); numNdx < count; ++numNdx)
+		data.push_back(static_cast<deInt16>(rnd.getUint16()));
+
+	return data;
+}
+
+// Generate and return 8-bit integers.
+//
+// Expected count to be at least 8.
+std::vector<deInt8> getInt8s (de::Random& rnd, const deUint32 count)
+{
+	std::vector<deInt8> data;
+
+	data.reserve(count);
+
+	// Make sure we have boundary numbers.
+	data.push_back(deInt8(0x00));  // 0
+	data.push_back(deInt8(0x01));  // 1
+	data.push_back(deInt8(0x2a));  // 42
+	data.push_back(deInt8(0x7f));  // 127
+	data.push_back(deInt8(0x80));  // -128
+	data.push_back(deInt8(0x81));  // -127
+	data.push_back(deInt8(0xd6));  // -42
+	data.push_back(deInt8(0xff));  // -1
+
+	DE_ASSERT(count >= data.size());
+
+	for (deUint32 numNdx = static_cast<deUint32>(data.size()); numNdx < count; ++numNdx)
+		data.push_back(static_cast<deInt8>(rnd.getUint8()));
+
+	return data;
+}
+
+// IEEE-754 floating point numbers:
+// +--------+------+----------+-------------+
+// | binary | sign | exponent | significand |
+// +--------+------+----------+-------------+
+// | 64-bit |  1   |    11    |     52      |
+// +--------+------+----------+-------------+
+// | 32-bit |  1   |    8     |     23      |
+// +--------+------+----------+-------------+
+// | 16-bit |  1   |    5     |     10      |
+// +--------+------+----------+-------------+
+//
+// 64-bit floats:
+//
+// (0x3FD2000000000000: 0.28125: with exact match in 16-bit normalized)
+// (0x3F10060000000000: exact half way within two 16-bit normalized; round to zero: 0x0401)
+// (0xBF10060000000000: exact half way within two 16-bit normalized; round to zero: 0x8402)
+// (0x3F100C0000000000: not exact half way within two 16-bit normalized; round to zero: 0x0403)
+// (0xBF100C0000000000: not exact half way within two 16-bit normalized; round to zero: 0x8404)
+
+// Generate and return 64-bit floats
+//
+// The first 24 number pairs are manually picked, while the rest are randomly generated.
+// Expected count to be at least 24 (numPicks).
+std::vector<double> getFloat64s (de::Random& rnd, deUint32 count)
+{
+	std::vector<double> float64;
+
+	float64.reserve(count);
+
+	if (count >= 24)
+	{
+		// Zero
+		float64.push_back(0.f);
+		float64.push_back(-0.f);
+		// Infinity
+		float64.push_back(std::numeric_limits<double>::infinity());
+		float64.push_back(-std::numeric_limits<double>::infinity());
+		// SNaN
+		float64.push_back(std::numeric_limits<double>::signaling_NaN());
+		float64.push_back(-std::numeric_limits<double>::signaling_NaN());
+		// QNaN
+		float64.push_back(std::numeric_limits<double>::quiet_NaN());
+		float64.push_back(-std::numeric_limits<double>::quiet_NaN());
+
+		// Denormalized 64-bit float matching 0 in 16-bit
+		float64.push_back(ldexp((double)1.f, -1023));
+		float64.push_back(-ldexp((double)1.f, -1023));
+
+		// Normalized 64-bit float matching 0 in 16-bit
+		float64.push_back(ldexp((double)1.f, -100));
+		float64.push_back(-ldexp((double)1.f, -100));
+		// Normalized 64-bit float with exact denormalized match in 16-bit
+		float64.push_back(bitwiseCast<double>(deUint64(0x3B0357C299A88EA8)));
+		float64.push_back(bitwiseCast<double>(deUint64(0xBB0357C299A88EA8)));
+
+		// Normalized 64-bit float with exact normalized match in 16-bit
+		float64.push_back(ldexp((double)1.f, -14));  // 2e-14: minimum 16-bit positive normalized
+		float64.push_back(-ldexp((double)1.f, -14)); // 2e-14: maximum 16-bit negative normalized
+		// Normalized 64-bit float falling above half way within two 16-bit normalized
+		float64.push_back(bitwiseCast<double>(deUint64(0x3FD2000000000000)));
+		float64.push_back(bitwiseCast<double>(deUint64(0xBFD2000000000000)));
+		// Normalized 64-bit float falling exact half way within two 16-bit normalized
+		float64.push_back(bitwiseCast<double>(deUint64(0x3F100C0000000000)));
+		float64.push_back(bitwiseCast<double>(deUint64(0xBF100C0000000000)));
+		// Some number
+		float64.push_back((double)0.28125f);
+		float64.push_back((double)-0.28125f);
+		// Normalized 64-bit float matching infinity in 16-bit
+		float64.push_back(ldexp((double)1.f, 100));
+		float64.push_back(-ldexp((double)1.f, 100));
+	}
+
+	const deUint32		numPicks	= static_cast<deUint32>(float64.size());
+
+	DE_ASSERT(count >= numPicks);
+	count -= numPicks;
+
+	for (deUint32 numNdx = 0; numNdx < count; ++numNdx)
+	{
+		double randValue = rnd.getDouble();
+		float64.push_back(randValue);
+	}
+
+	return float64;
+}
+
+// IEEE-754 floating point numbers:
+// +--------+------+----------+-------------+
+// | binary | sign | exponent | significand |
+// +--------+------+----------+-------------+
+// | 16-bit |  1   |    5     |     10      |
+// +--------+------+----------+-------------+
+// | 32-bit |  1   |    8     |     23      |
+// +--------+------+----------+-------------+
+//
+// 16-bit floats:
+//
+// 0   000 00   00 0000 0001 (0x0001: 2e-24:         minimum positive denormalized)
+// 0   000 00   11 1111 1111 (0x03ff: 2e-14 - 2e-24: maximum positive denormalized)
+// 0   000 01   00 0000 0000 (0x0400: 2e-14:         minimum positive normalized)
+//
+// 32-bit floats:
+//
+// 0   011 1110 1   001 0000 0000 0000 0000 0000 (0x3e900000: 0.28125: with exact match in 16-bit normalized)
+// 0   011 1000 1   000 0000 0011 0000 0000 0000 (0x38803000: exact half way within two 16-bit normalized; round to zero: 0x0401)
+// 1   011 1000 1   000 0000 0011 0000 0000 0000 (0xb8803000: exact half way within two 16-bit normalized; round to zero: 0x8402)
+// 0   011 1000 1   000 0000 1111 1111 0000 0000 (0x3880ff00: not exact half way within two 16-bit normalized; round to zero: 0x0403)
+// 1   011 1000 1   000 0000 1111 1111 0000 0000 (0xb880ff00: not exact half way within two 16-bit normalized; round to zero: 0x8404)
+
+// Generate and return 32-bit floats
+//
+// The first 24 number pairs are manually picked, while the rest are randomly generated.
+// Expected count to be at least 24 (numPicks).
+std::vector<float> getFloat32s (de::Random& rnd, deUint32 count)
+{
+	std::vector<float> float32;
+
+	float32.reserve(count);
+
+	// Zero
+	float32.push_back(0.f);
+	float32.push_back(-0.f);
+	// Infinity
+	float32.push_back(std::numeric_limits<float>::infinity());
+	float32.push_back(-std::numeric_limits<float>::infinity());
+	// SNaN
+	float32.push_back(std::numeric_limits<float>::signaling_NaN());
+	float32.push_back(-std::numeric_limits<float>::signaling_NaN());
+	// QNaN
+	float32.push_back(std::numeric_limits<float>::quiet_NaN());
+	float32.push_back(-std::numeric_limits<float>::quiet_NaN());
+
+	// Denormalized 32-bit float matching 0 in 16-bit
+	float32.push_back(deFloatLdExp(1.f, -127));
+	float32.push_back(-deFloatLdExp(1.f, -127));
+
+	// Normalized 32-bit float matching 0 in 16-bit
+	float32.push_back(deFloatLdExp(1.f, -100));
+	float32.push_back(-deFloatLdExp(1.f, -100));
+	// Normalized 32-bit float with exact denormalized match in 16-bit
+	float32.push_back(deFloatLdExp(1.f, -24));  // 2e-24: minimum 16-bit positive denormalized
+	float32.push_back(-deFloatLdExp(1.f, -24)); // 2e-24: maximum 16-bit negative denormalized
+	// Normalized 32-bit float with exact normalized match in 16-bit
+	float32.push_back(deFloatLdExp(1.f, -14));  // 2e-14: minimum 16-bit positive normalized
+	float32.push_back(-deFloatLdExp(1.f, -14)); // 2e-14: maximum 16-bit negative normalized
+	// Normalized 32-bit float falling above half way within two 16-bit normalized
+	float32.push_back(bitwiseCast<float>(deUint32(0x3880ff00)));
+	float32.push_back(bitwiseCast<float>(deUint32(0xb880ff00)));
+	// Normalized 32-bit float falling exact half way within two 16-bit normalized
+	float32.push_back(bitwiseCast<float>(deUint32(0x38803000)));
+	float32.push_back(bitwiseCast<float>(deUint32(0xb8803000)));
+	// Some number
+	float32.push_back(0.28125f);
+	float32.push_back(-0.28125f);
+	// Normalized 32-bit float matching infinity in 16-bit
+	float32.push_back(deFloatLdExp(1.f, 100));
+	float32.push_back(-deFloatLdExp(1.f, 100));
+
+	const deUint32		numPicks	= static_cast<deUint32>(float32.size());
+
+	DE_ASSERT(count >= numPicks);
+	count -= numPicks;
+
+	for (deUint32 numNdx = 0; numNdx < count; ++numNdx)
+		float32.push_back(rnd.getFloat());
+
+	return float32;
+}
+
+// IEEE-754 floating point numbers:
+// +--------+------+----------+-------------+
+// | binary | sign | exponent | significand |
+// +--------+------+----------+-------------+
+// | 16-bit |  1   |    5     |     10      |
+// +--------+------+----------+-------------+
+// | 32-bit |  1   |    8     |     23      |
+// +--------+------+----------+-------------+
+//
+// 16-bit floats:
+//
+// 0   000 00   00 0000 0001 (0x0001: 2e-24:         minimum positive denormalized)
+// 0   000 00   11 1111 1111 (0x03ff: 2e-14 - 2e-24: maximum positive denormalized)
+// 0   000 01   00 0000 0000 (0x0400: 2e-14:         minimum positive normalized)
+//
+// 0   000 00   00 0000 0000 (0x0000: +0)
+// 0   111 11   00 0000 0000 (0x7c00: +Inf)
+// 0   000 00   11 1111 0000 (0x03f0: +Denorm)
+// 0   000 01   00 0000 0001 (0x0401: +Norm)
+// 0   111 11   00 0000 1111 (0x7c0f: +SNaN)
+// 0   111 11   00 1111 0000 (0x7c0f: +QNaN)
+
+// Generate and return 16-bit floats and their corresponding 32-bit values.
+//
+// The first 14 number pairs are manually picked, while the rest are randomly generated.
+// Expected count to be at least 14 (numPicks).
+std::vector<deFloat16> getFloat16s (de::Random& rnd, deUint32 count)
+{
+	std::vector<deFloat16> float16;
+
+	float16.reserve(count);
+
+	// Zero
+	float16.push_back(deUint16(0x0000));
+	float16.push_back(deUint16(0x8000));
+	// Infinity
+	float16.push_back(deUint16(0x7c00));
+	float16.push_back(deUint16(0xfc00));
+	// SNaN
+	float16.push_back(deUint16(0x7c0f));
+	float16.push_back(deUint16(0xfc0f));
+	// QNaN
+	float16.push_back(deUint16(0x7cf0));
+	float16.push_back(deUint16(0xfcf0));
+
+	// Denormalized
+	float16.push_back(deUint16(0x03f0));
+	float16.push_back(deUint16(0x83f0));
+	// Normalized
+	float16.push_back(deUint16(0x0401));
+	float16.push_back(deUint16(0x8401));
+	// Some normal number
+	float16.push_back(deUint16(0x14cb));
+	float16.push_back(deUint16(0x94cb));
+
+	const deUint32		numPicks	= static_cast<deUint32>(float16.size());
+
+	DE_ASSERT(count >= numPicks);
+	count -= numPicks;
+
+	for (deUint32 numIdx = 0; numIdx < count; ++numIdx)
+		float16.push_back(rnd.getUint16());
+
+	return float16;
 }
 
 } // SpirVAssembly

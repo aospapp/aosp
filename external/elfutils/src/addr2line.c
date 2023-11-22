@@ -23,7 +23,6 @@
 #include <argp.h>
 #include <assert.h>
 #include <errno.h>
-#include <error.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <libdwfl.h>
@@ -38,10 +37,10 @@
 #include <unistd.h>
 
 #include <system.h>
+#include <printversion.h>
 
 
 /* Name and version of program.  */
-static void print_version (FILE *stream, struct argp_state *state);
 ARGP_PROGRAM_VERSION_HOOK_DEF = print_version;
 
 /* Bug report address.  */
@@ -187,6 +186,7 @@ main (int argc, char *argv[])
 	    buf[chars - 1] = '\0';
 
 	  result = handle_address (buf, dwfl);
+	  fflush (stdout);
 	}
 
       free (buf);
@@ -205,20 +205,6 @@ main (int argc, char *argv[])
 #endif
 
   return result;
-}
-
-
-/* Print the version information.  */
-static void
-print_version (FILE *stream, struct argp_state *state __attribute__ ((unused)))
-{
-  fprintf (stream, "addr2line (%s) %s\n", PACKAGE_NAME, PACKAGE_VERSION);
-  fprintf (stream, gettext ("\
-Copyright (C) %s Red Hat, Inc.\n\
-This is free software; see the source for copying conditions.  There is NO\n\
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
-"), "2012");
-  fprintf (stream, gettext ("Written by %s.\n"), "Ulrich Drepper");
 }
 
 
@@ -460,9 +446,9 @@ print_addrsym (Dwfl_Module *mod, GElf_Addr addr)
 	      if (shdr != NULL)
 		{
 		  Elf *elf = dwfl_module_getelf (mod, &ebias);
-		  GElf_Ehdr ehdr;
-		  if (gelf_getehdr (elf, &ehdr) != NULL)
-		    printf (" (%s)", elf_strptr (elf, ehdr.e_shstrndx,
+		  size_t shstrndx;
+		  if (elf_getshdrstrndx (elf, &shstrndx) >= 0)
+		    printf (" (%s)", elf_strptr (elf, shstrndx,
 						 shdr->sh_name));
 		}
 	    }
@@ -632,6 +618,7 @@ handle_address (const char *string, Dwfl *dwfl)
 	case 1:
 	  addr = 0;
 	  j = i;
+	  FALLTHROUGH;
 	case 2:
 	  if (string[j] != '\0')
 	    break;

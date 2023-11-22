@@ -1,4 +1,8 @@
 #!/usr/bin/env python2
+
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 """Module of binary serch for perforce."""
 from __future__ import print_function
 
@@ -61,6 +65,66 @@ class BinarySearchPoint(object):
     self.revision = revision
     self.status = status
     self.tag = tag
+
+
+class BinarySearcherForPass(object):
+  """Class of pass level binary searcher."""
+
+  def __init__(self, logger_to_set=None):
+    self.current = 0
+    self.lo = 0
+    self.hi = 0
+    self.total = 0
+    if logger_to_set is not None:
+      self.logger = logger_to_set
+    else:
+      self.logger = logger.GetLogger()
+
+  def GetNext(self):
+    # For the first run, update self.hi with total pass/transformation count
+    if self.hi == 0:
+      self.hi = self.total
+    self.current = (self.hi + self.lo) / 2
+    message = ('Bisecting between: (%d, %d)' % (self.lo, self.hi))
+    self.logger.LogOutput(message, print_to_console=verbose)
+    message = ('Current limit number: %d' % self.current)
+    self.logger.LogOutput(message, print_to_console=verbose)
+    return self.current
+
+  def SetStatus(self, status):
+    """Set lo/hi status based on test script result
+
+    If status == 0, it means that runtime error is not introduced until current
+    pass/transformation, so we need to increase lower bound for binary search.
+
+    If status == 1, it means that runtime error still happens with current pass/
+    transformation, so we need to decrease upper bound for binary search.
+
+    Return:
+      True if we find the bad pass/transformation, or cannot find bad one after
+      decreasing to the first pass/transformation. Otherwise False.
+    """
+    assert status == 0 or status == 1 or status == 125
+
+    if self.current == 0:
+      message = ('Runtime error occurs before first pass/transformation. '
+                 'Stop binary searching.')
+      self.logger.LogOutput(message, print_to_console=verbose)
+      return True
+
+    if status == 0:
+      message = ('Runtime error is not reproduced, increasing lower bound.')
+      self.logger.LogOutput(message, print_to_console=verbose)
+      self.lo = self.current + 1
+    elif status == 1:
+      message = ('Runtime error is reproduced, decreasing upper bound..')
+      self.logger.LogOutput(message, print_to_console=verbose)
+      self.hi = self.current
+
+    if self.lo >= self.hi:
+      return True
+
+    return False
 
 
 class BinarySearcher(object):
@@ -167,9 +231,8 @@ class BinarySearcher(object):
       self.GetNextFlakyBinary()
 
     # TODO: Add an estimated time remaining as well.
-    message = ('Estimated tries: min: %d max: %d\n' %
-               (1 + math.log(self.hi - self.lo, 2),
-                self.hi - self.lo - len(self.skipped_indices)))
+    message = ('Estimated tries: min: %d max: %d\n' % (1 + math.log(
+        self.hi - self.lo, 2), self.hi - self.lo - len(self.skipped_indices)))
     self.logger.LogOutput(message, print_to_console=verbose)
     message = ('lo: %d hi: %d current: %d version: %s\n' %
                (self.lo, self.hi, self.current, self.sorted_list[self.current]))
@@ -186,8 +249,8 @@ class BinarySearcher(object):
   def GetAllPoints(self):
     to_return = ''
     for i in range(len(self.sorted_list)):
-      to_return += ('%d %d %s\n' % (self.points[i].status, i,
-                                    self.points[i].revision))
+      to_return += (
+          '%d %d %s\n' % (self.points[i].status, i, self.points[i].revision))
 
     return to_return
 
@@ -276,8 +339,9 @@ class P4BinarySearcher(VCSBinarySearcher):
     command = 'cd %s && g4 changes ...' % self.checkout_dir
     _, out, _ = self.ce.RunCommandWOutput(command)
     self.changes = re.findall(r'Change (\d+)', out)
-    change_infos = re.findall(r'Change (\d+) on ([\d/]+) by '
-                              r"([^\s]+) ('[^']*')", out)
+    change_infos = re.findall(
+        r'Change (\d+) on ([\d/]+) by '
+        r"([^\s]+) ('[^']*')", out)
     for change_info in change_infos:
       ri = RevisionInfo(change_info[1], change_info[2], change_info[3])
       self.rim[change_info[0]] = ri
@@ -330,9 +394,8 @@ class P4BinarySearcher(VCSBinarySearcher):
       else:
         to_return += ('%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n' %
                       (change, ri.status, ri.date, ri.client, ri.description,
-                       self.job_log_root + change + '.cmd',
-                       self.job_log_root + change + '.out',
-                       self.job_log_root + change + '.err'))
+                       self.job_log_root + change + '.cmd', self.job_log_root +
+                       change + '.out', self.job_log_root + change + '.err'))
     return to_return
 
 
@@ -367,9 +430,9 @@ class P4GCCBinarySearcher(P4BinarySearcher):
 
     self.CleanupCLs()
     # Change the revision of only the gcc part of the toolchain.
-    command = ('cd %s/gcctools/google_vendor_src_branch/gcc '
-               '&& g4 revert ...; g4 sync @%s' % (self.checkout_dir,
-                                                  current_revision))
+    command = (
+        'cd %s/gcctools/google_vendor_src_branch/gcc '
+        '&& g4 revert ...; g4 sync @%s' % (self.checkout_dir, current_revision))
     self.current_ce.RunCommand(command)
 
     self.HandleBrokenCLs(current_revision)
@@ -427,8 +490,8 @@ def Main(argv):
       ce = command_executer.GetCommandExecuter()
       command = '%s %s' % (script, p4gccbs.checkout_dir)
       status = ce.RunCommand(command)
-      message = ('Revision: %s produced: %d status\n' % (current_revision,
-                                                         status))
+      message = (
+          'Revision: %s produced: %d status\n' % (current_revision, status))
       logger.GetLogger().LogOutput(message, print_to_console=verbose)
       terminated = p4gccbs.SetStatus(status)
       num_tries -= 1

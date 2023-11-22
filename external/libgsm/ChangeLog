@@ -1,3 +1,10 @@
+Sat May  5 21:48:20  2018
+
+	* Release 1.0 Patchlevel 18
+	Remove the MacOS "quarantine" files that I didn't know I'd shipped.
+	Remove some trailing spaces.
+	Bump up the patchlevel in inc/gsm.h (I'd forgotten that in release 17.)
+
 Tue Jun 27 17:59:30  2017
 
 	* Release 1.0 Patchlevel 17

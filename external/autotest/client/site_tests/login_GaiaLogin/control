@@ -18,4 +18,5 @@ accounts.google.com to verify that we're logged in to gaia, as opposed
 to fake telemetry login.
 """
 
-job.run_test('login_GaiaLogin')
+job.run_test('login_GaiaLogin',
+             username='autotest.catapult', password='autotest')

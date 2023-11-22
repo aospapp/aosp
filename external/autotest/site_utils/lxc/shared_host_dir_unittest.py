@@ -12,12 +12,11 @@ import unittest
 
 import common
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import utils
 from autotest_lib.site_utils import lxc
-from autotest_lib.site_utils.lxc import unittest_setup
+from autotest_lib.site_utils.lxc import utils as lxc_utils
 
 
-class SharedHostDirTests(unittest.TestCase):
+class SharedHostDirTests(lxc_utils.LXCTests):
     """Unit tests for the ContainerBucket class."""
 
     def setUp(self):
@@ -48,24 +47,6 @@ class SharedHostDirTests(unittest.TestCase):
         self.assertFalse(os.path.isdir(self.shared_host_path))
 
 
-    def testHostDirMissing(self):
-        """Verifies that a missing host dir does not cause cleanup to crash.
-        """
-        host_dir = lxc.SharedHostDir(self.shared_host_path)
-
-        # Manually destroy the host path
-        utils.run('sudo umount %(path)s && sudo rmdir %(path)s' %
-                  {'path': self.shared_host_path})
-
-        # Verify that the host path does not exist.
-        self.assertFalse(os.path.exists(self.shared_host_path))
-        try:
-            host_dir.cleanup()
-        except:
-            self.fail('SharedHostDir.cleanup crashed.\n%s' %
-                      error.format_error())
-
-
     def testHostDirNotMounted(self):
         """Verifies that an unmounted host dir does not cause container bucket
         construction to crash.
@@ -94,7 +75,7 @@ class SharedHostDirTests(unittest.TestCase):
             host_dir.cleanup()
 
 
-class TimeoutTests(unittest.TestCase):
+class TimeoutTests(lxc_utils.LXCTests):
     """Test the timeouts on the shared host dir class."""
 
     def setUp(self):
@@ -137,5 +118,4 @@ class TimeoutTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest_setup.setup()
     unittest.main()

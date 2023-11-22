@@ -21,6 +21,8 @@ namespace brillo {
 namespace http {
 
 BRILLO_EXPORT extern const char kErrorDomain[];
+// Constant referring to 'direct' proxy which implies no proxy server.
+BRILLO_EXPORT extern const char kDirectProxy[];  // direct://
 
 class Request;
 class Response;
@@ -59,7 +61,7 @@ class BRILLO_EXPORT Transport : public std::enable_shared_from_this<Transport> {
   // Runs |callback| on the task runner (message loop) associated with the
   // transport. For transports that do not contain references to real message
   // loops (e.g. a fake transport), calls the callback immediately.
-  virtual void RunCallbackAsync(const tracked_objects::Location& from_here,
+  virtual void RunCallbackAsync(const base::Location& from_here,
                                 const base::Closure& callback) = 0;
 
   // Initiates an asynchronous transfer on the given |connection|.
@@ -82,8 +84,18 @@ class BRILLO_EXPORT Transport : public std::enable_shared_from_this<Transport> {
   // Set the default timeout of requests made.
   virtual void SetDefaultTimeout(base::TimeDelta timeout) = 0;
 
+  // Set the local IP address of requests
+  virtual void SetLocalIpAddress(const std::string& ip_address) = 0;
+
   // Creates a default http::Transport (currently, using http::curl::Transport).
   static std::shared_ptr<Transport> CreateDefault();
+
+  // Creates a default http::Transport that will utilize the passed in proxy
+  // server (currently, using a http::curl::Transport). |proxy| should be of the
+  // form scheme://[user:pass@]host:port or may be the empty string or the
+  // string kDirectProxy (i.e. direct://) to indicate no proxy.
+  static std::shared_ptr<Transport> CreateDefaultWithProxy(
+      const std::string& proxy);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Transport);

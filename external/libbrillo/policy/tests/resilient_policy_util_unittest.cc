@@ -31,11 +31,11 @@ TEST(DevicePolicyUtilTest, GetSortedResilientPolicyFilePaths) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
-  base::FilePath file0(temp_dir.path().Append("policy"));
-  base::FilePath file1(temp_dir.path().Append("policy.12"));
-  base::FilePath file2(temp_dir.path().Append("policy.2"));
-  base::FilePath file3(temp_dir.path().Append("policy.30"));
-  base::FilePath invalid(temp_dir.path().Append("policy_4"));
+  base::FilePath file0(temp_dir.GetPath().Append("policy"));
+  base::FilePath file1(temp_dir.GetPath().Append("policy.12"));
+  base::FilePath file2(temp_dir.GetPath().Append("policy.2"));
+  base::FilePath file3(temp_dir.GetPath().Append("policy.30"));
+  base::FilePath invalid(temp_dir.GetPath().Append("policy_4"));
 
   CreateFile(file0);
   CreateFile(file1);
@@ -43,7 +43,7 @@ TEST(DevicePolicyUtilTest, GetSortedResilientPolicyFilePaths) {
   CreateFile(file3);
 
   const base::FilePath test_file_path(
-      temp_dir.path().Append(kDefaultResilientPolicyFilePath));
+      temp_dir.GetPath().Append(kDefaultResilientPolicyFilePath));
   std::map<int, base::FilePath> sorted_file_paths =
       GetSortedResilientPolicyFilePaths(test_file_path);
 

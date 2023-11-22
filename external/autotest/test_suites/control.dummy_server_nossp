@@ -28,7 +28,6 @@ You do not test:
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 args_dict['add_experimental'] = True

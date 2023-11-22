@@ -25,11 +25,15 @@ import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
 import org.bouncycastle.asn1.cms.ContentInfo;
 // Android-removed: Unsupported algorithms
 // import org.bouncycastle.asn1.cms.OtherRevocationInfoFormat;
+// import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 // import org.bouncycastle.asn1.ocsp.OCSPResponse;
 // import org.bouncycastle.asn1.ocsp.OCSPResponseStatus;
 // import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 // import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+// import org.bouncycastle.asn1.rosstandart.RosstandartObjectIdentifiers;
+// import org.bouncycastle.asn1.sec.SECObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+// import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
 import org.bouncycastle.cert.X509AttributeCertificateHolder;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -43,18 +47,68 @@ import org.bouncycastle.util.io.TeeOutputStream;
 class CMSUtils
 {
     private static final Set<String> des = new HashSet<String>();
+    private static final Set mqvAlgs = new HashSet();
+    private static final Set ecAlgs = new HashSet();
+    private static final Set gostAlgs = new HashSet();
 
     static
     {
         des.add("DES");
         des.add("DESEDE");
         // BEGIN Android-removed: Unsupported algorithms
-        // des.add(OIWObjectIdentifiers.desCBC.getId());
-        // des.add(PKCSObjectIdentifiers.des_EDE3_CBC.getId());
-        // des.add(PKCSObjectIdentifiers.des_EDE3_CBC.getId());
-        // des.add(PKCSObjectIdentifiers.id_alg_CMS3DESwrap.getId());
+        /*
+        des.add(OIWObjectIdentifiers.desCBC.getId());
+        des.add(PKCSObjectIdentifiers.des_EDE3_CBC.getId());
+        des.add(PKCSObjectIdentifiers.des_EDE3_CBC.getId());
+        des.add(PKCSObjectIdentifiers.id_alg_CMS3DESwrap.getId());
+
+        mqvAlgs.add(X9ObjectIdentifiers.mqvSinglePass_sha1kdf_scheme);
+        mqvAlgs.add(SECObjectIdentifiers.mqvSinglePass_sha224kdf_scheme);
+        mqvAlgs.add(SECObjectIdentifiers.mqvSinglePass_sha256kdf_scheme);
+        mqvAlgs.add(SECObjectIdentifiers.mqvSinglePass_sha384kdf_scheme);
+        mqvAlgs.add(SECObjectIdentifiers.mqvSinglePass_sha512kdf_scheme);
+
+        ecAlgs.add(X9ObjectIdentifiers.dhSinglePass_cofactorDH_sha1kdf_scheme);
+        ecAlgs.add(X9ObjectIdentifiers.dhSinglePass_stdDH_sha1kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_cofactorDH_sha224kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_stdDH_sha224kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_cofactorDH_sha256kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_stdDH_sha256kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_cofactorDH_sha384kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_stdDH_sha384kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_cofactorDH_sha512kdf_scheme);
+        ecAlgs.add(SECObjectIdentifiers.dhSinglePass_stdDH_sha512kdf_scheme);
+
+        gostAlgs.add(CryptoProObjectIdentifiers.gostR3410_2001_CryptoPro_ESDH);
+        gostAlgs.add(RosstandartObjectIdentifiers.id_tc26_agreement_gost_3410_12_256);
+        gostAlgs.add(RosstandartObjectIdentifiers.id_tc26_agreement_gost_3410_12_512);
+        */
         // END Android-removed: Unsupported algorithms
     }
+
+    static boolean isMQV(ASN1ObjectIdentifier algorithm)
+    {
+        return mqvAlgs.contains(algorithm);
+    }
+
+    static boolean isEC(ASN1ObjectIdentifier algorithm)
+    {
+        return ecAlgs.contains(algorithm);
+    }
+
+    static boolean isGOST(ASN1ObjectIdentifier algorithm)
+    {
+        return gostAlgs.contains(algorithm);
+    }
+
+    // BEGIN Android-removed: Unsupported algorithms
+    /*
+    static boolean isRFC2631(ASN1ObjectIdentifier algorithm)
+    {
+        return algorithm.equals(PKCSObjectIdentifiers.id_alg_ESDH) || algorithm.equals(PKCSObjectIdentifiers.id_alg_SSDH);
+    }
+    */
+    // END Android-removed: Unsupported algorithms
 
     static boolean isDES(String algorithmID)
     {
@@ -99,7 +153,7 @@ class CMSUtils
     {
         // enforce some limit checking
         return readContentInfo(new ASN1InputStream(input));
-    } 
+    }
 
     static List getCertificatesFromStore(Store certStore)
         throws CMSException
@@ -108,7 +162,7 @@ class CMSUtils
 
         try
         {
-            for (Iterator it = certStore.getMatches(null).iterator(); it.hasNext();)
+            for (Iterator it = certStore.getMatches(null).iterator(); it.hasNext(); )
             {
                 X509CertificateHolder c = (X509CertificateHolder)it.next();
 
@@ -130,7 +184,7 @@ class CMSUtils
 
         try
         {
-            for (Iterator it = attrStore.getMatches(null).iterator(); it.hasNext();)
+            for (Iterator it = attrStore.getMatches(null).iterator(); it.hasNext(); )
             {
                 X509AttributeCertificateHolder attrCert = (X509AttributeCertificateHolder)it.next();
 
@@ -153,7 +207,7 @@ class CMSUtils
 
         try
         {
-            for (Iterator it = crlStore.getMatches(null).iterator(); it.hasNext();)
+            for (Iterator it = crlStore.getMatches(null).iterator(); it.hasNext(); )
             {
                 Object rev = it.next();
 
@@ -206,7 +260,7 @@ class CMSUtils
     {
         List others = new ArrayList();
 
-        for (Iterator it = otherRevocationInfos.getMatches(null).iterator(); it.hasNext();)
+        for (Iterator it = otherRevocationInfos.getMatches(null).iterator(); it.hasNext(); )
         {
             ASN1Encodable info = (ASN1Encodable)it.next();
             OtherRevocationInfoFormat infoFormat = new OtherRevocationInfoFormat(otherRevocationInfoFormat, info);
@@ -225,7 +279,7 @@ class CMSUtils
     {
         ASN1EncodableVector v = new ASN1EncodableVector();
 
-        for (Iterator it = derObjects.iterator(); it.hasNext();)
+        for (Iterator it = derObjects.iterator(); it.hasNext(); )
         {
             v.add((ASN1Encodable)it.next());
         }
@@ -237,7 +291,7 @@ class CMSUtils
     {
         ASN1EncodableVector v = new ASN1EncodableVector();
 
-        for (Iterator it = derObjects.iterator(); it.hasNext();)
+        for (Iterator it = derObjects.iterator(); it.hasNext(); )
         {
             v.add((ASN1Encodable)it.next());
         }
@@ -246,7 +300,8 @@ class CMSUtils
     }
 
     static OutputStream createBEROctetOutputStream(OutputStream s,
-            int tagNo, boolean isExplicit, int bufferSize) throws IOException
+                                                   int tagNo, boolean isExplicit, int bufferSize)
+        throws IOException
     {
         BEROctetStringGenerator octGen = new BEROctetStringGenerator(s, tagNo, isExplicit);
 
@@ -287,7 +342,7 @@ class CMSUtils
     }
 
     public static byte[] streamToByteArray(
-        InputStream in) 
+        InputStream in)
         throws IOException
     {
         return Streams.readAll(in);
@@ -295,7 +350,7 @@ class CMSUtils
 
     public static byte[] streamToByteArray(
         InputStream in,
-        int         limit)
+        int limit)
         throws IOException
     {
         return Streams.readAllLimited(in, limit);
@@ -331,10 +386,10 @@ class CMSUtils
     }
 
     static OutputStream getSafeTeeOutputStream(OutputStream s1,
-            OutputStream s2)
+                                               OutputStream s2)
     {
         return s1 == null ? getSafeOutputStream(s2)
-                : s2 == null ? getSafeOutputStream(s1) : new TeeOutputStream(
-                        s1, s2);
+            : s2 == null ? getSafeOutputStream(s1) : new TeeOutputStream(
+            s1, s2);
     }
 }

@@ -312,11 +312,11 @@ class ArcPlayVideoResource(object):
 
     def set_fullscreen(self):
         """Sends F4 keyevent to set fullscreen."""
-        input_player = input_playback.InputPlayback()
-        input_player.emulate(input_type='keyboard')
-        input_player.find_connected_inputs()
-        input_player.blocking_playback_of_default_file(
-                input_type='keyboard', filename='keyboard_f4')
+        with input_playback.InputPlayback() as input_player:
+            input_player.emulate(input_type='keyboard')
+            input_player.find_connected_inputs()
+            input_player.blocking_playback_of_default_file(
+                    input_type='keyboard', filename='keyboard_f4')
 
 
     def start_playback(self, blocking_secs=None):

@@ -18,13 +18,14 @@ package org.conscrypt;
 
 import static org.conscrypt.NativeConstants.SSL_MODE_CBC_RECORD_SPLITTING;
 import static org.conscrypt.NativeConstants.SSL_MODE_ENABLE_FALSE_START;
-import static org.conscrypt.NativeConstants.SSL_OP_NO_SSLv3;
-import static org.conscrypt.NativeConstants.SSL_OP_NO_TLSv1;
-import static org.conscrypt.NativeConstants.SSL_OP_NO_TLSv1_1;
-import static org.conscrypt.NativeConstants.SSL_OP_NO_TLSv1_2;
+import static org.conscrypt.NativeConstants.SSL_OP_CIPHER_SERVER_PREFERENCE;
+import static org.conscrypt.NativeConstants.SSL_OP_NO_TICKET;
 import static org.conscrypt.NativeConstants.SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 import static org.conscrypt.NativeConstants.SSL_VERIFY_NONE;
 import static org.conscrypt.NativeConstants.SSL_VERIFY_PEER;
+import static org.conscrypt.NativeConstants.TLS1_1_VERSION;
+import static org.conscrypt.NativeConstants.TLS1_2_VERSION;
+import static org.conscrypt.NativeConstants.TLS1_VERSION;
 import static org.conscrypt.TestUtils.openTestFile;
 import static org.conscrypt.TestUtils.readTestFile;
 import static org.junit.Assert.assertEquals;
@@ -76,12 +77,11 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLProtocolException;
 import javax.security.auth.x500.X500Principal;
-import libcore.io.IoUtils;
-import libcore.java.security.StandardNames;
 import org.conscrypt.NativeCrypto.SSLHandshakeCallbacks;
 import org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
+import org.conscrypt.io.IoUtils;
+import org.conscrypt.java.security.StandardNames;
 import org.conscrypt.java.security.TestKeyStore;
-import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -117,11 +117,6 @@ public class NativeCryptoTest {
         m_Platform_getFileDescriptor =
                 c_Platform.getDeclaredMethod("getFileDescriptor", Socket.class);
         m_Platform_getFileDescriptor.setAccessible(true);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        assertEquals(0, NativeCrypto.ERR_peek_last_error());
     }
 
     private static OpenSSLKey getServerPrivateKey() {
@@ -383,10 +378,7 @@ public class NativeCryptoTest {
         long s = NativeCrypto.SSL_new(c, null);
 
         assertTrue(s != NULL);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_SSLv3) == 0);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_TLSv1) == 0);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_TLSv1_1) == 0);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_TLSv1_2) == 0);
+        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_TICKET) != 0);
 
         long s2 = NativeCrypto.SSL_new(c, null);
         assertTrue(s != s2);
@@ -535,9 +527,9 @@ public class NativeCryptoTest {
     public void test_SSL_set_options() throws Exception {
         long c = NativeCrypto.SSL_CTX_new();
         long s = NativeCrypto.SSL_new(c, null);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_SSLv3) == 0);
-        NativeCrypto.SSL_set_options(s, null, SSL_OP_NO_SSLv3);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_SSLv3) != 0);
+        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_CIPHER_SERVER_PREFERENCE) == 0);
+        NativeCrypto.SSL_set_options(s, null, SSL_OP_CIPHER_SERVER_PREFERENCE);
+        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_CIPHER_SERVER_PREFERENCE) != 0);
         NativeCrypto.SSL_free(s, null);
         NativeCrypto.SSL_CTX_free(c, null);
     }
@@ -551,11 +543,28 @@ public class NativeCryptoTest {
     public void test_SSL_clear_options() throws Exception {
         long c = NativeCrypto.SSL_CTX_new();
         long s = NativeCrypto.SSL_new(c, null);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_SSLv3) == 0);
-        NativeCrypto.SSL_set_options(s, null, SSL_OP_NO_SSLv3);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_SSLv3) != 0);
-        NativeCrypto.SSL_clear_options(s, null, SSL_OP_NO_SSLv3);
-        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_NO_SSLv3) == 0);
+        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_CIPHER_SERVER_PREFERENCE) == 0);
+        NativeCrypto.SSL_set_options(s, null, SSL_OP_CIPHER_SERVER_PREFERENCE);
+        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_CIPHER_SERVER_PREFERENCE) != 0);
+        NativeCrypto.SSL_clear_options(s, null, SSL_OP_CIPHER_SERVER_PREFERENCE);
+        assertTrue((NativeCrypto.SSL_get_options(s, null) & SSL_OP_CIPHER_SERVER_PREFERENCE) == 0);
+        NativeCrypto.SSL_free(s, null);
+        NativeCrypto.SSL_CTX_free(c, null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void SSL_set_protocol_versions_withNullShouldThrow() throws Exception {
+        NativeCrypto.SSL_set_protocol_versions(NULL, null, 0, 0);
+    }
+
+    @Test
+    public void SSL_set_protocol_versions() throws Exception {
+        long c = NativeCrypto.SSL_CTX_new();
+        long s = NativeCrypto.SSL_new(c, null);
+        assertEquals(1, NativeCrypto.SSL_set_protocol_versions(s, null, TLS1_VERSION, TLS1_1_VERSION));
+        assertEquals(1, NativeCrypto.SSL_set_protocol_versions(s, null, TLS1_2_VERSION, TLS1_2_VERSION));
+        assertEquals(0, NativeCrypto.SSL_set_protocol_versions(s, null, TLS1_2_VERSION + 413, TLS1_1_VERSION));
+        assertEquals(0, NativeCrypto.SSL_set_protocol_versions(s, null, TLS1_1_VERSION, TLS1_2_VERSION + 413));
         NativeCrypto.SSL_free(s, null);
         NativeCrypto.SSL_CTX_free(c, null);
     }
@@ -633,7 +642,7 @@ public class NativeCryptoTest {
         long c = NativeCrypto.SSL_CTX_new();
         long s = NativeCrypto.SSL_new(c, null);
 
-        List<String> ciphers = new ArrayList<String>(NativeCrypto.SUPPORTED_CIPHER_SUITES_SET);
+        List<String> ciphers = new ArrayList<String>(NativeCrypto.SUPPORTED_TLS_1_2_CIPHER_SUITES_SET);
         NativeCrypto.SSL_set_cipher_lists(s, null, ciphers.toArray(new String[ciphers.size()]));
 
         NativeCrypto.SSL_free(s, null);
@@ -687,8 +696,9 @@ public class NativeCryptoTest {
             } else {
                 cipherSuites.addAll(enabledCipherSuites);
             }
+            // Protocol list is included for determining whether to send TLS_FALLBACK_SCSV
             NativeCrypto.setEnabledCipherSuites(
-                    s, null, cipherSuites.toArray(new String[cipherSuites.size()]));
+                    s, null, cipherSuites.toArray(new String[cipherSuites.size()]), new String[] {"TLSv1.2"});
 
             if (channelIdPrivateKey != null) {
                 NativeCrypto.SSL_set1_tls_channel_id(s, null, channelIdPrivateKey.getNativeRef());
@@ -754,12 +764,13 @@ public class NativeCryptoTest {
         }
 
         private byte[] keyTypes;
+        private int[] signatureAlgs;
         private byte[][] asn1DerEncodedX500Principals;
         private boolean clientCertificateRequestedCalled;
 
         @Override
         public void clientCertificateRequested(
-                byte[] keyTypes, byte[][] asn1DerEncodedX500Principals)
+                byte[] keyTypes, int[] signatureAlgs, byte[][] asn1DerEncodedX500Principals)
                 throws CertificateEncodingException, SSLException {
             if (DEBUG) {
                 System.out.println("ssl=0x" + Long.toString(sslNativePointer, 16)
@@ -769,6 +780,7 @@ public class NativeCryptoTest {
                         + Arrays.toString(asn1DerEncodedX500Principals));
             }
             this.keyTypes = keyTypes;
+            this.signatureAlgs = signatureAlgs;
             this.asn1DerEncodedX500Principals = asn1DerEncodedX500Principals;
             this.clientCertificateRequestedCalled = true;
             if (hooks != null) {
@@ -990,8 +1002,8 @@ public class NativeCryptoTest {
                         if (DEBUG) {
                             System.out.println("ssl=0x" + Long.toString(s, 16) + " handshake"
                                     + " context=0x" + Long.toString(c, 16) + " socket=" + socket
-                                    + " fd=" + fd + " timeout=" + timeout + " client="
-                                    + client);
+                                    + " fd=0x" + Long.toString(System.identityHashCode(fd), 16)
+                                    + " timeout=" + timeout + " client=" + client);
                         }
                         long session = NULL;
                         try {
@@ -1202,8 +1214,10 @@ public class NativeCryptoTest {
 
         assertTrue(clientCallback.clientCertificateRequestedCalled);
         assertNotNull(clientCallback.keyTypes);
+        assertNotNull(clientCallback.signatureAlgs);
         assertEquals(new HashSet<String>(Arrays.asList("EC", "RSA")),
-                SSLUtils.getSupportedClientKeyTypes(clientCallback.keyTypes));
+                SSLUtils.getSupportedClientKeyTypes(
+                        clientCallback.keyTypes, clientCallback.signatureAlgs));
         assertEqualPrincipals(getCaPrincipals(), clientCallback.asn1DerEncodedX500Principals);
         assertFalse(serverCallback.clientCertificateRequestedCalled);
 
@@ -2570,7 +2584,7 @@ public class NativeCryptoTest {
                     SSLHandshakeCallbacks callback) throws Exception {
                 String nativeCipher = NativeCrypto.SSL_SESSION_cipher(session);
                 String javaCipher = NativeCrypto.cipherSuiteFromJava(nativeCipher);
-                assertTrue(NativeCrypto.SUPPORTED_CIPHER_SUITES_SET.contains(javaCipher));
+                assertTrue(NativeCrypto.SUPPORTED_TLS_1_2_CIPHER_SUITES_SET.contains(javaCipher));
                 // SSL_SESSION_cipher should return a standard name rather than an OpenSSL name.
                 assertTrue(nativeCipher.startsWith("TLS_"));
                 super.afterHandshake(session, s, c, sock, fd, callback);

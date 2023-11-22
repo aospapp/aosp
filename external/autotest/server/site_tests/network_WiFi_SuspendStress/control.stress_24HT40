@@ -5,6 +5,7 @@
 AUTHOR = 'krisr, tienchang, bmahadev'
 NAME = 'network_WiFi_SuspendStress.stress_24HT40'
 TIME = 'LONG'
+MAX_RESULT_SIZE_KB = 512000
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
 ATTRIBUTES = 'suite:wifi_stress'

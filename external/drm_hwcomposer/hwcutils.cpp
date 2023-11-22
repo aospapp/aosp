@@ -20,7 +20,10 @@
 #include "drmhwcomposer.h"
 #include "platform.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
+#include <ui/GraphicBufferMapper.h>
+
+#define UNUSED(x) (void)(x)
 
 namespace android {
 
@@ -58,51 +61,32 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   return 0;
 }
 
-static native_handle_t *dup_buffer_handle(buffer_handle_t handle) {
-  native_handle_t *new_handle =
-      native_handle_create(handle->numFds, handle->numInts);
-  if (new_handle == NULL)
-    return NULL;
+int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle, int width,
+                                         int height, int layerCount, int format,
+                                         int usage, int stride) {
+  native_handle_t *handle_copy;
+  GraphicBufferMapper &gm(GraphicBufferMapper::get());
+  int ret;
 
-  const int *old_data = handle->data;
-  int *new_data = new_handle->data;
-  for (int i = 0; i < handle->numFds; i++) {
-    *new_data = dup(*old_data);
-    old_data++;
-    new_data++;
-  }
-  memcpy(new_data, old_data, sizeof(int) * handle->numInts);
-
-  return new_handle;
-}
-
-static void free_buffer_handle(native_handle_t *handle) {
-  int ret = native_handle_close(handle);
-  if (ret)
-    ALOGE("Failed to close native handle %d", ret);
-  ret = native_handle_delete(handle);
-  if (ret)
-    ALOGE("Failed to delete native handle %d", ret);
-}
-
-int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle,
-                                         const gralloc_module_t *gralloc) {
-  native_handle_t *handle_copy = dup_buffer_handle(handle);
-  if (handle_copy == NULL) {
-    ALOGE("Failed to duplicate handle");
-    return -ENOMEM;
-  }
-
-  int ret = gralloc->registerBuffer(gralloc, handle_copy);
+#ifdef HWC2_USE_OLD_GB_IMPORT
+  UNUSED(width);
+  UNUSED(height);
+  UNUSED(layerCount);
+  UNUSED(format);
+  UNUSED(usage);
+  UNUSED(stride);
+  ret = gm.importBuffer(handle, const_cast<buffer_handle_t *>(&handle_copy));
+#else
+  ret = gm.importBuffer(handle, width, height, layerCount, format, usage,
+                        stride, const_cast<buffer_handle_t *>(&handle_copy));
+#endif
   if (ret) {
-    ALOGE("Failed to register buffer handle %d", ret);
-    free_buffer_handle(handle_copy);
+    ALOGE("Failed to import buffer handle %d", ret);
     return ret;
   }
 
   Clear();
 
-  gralloc_ = gralloc;
   handle_ = handle_copy;
 
   return 0;
@@ -113,68 +97,56 @@ DrmHwcNativeHandle::~DrmHwcNativeHandle() {
 }
 
 void DrmHwcNativeHandle::Clear() {
-  if (gralloc_ != NULL && handle_ != NULL) {
-    gralloc_->unregisterBuffer(gralloc_, handle_);
-    free_buffer_handle(handle_);
-    gralloc_ = NULL;
+  if (handle_ != NULL) {
+    GraphicBufferMapper &gm(GraphicBufferMapper::get());
+    int ret = gm.freeBuffer(handle_);
+    if (ret) {
+      ALOGE("Failed to free buffer handle %d", ret);
+    }
     handle_ = NULL;
   }
 }
 
-int DrmHwcLayer::InitFromHwcLayer(hwc_layer_1_t *sf_layer, Importer *importer,
-                                  const gralloc_module_t *gralloc) {
-  alpha = sf_layer->planeAlpha;
-
-  SetSourceCrop(sf_layer->sourceCropf);
-  SetDisplayFrame(sf_layer->displayFrame);
-  SetTransform(sf_layer->transform);
-
-  switch (sf_layer->blending) {
-    case HWC_BLENDING_NONE:
-      blending = DrmHwcBlending::kNone;
-      break;
-    case HWC_BLENDING_PREMULT:
-      blending = DrmHwcBlending::kPreMult;
-      break;
-    case HWC_BLENDING_COVERAGE:
-      blending = DrmHwcBlending::kCoverage;
-      break;
-    default:
-      ALOGE("Invalid blending in hwc_layer_1_t %d", sf_layer->blending);
-      return -EINVAL;
-  }
-
-  sf_handle = sf_layer->handle;
-
-  return ImportBuffer(importer, gralloc);
-}
-
-int DrmHwcLayer::ImportBuffer(Importer *importer,
-                              const gralloc_module_t *gralloc) {
+int DrmHwcLayer::ImportBuffer(Importer *importer) {
   int ret = buffer.ImportBuffer(sf_handle, importer);
   if (ret)
     return ret;
 
-  ret = handle.CopyBufferHandle(sf_handle, gralloc);
+  const hwc_drm_bo *bo = buffer.operator->();
+
+  unsigned int layer_count;
+  for (layer_count = 0; layer_count < HWC_DRM_BO_MAX_PLANES; ++layer_count)
+    if (bo->gem_handles[layer_count] == 0)
+      break;
+
+  ret = handle.CopyBufferHandle(sf_handle, bo->width, bo->height, layer_count,
+                                bo->hal_format, bo->usage, bo->pixel_stride);
   if (ret)
     return ret;
 
-  ret = gralloc->perform(gralloc, GRALLOC_MODULE_PERFORM_GET_USAGE,
-                         handle.get(), &gralloc_buffer_usage);
-  if (ret) {
-    ALOGE("Failed to get usage for buffer %p (%d)", handle.get(), ret);
-    return ret;
-  }
+  gralloc_buffer_usage = bo->usage;
+
   return 0;
 }
 
+int DrmHwcLayer::InitFromDrmHwcLayer(DrmHwcLayer *src_layer,
+                                     Importer *importer) {
+  blending = src_layer->blending;
+  sf_handle = src_layer->sf_handle;
+  acquire_fence = -1;
+  display_frame = src_layer->display_frame;
+  alpha = src_layer->alpha;
+  source_crop = src_layer->source_crop;
+  transform = src_layer->transform;
+  return ImportBuffer(importer);
+}
+
 void DrmHwcLayer::SetSourceCrop(hwc_frect_t const &crop) {
-  source_crop = DrmHwcRect<float>(crop.left, crop.top, crop.right, crop.bottom);
+  source_crop = crop;
 }
 
 void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
-  display_frame =
-      DrmHwcRect<int>(frame.left, frame.top, frame.right, frame.bottom);
+  display_frame = frame;
 }
 
 void DrmHwcLayer::SetTransform(int32_t sf_transform) {
@@ -196,4 +168,4 @@ void DrmHwcLayer::SetTransform(int32_t sf_transform) {
       transform |= DrmHwcTransform::kRotate90;
   }
 }
-}
+}  // namespace android

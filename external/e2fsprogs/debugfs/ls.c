@@ -122,7 +122,7 @@ static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 				return 0;
 		} else
 			memset(&inode, 0, sizeof(struct ext2_inode));
-		fprintf(ls->f,"/%u/%06o/%d/%d/%*s/", ino, inode.i_mode,
+		fprintf(ls->f,"/%u/%06o/%d/%d/%.*s/", ino, inode.i_mode,
 			inode.i_uid, inode.i_gid, thislen, dirent->name);
 		if (LINUX_S_ISDIR(inode.i_mode))
 			fprintf(ls->f, "/");
@@ -156,8 +156,7 @@ static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 			fprintf(ls->f, "%5d", inode.i_size);
 		else
 			fprintf(ls->f, "%5llu", EXT2_I_SIZE(&inode));
-		fputs(datestr, ls->f);
-		fputc(' ', ls->f);
+		fprintf(ls->f, " %s ", datestr);
 		print_filename(ls->f, dirent, options);
 		fputc('\n', ls->f);
 	} else {
@@ -190,7 +189,8 @@ static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 	return 0;
 }
 
-void do_list_dir(int argc, char *argv[])
+void do_list_dir(int argc, char *argv[], int sci_idx EXT2FS_ATTR((unused)),
+		 void *infop EXT2FS_ATTR((unused)))
 {
 	struct ext2_inode inode;
 	ext2_ino_t	ino;
@@ -229,7 +229,7 @@ void do_list_dir(int argc, char *argv[])
 
 	if (argc > optind+1) {
 	print_usage:
-		com_err(0, 0, "Usage: ls [-l] [-d] [-p] file");
+		com_err(0, 0, "Usage: ls [-c] [-d] [-l] [-p] [-r] file");
 		return;
 	}
 

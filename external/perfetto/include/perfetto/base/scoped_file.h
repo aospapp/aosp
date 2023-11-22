@@ -17,10 +17,19 @@
 #ifndef INCLUDE_PERFETTO_BASE_SCOPED_FILE_H_
 #define INCLUDE_PERFETTO_BASE_SCOPED_FILE_H_
 
-#include <dirent.h>
+#include "perfetto/base/build_config.h"
+
 #include <fcntl.h>
 #include <stdio.h>
+
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) && \
+    !PERFETTO_BUILDFLAG(PERFETTO_COMPILER_GCC)
+#include <corecrt_io.h>
+typedef int mode_t;
+#else
+#include <dirent.h>
 #include <unistd.h>
+#endif
 
 #include <string>
 
@@ -29,8 +38,13 @@
 namespace perfetto {
 namespace base {
 
+constexpr mode_t kInvalidMode = static_cast<mode_t>(-1);
+
 // RAII classes for auto-releasing fds and dirs.
-template <typename T, int (*CloseFunction)(T), T InvalidValue>
+template <typename T,
+          int (*CloseFunction)(T),
+          T InvalidValue,
+          bool CheckClose = true>
 class ScopedResource {
  public:
   explicit ScopedResource(T t = InvalidValue) : t_(t) {}
@@ -49,7 +63,8 @@ class ScopedResource {
   void reset(T r = InvalidValue) {
     if (t_ != InvalidValue) {
       int res = CloseFunction(t_);
-      PERFETTO_CHECK(res == 0);
+      if (CheckClose)
+        PERFETTO_CHECK(res == 0);
     }
     t_ = r;
   }
@@ -68,14 +83,23 @@ class ScopedResource {
 };
 
 using ScopedFile = ScopedResource<int, close, -1>;
-// Always open a ScopedFile with O-CLOEXEC so we can safely fork and exec.
-inline static ScopedFile OpenFile(const std::string& path, int flags) {
-  ScopedFile fd(open(path.c_str(), flags | O_CLOEXEC));
+inline static ScopedFile OpenFile(const std::string& path,
+                                  int flags,
+                                  mode_t mode = kInvalidMode) {
+  PERFETTO_DCHECK((flags & O_CREAT) == 0 || mode != kInvalidMode);
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+  ScopedFile fd(open(path.c_str(), flags, mode));
+#else
+  // Always open a ScopedFile with O_CLOEXEC so we can safely fork and exec.
+  ScopedFile fd(open(path.c_str(), flags | O_CLOEXEC, mode));
+#endif
   return fd;
 }
+#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+using ScopedDir = ScopedResource<DIR*, closedir, nullptr>;
+#endif
 
 using ScopedFstream = ScopedResource<FILE*, fclose, nullptr>;
-using ScopedDir = ScopedResource<DIR*, closedir, nullptr>;
 
 }  // namespace base
 }  // namespace perfetto

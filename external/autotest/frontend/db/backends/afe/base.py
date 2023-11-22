@@ -11,10 +11,13 @@ except ImportError, e:
 
 
 class DatabaseOperations(MySQLOperations):
+    """Custom database backend wrapper."""
     compiler_module = "autotest_lib.frontend.db.backends.afe.compiler"
 
 
 class DatabaseWrapper(MySQLDatabaseWrapper):
+    """Custom database backend wrapper."""
+
     def __init__(self, *args, **kwargs):
         self.connection = None
         super(DatabaseWrapper, self).__init__(*args, **kwargs)

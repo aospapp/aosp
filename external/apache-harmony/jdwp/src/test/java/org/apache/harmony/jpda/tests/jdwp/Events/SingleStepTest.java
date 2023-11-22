@@ -41,14 +41,9 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP Unit test for SINGLE_STEP event.
  */
 public class SingleStepTest extends JDWPEventTestCase {
-
-    private String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/SingleStepDebuggee;";
-
-    private String DEBUGGEE_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.Events.SingleStepDebuggee";
-
     @Override
     protected String getDebuggeeClassName() {
-        return DEBUGGEE_CLASS_NAME;
+        return SingleStepDebuggee.class.getName();
     }
 
     /**
@@ -105,7 +100,7 @@ public class SingleStepTest extends JDWPEventTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         //find checked method
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

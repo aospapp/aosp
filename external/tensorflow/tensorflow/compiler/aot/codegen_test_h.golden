@@ -10,6 +10,7 @@
 #define TFCOMPILE_GENERATED_entry_point_H_  // NOLINT(build/header_guard)
 
 #include "tensorflow/compiler/xla/xla_data.pb.h"
+
 #include "tensorflow/compiler/tf2xla/xla_compiled_cpu_function.h"
 #include "tensorflow/core/platform/types.h"
 
@@ -21,7 +22,8 @@ extern "C" void entry_point(
     void* result, const xla::ExecutableRunOptions* run_options,
     const void** args, void** temps, tensorflow::int64* profile_counters);
 
-extern "C" char __tfcompile_foo_bar_MyClass_ProgramShape_protobuf_array_contents[];
+extern "C" char __tfcompile_foo_bar_MyClass_ProgramShapeProto_protobuf_array_contents[];
+
 
 namespace foo {
 namespace bar {
@@ -50,22 +52,21 @@ namespace bar {
 //   is guaranteed that no thread may call a non-const method.
 //
 // The logical function signature is:
-//   ((unknown): f32[1,2], (unknown): s64[3,4]) -> (u32[5,6])
+//   ((unknown): f32[1,2], (unknown): s64[3,4], (unknown): f32[1], (unknown): s32[5]) -> (u32[5,6], f32[1], s32[5])
 //
 // Memory stats:
 //   arg bytes total:    104
-//   arg bytes aligned:  128
+//   arg bytes aligned:  192
 //   temp bytes total:   126
-//   temp bytes aligned: 224
-class MyClass : public tensorflow::XlaCompiledCpuFunction {
+//   temp bytes aligned: 320
+class MyClass final : public tensorflow::XlaCompiledCpuFunction {
  public:
   // Number of input arguments for the compiled computation.
   static constexpr size_t kNumArgs = 2;
 
   // Byte size of each argument buffer. There are kNumArgs entries.
-  static const intptr_t* ArgSizes() {
-    static constexpr intptr_t kArgSizes[kNumArgs] = {8, 96};
-    return kArgSizes;
+  static const ::tensorflow::int64 ArgSize(::tensorflow::int32 index) {
+    return BufferInfos()[ArgIndexToBufferIndex()[index]].size();
   }
 
   // Returns static data used to create an XlaCompiledCpuFunction.
@@ -73,15 +74,18 @@ class MyClass : public tensorflow::XlaCompiledCpuFunction {
     static XlaCompiledCpuFunction::StaticData* kStaticData = [](){
       XlaCompiledCpuFunction::StaticData* data =
         new XlaCompiledCpuFunction::StaticData;
-      data->raw_function = entry_point;
-      data->arg_sizes = ArgSizes();
-      data->num_args = kNumArgs;
-      data->temp_sizes = TempSizes();
-      data->num_temps = kNumTemps;
-      data->result_index = kResultIndex;
-      data->arg_names = StaticArgNames();
-      data->result_names = StaticResultNames();
-      data->program_shape = StaticProgramShape();
+      set_static_data_raw_function(data, entry_point);
+      set_static_data_buffer_infos(data, BufferInfos());
+      set_static_data_num_buffers(data, kNumBuffers);
+      set_static_data_arg_index_table(data, ArgIndexToBufferIndex());
+      set_static_data_num_args(data, kNumArgs);
+      set_static_data_result_index(data, kResultIndex);
+      set_static_data_arg_names(data, StaticArgNames());
+      set_static_data_result_names(data, StaticResultNames());
+      set_static_data_program_shape(data, StaticProgramShape());
+      set_static_data_hlo_profile_printer_data(
+          data, StaticHloProfilePrinterData());
+
       return data;
     }();
     return *kStaticData;
@@ -111,7 +115,7 @@ class MyClass : public tensorflow::XlaCompiledCpuFunction {
   //   with dim indices specifying which value. No bounds checking is performed
   //   on dim indices.
 
-  void set_arg0_data(void* data) {
+  void set_arg0_data(const void* data) {
     set_arg_data(0, data);
   }
   float* arg0_data() {
@@ -129,7 +133,7 @@ class MyClass : public tensorflow::XlaCompiledCpuFunction {
         arg_data(0)))[dim0][dim1];
   }
 
-  void set_arg_myfeed_data(void* data) {
+  void set_arg_myfeed_data(const void* data) {
     set_arg_data(0, data);
   }
   float* arg_myfeed_data() {
@@ -147,7 +151,7 @@ class MyClass : public tensorflow::XlaCompiledCpuFunction {
         arg_data(0)))[dim0][dim1];
   }
 
-  void set_arg1_data(void* data) {
+  void set_arg1_data(const void* data) {
     set_arg_data(1, data);
   }
   tensorflow::int64* arg1_data() {
@@ -210,17 +214,84 @@ class MyClass : public tensorflow::XlaCompiledCpuFunction {
         result_data(0)))[dim0][dim1];
   }
 
+  // Methods for managing variable buffers. Buffers are in row-major order. The
+  // input and output buffers may or may not be identical.
+  //
+  // void set_var_X_data(T* data)
+  //   Sets the buffer for variable X.
+  //
+  // T* var_X_data()
+  //   Returns the buffer of type T for variable X.
+  //
+  // T& var_X(...dim indices...)
+  //   Returns a reference to the value of type T for variable X,
+  //   with dim indices specifying which value. No bounds checking is performed
+  //   on dim indices.
+
+  void set_var_myvar_data(float* data) {
+    set_arg_data(2, data);
+  }
+
+  void set_var_myvar2_data(tensorflow::int32* data) {
+    set_arg_data(3, data);
+  }
+
+  float* var_myvar_data() {
+    return static_cast<float*>(result_data(1));
+  }
+  float& var_myvar() {
+    return (*static_cast<float(*)[1]>(
+        result_data(1)))[0];
+  }
+  const float* var_myvar_data() const {
+    return static_cast<const float*>(result_data(1));
+  }
+  const float& var_myvar() const {
+    return (*static_cast<const float(*)[1]>(
+        result_data(1)))[0];
+  }
+
+  tensorflow::int32* var_myvar2_data() {
+    return static_cast<tensorflow::int32*>(result_data(2));
+  }
+  tensorflow::int32& var_myvar2(size_t dim0) {
+    return (*static_cast<tensorflow::int32(*)[5]>(
+        result_data(2)))[dim0];
+  }
+  const tensorflow::int32* var_myvar2_data() const {
+    return static_cast<const tensorflow::int32*>(result_data(2));
+  }
+  const tensorflow::int32& var_myvar2(size_t dim0) const {
+    return (*static_cast<const tensorflow::int32(*)[5]>(
+        result_data(2)))[dim0];
+  }
+
  private:
-  // Number of result and temporary buffers for the compiled computation.
-  static constexpr size_t kNumTemps = 6;
+  // Number of buffers for the compiled computation.
+  static constexpr size_t kNumBuffers = 6;
+
+  static const ::tensorflow::cpu_function_runtime::BufferInfo* BufferInfos() {
+    static const ::tensorflow::cpu_function_runtime::BufferInfo
+      kBufferInfos[kNumBuffers] = {
+::tensorflow::cpu_function_runtime::BufferInfo({5ULL, ~0ULL}),
+::tensorflow::cpu_function_runtime::BufferInfo({34ULL, 0ULL}),
+::tensorflow::cpu_function_runtime::BufferInfo({9ULL, ~0ULL}),
+::tensorflow::cpu_function_runtime::BufferInfo({386ULL, 1ULL}),
+::tensorflow::cpu_function_runtime::BufferInfo({13ULL, ~0ULL}),
+::tensorflow::cpu_function_runtime::BufferInfo({481ULL, ~0ULL})
+      };
+    return kBufferInfos;
+  }
+
+  static const ::tensorflow::int32* ArgIndexToBufferIndex() {
+    static constexpr ::tensorflow::int32 kArgIndexToBufferIndex[kNumArgs] = {
+1, 3
+    };
+    return kArgIndexToBufferIndex;
+  }
+
   // The 0-based index of the result tuple in the temporary buffers.
   static constexpr size_t kResultIndex = 5;
-
-  // Byte size of each result / temporary buffer. There are kNumTemps entries.
-  static const intptr_t* TempSizes() {
-    static constexpr intptr_t kTempSizes[kNumTemps] = {1, -1, 2, -1, 3, 120};
-    return kTempSizes;
-  }
 
   // Array of names of each positional argument, terminated by nullptr.
   static const char** StaticArgNames() {
@@ -235,13 +306,20 @@ class MyClass : public tensorflow::XlaCompiledCpuFunction {
   }
 
   // Shape of the args and results.
-  static const xla::ProgramShape* StaticProgramShape() {
-    static const xla::ProgramShape* kShape = []() {
-    xla::ProgramShape* proto = new xla::ProgramShape;
-    proto->ParseFromArray(&__tfcompile_foo_bar_MyClass_ProgramShape_protobuf_array_contents[0], 52);
+  static const xla::ProgramShapeProto* StaticProgramShape() {
+    static const xla::ProgramShapeProto* kShape = []() {
+    xla::ProgramShapeProto* proto = new xla::ProgramShapeProto;
+    proto->ParseFromArray(&__tfcompile_foo_bar_MyClass_ProgramShapeProto_protobuf_array_contents[0], 132);
     return proto;
   }();
     return kShape;
+  }
+
+  // Metadata that can be used to pretty-print profile counters.
+  static const xla::HloProfilePrinterData* StaticHloProfilePrinterData() {
+    static const xla::HloProfilePrinterData* kHloProfilePrinterData =
+      nullptr;
+    return kHloProfilePrinterData;
   }
 };
 

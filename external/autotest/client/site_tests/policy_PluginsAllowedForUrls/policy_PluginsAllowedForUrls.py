@@ -12,16 +12,14 @@ from autotest_lib.client.cros.audio import audio_helper
 
 class policy_PluginsAllowedForUrls(
         enterprise_policy_base.EnterprisePolicyTest):
-    """Test PluginsAllowedForUrls policy effect on CrOS behavior.
+    """
+    Test PluginsAllowedForUrls policy effect on CrOS behavior.
 
     This test verifies the behavior of Chrome OS with a set of valid values
     for the PluginsAllowedForUrls user policy, when DefaultPluginsSetting=2
     (i.e., block running of plugins by default, except on sites listed in
     PluginsAllowedForUrls). These valid values are covered by 3 test cases:
     SiteAllowed_Run, SiteNotAllowed_Block, NotSet_Block.
-
-    This test is also configured with DisablePluginFinder=True and
-    AllowOutdatedPlugins=False.
 
     When the policy value is None (as in case NotSet_Block), then running of
     plugins is blocked on every site. When the value is set to one or more
@@ -32,18 +30,25 @@ class policy_PluginsAllowedForUrls(
     A related test, policy_PluginsBlockedForUrls, has DefaultPluginsSetting=1
     (i.e., allow running of plugins by default, except on sites in domains
     listed in PluginsBlockedForUrls).
+
     """
     version = 1
 
     def initialize(self, **kwargs):
-        """Initialize this test."""
+        """
+        Initialize this test.
+
+        """
         self._initialize_test_constants()
         super(policy_PluginsAllowedForUrls, self).initialize(**kwargs)
         self.start_webserver()
 
 
     def _initialize_test_constants(self):
-        """Initialize test-specific constants, some from class constants."""
+        """
+        Initialize test-specific constants, some from class constants.
+
+        """
         self.POLICY_NAME = 'PluginsAllowedForUrls'
         self.TEST_FILE = 'plugin_status.html'
         self.TEST_URL = '%s/%s' % (self.WEB_HOST, self.TEST_FILE)
@@ -57,23 +62,18 @@ class policy_PluginsAllowedForUrls(
             'SiteNotAllowed_Block': self.EXCLUDES_ALLOWED_URL,
             'NotSet_Block': None
         }
-        self.STARTUP_URLS = ['chrome://policy', 'chrome://settings']
         self.SUPPORTING_POLICIES = {
             'DefaultPluginsSetting': 2,
-            'DisablePluginFinder': True,
             'AllowOutdatedPlugins': False,
-            'AlwaysAuthorizePlugins': False,
-            'BookmarkBarEnabled': True,
-            'EditBookmarksEnabled': True,
-            'RestoreOnStartupURLs': self.STARTUP_URLS,
-            'RestoreOnStartup': 4
         }
 
 
     def _wait_for_page_ready(self, tab):
-        """Wait for JavaScript on page in |tab| to set the pageReady flag.
+        """
+        Wait for JavaScript on page in |tab| to set the pageReady flag.
 
         @param tab: browser tab with page to load.
+
         """
         utils.poll_for_condition(
             lambda: tab.EvaluateJavaScript('pageReady'),
@@ -81,15 +81,20 @@ class policy_PluginsAllowedForUrls(
 
 
     def _stop_flash_if_running(self, timeout_sec=10):
-        """Terminate all Shockwave Flash processes.
+        """
+        Terminate all Flash processes.
 
         @param timeout_sec: maximum seconds to wait for processes to die.
         @raises: error.AutoservPidAlreadyDeadError if Flash process is dead.
         @raises: utils.TimeoutError if Flash processes are still running
                  after timeout_sec.
+
         """
         def kill_flash_process():
-            """Kill all running flash processes."""
+            """
+            Kill all running flash processes.
+
+            """
             pids = utils.get_process_list('chrome', '--type=ppapi')
             for pid in pids:
                 try:
@@ -98,21 +103,30 @@ class policy_PluginsAllowedForUrls(
                     pass
             return pids
 
-        utils.poll_for_condition(lambda: kill_flash_process() == [],
+        # Wait for kill_flash_process to kill all flash processes
+        utils.poll_for_condition(lambda: not kill_flash_process(),
                                  timeout=timeout_sec)
 
 
     def _is_flash_running(self):
-        """Check if a Shockwave Flash process is running.
+        """
+        Check if a Flash process is running.
 
         @returns: True if one or more flash processes are running.
+
         """
-        flash_pids = utils.get_process_list('chrome', '--type=ppapi')
-        return flash_pids != []
+        try:
+            utils.poll_for_condition(
+                    lambda: utils.get_process_list('chrome', '--type=ppapi'))
+        except utils.TimeoutError:
+            return False
+
+        return True
 
 
     def _test_plugins_allowed_for_urls(self, policy_value):
-        """Verify CrOS enforces the PluginsAllowedForUrls policy.
+        """
+        Verify CrOS enforces the PluginsAllowedForUrls policy.
 
         When PluginsAllowedForUrls is undefined, plugins shall be blocked on
         all pages. When PluginsAllowedForUrls contains one or more URLs,
@@ -120,18 +134,19 @@ class policy_PluginsAllowedForUrls(
         the listed URLs.
 
         @param policy_value: policy value expected.
+
         """
         # Set a low audio volume to avoid annoying people during tests.
         audio_helper.set_volume_levels(10, 100)
 
-        # Kill any running Shockwave Flash processes.
+        # Kill any running Flash processes.
         self._stop_flash_if_running()
 
         # Open page with an embedded flash file.
         tab = self.navigate_to_url(self.TEST_URL)
         self._wait_for_page_ready(tab)
 
-        # Check if Shockwave Flash process is running.
+        # Check if Flash process is running.
         plugin_is_running = self._is_flash_running()
         logging.info('plugin_is_running: %r', plugin_is_running)
 
@@ -147,9 +162,11 @@ class policy_PluginsAllowedForUrls(
 
 
     def run_once(self, case):
-        """Setup and run the test configured for the specified test case.
+        """
+        Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
+
         """
         case_value = self.TEST_CASES[case]
         self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value

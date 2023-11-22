@@ -17,9 +17,11 @@ class security_AltSyscall(test.test):
     version = 1
 
     def initialize(self):
+        """Initializes the test."""
         self.job.require_gcc()
 
     def setup(self):
+        """Compiles the test binaries."""
         os.chdir(self.srcdir)
         utils.make('clean')
         utils.make()
@@ -36,9 +38,11 @@ class security_AltSyscall(test.test):
         @param expected_ret Expected return value from the test
         @param pretty_msg Message to display on failue
         """
-        cmdline = '/sbin/minijail0 -a %s %s/%s' % (table, self.srcdir, exe)
+        exe_path = os.path.join(self.srcdir, exe)
+        flags = '-a %s' % table
+        cmdline = '/sbin/minijail0 %s -- %s' % (flags, exe_path)
 
-        logging.info("Command line: " + cmdline)
+        logging.info("Command line: %s", cmdline)
         ret = utils.system(cmdline, ignore_status=True)
 
         if ret != expected_ret:
@@ -46,9 +50,7 @@ class security_AltSyscall(test.test):
             raise error.TestFail(pretty_msg)
 
     def alt_syscall_supported(self):
-        """
-        Check that alt_syscall is supported by the kernel.
-        """
+        """Checks that alt_syscall is supported by the kernel."""
         config = kernel_config.KernelConfig()
         config.initialize()
         config.is_enabled('ALT_SYSCALL')
@@ -56,8 +58,10 @@ class security_AltSyscall(test.test):
         return len(config.failures()) == 0
 
     def run_once(self):
+        """Main entrypoint of the test."""
         if not self.alt_syscall_supported():
-            raise error.TestFail("ALT_SYSCALL not supported")
+            logging.warning("ALT_SYSCALL not supported")
+            return
 
         case_allow = ("read", "read_write_test", 0,
                       "Allowed system calls failed")

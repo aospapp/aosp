@@ -86,12 +86,6 @@ class TestWarn(TestBaseException):
     exit_status = "WARN"
 
 
-class TestFailRetry(TestFail):
-    """Indicates that the test failed, but in a manner that may be retried
-    if test retries are enabled for this test."""
-    exit_status = "FAIL"
-
-
 class UnhandledTestError(TestError):
     """Indicates an unhandled error in a test."""
     def __init__(self, unhandled_exception):

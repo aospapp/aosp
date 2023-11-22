@@ -36,7 +36,7 @@ public:
         return { SK_ScalarMin, SK_ScalarMin, SK_ScalarMax, SK_ScalarMax };
     }
 
-    static SkRect MakeLargestInverted() {
+    static constexpr SkRect MakeLargestInverted() {
         return { SK_ScalarMax, SK_ScalarMax, SK_ScalarMin, SK_ScalarMin };
     }
 
@@ -47,10 +47,16 @@ public:
         r->fBottom = SkMaxScalar(pt.fY, r->fBottom);
     }
 
-    // conservative check. will return false for very large values that "could" fit
+    // Conservative check if r can be expressed in fixed-point.
+    // Will return false for very large values that might have fit
     static bool FitsInFixed(const SkRect& r) {
         return SkFitsInFixed(r.fLeft) && SkFitsInFixed(r.fTop) &&
                SkFitsInFixed(r.fRight) && SkFitsInFixed(r.fBottom);
+    }
+
+    static bool Is16Bit(const SkIRect& r) {
+        return  SkTFitsIn<int16_t>(r.fLeft)  && SkTFitsIn<int16_t>(r.fTop) &&
+                SkTFitsIn<int16_t>(r.fRight) && SkTFitsIn<int16_t>(r.fBottom);
     }
 };
 

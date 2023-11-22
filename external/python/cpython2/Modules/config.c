@@ -56,6 +56,7 @@ extern void initmmap(void);
 extern void init_csv(void);
 extern void init_socket(void);
 extern void inittermios(void);
+extern void init_ssl(void);
 extern void init_md5(void);
 extern void init_sha(void);
 extern void init_sha256(void);
@@ -80,6 +81,9 @@ extern void initpyexpat(void);
 extern void init_sqlite3(void);
 extern void init_ctypes(void);
 extern void init_ctypes_test(void);
+#ifdef __APPLE__
+extern void init_scproxy(void);
+#endif
 
 /* -- ADDMODULE MARKER 1 -- */
 
@@ -124,6 +128,7 @@ struct _inittab _PyImport_Inittab[] = {
     {"_csv", init_csv},
     {"_socket", init_socket},
     {"termios", inittermios},
+    {"_ssl", init_ssl},
     {"_md5", init_md5},
     {"_sha", init_sha},
     {"_sha256", init_sha256},
@@ -148,6 +153,9 @@ struct _inittab _PyImport_Inittab[] = {
     {"_sqlite3", init_sqlite3},
     {"_ctypes", init_ctypes},
     {"_ctypes_test", init_ctypes_test},
+#ifdef __APPLE__
+    {"_scproxy", init_scproxy},
+#endif
 
 /* -- ADDMODULE MARKER 2 -- */
 

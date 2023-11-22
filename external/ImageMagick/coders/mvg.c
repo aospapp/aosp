@@ -17,13 +17,13 @@
 %                                 April 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -126,8 +126,6 @@ static MagickBooleanType IsMVG(const unsigned char *magick,const size_t length)
 */
 static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
-#define BoundingBox  "viewbox"
-
   DrawInfo
     *draw_info;
 
@@ -168,13 +166,17 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
       /*
         Determine size of image canvas.
       */
+      (void) memset(&bounds,0,sizeof(bounds));
       while (ReadBlobString(image,primitive) != (char *) NULL)
       {
+        int
+          count;
+
         for (p=primitive; (*p == ' ') || (*p == '\t'); p++) ;
-        if (LocaleNCompare(BoundingBox,p,strlen(BoundingBox)) != 0)
-          continue;
-        (void) sscanf(p,"viewbox %lf %lf %lf %lf",&bounds.x1,&bounds.y1,
+        count=sscanf(p,"viewbox %lf %lf %lf %lf",&bounds.x1,&bounds.y1,
           &bounds.x2,&bounds.y2);
+        if (count != 4)
+          continue;
         image->columns=(size_t) floor((bounds.x2-bounds.x1)+0.5);
         image->rows=(size_t) floor((bounds.y2-bounds.y1)+0.5);
         break;
@@ -183,19 +185,24 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   draw_info=CloneDrawInfo(image_info,(DrawInfo *) NULL);
+  if (draw_info->density != (char *) NULL)
+    draw_info->density=DestroyString(draw_info->density);
   draw_info->affine.sx=image->resolution.x == 0.0 ? 1.0 : image->resolution.x/
-    DefaultResolution;
+    96.0;
   draw_info->affine.sy=image->resolution.y == 0.0 ? 1.0 : image->resolution.y/
-    DefaultResolution;
+    96.0;
   image->columns=(size_t) (draw_info->affine.sx*image->columns);
   image->rows=(size_t) (draw_info->affine.sy*image->rows);
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
-    return(DestroyImageList(image));
+    {
+      draw_info=DestroyDrawInfo(draw_info);
+      return(DestroyImageList(image));
+    }
   if (SetImageBackgroundColor(image,exception) == MagickFalse)
     {
-      image=DestroyImageList(image);
-      return((Image *) NULL);
+      draw_info=DestroyDrawInfo(draw_info);
+      return(DestroyImageList(image));
     }
   /*
     Render drawing.
@@ -204,17 +211,33 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
     draw_info->primitive=FileToString(image->filename,~0UL,exception);
   else
     {
-      draw_info->primitive=(char *) AcquireMagickMemory(GetBlobSize(image)+1);
-      if (draw_info->primitive != (char *) NULL)
+      MagickSizeType
+        length;
+
+      length=GetBlobSize(image);
+      if (length == (MagickSizeType) ((size_t) length))
         {
-          CopyMagickMemory(draw_info->primitive,GetBlobStreamData(image),
-            GetBlobSize(image));
-          draw_info->primitive[GetBlobSize(image)]='\0';
-        }
+          draw_info->primitive=(char *) AcquireMagickMemory((size_t) length+1);
+          if (draw_info->primitive != (char *) NULL)
+            {
+              memcpy(draw_info->primitive,GetBlobStreamData(image),(size_t)
+                length);
+              draw_info->primitive[length]='\0';
+            }
+         }
      }
   if (draw_info->primitive == (char *) NULL)
-    ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    {
+      draw_info=DestroyDrawInfo(draw_info);
+      return(DestroyImageList(image));
+    }
+  if (*draw_info->primitive == '@')
+    {
+      draw_info=DestroyDrawInfo(draw_info);
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   (void) DrawImage(image,draw_info,exception);
+  (void) SetImageArtifact(image,"mvg:vector-graphics",draw_info->primitive);
   draw_info=DestroyDrawInfo(draw_info);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
@@ -254,7 +277,6 @@ ModuleExport size_t RegisterMVGImage(void)
   entry->magick=(IsImageFormatHandler *) IsMVG;
   entry->format_type=ImplicitFormatType;
   entry->flags^=CoderAdjoinFlag;
-  entry->flags|=CoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -328,7 +350,7 @@ static MagickBooleanType WriteMVGImage(const ImageInfo *image_info,Image *image,
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  value=GetImageArtifact(image,"MVG");
+  value=GetImageArtifact(image,"mvg:vector-graphics");
   if (value == (const char *) NULL)
     ThrowWriterException(OptionError,"NoImageVectorGraphics");
   status=OpenBlob(image_info,image,WriteBlobMode,exception);

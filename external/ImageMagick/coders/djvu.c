@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -605,6 +605,7 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
                                 if (tag == 0) break;
                                 ddjvu_message_pop(lc->context);
                         } while ((message = ddjvu_message_peek(lc->context)));
+               if (tag == 0) break;
         } while (!ddjvu_page_decoding_done(lc->page));
 
         ddjvu_document_get_pageinfo(lc->document, pagenum, &info);
@@ -809,7 +810,7 @@ static Image *ReadDJVUImage(const ImageInfo *image_info,
   /*
    * Initialize members of the MngInfo structure.
    */
-  (void) ResetMagickMemory(lc,0,sizeof(LoadContext));
+  (void) memset(lc,0,sizeof(LoadContext));
 
   lc->image = image;
   lc->pages = 0;
@@ -818,7 +819,7 @@ static Image *ReadDJVUImage(const ImageInfo *image_info,
   ddjvu_cache_set_size(lc->context, 1); /* right? */
   use_cache = 0;
   /* document: here we don't have a filename, but, for the sake of generality, a FILE* ! */
-  url="http://www.imagemagick.org/fake.djvu";
+  url="https://imagemagick.org/fake.djvu";
   lc->document = ddjvu_document_create(lc->context, url, use_cache); /* don't cache */
   ddjvu_document_set_user_data(lc->document, lc);
 
@@ -875,7 +876,8 @@ static Image *ReadDJVUImage(const ImageInfo *image_info,
         break;
   }
   djvu_close_lc(lc);
-  (void) CloseBlob(images);
+  if (images != (Image *) NULL)
+    (void) CloseBlob(images);
   if (image != (Image *) NULL)
     image=DestroyImageList(image);
 

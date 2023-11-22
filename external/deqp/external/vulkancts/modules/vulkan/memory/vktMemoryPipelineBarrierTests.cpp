@@ -32,6 +32,8 @@
 #include "vkMemUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkPrograms.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuMaybe.hpp"
 #include "tcuTextureUtil.hpp"
@@ -80,6 +82,8 @@ namespace memory
 {
 namespace
 {
+
+#define ONE_MEGABYTE 1024*1024
 enum
 {
 	MAX_UNIFORM_BUFFER_SIZE = 1024,
@@ -93,46 +97,6 @@ T divRoundUp (const T& a, const T& b)
 {
 	return (a / b) + (a % b == 0 ? 0 : 1);
 }
-
-enum
-{
-	ALL_PIPELINE_STAGES = vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
-						| vk::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
-						| vk::VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT
-						| vk::VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
-						| vk::VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
-						| vk::VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT
-						| vk::VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT
-						| vk::VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT
-						| vk::VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-						| vk::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-						| vk::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT
-						| vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-						| vk::VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-						| vk::VK_PIPELINE_STAGE_TRANSFER_BIT
-						| vk::VK_PIPELINE_STAGE_HOST_BIT
-};
-
-enum
-{
-	ALL_ACCESSES = vk::VK_ACCESS_INDIRECT_COMMAND_READ_BIT
-				 | vk::VK_ACCESS_INDEX_READ_BIT
-				 | vk::VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
-				 | vk::VK_ACCESS_UNIFORM_READ_BIT
-				 | vk::VK_ACCESS_INPUT_ATTACHMENT_READ_BIT
-				 | vk::VK_ACCESS_SHADER_READ_BIT
-				 | vk::VK_ACCESS_SHADER_WRITE_BIT
-				 | vk::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
-				 | vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-				 | vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-				 | vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
-				 | vk::VK_ACCESS_TRANSFER_READ_BIT
-				 | vk::VK_ACCESS_TRANSFER_WRITE_BIT
-				 | vk::VK_ACCESS_HOST_READ_BIT
-				 | vk::VK_ACCESS_HOST_WRITE_BIT
-				 | vk::VK_ACCESS_MEMORY_READ_BIT
-				 | vk::VK_ACCESS_MEMORY_WRITE_BIT
-};
 
 enum Usage
 {
@@ -217,6 +181,34 @@ enum Access
 	ACCESS_LAST
 };
 
+Access accessFlagToAccess (vk::VkAccessFlagBits flag)
+{
+	switch (flag)
+	{
+	case vk::VK_ACCESS_INDIRECT_COMMAND_READ_BIT:			return ACCESS_INDIRECT_COMMAND_READ_BIT;
+	case vk::VK_ACCESS_INDEX_READ_BIT:						return ACCESS_INDEX_READ_BIT;
+	case vk::VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT:			return ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+	case vk::VK_ACCESS_UNIFORM_READ_BIT:					return ACCESS_UNIFORM_READ_BIT;
+	case vk::VK_ACCESS_INPUT_ATTACHMENT_READ_BIT:			return ACCESS_INPUT_ATTACHMENT_READ_BIT;
+	case vk::VK_ACCESS_SHADER_READ_BIT:						return ACCESS_SHADER_READ_BIT;
+	case vk::VK_ACCESS_SHADER_WRITE_BIT:					return ACCESS_SHADER_WRITE_BIT;
+	case vk::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT:			return ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	case vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT:			return ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	case vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT:	return ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	case vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:	return ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	case vk::VK_ACCESS_TRANSFER_READ_BIT:					return ACCESS_TRANSFER_READ_BIT;
+	case vk::VK_ACCESS_TRANSFER_WRITE_BIT:					return ACCESS_TRANSFER_WRITE_BIT;
+	case vk::VK_ACCESS_HOST_READ_BIT:						return ACCESS_HOST_READ_BIT;
+	case vk::VK_ACCESS_HOST_WRITE_BIT:						return ACCESS_HOST_WRITE_BIT;
+	case vk::VK_ACCESS_MEMORY_READ_BIT:						return ACCESS_MEMORY_READ_BIT;
+	case vk::VK_ACCESS_MEMORY_WRITE_BIT:					return ACCESS_MEMORY_WRITE_BIT;
+
+	default:
+		DE_FATAL("Unknown access flags");
+		return ACCESS_LAST;
+	}
+}
+
 // Sequential stage enums
 enum PipelineStage
 {
@@ -239,9 +231,9 @@ enum PipelineStage
 	PIPELINESTAGE_LAST
 };
 
-PipelineStage pipelineStageFlagToPipelineStage (vk::VkPipelineStageFlagBits flags)
+PipelineStage pipelineStageFlagToPipelineStage (vk::VkPipelineStageFlagBits flag)
 {
-	switch (flags)
+	switch (flag)
 	{
 		case vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT:						return PIPELINESTAGE_TOP_OF_PIPE_BIT;
 		case vk::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT:					return PIPELINESTAGE_BOTTOM_OF_PIPE_BIT;
@@ -409,9 +401,6 @@ vk::VkPipelineStageFlags usageToStageFlags (Usage usage)
 			| USAGE_STORAGE_IMAGE))
 	{
 		flags |= (vk::VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
-				| vk::VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT
-				| vk::VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT
-				| vk::VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT
 				| vk::VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
 				| vk::VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	}
@@ -656,30 +645,6 @@ vk::Move<vk::VkDeviceMemory> bindImageMemory (const vk::InstanceInterface&	vki,
 	}
 
 	TCU_FAIL("Failed to allocate memory for image");
-}
-
-void queueRun (const vk::DeviceInterface&	vkd,
-			   vk::VkQueue					queue,
-			   vk::VkCommandBuffer			commandBuffer)
-{
-	const vk::VkSubmitInfo	submitInfo	=
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		DE_NULL,
-
-		0,
-		DE_NULL,
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-
-		1,
-		&commandBuffer,
-
-		0,
-		DE_NULL
-	};
-
-	VK_CHECK(vkd.queueSubmit(queue, 1, &submitInfo, 0));
-	VK_CHECK(vkd.queueWaitIdle(queue));
 }
 
 void* mapMemory (const vk::DeviceInterface&	vkd,
@@ -1376,36 +1341,52 @@ void HostMemoryAccess::prepare (PrepareContext& context)
 
 void HostMemoryAccess::execute (ExecuteContext& context)
 {
-	de::Random		rng	(m_seed);
-	deUint8* const	ptr	= (deUint8*)context.getMapping();
-
 	if (m_read && m_write)
 	{
-		for (size_t pos = 0; pos < m_size; pos++)
+		de::Random		rng	(m_seed);
+		deUint8* const	ptr	= (deUint8*)context.getMapping();
+		if (m_size >= ONE_MEGABYTE)
 		{
-			const deUint8	mask	= rng.getUint8();
-			const deUint8	value	= ptr[pos];
+			deMemcpy(&m_readData[0], ptr, m_size);
+			for (size_t pos = 0; pos < m_size; ++pos)
+			{
+				ptr[pos] = m_readData[pos] ^ rng.getUint8();
+			}
+		}
+		else
+		{
+			for (size_t pos = 0; pos < m_size; ++pos)
+			{
+				const deUint8	mask	= rng.getUint8();
+				const deUint8	value	= ptr[pos];
 
-			m_readData[pos] = value;
-			ptr[pos] = value ^ mask;
+				m_readData[pos] = value;
+				ptr[pos] = value ^ mask;
+			}
 		}
 	}
 	else if (m_read)
 	{
-		for (size_t pos = 0; pos < m_size; pos++)
+		const deUint8* const	ptr = (deUint8*)context.getMapping();
+		if (m_size >= ONE_MEGABYTE)
 		{
-			const deUint8	value	= ptr[pos];
-
-			m_readData[pos] = value;
+			deMemcpy(&m_readData[0], ptr, m_size);
+		}
+		else
+		{
+			for (size_t pos = 0; pos < m_size; ++pos)
+			{
+				m_readData[pos] = ptr[pos];
+			}
 		}
 	}
 	else if (m_write)
 	{
-		for (size_t pos = 0; pos < m_size; pos++)
+		de::Random		rng	(m_seed);
+		deUint8* const	ptr	= (deUint8*)context.getMapping();
+		for (size_t pos = 0; pos < m_size; ++pos)
 		{
-			const deUint8	value	= rng.getUint8();
-
-			ptr[pos] = value;
+			ptr[pos] = rng.getUint8();
 		}
 	}
 	else
@@ -1871,7 +1852,7 @@ void SubmitCommandBuffer::prepare (PrepareContext& context)
 			command.submit(submitContext);
 		}
 
-		VK_CHECK(vkd.endCommandBuffer(*m_commandBuffer));
+		endCommandBuffer(vkd, *m_commandBuffer);
 	}
 }
 
@@ -2349,8 +2330,8 @@ void BufferCopyToBuffer::verify (VerifyContext& context, size_t commandIndex)
 
 	vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 1, &barrier, 0, (const vk::VkImageMemoryBarrier*)DE_NULL);
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-	queueRun(vkd, queue, *commandBuffer);
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 
 	{
 		void* const	ptr		= mapMemory(vkd, device, *m_memory, m_bufferSize);
@@ -2566,8 +2547,8 @@ void BufferCopyToImage::prepare (PrepareContext& context)
 
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 0, (const vk::VkBufferMemoryBarrier*)DE_NULL, 1, &barrier);
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 	}
 }
 
@@ -2677,8 +2658,8 @@ void BufferCopyToImage::verify (VerifyContext& context, size_t commandIndex)
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 1, &bufferBarrier, 0, (const vk::VkImageMemoryBarrier*)DE_NULL);
 	}
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-	queueRun(vkd, queue, *commandBuffer);
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 
 	{
 		void* const	ptr		= mapMemory(vkd, device, *memory, 4 * m_imageWidth * m_imageHeight);
@@ -2870,8 +2851,8 @@ void BufferCopyFromImage::prepare (PrepareContext& context)
 		vkd.cmdCopyBufferToImage(*commandBuffer, *srcBuffer, *m_srcImage, vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 0, (const vk::VkBufferMemoryBarrier*)DE_NULL, 1, &postImageBarrier);
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 	}
 }
 
@@ -3014,8 +2995,8 @@ void ImageCopyToBuffer::verify (VerifyContext& context, size_t commandIndex)
 
 	vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 1, &barrier, 0, (const vk::VkImageMemoryBarrier*)DE_NULL);
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-	queueRun(vkd, queue, *commandBuffer);
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 
 	reference.setUndefined(0, (size_t)m_imageMemorySize);
 	{
@@ -3305,8 +3286,8 @@ void ImageCopyFromImage::prepare (PrepareContext& context)
 		vkd.cmdCopyBufferToImage(*commandBuffer, *srcBuffer, *m_srcImage, vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 0, (const vk::VkBufferMemoryBarrier*)DE_NULL, 1, &postImageBarrier);
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 	}
 }
 
@@ -3469,8 +3450,8 @@ void ImageCopyToImage::prepare (PrepareContext& context)
 
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 0, (const vk::VkBufferMemoryBarrier*)DE_NULL, 1, &barrier);
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 	}
 }
 
@@ -3584,8 +3565,8 @@ void ImageCopyToImage::verify (VerifyContext& context, size_t commandIndex)
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 1, &bufferBarrier, 0, (const vk::VkImageMemoryBarrier*)DE_NULL);
 	}
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-	queueRun(vkd, queue, *commandBuffer);
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 
 	{
 		void* const	ptr		= mapMemory(vkd, device, *memory, 4 * m_imageWidth * m_imageHeight);
@@ -3787,8 +3768,8 @@ void ImageBlitFromImage::prepare (PrepareContext& context)
 		vkd.cmdCopyBufferToImage(*commandBuffer, *srcBuffer, *m_srcImage, vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 0, (const vk::VkBufferMemoryBarrier*)DE_NULL, 1, &postImageBarrier);
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 	}
 }
 
@@ -4003,8 +3984,8 @@ void ImageBlitToImage::prepare (PrepareContext& context)
 
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 0, (const vk::VkBufferMemoryBarrier*)DE_NULL, 1, &barrier);
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 	}
 }
 
@@ -4128,8 +4109,8 @@ void ImageBlitToImage::verify (VerifyContext& context, size_t commandIndex)
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 1, &bufferBarrier, 0, (const vk::VkImageMemoryBarrier*)DE_NULL);
 	}
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-	queueRun(vkd, queue, *commandBuffer);
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 
 	{
 		void* const	ptr		= mapMemory(vkd, device, *memory, 4 * m_dstImageWidth * m_dstImageHeight);
@@ -4330,40 +4311,6 @@ void SubmitRenderPass::prepare (PrepareContext& context)
 	const vk::VkDevice						device			= context.getContext().getDevice();
 	const vector<deUint32>&					queueFamilies	= context.getContext().getQueueFamilies();
 
-	const vk::VkAttachmentReference	colorAttachments[]	=
-	{
-		{ 0, vk::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL }
-	};
-	const vk::VkSubpassDescription	subpass				=
-	{
-		0u,
-		vk::VK_PIPELINE_BIND_POINT_GRAPHICS,
-
-		0u,
-		DE_NULL,
-
-		DE_LENGTH_OF_ARRAY(colorAttachments),
-		colorAttachments,
-		DE_NULL,
-		DE_NULL,
-		0u,
-		DE_NULL
-	};
-	const vk::VkAttachmentDescription attachment =
-	{
-		0u,
-		vk::VK_FORMAT_R8G8B8A8_UNORM,
-		vk::VK_SAMPLE_COUNT_1_BIT,
-
-		vk::VK_ATTACHMENT_LOAD_OP_CLEAR,
-		vk::VK_ATTACHMENT_STORE_OP_STORE,
-
-		vk::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		vk::VK_ATTACHMENT_STORE_OP_DONT_CARE,
-
-		vk::VK_IMAGE_LAYOUT_UNDEFINED,
-		vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-	};
 	{
 		const vk::VkImageCreateInfo createInfo =
 		{
@@ -4417,25 +4364,8 @@ void SubmitRenderPass::prepare (PrepareContext& context)
 
 		m_colorTargetView = vk::createImageView(vkd, device, &createInfo);
 	}
-	{
-		const vk::VkRenderPassCreateInfo createInfo =
-		{
-			vk::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-			DE_NULL,
-			0u,
 
-			1u,
-			&attachment,
-
-			1u,
-			&subpass,
-
-			0,
-			DE_NULL
-		};
-
-		m_renderPass = vk::createRenderPass(vkd, device, &createInfo);
-	}
+	m_renderPass = vk::makeRenderPass(vkd, device, vk::VK_FORMAT_R8G8B8A8_UNORM, vk::VK_FORMAT_UNDEFINED, vk::VK_ATTACHMENT_LOAD_OP_CLEAR, vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
 	{
 		const vk::VkImageView				imageViews[]	=
@@ -4474,22 +4404,8 @@ void SubmitRenderPass::submit (SubmitContext& context)
 {
 	const vk::DeviceInterface&		vkd				= context.getContext().getDeviceInterface();
 	const vk::VkCommandBuffer		commandBuffer	= context.getCommandBuffer();
-	const vk::VkClearValue			clearValue		= vk::makeClearValueColorF32(0.0f, 0.0f, 0.0f, 1.0f);
 
-	const vk::VkRenderPassBeginInfo	beginInfo		=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		DE_NULL,
-
-		*m_renderPass,
-		*m_framebuffer,
-
-		{ { 0, 0 },  { (deUint32)m_targetWidth, (deUint32)m_targetHeight } },
-		1u,
-		&clearValue
-	};
-
-	vkd.cmdBeginRenderPass(commandBuffer, &beginInfo, vk::VK_SUBPASS_CONTENTS_INLINE);
+	beginRenderPass(vkd, commandBuffer, *m_renderPass, *m_framebuffer, vk::makeRect2D(0, 0, m_targetWidth, m_targetHeight), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
 	{
@@ -4498,7 +4414,7 @@ void SubmitRenderPass::submit (SubmitContext& context)
 		command.submit(context);
 	}
 
-	vkd.cmdEndRenderPass(commandBuffer);
+	endRenderPass(vkd, commandBuffer);
 }
 
 void SubmitRenderPass::verify (VerifyContext& context, size_t commandIndex)
@@ -4589,8 +4505,8 @@ void SubmitRenderPass::verify (VerifyContext& context, size_t commandIndex)
 			vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0, 0, (const vk::VkMemoryBarrier*)DE_NULL, 1, &bufferBarrier, 0, (const vk::VkImageMemoryBarrier*)DE_NULL);
 		}
 
-		VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
-		queueRun(vkd, queue, *commandBuffer);
+		endCommandBuffer(vkd, *commandBuffer);
+		submitCommandsAndWait(vkd, device, queue, *commandBuffer);
 
 		{
 			void* const	ptr		= mapMemory(vkd, device, *memory, 4 * m_targetWidth * m_targetHeight);
@@ -4609,6 +4525,114 @@ void SubmitRenderPass::verify (VerifyContext& context, size_t commandIndex)
 			vkd.unmapMemory(device, *memory);
 		}
 	}
+}
+
+class ExecuteSecondaryCommandBuffer : public CmdCommand
+{
+public:
+				ExecuteSecondaryCommandBuffer	(const vector<CmdCommand*>& commands);
+				~ExecuteSecondaryCommandBuffer	(void);
+	const char*	getName							(void) const { return "ExecuteSecondaryCommandBuffer"; }
+
+	void		logPrepare						(TestLog&, size_t) const;
+	void		logSubmit						(TestLog&, size_t) const;
+
+	void		prepare							(PrepareContext&);
+	void		submit							(SubmitContext&);
+
+	void		verify							(VerifyContext&, size_t);
+
+private:
+	vk::Move<vk::VkCommandBuffer>				m_commandBuffer;
+	vk::Move<vk::VkDeviceMemory>				m_colorTargetMemory;
+	de::MovePtr<vk::Allocation>					m_colorTargetMemory2;
+	vk::Move<vk::VkImage>						m_colorTarget;
+	vk::Move<vk::VkImageView>					m_colorTargetView;
+	vk::Move<vk::VkFramebuffer>					m_framebuffer;
+	vector<CmdCommand*>							m_commands;
+};
+
+ExecuteSecondaryCommandBuffer::ExecuteSecondaryCommandBuffer(const vector<CmdCommand*>& commands)
+	: m_commands		(commands)
+{
+}
+
+ExecuteSecondaryCommandBuffer::~ExecuteSecondaryCommandBuffer (void)
+{
+	for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
+		delete m_commands[cmdNdx];
+}
+
+void ExecuteSecondaryCommandBuffer::logPrepare (TestLog& log, size_t commandIndex) const
+{
+	const string				sectionName	(de::toString(commandIndex) + ":" + getName());
+	const tcu::ScopedLogSection	section		(log, sectionName, sectionName);
+
+	for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
+	{
+		CmdCommand& command = *m_commands[cmdNdx];
+		command.logPrepare(log, cmdNdx);
+	}
+}
+
+void ExecuteSecondaryCommandBuffer::logSubmit (TestLog& log, size_t commandIndex) const
+{
+	const string				sectionName	(de::toString(commandIndex) + ":" + getName());
+	const tcu::ScopedLogSection	section		(log, sectionName, sectionName);
+
+	for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
+	{
+		CmdCommand& command = *m_commands[cmdNdx];
+		command.logSubmit(log, cmdNdx);
+	}
+}
+
+void ExecuteSecondaryCommandBuffer::prepare (PrepareContext& context)
+{
+	const vk::DeviceInterface&		vkd				= context.getContext().getDeviceInterface();
+	const vk::VkDevice				device			= context.getContext().getDevice();
+	const vk::VkCommandPool			commandPool		= context.getContext().getCommandPool();
+
+	for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
+	{
+		CmdCommand& command = *m_commands[cmdNdx];
+
+		command.prepare(context);
+	}
+
+	m_commandBuffer = createBeginCommandBuffer(vkd, device, commandPool, vk::VK_COMMAND_BUFFER_LEVEL_SECONDARY);
+	{
+		SubmitContext submitContext (context, *m_commandBuffer);
+
+		for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
+		{
+			CmdCommand& command = *m_commands[cmdNdx];
+
+			command.submit(submitContext);
+		}
+
+		endCommandBuffer(vkd, *m_commandBuffer);
+	}
+}
+
+void ExecuteSecondaryCommandBuffer::submit (SubmitContext& context)
+{
+	const vk::DeviceInterface&		vkd				= context.getContext().getDeviceInterface();
+	const vk::VkCommandBuffer		commandBuffer	= context.getCommandBuffer();
+
+
+	{
+		vkd.cmdExecuteCommands(commandBuffer, 1, &m_commandBuffer.get());
+	}
+}
+
+void ExecuteSecondaryCommandBuffer::verify (VerifyContext& context, size_t commandIndex)
+{
+	const string				sectionName	(de::toString(commandIndex) + ":" + getName());
+	const tcu::ScopedLogSection	section		(context.getLog(), sectionName, sectionName);
+
+	for (size_t cmdNdx = 0; cmdNdx < m_commands.size(); cmdNdx++)
+		m_commands[cmdNdx]->verify(context, cmdNdx);
 }
 
 struct PipelineResources
@@ -4668,59 +4692,10 @@ void createPipelineWithResources (const vk::DeviceInterface&							vkd,
 	}
 
 	{
-		const vk::VkPipelineShaderStageCreateInfo			shaderStages[]					=
-		{
-			{
-				vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-				DE_NULL,
-				0,
-				vk::VK_SHADER_STAGE_VERTEX_BIT,
-				vertexShaderModule,
-				"main",
-				DE_NULL
-			},
-			{
-				vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-				DE_NULL,
-				0,
-				vk::VK_SHADER_STAGE_FRAGMENT_BIT,
-				fragmentShaderModule,
-				"main",
-				DE_NULL
-			}
-		};
-		const vk::VkPipelineDepthStencilStateCreateInfo		depthStencilState				=
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-			DE_NULL,
-			0u,
-			DE_FALSE,
-			DE_FALSE,
-			vk::VK_COMPARE_OP_ALWAYS,
-			DE_FALSE,
-			DE_FALSE,
-			{
-				vk::VK_STENCIL_OP_KEEP,
-				vk::VK_STENCIL_OP_KEEP,
-				vk::VK_STENCIL_OP_KEEP,
-				vk::VK_COMPARE_OP_ALWAYS,
-				0u,
-				0u,
-				0u,
-			},
-			{
-				vk::VK_STENCIL_OP_KEEP,
-				vk::VK_STENCIL_OP_KEEP,
-				vk::VK_STENCIL_OP_KEEP,
-				vk::VK_COMPARE_OP_ALWAYS,
-				0u,
-				0u,
-				0u,
-			},
-			-1.0f,
-			+1.0f
-		};
-		const vk::VkPipelineVertexInputStateCreateInfo		vertexInputState				=
+		const std::vector<vk::VkViewport>				viewports			(1, vk::makeViewport(0.0f, 0.0f, (float)viewPortWidth, (float)viewPortHeight, 0.0f, 1.0f));
+		const std::vector<vk::VkRect2D>					scissors			(1, vk::makeRect2D(0, 0, viewPortWidth, viewPortHeight));
+
+		const vk::VkPipelineVertexInputStateCreateInfo	vertexInputState	=
 		{
 			vk::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 			DE_NULL,
@@ -4732,117 +4707,22 @@ void createPipelineWithResources (const vk::DeviceInterface&							vkd,
 			(deUint32)vertexAttributeDescriptions.size(),
 			vertexAttributeDescriptions.empty() ? DE_NULL : &vertexAttributeDescriptions[0]
 		};
-		const vk::VkPipelineInputAssemblyStateCreateInfo	inputAssemblyState				=
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-			DE_NULL,
-			0,
-			topology,
-			VK_FALSE
-		};
-		const vk::VkViewport								viewports[]						=
-		{
-			{ 0.0f, 0.0f, (float)viewPortWidth, (float)viewPortHeight, 0.0f, 1.0f }
-		};
-		const vk::VkRect2D									scissors[]						=
-		{
-			{ { 0, 0 }, { (deUint32)viewPortWidth, (deUint32)viewPortHeight } }
-		};
-		const vk::VkPipelineViewportStateCreateInfo			viewportState					=
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-			DE_NULL,
-			0,
-			DE_LENGTH_OF_ARRAY(viewports),
-			viewports,
-			DE_LENGTH_OF_ARRAY(scissors),
-			scissors
-		};
-		const vk::VkPipelineRasterizationStateCreateInfo	rasterState						=
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-			DE_NULL,
-			0,
 
-			VK_TRUE,
-			VK_FALSE,
-			vk::VK_POLYGON_MODE_FILL,
-			vk::VK_CULL_MODE_NONE,
-			vk::VK_FRONT_FACE_COUNTER_CLOCKWISE,
-			VK_FALSE,
-			0.0f,
-			0.0f,
-			0.0f,
-			1.0f
-		};
-		const vk::VkSampleMask								sampleMask						= ~0u;
-		const vk::VkPipelineMultisampleStateCreateInfo		multisampleState				=
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-			DE_NULL,
-			0,
-
-			vk::VK_SAMPLE_COUNT_1_BIT,
-			VK_FALSE,
-			0.0f,
-			&sampleMask,
-			VK_FALSE,
-			VK_FALSE
-		};
-		const vk::VkPipelineColorBlendAttachmentState		attachments[]					=
-		{
-			{
-				VK_FALSE,
-				vk::VK_BLEND_FACTOR_ONE,
-				vk::VK_BLEND_FACTOR_ZERO,
-				vk::VK_BLEND_OP_ADD,
-				vk::VK_BLEND_FACTOR_ONE,
-				vk::VK_BLEND_FACTOR_ZERO,
-				vk::VK_BLEND_OP_ADD,
-				(vk::VK_COLOR_COMPONENT_R_BIT|
-				 vk::VK_COLOR_COMPONENT_G_BIT|
-				 vk::VK_COLOR_COMPONENT_B_BIT|
-				 vk::VK_COLOR_COMPONENT_A_BIT)
-			}
-		};
-		const vk::VkPipelineColorBlendStateCreateInfo		colorBlendState					=
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-			DE_NULL,
-			0,
-
-			VK_FALSE,
-			vk::VK_LOGIC_OP_COPY,
-			DE_LENGTH_OF_ARRAY(attachments),
-			attachments,
-			{ 0.0f, 0.0f, 0.0f, 0.0f }
-		};
-		const vk::VkGraphicsPipelineCreateInfo				createInfo						=
-		{
-			vk::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-			DE_NULL,
-			0u,
-
-			DE_LENGTH_OF_ARRAY(shaderStages),
-			shaderStages,
-
-			&vertexInputState,
-			&inputAssemblyState,
-			DE_NULL,
-			&viewportState,
-			&rasterState,
-			&multisampleState,
-			&depthStencilState,
-			&colorBlendState,
-			DE_NULL,
-			*resources.pipelineLayout,
-			renderPass,
-			subpass,
-			0,
-			0
-		};
-
-		resources.pipeline = vk::createGraphicsPipeline(vkd, device, 0, &createInfo);
+		resources.pipeline = vk::makeGraphicsPipeline(vkd,							// const DeviceInterface&                        vk
+													  device,						// const VkDevice                                device
+													  *resources.pipelineLayout,	// const VkPipelineLayout                        pipelineLayout
+													  vertexShaderModule,			// const VkShaderModule                          vertexShaderModule
+													  DE_NULL,						// const VkShaderModule                          tessellationControlModule
+													  DE_NULL,						// const VkShaderModule                          tessellationEvalModule
+													  DE_NULL,						// const VkShaderModule                          geometryShaderModule
+													  fragmentShaderModule,			// const VkShaderModule                          fragmentShaderModule
+													  renderPass,					// const VkRenderPass                            renderPass
+													  viewports,					// const std::vector<VkViewport>&                viewports
+													  scissors,						// const std::vector<VkRect2D>&                  scissors
+													  topology,						// const VkPrimitiveTopology                     topology
+													  subpass,						// const deUint32                                subpass
+													  0u,							// const deUint32                                patchControlPoints
+													  &vertexInputState);			// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
 	}
 }
 
@@ -7363,6 +7243,11 @@ enum Op
 	OP_COMMAND_BUFFER_BEGIN,
 	OP_COMMAND_BUFFER_END,
 
+	// Secondary, non render pass command buffers
+	// Render pass secondary command buffers are not currently covered
+	OP_SECONDARY_COMMAND_BUFFER_BEGIN,
+	OP_SECONDARY_COMMAND_BUFFER_END,
+
 	// Buffer transfer operations
 	OP_BUFFER_FILL,
 	OP_BUFFER_UPDATE,
@@ -7425,6 +7310,7 @@ enum Stage
 {
 	STAGE_HOST,
 	STAGE_COMMAND_BUFFER,
+	STAGE_SECONDARY_COMMAND_BUFFER,
 
 	STAGE_RENDER_PASS
 };
@@ -7488,9 +7374,9 @@ private:
 	const vk::VkPipelineStageFlags	m_allowedStages;
 	const vk::VkAccessFlags			m_allowedAccesses;
 
-	// [dstStage][srcStage] = srcAccesses
-	// In stage dstStage write srcAccesses from srcStage are not yet available
-	vk::VkAccessFlags				m_unavailableWriteOperations[PIPELINESTAGE_LAST][PIPELINESTAGE_LAST];
+	// [dstStage][srcStage][dstAccess] = srcAccesses
+	// In stage dstStage write srcAccesses from srcStage are not yet available for dstAccess
+	vk::VkAccessFlags				m_unavailableWriteOperations[PIPELINESTAGE_LAST][PIPELINESTAGE_LAST][ACCESS_LAST];
 	// Latest pipeline transition is not available in stage
 	bool							m_unavailableLayoutTransition[PIPELINESTAGE_LAST];
 	// [dstStage] = dstAccesses
@@ -7531,7 +7417,15 @@ CacheState::CacheState (vk::VkPipelineStageFlags allowedStages, vk::VkAccessFlag
 
 			// There are no write operations that are not yet available
 			// initially.
-			m_unavailableWriteOperations[dstStage][srcStage] = 0;
+			for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
+			{
+				const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
+
+				if ((dstAccess_ & m_allowedAccesses) == 0)
+					continue;
+
+				m_unavailableWriteOperations[dstStage][srcStage][dstAccess] = 0;
+			}
 		}
 	}
 }
@@ -7582,8 +7476,16 @@ void CacheState::perform (vk::VkPipelineStageFlagBits	stage,
 			// Mark all accesses from all stages invisible
 			m_invisibleOperations[dstStage] |= m_allowedAccesses;
 
-			// Mark write access from srcStage unavailable to all stages
-			m_unavailableWriteOperations[dstStage][srcStage] |= access;
+			// Mark write access from srcStage unavailable to all stages for all accesses
+			for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
+			{
+				const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
+
+				if ((dstAccess_ & m_allowedAccesses) == 0)
+					continue;
+
+				m_unavailableWriteOperations[dstStage][srcStage][dstAccess] |= access;
+			}
 		}
 	}
 }
@@ -7643,7 +7545,7 @@ void CacheState::getFullBarrier (vk::VkPipelineStageFlags&	srcStages,
 			dstAccesses |= m_invisibleOperations[dstStage];
 		}
 
-		// Make sure all write operations fro mall stages are available
+		// Make sure all write operations from all stages are available
 		for (vk::VkPipelineStageFlags srcStage_ = 1; srcStage_ <= m_allowedStages; srcStage_ <<= 1)
 		{
 			const PipelineStage srcStage = pipelineStageFlagToPipelineStage((vk::VkPipelineStageFlagBits)srcStage_);
@@ -7651,11 +7553,19 @@ void CacheState::getFullBarrier (vk::VkPipelineStageFlags&	srcStages,
 			if ((srcStage_ & m_allowedStages) == 0)
 				continue;
 
-			if (m_unavailableWriteOperations[dstStage][srcStage])
+			for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
 			{
-				dstStages |= dstStage_;
-				srcStages |= dstStage_;
-				srcAccesses |= m_unavailableWriteOperations[dstStage][srcStage];
+				const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
+
+				if ((dstAccess_ & m_allowedAccesses) == 0)
+					continue;
+
+				if (m_unavailableWriteOperations[dstStage][srcStage][dstAccess])
+				{
+					dstStages |= dstStage_;
+					srcStages |= dstStage_;
+					srcAccesses |= m_unavailableWriteOperations[dstStage][srcStage][dstAccess];
+				}
 			}
 
 			if (m_unavailableLayoutTransition[dstStage] && !m_unavailableLayoutTransition[srcStage])
@@ -7675,9 +7585,9 @@ void CacheState::getFullBarrier (vk::VkPipelineStageFlags&	srcStages,
 }
 
 void CacheState::checkImageLayoutBarrier (vk::VkPipelineStageFlags	srcStages,
-										 vk::VkAccessFlags			srcAccesses,
-										 vk::VkPipelineStageFlags	dstStages,
-										 vk::VkAccessFlags			dstAccesses)
+										  vk::VkAccessFlags			srcAccesses,
+										  vk::VkPipelineStageFlags	dstStages,
+										  vk::VkAccessFlags			dstAccesses)
 {
 	DE_ASSERT((srcStages & (~m_allowedStages)) == 0);
 	DE_ASSERT((srcAccesses & (~m_allowedAccesses)) == 0);
@@ -7727,10 +7637,18 @@ void CacheState::checkImageLayoutBarrier (vk::VkPipelineStageFlags	srcStages,
 				if ((srcStage_ & m_allowedStages) == 0)
 					continue;
 
-				if (m_unavailableWriteOperations[dstStage][srcStage] != (getWriteAccessFlags() & m_allowedAccesses))
+				for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
 				{
-					anyWriteAvailable = true;
-					break;
+					const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
+
+					if ((dstAccess_ & m_allowedAccesses) == 0)
+						continue;
+
+					if (m_unavailableWriteOperations[dstStage][srcStage][dstAccess] != (getWriteAccessFlags() & m_allowedAccesses))
+					{
+						anyWriteAvailable = true;
+						break;
+					}
 				}
 			}
 		}
@@ -7771,7 +7689,15 @@ void CacheState::imageLayoutBarrier (vk::VkPipelineStageFlags	srcStages,
 				continue;
 
 			// All write operations are available after layout transition
-			m_unavailableWriteOperations[dstStage][srcStage] = 0;
+			for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
+			{
+				const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
+
+				if ((dstAccess_ & m_allowedAccesses) == 0)
+					continue;
+
+				m_unavailableWriteOperations[dstStage][srcStage][dstAccess] = 0;
+			}
 		}
 	}
 }
@@ -7789,7 +7715,7 @@ void CacheState::barrier (vk::VkPipelineStageFlags	srcStages,
 	// Transitivity
 	{
 		vk::VkPipelineStageFlags		oldIncompleteOperations[PIPELINESTAGE_LAST];
-		vk::VkAccessFlags				oldUnavailableWriteOperations[PIPELINESTAGE_LAST][PIPELINESTAGE_LAST];
+		vk::VkAccessFlags				oldUnavailableWriteOperations[PIPELINESTAGE_LAST][PIPELINESTAGE_LAST][ACCESS_LAST];
 		bool							oldUnavailableLayoutTransition[PIPELINESTAGE_LAST];
 
 		deMemcpy(oldIncompleteOperations, m_incompleteOperations, sizeof(oldIncompleteOperations));
@@ -7824,7 +7750,15 @@ void CacheState::barrier (vk::VkPipelineStageFlags	srcStages,
 						continue;
 
 					// Writes that are available in srcStage are also available in dstStage
-					m_unavailableWriteOperations[dstStage][sharedStage] &= oldUnavailableWriteOperations[srcStage][sharedStage];
+					for (vk::VkAccessFlags sharedAccess_ = 1; sharedAccess_ <= m_allowedAccesses; sharedAccess_ <<= 1)
+					{
+						const Access sharedAccess = accessFlagToAccess((vk::VkAccessFlagBits)sharedAccess_);
+
+						if ((sharedAccess_ & m_allowedAccesses) == 0)
+							continue;
+
+						m_unavailableWriteOperations[dstStage][sharedStage][sharedAccess] &= oldUnavailableWriteOperations[srcStage][sharedStage][sharedAccess];
+					}
 				}
 			}
 		}
@@ -7849,12 +7783,20 @@ void CacheState::barrier (vk::VkPipelineStageFlags	srcStages,
 			if ((srcStage_ & m_allowedStages) == 0)
 				continue;
 
-			// Make srcAccesses from srcStage available in dstStage
-			if ((srcStage_ & srcStages) != 0)
-				m_unavailableWriteOperations[dstStage][srcStage] &= ~srcAccesses;
+			// Make srcAccesses from srcStage available in dstStage for dstAccess
+			for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
+			{
+				const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
 
-			if (m_unavailableWriteOperations[dstStage][srcStage] != 0)
-				allWritesAvailable = false;
+				if ((dstAccess_ & m_allowedAccesses) == 0)
+					continue;
+
+				if (((srcStage_ & srcStages) != 0) && ((dstAccess_ & dstAccesses) != 0))
+					m_unavailableWriteOperations[dstStage][srcStage][dstAccess] &= ~srcAccesses;
+
+				if (m_unavailableWriteOperations[dstStage][srcStage][dstAccess] != 0)
+					allWritesAvailable = false;
+			}
 		}
 
 		// If all writes are available in dstStage make dstAccesses also visible
@@ -7891,9 +7833,17 @@ bool CacheState::isClean (void) const
 			if ((srcStage_ & m_allowedStages) == 0)
 				continue;
 
-			// Some write operations are not available yet
-			if (m_unavailableWriteOperations[dstStage][srcStage] != 0)
-				return false;
+			for (vk::VkAccessFlags dstAccess_ = 1; dstAccess_ <= m_allowedAccesses; dstAccess_ <<= 1)
+			{
+				const Access dstAccess = accessFlagToAccess((vk::VkAccessFlagBits)dstAccess_);
+
+				if ((dstAccess_ & m_allowedAccesses) == 0)
+					continue;
+
+				// Some write operations are not available yet
+				if (m_unavailableWriteOperations[dstStage][srcStage][dstAccess] != 0)
+					return false;
+			}
 		}
 	}
 
@@ -8002,23 +7952,24 @@ vk::VkImageLayout getRandomNextLayout (de::Random&			rng,
 struct State
 {
 	State (Usage usage, deUint32 seed)
-		: stage					(STAGE_HOST)
-		, cache					(usageToStageFlags(usage), usageToAccessFlags(usage))
-		, rng					(seed)
-		, mapped				(false)
-		, hostInvalidated		(true)
-		, hostFlushed			(true)
-		, memoryDefined			(false)
-		, hasBuffer				(false)
-		, hasBoundBufferMemory	(false)
-		, hasImage				(false)
-		, hasBoundImageMemory	(false)
-		, imageLayout			(vk::VK_IMAGE_LAYOUT_UNDEFINED)
-		, imageDefined			(false)
-		, queueIdle				(true)
-		, deviceIdle			(true)
-		, commandBufferIsEmpty	(true)
-		, renderPassIsEmpty		(true)
+		: stage							(STAGE_HOST)
+		, cache							(usageToStageFlags(usage), usageToAccessFlags(usage))
+		, rng							(seed)
+		, mapped						(false)
+		, hostInvalidated				(true)
+		, hostFlushed					(true)
+		, memoryDefined					(false)
+		, hasBuffer						(false)
+		, hasBoundBufferMemory			(false)
+		, hasImage						(false)
+		, hasBoundImageMemory			(false)
+		, imageLayout					(vk::VK_IMAGE_LAYOUT_UNDEFINED)
+		, imageDefined					(false)
+		, queueIdle						(true)
+		, deviceIdle					(true)
+		, commandBufferIsEmpty			(true)
+		, primaryCommandBufferIsEmpty	(true)
+		, renderPassIsEmpty				(true)
 	{
 	}
 
@@ -8043,6 +7994,10 @@ struct State
 	bool				deviceIdle;
 
 	bool				commandBufferIsEmpty;
+
+	// a copy of commandBufferIsEmpty value, when secondary command buffer is in use
+	bool				primaryCommandBufferIsEmpty;
+
 	bool				renderPassIsEmpty;
 };
 
@@ -8157,7 +8112,7 @@ void getAvailableOps (const State& state, bool supportsBuffers, bool supportsIma
 		{
 			ops.push_back(OP_PIPELINE_BARRIER_GLOBAL);
 
-			if (state.hasImage)
+			if (state.hasImage && (state.imageLayout != vk::VK_IMAGE_LAYOUT_UNDEFINED))
 				ops.push_back(OP_PIPELINE_BARRIER_IMAGE);
 
 			if (state.hasBuffer)
@@ -8247,10 +8202,80 @@ void getAvailableOps (const State& state, bool supportsBuffers, bool supportsIma
 			ops.push_back(OP_RENDERPASS_BEGIN);
 		}
 
+		ops.push_back(OP_SECONDARY_COMMAND_BUFFER_BEGIN);
+
 		// \note This depends on previous operations and has to be always the
 		// last command buffer operation check
 		if (ops.empty() || !state.commandBufferIsEmpty)
 			ops.push_back(OP_COMMAND_BUFFER_END);
+	}
+	else if (state.stage == STAGE_SECONDARY_COMMAND_BUFFER)
+	{
+		if (!state.cache.isClean())
+		{
+			ops.push_back(OP_PIPELINE_BARRIER_GLOBAL);
+
+			if (state.hasImage && (state.imageLayout != vk::VK_IMAGE_LAYOUT_UNDEFINED))
+				ops.push_back(OP_PIPELINE_BARRIER_IMAGE);
+
+			if (state.hasBuffer)
+				ops.push_back(OP_PIPELINE_BARRIER_BUFFER);
+		}
+
+		if (state.hasBoundBufferMemory)
+		{
+			if (usage & USAGE_TRANSFER_DST
+				&& state.cache.isValid(vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_ACCESS_TRANSFER_WRITE_BIT))
+			{
+				ops.push_back(OP_BUFFER_FILL);
+				ops.push_back(OP_BUFFER_UPDATE);
+				ops.push_back(OP_BUFFER_COPY_FROM_BUFFER);
+				ops.push_back(OP_BUFFER_COPY_FROM_IMAGE);
+			}
+
+			if (usage & USAGE_TRANSFER_SRC
+				&& state.memoryDefined
+				&& state.cache.isValid(vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT))
+			{
+				ops.push_back(OP_BUFFER_COPY_TO_BUFFER);
+				ops.push_back(OP_BUFFER_COPY_TO_IMAGE);
+			}
+		}
+
+		if (state.hasBoundImageMemory
+			&& (state.imageLayout == vk::VK_IMAGE_LAYOUT_UNDEFINED
+				|| getNumberOfSupportedLayouts(usage) > 1))
+		{
+			ops.push_back(OP_IMAGE_TRANSITION_LAYOUT);
+
+			{
+				if (usage & USAGE_TRANSFER_DST
+					&& (state.imageLayout == vk::VK_IMAGE_LAYOUT_GENERAL
+						|| state.imageLayout == vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+					&& state.cache.isValid(vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_ACCESS_TRANSFER_WRITE_BIT))
+				{
+					ops.push_back(OP_IMAGE_COPY_FROM_BUFFER);
+					ops.push_back(OP_IMAGE_COPY_FROM_IMAGE);
+					ops.push_back(OP_IMAGE_BLIT_FROM_IMAGE);
+				}
+
+				if (usage & USAGE_TRANSFER_SRC
+					&& (state.imageLayout == vk::VK_IMAGE_LAYOUT_GENERAL
+						|| state.imageLayout == vk::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+					&& state.imageDefined
+					&& state.cache.isValid(vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT))
+				{
+					ops.push_back(OP_IMAGE_COPY_TO_BUFFER);
+					ops.push_back(OP_IMAGE_COPY_TO_IMAGE);
+					ops.push_back(OP_IMAGE_BLIT_TO_IMAGE);
+				}
+			}
+		}
+
+		// \note This depends on previous operations and has to be always the
+		// last command buffer operation check
+		if (ops.empty() || !state.commandBufferIsEmpty)
+			ops.push_back(OP_SECONDARY_COMMAND_BUFFER_END);
 	}
 	else if (state.stage == STAGE_RENDER_PASS)
 	{
@@ -8519,7 +8544,7 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 
 		case OP_IMAGE_TRANSITION_LAYOUT:
 		{
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 			DE_ASSERT(state.hasImage);
 			DE_ASSERT(state.hasBoundImageMemory);
 
@@ -8593,10 +8618,23 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 			break;
 
 		case OP_COMMAND_BUFFER_END:
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 			state.stage = STAGE_HOST;
 			state.queueIdle = false;
 			state.deviceIdle = false;
+			break;
+
+		case OP_SECONDARY_COMMAND_BUFFER_BEGIN:
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
+			state.stage = STAGE_SECONDARY_COMMAND_BUFFER;
+			state.primaryCommandBufferIsEmpty = state.commandBufferIsEmpty;
+			state.commandBufferIsEmpty = true;
+			break;
+
+		case OP_SECONDARY_COMMAND_BUFFER_END:
+			DE_ASSERT(state.stage == STAGE_SECONDARY_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
+			state.stage = STAGE_COMMAND_BUFFER;
+			state.commandBufferIsEmpty = state.primaryCommandBufferIsEmpty;
 			break;
 
 		case OP_BUFFER_COPY_FROM_BUFFER:
@@ -8604,7 +8642,7 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 		case OP_BUFFER_UPDATE:
 		case OP_BUFFER_FILL:
 			state.rng.getUint32();
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 
 			if ((memory.getMemoryType().propertyFlags & vk::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
 				state.hostInvalidated = false;
@@ -8618,7 +8656,7 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 
 		case OP_BUFFER_COPY_TO_BUFFER:
 		case OP_BUFFER_COPY_TO_IMAGE:
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 
 			state.commandBufferIsEmpty = false;
 			state.cache.perform(vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT);
@@ -8630,7 +8668,7 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 		case OP_IMAGE_COPY_FROM_BUFFER:
 		case OP_IMAGE_COPY_FROM_IMAGE:
 			state.rng.getUint32();
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 
 			if ((memory.getMemoryType().propertyFlags & vk::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
 				state.hostInvalidated = false;
@@ -8646,7 +8684,7 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 			// Fall through
 		case OP_IMAGE_COPY_TO_BUFFER:
 		case OP_IMAGE_COPY_TO_IMAGE:
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 
 			state.commandBufferIsEmpty = false;
 			state.cache.perform(vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_ACCESS_TRANSFER_READ_BIT);
@@ -8656,7 +8694,7 @@ void applyOp (State& state, const Memory& memory, Op op, Usage usage)
 		case OP_PIPELINE_BARRIER_BUFFER:
 		case OP_PIPELINE_BARRIER_IMAGE:
 		{
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 
 			vk::VkPipelineStageFlags	dirtySrcStages;
 			vk::VkAccessFlags			dirtySrcAccesses;
@@ -8844,7 +8882,7 @@ de::MovePtr<CmdCommand> createCmdCommand (de::Random&	rng,
 
 		case OP_IMAGE_TRANSITION_LAYOUT:
 		{
-			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER);
+			DE_ASSERT(state.stage == STAGE_COMMAND_BUFFER || state.stage == STAGE_SECONDARY_COMMAND_BUFFER);
 			DE_ASSERT(state.hasImage);
 			DE_ASSERT(state.hasBoundImageMemory);
 
@@ -9040,6 +9078,56 @@ de::MovePtr<CmdCommand> createRenderPassCommands (const Memory&	memory,
 	}
 }
 
+de::MovePtr<CmdCommand> createSecondaryCmdCommands (const Memory&	memory,
+												    de::Random&		nextOpRng,
+												    State&			state,
+												    Usage			usage,
+												    size_t&			opNdx,
+												    size_t			opCount)
+{
+	vector<CmdCommand*>	commands;
+
+	try
+	{
+		for (; opNdx < opCount; opNdx++)
+		{
+			vector<Op>	ops;
+
+			getAvailableOps(state, memory.getSupportBuffers(), memory.getSupportImages(), usage, ops);
+
+			DE_ASSERT(!ops.empty());
+
+			{
+				const Op op = nextOpRng.choose<Op>(ops.begin(), ops.end());
+
+				if (op == OP_SECONDARY_COMMAND_BUFFER_END)
+				{
+					break;
+				}
+				else
+				{
+					de::Random	rng(state.rng);
+
+					commands.push_back(createCmdCommand(rng, state, op, usage).release());
+					applyOp(state, memory, op, usage);
+
+					DE_ASSERT(state.rng == rng);
+				}
+			}
+		}
+
+		applyOp(state, memory, OP_SECONDARY_COMMAND_BUFFER_END, usage);
+		return de::MovePtr<CmdCommand>(new ExecuteSecondaryCommandBuffer(commands));
+	}
+	catch (...)
+	{
+		for (size_t commandNdx = 0; commandNdx < commands.size(); commandNdx++)
+			delete commands[commandNdx];
+
+		throw;
+	}
+}
+
 de::MovePtr<Command> createCmdCommands (const Memory&	memory,
 										de::Random&		nextOpRng,
 										State&			state,
@@ -9051,6 +9139,14 @@ de::MovePtr<Command> createCmdCommands (const Memory&	memory,
 
 	try
 	{
+		// Insert a mostly-full barrier to order this work wrt previous command buffer.
+		commands.push_back(new PipelineBarrier(state.cache.getAllowedStages(),
+											   state.cache.getAllowedAcceses(),
+											   state.cache.getAllowedStages(),
+											   state.cache.getAllowedAcceses(),
+											   PipelineBarrier::TYPE_GLOBAL,
+											   tcu::nothing<vk::VkImageLayout>()));
+
 		for (; opNdx < opCount; opNdx++)
 		{
 			vector<Op>	ops;
@@ -9073,6 +9169,11 @@ de::MovePtr<Command> createCmdCommands (const Memory&	memory,
 					{
 						applyOp(state, memory, op, usage);
 						commands.push_back(createRenderPassCommands(memory, nextOpRng, state, usage, opNdx, opCount).release());
+					}
+					else if (op == OP_SECONDARY_COMMAND_BUFFER_BEGIN)
+					{
+						applyOp(state, memory, op, usage);
+						commands.push_back(createSecondaryCmdCommands(memory, nextOpRng, state, usage, opNdx, opCount).release());
 					}
 					else
 					{
@@ -9596,7 +9697,7 @@ struct AddPrograms
 				const char* const vertexShader =
 					"#version 310 es\n"
 					"precision highp float;\n"
-					"layout(set=0, binding=0) buffer Block\n"
+					"readonly layout(set=0, binding=0) buffer Block\n"
 					"{\n"
 					"\thighp uvec4 values[];\n"
 					"} block;\n"
@@ -9674,7 +9775,7 @@ struct AddPrograms
 					"#version 310 es\n"
 					"#extension GL_EXT_texture_buffer : require\n"
 					"precision highp float;\n"
-					"layout(set=0, binding=0) uniform highp usamplerBuffer u_sampler;\n"
+					"layout(set=0, binding=0) uniform highp utextureBuffer u_sampler;\n"
 					"void main (void) {\n"
 					"\tgl_PointSize = 1.0;\n"
 					"\thighp uint val = texelFetch(u_sampler, gl_VertexIndex).x;\n"
@@ -9691,9 +9792,10 @@ struct AddPrograms
 				const char* const fragmentShader =
 					"#version 310 es\n"
 					"#extension GL_EXT_texture_buffer : require\n"
+					"#extension GL_EXT_samplerless_texture_functions : require\n"
 					"precision highp float;\n"
 					"precision highp int;\n"
-					"layout(set=0, binding=0) uniform highp usamplerBuffer u_sampler;\n"
+					"layout(set=0, binding=0) uniform highp utextureBuffer u_sampler;\n"
 					"layout(location = 0) out highp vec4 o_color;\n"
 					"layout(push_constant) uniform PushC\n"
 					"{\n"
@@ -9919,10 +10021,10 @@ tcu::TestCaseGroup* createPipelineBarrierTests (tcu::TestContext& testCtx)
 	de::MovePtr<tcu::TestCaseGroup>	group			(new tcu::TestCaseGroup(testCtx, "pipeline_barrier", "Pipeline barrier tests."));
 	const vk::VkDeviceSize			sizes[]			=
 	{
-		1024,		// 1K
-		8*1024,		// 8K
-		64*1024,	// 64K
-		1024*1024,	// 1M
+		1024,			// 1K
+		8*1024,			// 8K
+		64*1024,		// 64K
+		ONE_MEGABYTE,	// 1M
 	};
 	const Usage						usages[]		=
 	{

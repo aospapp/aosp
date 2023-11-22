@@ -16,13 +16,13 @@
  * icmp.c - convenience functions for translating ICMP and ICMPv6 packets.
  */
 
+#include <linux/icmp.h>
+#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
-#include <netinet/icmp6.h>
-#include <linux/icmp.h>
 
-#include "logging.h"
 #include "icmp.h"
+#include "logging.h"
 
 /* function: icmp_guess_ttl
  * Guesses the number of hops a received packet has traversed based on its TTL.
@@ -44,17 +44,13 @@ uint8_t icmp_guess_ttl(uint8_t ttl) {
  * Determines whether an ICMP type is an error message.
  * type: the ICMP type
  */
-int is_icmp_error(uint8_t type) {
-  return type == 3 || type == 11 || type == 12;
-}
+int is_icmp_error(uint8_t type) { return type == 3 || type == 11 || type == 12; }
 
 /* function: is_icmp6_error
  * Determines whether an ICMPv6 type is an error message.
  * type: the ICMPv6 type
  */
-int is_icmp6_error(uint8_t type) {
-  return type < 128;
-}
+int is_icmp6_error(uint8_t type) { return type < 128; }
 
 /* function: icmp_to_icmp6_type
  * Maps ICMP types to ICMPv6 types. Partial implementation of RFC 6145, section 4.2.
@@ -112,7 +108,7 @@ uint8_t icmp_to_icmp6_code(uint8_t type, uint8_t code) {
         case ICMP_UNREACH_PRECEDENCE_CUTOFF:
           return ICMP6_DST_UNREACH_ADMIN;
 
-        // Otherwise, we don't understand this ICMP type/code combination. Fall through.
+          // Otherwise, we don't understand this ICMP type/code combination. Fall through.
       }
   }
   logmsg_dbg(ANDROID_LOG_DEBUG, "icmp_to_icmp6_code: unhandled ICMP type/code %d/%d", type, code);
@@ -172,7 +168,7 @@ uint8_t icmp6_to_icmp_code(uint8_t type, uint8_t code) {
         case ICMP6_DST_UNREACH_NOPORT:
           return ICMP_UNREACH_PORT;
 
-        // Otherwise, we don't understand this ICMPv6 type/code combination. Fall through.
+          // Otherwise, we don't understand this ICMPv6 type/code combination. Fall through.
       }
   }
 

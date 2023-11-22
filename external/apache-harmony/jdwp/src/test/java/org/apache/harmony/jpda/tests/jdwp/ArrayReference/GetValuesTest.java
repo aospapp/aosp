@@ -51,10 +51,7 @@ public class GetValuesTest extends JDWPArrayReferenceTestCase {
         logWriter.println("==> GetValuesTest.testGetValues001 started...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String debuggeeSig = "Lorg/apache/harmony/jpda/tests/jdwp/ArrayReference/ArrayReferenceDebuggee;";
-
-        // obtain classID
-        long classID = getClassIDBySignature(debuggeeSig);
+        long classID = getClassIDBySignature(getDebuggeeClassSignature());
 
         // obtain fields
         Field[] fields = debuggeeWrapper.vmMirror.getFieldsInfo(classID);

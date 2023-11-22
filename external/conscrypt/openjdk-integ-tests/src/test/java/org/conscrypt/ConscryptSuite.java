@@ -18,6 +18,27 @@ package org.conscrypt;
 
 import static org.conscrypt.TestUtils.installConscryptAsDefaultProvider;
 
+import org.conscrypt.java.security.AlgorithmParameterGeneratorTestDH;
+import org.conscrypt.java.security.AlgorithmParameterGeneratorTestDSA;
+import org.conscrypt.java.security.AlgorithmParametersPSSTest;
+import org.conscrypt.java.security.AlgorithmParametersTestAES;
+import org.conscrypt.java.security.AlgorithmParametersTestDES;
+import org.conscrypt.java.security.AlgorithmParametersTestDESede;
+import org.conscrypt.java.security.AlgorithmParametersTestDH;
+import org.conscrypt.java.security.AlgorithmParametersTestDSA;
+import org.conscrypt.java.security.AlgorithmParametersTestGCM;
+import org.conscrypt.java.security.AlgorithmParametersTestOAEP;
+import org.conscrypt.java.security.KeyFactoryTestDH;
+import org.conscrypt.java.security.KeyFactoryTestDSA;
+import org.conscrypt.java.security.KeyFactoryTestRSA;
+import org.conscrypt.java.security.KeyPairGeneratorTest;
+import org.conscrypt.java.security.KeyPairGeneratorTestDH;
+import org.conscrypt.java.security.KeyPairGeneratorTestDSA;
+import org.conscrypt.java.security.KeyPairGeneratorTestRSA;
+import org.conscrypt.java.security.MessageDigestTest;
+import org.conscrypt.java.security.SignatureTest;
+import org.conscrypt.java.security.cert.CertificateFactoryTest;
+import org.conscrypt.java.security.cert.X509CertificateTest;
 import org.conscrypt.javax.crypto.CipherBasicsTest;
 import org.conscrypt.javax.crypto.CipherTest;
 import org.conscrypt.javax.crypto.ECDHKeyAgreementTest;
@@ -28,6 +49,7 @@ import org.conscrypt.javax.net.ssl.KeyStoreBuilderParametersTest;
 import org.conscrypt.javax.net.ssl.SNIHostNameTest;
 import org.conscrypt.javax.net.ssl.SSLContextTest;
 import org.conscrypt.javax.net.ssl.SSLEngineTest;
+import org.conscrypt.javax.net.ssl.SSLEngineVersionCompatibilityTest;
 import org.conscrypt.javax.net.ssl.SSLParametersTest;
 import org.conscrypt.javax.net.ssl.SSLServerSocketFactoryTest;
 import org.conscrypt.javax.net.ssl.SSLServerSocketTest;
@@ -35,6 +57,7 @@ import org.conscrypt.javax.net.ssl.SSLSessionContextTest;
 import org.conscrypt.javax.net.ssl.SSLSessionTest;
 import org.conscrypt.javax.net.ssl.SSLSocketFactoryTest;
 import org.conscrypt.javax.net.ssl.SSLSocketTest;
+import org.conscrypt.javax.net.ssl.SSLSocketVersionCompatibilityTest;
 import org.conscrypt.javax.net.ssl.TrustManagerFactoryTest;
 import org.conscrypt.javax.net.ssl.X509KeyManagerTest;
 import org.junit.BeforeClass;
@@ -43,6 +66,28 @@ import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
+        // java.security tests
+        CertificateFactoryTest.class,
+        X509CertificateTest.class,
+        AlgorithmParameterGeneratorTestDH.class,
+        AlgorithmParameterGeneratorTestDSA.class,
+        AlgorithmParametersPSSTest.class,
+        AlgorithmParametersTestAES.class,
+        AlgorithmParametersTestDES.class,
+        AlgorithmParametersTestDESede.class,
+        AlgorithmParametersTestDH.class,
+        AlgorithmParametersTestDSA.class,
+        AlgorithmParametersTestGCM.class,
+        AlgorithmParametersTestOAEP.class,
+        KeyFactoryTestDH.class,
+        KeyFactoryTestDSA.class,
+        KeyFactoryTestRSA.class,
+        KeyPairGeneratorTest.class,
+        KeyPairGeneratorTestDH.class,
+        KeyPairGeneratorTestDSA.class,
+        KeyPairGeneratorTestRSA.class,
+        MessageDigestTest.class,
+        SignatureTest.class,
         // javax.crypto tests
         CipherBasicsTest.class,
         CipherTest.class,
@@ -55,6 +100,7 @@ import org.junit.runners.Suite;
         SNIHostNameTest.class,
         SSLContextTest.class,
         SSLEngineTest.class,
+        SSLEngineVersionCompatibilityTest.class,
         SSLParametersTest.class,
         SSLServerSocketFactoryTest.class,
         SSLServerSocketTest.class,
@@ -62,6 +108,7 @@ import org.junit.runners.Suite;
         SSLSessionTest.class,
         SSLSocketFactoryTest.class,
         SSLSocketTest.class,
+        SSLSocketVersionCompatibilityTest.class,
         TrustManagerFactoryTest.class,
         X509KeyManagerTest.class,
 })

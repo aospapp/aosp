@@ -68,6 +68,9 @@ public abstract class JDWPSyncTestCase extends JDWPTestCase {
 
         synchronizer.startServer();
         logWriter.println("Established sync connection");
+        // Get the pid
+        String remotePid = synchronizer.receiveMessage();
+        this.debuggeeWrapper.setRealPid(Integer.valueOf(remotePid));
     }
 
     /**

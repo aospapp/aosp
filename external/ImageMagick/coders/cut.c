@@ -95,131 +95,165 @@ typedef struct
 } CUTPalHeader;
 
 
-static void InsertRow(Image *image,ssize_t depth,unsigned char *p,ssize_t y,
-  ExceptionInfo *exception)
+static MagickBooleanType InsertRow(Image *image,ssize_t bpp,unsigned char *p,
+  ssize_t y,ExceptionInfo *exception)
 {
-  size_t bit; ssize_t x;
-  register Quantum *q;
-  Quantum index;
+  int
+    bit;
 
-  index=0;
-  switch (depth)
-  {
+  Quantum
+    index;
+
+  register Quantum
+    *q;
+
+  ssize_t
+    x;
+
+  q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
+  if (q == (Quantum *) NULL)
+    return(MagickFalse);
+  switch (bpp)
+    {
     case 1:  /* Convert bitmap scanline. */
       {
-        q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (Quantum *) NULL)
-          break;
         for (x=0; x < ((ssize_t) image->columns-7); x+=8)
         {
           for (bit=0; bit < 8; bit++)
           {
-            index=(Quantum) ((((*p) & (0x80 >> bit)) != 0) ? 0x01 : 0x00);
+            index=((*p) & (0x80 >> bit) ? 0x01 : 0x00);
             SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
             q+=GetPixelChannels(image);
           }
           p++;
         }
         if ((image->columns % 8) != 0)
           {
-            for (bit=0; bit < (image->columns % 8); bit++)
-              {
-                index=(Quantum) ((((*p) & (0x80 >> bit)) != 0) ? 0x01 : 0x00);
-                SetPixelIndex(image,index,q);
-                q+=GetPixelChannels(image);
-              }
+            for (bit=0; bit < (ssize_t) (image->columns % 8); bit++)
+            {
+              index=((*p) & (0x80 >> bit) ? 0x01 : 0x00);
+              SetPixelIndex(image,index,q);
+              if (index < image->colors)
+                SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+              q+=GetPixelChannels(image);
+            }
             p++;
           }
-        (void) SyncAuthenticPixels(image,exception);
         break;
       }
     case 2:  /* Convert PseudoColor scanline. */
       {
-        q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (Quantum *) NULL)
-          break;
-        for (x=0; x < ((ssize_t) image->columns-1); x+=2)
+        for (x=0; x < ((ssize_t) image->columns-3); x+=4)
         {
-          index=ConstrainColormapIndex(image,(*p >> 6) & 0x3,exception);
-          SetPixelIndex(image,index,q);
-          q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,(*p >> 4) & 0x3,exception);
-          SetPixelIndex(image,index,q);
-          q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,(*p >> 2) & 0x3,exception);
-          SetPixelIndex(image,index,q);
-          q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,(*p) & 0x3,exception);
-          SetPixelIndex(image,index,q);
-          q+=GetPixelChannels(image);
-          p++;
+            index=ConstrainColormapIndex(image,(*p >> 6) & 0x3,exception);
+            SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+            q+=GetPixelChannels(image);
+            index=ConstrainColormapIndex(image,(*p >> 4) & 0x3,exception);
+            SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+            q+=GetPixelChannels(image);
+            index=ConstrainColormapIndex(image,(*p >> 2) & 0x3,exception);
+            SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+            q+=GetPixelChannels(image);
+            index=ConstrainColormapIndex(image,(*p) & 0x3,exception);
+            SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+            q+=GetPixelChannels(image);
+            p++;
         }
-        if ((image->columns % 4) != 0)
+       if ((image->columns % 4) != 0)
           {
             index=ConstrainColormapIndex(image,(*p >> 6) & 0x3,exception);
             SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
             q+=GetPixelChannels(image);
-            if ((image->columns % 4) >= 1)
-
+            if ((image->columns % 4) > 1)
               {
                 index=ConstrainColormapIndex(image,(*p >> 4) & 0x3,exception);
                 SetPixelIndex(image,index,q);
+                if (index < image->colors)
+                  SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
                 q+=GetPixelChannels(image);
-                if ((image->columns % 4) >= 2)
-
+                if ((image->columns % 4) > 2)
                   {
                     index=ConstrainColormapIndex(image,(*p >> 2) & 0x3,
                       exception);
                     SetPixelIndex(image,index,q);
+                    if (index < image->colors)
+                      SetPixelViaPixelInfo(image,image->colormap+(ssize_t)
+                        index,q);
                     q+=GetPixelChannels(image);
                   }
               }
             p++;
           }
-        (void) SyncAuthenticPixels(image,exception);
         break;
       }
 
     case 4:  /* Convert PseudoColor scanline. */
       {
-        q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (Quantum *) NULL)
-          break;
         for (x=0; x < ((ssize_t) image->columns-1); x+=2)
-        {
-            index=ConstrainColormapIndex(image,(*p >> 4) & 0xf,exception);
+          {
+            index=ConstrainColormapIndex(image,(*p >> 4) & 0x0f,exception);
             SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
             q+=GetPixelChannels(image);
-            index=ConstrainColormapIndex(image,(*p) & 0xf,exception);
+            index=ConstrainColormapIndex(image,(*p) & 0x0f,exception);
             SetPixelIndex(image,index,q);
-            q+=GetPixelChannels(image);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
             p++;
+            q+=GetPixelChannels(image);
           }
         if ((image->columns % 2) != 0)
           {
-            index=ConstrainColormapIndex(image,(*p >> 4) & 0xf,exception);
+            index=ConstrainColormapIndex(image,(*p >> 4) & 0x0f,exception);
             SetPixelIndex(image,index,q);
-            q+=GetPixelChannels(image);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
             p++;
+            q+=GetPixelChannels(image);
           }
-        (void) SyncAuthenticPixels(image,exception);
         break;
       }
     case 8: /* Convert PseudoColor scanline. */
       {
-        q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (Quantum *) NULL) break;
         for (x=0; x < (ssize_t) image->columns; x++)
+          {
+            index=ConstrainColormapIndex(image,*p,exception);
+            SetPixelIndex(image,index,q);
+            if (index < image->colors)
+              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
+            p++;
+            q+=GetPixelChannels(image);
+          }
+      }
+      break;
+
+    case 24:     /*  Convert DirectColor scanline.  */
+      for (x=0; x < (ssize_t) image->columns; x++)
         {
-          index=ConstrainColormapIndex(image,*p,exception);
-          SetPixelIndex(image,index,q);
-          p++;
+          SetPixelRed(image,ScaleCharToQuantum(*p++),q);
+          SetPixelGreen(image,ScaleCharToQuantum(*p++),q);
+          SetPixelBlue(image,ScaleCharToQuantum(*p++),q);
           q+=GetPixelChannels(image);
         }
-        (void) SyncAuthenticPixels(image,exception);
-        break;
-      }
+      break;
     }
+  if (!SyncAuthenticPixels(image,exception))
+    return(MagickFalse);
+  return(MagickTrue);
 }
 
 /*
@@ -289,6 +323,15 @@ static int GetCutColors(Image *image,ExceptionInfo *exception)
 */
 static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
+#define ThrowCUTReaderException(severity,tag) \
+{ \
+  if (palette != NULL) \
+    palette=DestroyImage(palette); \
+  if (clone_info != NULL) \
+    clone_info=DestroyImageInfo(clone_info); \
+  ThrowReaderException(severity,tag); \
+}
+
   Image *image,*palette;
   ImageInfo *clone_info;
   MagickBooleanType status;
@@ -333,7 +376,7 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   Header.Reserved=ReadBlobLSBShort(image);
 
   if (Header.Width==0 || Header.Height==0 || Header.Reserved!=0)
-    CUT_KO:  ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    CUT_KO:  ThrowCUTReaderException(CorruptImageError,"ImproperImageHeader");
 
   /*---This code checks first line of image---*/
   EncodedByte=ReadBlobLSBShort(image);
@@ -346,7 +389,7 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if((int) RunCount<0x80) i=(ssize_t) RunCountMasked;
       offset=SeekBlob(image,TellBlob(image)+i,SEEK_SET);
       if (offset < 0)
-        ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+        ThrowCUTReaderException(CorruptImageError,"ImproperImageHeader");
       if(EOFBlob(image) != MagickFalse) goto CUT_KO;  /*wrong data*/
       EncodedByte-=i+1;
       ldblk+=(ssize_t) RunCountMasked;
@@ -437,6 +480,8 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       PalHeader.MaxGreen=ReadBlobLSBShort(palette);
       PalHeader.MaxBlue=ReadBlobLSBShort(palette);
       (void) ReadBlob(palette,20,(unsigned char *) PalHeader.PaletteId);
+      if (EOFBlob(image))
+        ThrowCUTReaderException(CorruptImageError,"UnexpectedEndOfFile");
 
       if(PalHeader.MaxIndex<1) goto ErasePalette;
       image->colors=PalHeader.MaxIndex+1;
@@ -477,6 +522,8 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
             }
 
         }
+      if (EOFBlob(image))
+        ThrowCUTReaderException(CorruptImageError,"UnexpectedEndOfFile");
     }
 
 
@@ -489,7 +536,7 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
         {
         NoMemory:
-          ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+          ThrowCUTReaderException(ResourceLimitError,"MemoryAllocationFailed");
             }
 
       for (i=0; i < (ssize_t)image->colors; i++)
@@ -508,7 +555,14 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   offset=SeekBlob(image,6 /*sizeof(Header)*/,SEEK_SET);
   if (offset < 0)
-    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    {
+      if (palette != NULL)
+        palette=DestroyImage(palette);
+      if (clone_info != NULL)
+        clone_info=DestroyImageInfo(clone_info);
+      BImgBuff=(unsigned char *) RelinquishMagickMemory(BImgBuff);
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   for (i=0; i < (int) Header.Height; i++)
   {
       EncodedByte=ReadBlobLSBShort(image);
@@ -533,7 +587,7 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
           if((int) RunCount>0x80)
             {
               RunValue=(unsigned char) ReadBlobByte(image);
-              (void) ResetMagickMemory(ptrB,(int) RunValue,(size_t) RunCountMasked);
+              (void) memset(ptrB,(int) RunValue,(size_t) RunCountMasked);
             }
           else {
             (void) ReadBlob(image,(size_t) RunCountMasked,ptrB);
@@ -576,6 +630,8 @@ static Image *ReadCUTImage(const ImageInfo *image_info,ExceptionInfo *exception)
               for (i=0; i < (ssize_t)image->rows; i++)
                 {
                   q=QueueAuthenticPixels(image,0,i,image->columns,1,exception);
+                  if (q == (Quantum *) NULL)
+                    break;
                   for (j=0; j < (ssize_t)image->columns; j++)
                     {
                       if (GetPixelRed(image,q) == ScaleCharToQuantum(1))
@@ -636,7 +692,7 @@ ModuleExport size_t RegisterCUTImage(void)
 
   entry=AcquireMagickInfo("CUT","CUT","DR Halo");
   entry->decoder=(DecodeImageHandler *) ReadCUTImage;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

@@ -30,6 +30,7 @@ choicfmt.h
 coleitr.h
 coll.h
 colldata.h
+compactdecimalformat.h
 convert.h
 cpdtrans.h
 curramt.h
@@ -68,6 +69,7 @@ normalizer2.h
 normlzr.h
 nounit.h
 numberformatter.h
+numberrangeformatter.h
 numfmt.h
 numsys.h
 parsepos.h
@@ -78,6 +80,7 @@ rbnf.h
 rbtz.h
 regex.h
 region.h
+reldatefmt.h
 rep.h
 resbund.h
 schriter.h

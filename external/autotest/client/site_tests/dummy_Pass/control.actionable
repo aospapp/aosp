@@ -6,7 +6,10 @@ AUTHOR = "Chrome OS Team"
 NAME = "dummy_Pass.actionable"
 PURPOSE = "Demonstrate success methods of autotests."
 CRITERIA = "This test will always succeed."
-ATTRIBUTES = "suite:dummy, suite:dummyclientretries, suite:push_to_prod, suite:something_else"
+ATTRIBUTES = (
+        "suite:dummy, suite:dummyclientretries, suite:push_to_prod,"
+        " suite:skylab_staging_test, suite:something_else"
+)
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "dummy"

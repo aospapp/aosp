@@ -8,7 +8,6 @@
 #include "gm.h"
 #include "Resources.h"
 
-#if SK_SUPPORT_GPU
 #include "GrContext.h"
 #include "SkImage.h"
 
@@ -20,6 +19,9 @@ DEF_SIMPLE_GM(cross_context_image, canvas, 512 * 3 + 60, 512 + 128 + 30) {
     }
 
     sk_sp<SkData> encodedData = GetResourceAsData("images/mandrill_512.png");
+    if (!encodedData) {
+        return;
+    }
 
     sk_sp<SkImage> encodedImage = SkImage::MakeFromEncoded(encodedData);
     canvas->drawImage(encodedImage, 10, 10);
@@ -30,7 +32,7 @@ DEF_SIMPLE_GM(cross_context_image, canvas, 512 * 3 + 60, 512 + 128 + 30) {
 
     SkBitmap bmp;
     SkPixmap pixmap;
-    SkAssertResult(encodedImage->asLegacyBitmap(&bmp, SkImage::kRO_LegacyBitmapMode) &&
+    SkAssertResult(encodedImage->asLegacyBitmap(&bmp) &&
                    bmp.peekPixels(&pixmap));
 
     sk_sp<SkImage> crossContextRaster = SkImage::MakeCrossContextFromPixmap(
@@ -46,5 +48,3 @@ DEF_SIMPLE_GM(cross_context_image, canvas, 512 * 3 + 60, 512 + 128 + 30) {
     canvas->drawImage(crossContextSubset, 512 + 30, 512 + 30);
     canvas->drawImage(crossContextRasterSubset, 512 + 512 + 60, 512 + 30);
 }
-
-#endif

@@ -188,6 +188,7 @@ static struct dsp_module *create_mock_module(struct plugin *plugin)
 }
 
 static struct dsp_module *modules[MAX_MODULES];
+static struct dsp_module *cras_dsp_module_set_sink_ext_module_val;
 static int num_modules;
 static struct dsp_module *find_module(const char *name)
 {
@@ -209,6 +210,11 @@ struct dsp_module *cras_dsp_module_load_builtin(struct plugin *plugin)
   struct dsp_module *module = create_mock_module(plugin);
   modules[num_modules++] = module;
   return module;
+}
+void cras_dsp_module_set_sink_ext_module(struct dsp_module *module,
+					 struct ext_dsp_module *ext_module)
+{
+  cras_dsp_module_set_sink_ext_module_val = module;
 }
 }
 
@@ -237,6 +243,7 @@ class DspPipelineTestSuite : public testing::Test {
 
   char filename[sizeof(FILENAME_TEMPLATE) + 1];
   FILE *fp;
+  struct ext_dsp_module ext_mod;
 };
 
 TEST_F(DspPipelineTestSuite, Simple) {
@@ -334,6 +341,12 @@ TEST_F(DspPipelineTestSuite, Simple) {
   ASSERT_EQ(3, d1->input[2]);
   ASSERT_EQ(3, d2->input[0]);
   ASSERT_EQ(1000, d2->input[1]);
+
+  /* Expect the sink module "m2" is set. */
+  cras_dsp_pipeline_set_sink_ext_module(p, &ext_mod);
+  struct data *d = (struct data *)
+      cras_dsp_module_set_sink_ext_module_val->data;
+  ASSERT_STREQ("m2", d->title);
 
   cras_dsp_pipeline_deinstantiate(p);
   ASSERT_EQ(1, d1->deinstantiate_called);
@@ -465,7 +478,7 @@ TEST_F(DspPipelineTestSuite, Complex) {
 
   int16_t *samples = new int16_t[DSP_BUFFER_SIZE];
   fill_test_data(samples, DSP_BUFFER_SIZE);
-  cras_dsp_pipeline_apply(p, (uint8_t*)samples, 100);
+  cras_dsp_pipeline_apply(p, (uint8_t*)samples, SND_PCM_FORMAT_S16_LE, 100);
   /* the data flow through 2 plugins because m4 is disabled. */
   verify_processed_data(samples, 100, 2);
   delete[] samples;
@@ -476,6 +489,12 @@ TEST_F(DspPipelineTestSuite, Complex) {
   /* check m5 */
   ASSERT_EQ(1, d5->run_called);
   ASSERT_EQ(100, d5->sample_count);
+
+  /* Expect the sink module "m5" is set. */
+  cras_dsp_pipeline_set_sink_ext_module(p, &ext_mod);
+  struct data *d = (struct data *)
+      cras_dsp_module_set_sink_ext_module_val->data;
+  ASSERT_STREQ("m5", d->title);
 
   /* re-instantiate */
   ASSERT_EQ(1, d5->instantiate_called);

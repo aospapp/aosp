@@ -1,4 +1,4 @@
-* current source is based on libopus 1.2.1 (https://git.xiph.org/?p=opus.git;a=snapshot;h=defbc370ec764d3d0dc43c45911e455b5e483b30;sf=tgz)
+* current source is based on libopus 1.3 (https://git.xiph.org/?p=opus.git;a=snapshot;h=83d5155f151ca47c9d6274ded1a7481f746b9a43;sf=tgz)
 * libopus is BSD-licensed - http://www.opus-codec.org/license/
 
 Updating:

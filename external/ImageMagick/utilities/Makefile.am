@@ -1,10 +1,10 @@
-#  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    http://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,8 +14,9 @@
 #
 #  Makefile for building ImageMagick utilities.
 
+if WITH_UTILITIES
 UTILITIES_PGMS = \
-	utilities/magick 
+	utilities/magick
 
 UTILITIES_XFAIL_TESTS = \
   $(UTILITIES_TTF_XFAIL_TESTS) \
@@ -57,15 +58,23 @@ UTILITIES_CONFIGURE = \
 	utilities/montage.1.in \
 	utilities/stream.1.in
 
-
 UTILITIES_EXTRA_DIST = \
 	$(UTILITIES_MANS) \
-	$(UTILITIES_TESTS) 
+	$(UTILITIES_TESTS)
 
-UTILITIES_CLEANFILES = 
+UTILITIES_CLEANFILES =
 
 # Link these utilities to 'magick'.
 MAGICK_UTILITIES=animate compare composite conjure convert display identify import magick-script mogrify montage stream
+
+else
+UTILITIES_PGMS =
+UTILITIES_MANS =
+UTILITIES_CONFIGURE =
+UTILITIES_EXTRA_DIST =
+UTILITIES_CLEANFILES =
+MAGICK_UTILITIES=
+endif
 
 UTILITIES_INSTALL_EXEC_LOCAL_TARGETS=install-exec-local-utilities
 install-exec-local-utilities:

@@ -2,7 +2,7 @@
 \usepackage{epsfig,placeins}
 
 %
-% Copyright (C) 2007 Alan D. Brunelle <Alan.Brunelle@hp.com>
+% Copyright (C) 2007-2009 Alan D. Brunelle <Alan.Brunelle@hp.com>
 %
 %  This program is free software; you can redistribute it and/or modify
 %  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 
 \title{\texttt{btt} User Guide}
 \author{Alan D. Brunelle (Alan.Brunelle@hp.com)}
-\date{30 October 2008}
+\date{8 October 2009}
 
 \begin{document}
 \maketitle
@@ -316,7 +316,7 @@ IO\footnote{It should be noted that incoming requests either go through:
   how the larger number of data values for device (8,0) dominates in
   the overall average.
 
-  \item[Active Requests At Q Information]
+  \newpage\item[Active Requests At Q Information]
 
   An important consideration when analyzing block IO schedulers is to
   know how many requests the scheduler has to work with. The metric
@@ -340,6 +340,34 @@ IO\footnote{It should be noted that incoming requests either go through:
    Overall | Avgs Reqs @ Q
    Average |          17.4
 \end{verbatim}
+
+  \item[I/O Active Period Information]
+
+  In this subsection data is tabulated showing I/O activity on a
+  per-device as well across all devices being traced. ``I/O activity''
+  is defined as periods of time when the underlying device driver and
+  device have at least one I/O to work upon. The values presented include:
+
+  \begin{description}
+    \item[\# Live] Number of periods of ``liveness.''
+    \item[Avg. Act] Average length of each period ov ``liveness.''
+    \item[Avg. !Act] Aerage length of each non-active period.
+    \item[\% Live] Percent of total time spent with the driver/device active.
+  \end{description}
+
+  Here is a sample portion of this type of chart:
+
+\begin{verbatim}
+       DEV |     # Live      Avg. Act     Avg. !Act % Live
+---------- | ---------- ------------- ------------- ------
+ (  8, 16) |         29   0.909596815   0.094646263  90.87
+ (  8, 32) |        168   0.097848226   0.068231948  59.06
+---------- | ---------- ------------- ------------- ------
+ Total Sys |         33   0.799808811   0.082334758  90.92
+\end{verbatim}
+
+  For information on generating data files that can be plotted with
+  per-device and system-wide I/O activity see section~\ref{sec:o-Z}.
 
 \end{description}
 
@@ -425,7 +453,7 @@ pdflush       0.000000790 0.000006752 0.247231307  179791
 
 \newpage\section{\label{sec:data-files}Data Files Output}
 
-  Besides the averages output by default, the following 3 files are also
+  Besides the averages output by default, the following 5(+) files are also
   created with data points which may be plotted.
 
 \begin{description}
@@ -439,6 +467,14 @@ pdflush       0.000000790 0.000006752 0.247231307  179791
   \item[\emph{file}\_dhist.dat] Provides histogram data for the size
   of IO requests submitted to lower layer drivers, for more information
   see section~\ref{sec:dhist}.
+
+  \item[\emph{file}\_mbps\_fp.dat] Provides a set of data for
+  mb-per-second values each second
+  - for more information see section~\ref{sec:rstat}.
+
+  \item[\emph{file}\_iops\_fp.dat] Provides a set of data for
+  I/Os-per-second values each second
+  - for more information see section~\ref{sec:rstat}.
 
 \end{description}
 
@@ -593,6 +629,43 @@ pdflush       0.000000790 0.000006752 0.247231307  179791
   \leavevmode\centering
   \epsfig{file=dhist.eps,width=4.5in}
   \caption{\label{fig:dhist}D Histogram}
+  \end{figure}
+
+\newpage\section{\label{sec:rstat}Running Stats Files}
+
+There are two files produced for each of all devices being traced
+(prefixed with \emph{sys\_}) and per-device (prefixed with the device
+identifier).
+
+The two files are for reporting I/O rate (I/Os per second - name ends
+with \texttt{iops\_fp.dat}) and throughput (MiB per second - name ends
+with \texttt{mbps\_fp.dat}).
+
+The data in the files has two columns:\smallskip
+
+\begin{tabular}{lll}
+\textbf{File Type} & \textbf{X values} & \textbf{Y values}\\\hline
+\textbf{iops} & Runtime (seconds) & I/Os per second\\\hline
+\textbf{mbps} & Runtime (seconds) & MiB per second\\\hline
+\end{tabular}
+
+As an example:
+
+\begin{verbatim}
+# ls *fp.dat
+008,064_iops_fp.dat
+008,064_mbps_fp.dat
+sys_iops_fp.dat
+sys_mbps_fp.dat
+\end{verbatim}
+
+These can be plotted using various tools (e.g., xmgrace as in
+figure~\ref{fig:rstats}).
+
+  \begin{figure}[b!]
+  \leavevmode\centering
+  \epsfig{file=rstats.eps,width=4.5in}
+  \caption{\label{fig:rstats}Running Stats}
   \end{figure}
 
 \newpage\section{\label{sec:iostat}iostat Data File}
@@ -799,7 +872,7 @@ Device:       rrqm/s   wrqm/s     r/s     w/s    rsec/s    wsec/s
 \newpage\section{\label{sec:cmd-line}Command Line}
 
 \begin{verbatim}
-Usage: btt 2.08
+Usage: btt 2.09
 [ -a               | --seek-absolute ]
 [ -A               | --all-data ]
 [ -B <output name> | --dump-blocknos=<output name> ]
@@ -828,6 +901,7 @@ Usage: btt 2.08
 [ -v               | --verbose ]
 [ -X               | --easy-parse-avgs ]
 [ -z <output name> | --q2d-latencies=<output name> ]
+[ -Z               | --do-active
 \end{verbatim}
 
 \subsection{\label{sec:o-a}\texttt{--seek-absolute}/\texttt{-a}}
@@ -1108,10 +1182,39 @@ UPG 8,16 1.993361748 1.866492147
 ARQ 8,16 12.938165321
   \end{verbatim}
 
-\subsection{\label{sec:o-z}\texttt{--q2d-latencies}/\texttt{-l}}
+\subsection{\label{sec:o-z}\texttt{--q2d-latencies}/\texttt{-z}}
 
   This option instructs \texttt{btt} to generate the Q2D latency file
   discussed in section~\ref{sec:lat-q2d}.
+
+\subsection{\label{sec:o-Z}\texttt{--q2d-latencies}/\texttt{-Z}}
+
+  This option generates per-device (and total system) data files. Each
+  file contain a data line which resembles a timing graph: low meaning
+  I/O inactive, high meaning I/O active. A sample section of two ``active'' regions would be:
+
+\begin{verbatim}
+0.000000000 1.0
+0.000025733 1.0
+0.000025733 1.9
+0.000107089 1.9
+0.000107089 1.0
+0.000107089 1.0
+0.005637386 1.0
+0.005637386 1.9
+0.017323909 1.9
+\end{verbatim}
+
+  Which shows an active area from 0.000025733 through
+  0.000107089 followed by another at 0.005637386 through
+  0.017323909. Figure~\ref{fig:live_plot} shows a sample plot that can
+  be generated by such data.
+
+\begin{figure}[b!]
+\leavevmode\centering
+\epsfig{file=live.eps,width=5.5in}
+\caption{\label{fig:live_plot}Sample graph using data from \texttt{-Z}}
+\end{figure}
 
 \newpage\section{\label{sec:bno_plot}bno\_plot.py}
 
@@ -1127,8 +1230,7 @@ gnuplot\footnote{\texttt{www.gnuplot.info}}, and will enter interactive
 mode after the image is produced. In this interactive mode one can enter
 gnuplot commands at the \texttt{'gnuplot>'} prompt, and/or can change
 the viewpoint within the 3D image by \emph{left-click-hold} and moving
-the mouse. A sample screen shot can be seen in figure~\ref{fig:bno_plot} on
-page~\pageref{fig:bno_plot}.
+the mouse. A sample screen shot can be seen in figure~\ref{fig:bno_plot}.
 
 \subsection*{\texttt{bno\_plot.py} Command Line Options}
 
@@ -1159,7 +1261,7 @@ prompt.
 \end{verbatim}
 \end{quotation}
 
-\begin{figure}[b]
+\begin{figure}[b!]
 \leavevmode\centering
 \epsfig{file=bno_plot.eps,width=5.5in}
 \caption{\label{fig:bno_plot}Sample \texttt{bno\_plot.py} Screen Shot}

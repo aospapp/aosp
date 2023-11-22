@@ -31,6 +31,7 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/framework/type_index.h"
+#include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/platform/macros.h"
@@ -135,6 +136,7 @@ class TileOp : public OpKernel {
 
     // Invoke macro using TF_CALL_* so type-filtering for platform applies.
     TF_CALL_bool(HANDLE_TYPE_NAME);
+    TF_CALL_bfloat16(HANDLE_TYPE_NAME);
     TF_CALL_float(HANDLE_TYPE_NAME);
     TF_CALL_double(HANDLE_TYPE_NAME);
     TF_CALL_uint8(HANDLE_TYPE_NAME);
@@ -149,10 +151,12 @@ class TileOp : public OpKernel {
 #undef HANDLE_TYPE_NAME
 #undef HANDLE_TYPE
 
-    OP_REQUIRES(context, false,
-                errors::Unimplemented(
-                    "TileOp : Unhandled input dimensions, DT : ",
-                    context->input(0).dtype(), ", dims : ", input_dims));
+    OP_REQUIRES(
+        context, false,
+        errors::Unimplemented(
+            "TileOp : The input data type is not supported, DataType : ",
+            DataTypeString(context->input(0).dtype()),
+            ", Dimension : ", input_dims));
   }
 
  private:
@@ -211,6 +215,7 @@ inline void TileOp<Device, Tmultiples>::HandleCase(
 
 TF_CALL_bool(HANDLE_TYPE_NAME_CPU);
 TF_CALL_float(HANDLE_TYPE_NAME_CPU);
+TF_CALL_bfloat16(HANDLE_TYPE_NAME_CPU);
 TF_CALL_double(HANDLE_TYPE_NAME_CPU);
 TF_CALL_uint8(HANDLE_TYPE_NAME_CPU);
 TF_CALL_int32(HANDLE_TYPE_NAME_CPU);
@@ -322,6 +327,7 @@ class TileGradientOp : public OpKernel {
     TF_CALL_int16(HANDLE_TYPE_NAME);
     TF_CALL_int64(HANDLE_TYPE_NAME);
     TF_CALL_half(HANDLE_TYPE_NAME);
+    TF_CALL_bfloat16(HANDLE_TYPE_NAME);
     TF_CALL_complex64(HANDLE_TYPE_NAME);
     TF_CALL_complex128(HANDLE_TYPE_NAME);
 
@@ -330,9 +336,10 @@ class TileGradientOp : public OpKernel {
 #undef HANDLE_DIM
 
     OP_REQUIRES(context, false,
-                errors::Unimplemented(
-                    "TileGradientOp : Unhandled input dimensions, DT : ",
-                    context->input(0).dtype(), ", dims : ", input_dims));
+                errors::Unimplemented("TileGradientOp : The input data type or "
+                                      "dimension is not supported, DataType : ",
+                                      DataTypeString(context->input(0).dtype()),
+                                      ", Dimension : ", input_dims));
   }
 
  private:
@@ -573,6 +580,7 @@ TF_CALL_double(REGISTER_GPU);
 TF_CALL_half(REGISTER_GPU);
 TF_CALL_int16(REGISTER_GPU);
 TF_CALL_int32(REGISTER_GPU);
+TF_CALL_int64(REGISTER_GPU);
 TF_CALL_complex64(REGISTER_GPU);
 TF_CALL_complex128(REGISTER_GPU)
 

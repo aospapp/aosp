@@ -85,8 +85,22 @@ public class BluetoothHspFacade extends RpcReceiver {
     }
 
     /**
+     * Wait Hsp Profile ready until timeout.
+     * @param timeout - Timeout second.
+     * @return true if Hsp Profile is ready else false.
+     */
+    public Boolean waitHspReady(long timeout) {
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() < startTime + timeout * 1000) {
+            if (sIsHspReady) return true;
+        }
+        Log.d("Hsp profile is not ready");
+        return false;
+    }
+
+    /**
      * Is Hsp profile ready.
-     * @return if Hid profile is ready or not.
+     * @return if Hsp profile is ready or not.
      */
     @Rpc(description = "Is Hsp profile ready.")
     public Boolean bluetoothHspIsReady() {
@@ -104,7 +118,7 @@ public class BluetoothHspFacade extends RpcReceiver {
                 String deviceStr,
             @RpcParameter(name = "priority", description = "Priority that needs to be set.")
                 Integer priority) throws Exception {
-        if (sHspProfile == null) return;
+        if (!waitHspReady(10)) return;
         BluetoothDevice device = BluetoothFacade.getDevice(
                 mBluetoothAdapter.getBondedDevices(), deviceStr);
         Log.d("Changing priority of device " + device.getAliasName() + " p: " + priority);
@@ -121,7 +135,7 @@ public class BluetoothHspFacade extends RpcReceiver {
             @RpcParameter(name = "device", description =
                 "Name or MAC address of a bluetooth device.")
                 String device) throws Exception {
-        if (sHspProfile == null) return false;
+        if (!waitHspReady(10)) return false;
         BluetoothDevice mDevice = BluetoothFacade.getDevice(
                 mBluetoothAdapter.getBondedDevices(), device);
         Log.d("Connecting to device " + mDevice.getAliasName());
@@ -137,7 +151,7 @@ public class BluetoothHspFacade extends RpcReceiver {
     public Boolean bluetoothHspDisconnect(
             @RpcParameter(name = "device", description = "Name or MAC address of a device.")
                 String device) throws Exception {
-        if (sHspProfile == null) return false;
+        if (!waitHspReady(10)) return false;
         Log.d("Connected devices: " + sHspProfile.getConnectedDevices());
         BluetoothDevice mDevice = BluetoothFacade.getDevice(
                 sHspProfile.getConnectedDevices(), device);
@@ -150,7 +164,7 @@ public class BluetoothHspFacade extends RpcReceiver {
      */
     @Rpc(description = "Get all the devices connected through HSP.")
     public List<BluetoothDevice> bluetoothHspGetConnectedDevices() {
-        if (!sIsHspReady) return null;
+        if (!waitHspReady(10)) return null;
         return sHspProfile.getConnectedDevices();
     }
 
@@ -164,7 +178,7 @@ public class BluetoothHspFacade extends RpcReceiver {
             @RpcParameter(name = "deviceID",
                 description = "Name or MAC address of a bluetooth device.")
                     String deviceID) {
-        if (sHspProfile == null) {
+        if (!waitHspReady(10)) {
             return BluetoothProfile.STATE_DISCONNECTED;
         }
         List<BluetoothDevice> deviceList = sHspProfile.getConnectedDevices();
@@ -187,7 +201,7 @@ public class BluetoothHspFacade extends RpcReceiver {
     public Boolean bluetoothHspForceScoAudio(
             @RpcParameter(name = "force", description = "whether to force SCO audio")
                 Boolean force) {
-        if (sHspProfile == null) {
+        if (!waitHspReady(10)) {
             return false;
         }
         sHspProfile.setForceScoAudio(force);
@@ -205,7 +219,7 @@ public class BluetoothHspFacade extends RpcReceiver {
             @RpcParameter(name = "deviceAddress",
                 description = "MAC address of a bluetooth device.")
                     String deviceAddress) {
-        if (sHspProfile == null) {
+        if (!waitHspReady(10)) {
             return false;
         }
         Log.d("Connected devices: " + sHspProfile.getConnectedDevices());
@@ -234,7 +248,7 @@ public class BluetoothHspFacade extends RpcReceiver {
             @RpcParameter(name = "deviceAddress",
                 description = "MAC address of a bluetooth device.")
                     String deviceAddress) {
-        if (sHspProfile == null) {
+        if (!waitHspReady(10)) {
             return false;
         }
         Log.d("Connected devices: " + sHspProfile.getConnectedDevices());
@@ -267,7 +281,7 @@ public class BluetoothHspFacade extends RpcReceiver {
             @RpcParameter(name = "deviceAddress",
                 description = "MAC address of a bluetooth device.")
                     String deviceAddress) {
-        if (sHspProfile == null) {
+        if (!waitHspReady(10)) {
             return false;
         }
         Log.d("Connected devices: " + sHspProfile.getConnectedDevices());

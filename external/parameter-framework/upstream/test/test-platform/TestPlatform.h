@@ -45,7 +45,7 @@ class CTestPlatform
     typedef CCommandHandler::CommandStatus CommandReturn;
 
 public:
-    CTestPlatform(const std::string &strclass, uint16_t iPortNumber);
+    CTestPlatform(const std::string &strclass, std::string bindAddress);
     virtual ~CTestPlatform();
 
     // Init

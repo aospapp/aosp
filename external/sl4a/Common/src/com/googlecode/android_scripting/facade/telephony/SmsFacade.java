@@ -544,6 +544,7 @@ public class SmsFacade extends RpcReceiver {
     private class SmsIncomingListener extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
+            Log.d(String.format("SmsIncomingListener Received: %s", intent.toUri(0)));
             String action = intent.getAction();
             if (Intents.SMS_RECEIVED_ACTION.equals(action)) {
                 Log.d("New SMS Received");
@@ -555,12 +556,15 @@ public class SmsFacade extends RpcReceiver {
                     SmsMessage[] msgs = Intents.getMessagesFromIntent(intent);
                     StringBuilder smsMsg = new StringBuilder();
 
-                    SmsMessage sms = msgs[0];
-                    String sender = sms.getOriginatingAddress();
-                    event.putString("Sender", formatPhoneNumber(sender));
-
+                    SmsMessage sms;
                     for (int i = 0; i < msgs.length; i++) {
+                        if (msgs[i] == null) {
+                            Log.w("SmsMessages received from intent at " + i + " has no body.");
+                            continue;
+                        }
                         sms = msgs[i];
+                        String sender = sms.getOriginatingAddress();
+                        event.putString("Sender", formatPhoneNumber(sender));
                         smsMsg.append(sms.getMessageBody());
                     }
                     event.putString("Text", smsMsg.toString());

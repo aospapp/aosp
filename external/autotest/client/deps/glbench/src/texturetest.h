@@ -22,15 +22,14 @@ class TextureTest : public TestBase {
  public:
   TextureTest() {}
   virtual ~TextureTest() {}
+  virtual bool TextureMetaDataInit();
   virtual bool TestFunc(uint64_t iterations) = 0;
   virtual bool Run();
   virtual const char* Name() const = 0;
   virtual const char* Unit() const { return "mtexel_sec"; }
+  virtual bool IsTextureUploadTest() const { return true; }
 
-  enum UpdateFlavor {
-    TEX_IMAGE,
-    TEX_SUBIMAGE
-  };
+  enum UpdateFlavor { TEX_IMAGE, TEX_SUBIMAGE };
 
  protected:
   GLuint width_;
@@ -42,8 +41,15 @@ class TextureTest : public TestBase {
   UpdateFlavor flavor_;
   GLenum texel_gl_format_;
   DISALLOW_COPY_AND_ASSIGN(TextureTest);
+  // Textures formats
+  std::vector<GLenum> kTexelFormats;
+  std::map<GLenum, std::string> kTexelFormatNames;
+  std::map<GLenum, unsigned int> kTexelFormatSizes;
+
+  // Texture upload commands
+  std::map<UpdateFlavor, std::string> kFlavors;
 };
 
-} // namespace glbench
+}  // namespace glbench
 
 #endif  // BENCH_GL_TEXTURETEST_H_

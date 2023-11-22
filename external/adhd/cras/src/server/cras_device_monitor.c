@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include <stdbool.h>
 #include <syslog.h>
 
 #include "cras_device_monitor.h"
@@ -80,7 +81,7 @@ static void handle_device_message(struct cras_main_message *msg, void *arg)
 	case RESET_DEVICE:
 		syslog(LOG_ERR, "trying to recover device 0x%x by resetting it",
 		       iodev->info.idx);
-		cras_iodev_list_disable_dev(iodev);
+		cras_iodev_list_disable_dev(iodev, true);
 		cras_iodev_list_enable_dev(iodev);
 		break;
 	case SET_MUTE_STATE:

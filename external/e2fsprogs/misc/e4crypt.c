@@ -507,24 +507,12 @@ static int get_keyring_id(const char *keyring)
 
 	/*
 	 * If no keyring is specified, by default use either the user
-	 * session key ring or the session keyring.  Fetching the
+	 * session keyring or the session keyring.  Fetching the
 	 * session keyring will return the user session keyring if no
 	 * session keyring has been set.
-	 *
-	 * We need to do this instead of simply adding the key to
-	 * KEY_SPEC_SESSION_KEYRING since trying to add a key to a
-	 * session keyring that does not yet exist will cause the
-	 * kernel to create a session keyring --- which wil then get
-	 * garbage collected as soon as e4crypt exits.
-	 *
-	 * The fact that the keyctl system call and the add_key system
-	 * call treats KEY_SPEC_SESSION_KEYRING differently when a
-	 * session keyring does not exist is very unfortunate and
-	 * confusing, but so it goes...
 	 */
 	if (keyring == NULL)
-		return keyctl(KEYCTL_GET_KEYRING_ID,
-			      KEY_SPEC_SESSION_KEYRING, 0);
+		return KEY_SPEC_SESSION_KEYRING;
 	for (x = 0; x < (sizeof(keyrings) / sizeof(keyrings[0])); ++x) {
 		if (strcmp(keyring, keyrings[x].name) == 0) {
 			return keyrings[x].code;
@@ -578,13 +566,34 @@ static void insert_key_into_keyring(const char *keyring, struct salt *salt)
 		return;
 	} else if ((rc == -1) && (errno != ENOKEY)) {
 		printf("keyctl_search failed: %s\n", strerror(errno));
-		if (errno == -EINVAL)
+		if (errno == EINVAL)
 			printf("Keyring [%s] is not available.\n", keyring);
 		exit(1);
 	}
 	key.mode = EXT4_ENCRYPTION_MODE_AES_256_XTS;
 	memcpy(key.raw, salt->key, EXT4_MAX_KEY_SIZE);
 	key.size = EXT4_MAX_KEY_SIZE;
+
+	/*
+	 * We need to do this instead of simply adding the key to
+	 * KEY_SPEC_SESSION_KEYRING since trying to add a key to a
+	 * session keyring that does not yet exist will cause the
+	 * kernel to create a session keyring --- which will then get
+	 * garbage collected as soon as e4crypt exits.
+	 *
+	 * The fact that the keyctl system call and the add_key system
+	 * call treats KEY_SPEC_SESSION_KEYRING differently when a
+	 * session keyring does not exist is very unfortunate and
+	 * confusing, but so it goes...
+	 */
+	if (keyring_id == KEY_SPEC_SESSION_KEYRING) {
+		keyring_id = keyctl(KEYCTL_GET_KEYRING_ID, keyring_id, 0);
+		if (keyring_id < 0) {
+			printf("Error getting session keyring ID: %s\n",
+			       strerror(errno));
+			exit(1);
+		}
+	}
 	rc = add_key(EXT2FS_KEY_TYPE_LOGON, key_ref_full, (void *)&key,
 		     sizeof(key), keyring_id);
 	if (rc == -1) {
@@ -632,7 +641,7 @@ static void do_help(int argc, char **argv, const struct cmd_desc *cmd);
 
 #define add_key_desc "adds a key to the user's keyring"
 #define add_key_help \
-"e4crypt add_key -S salt [ -k keyring ] [-v] [-q] [ path ... ]\n\n" \
+"e4crypt add_key -S salt [ -k keyring ] [-v] [-q] [ -p pad ] [ path ... ]\n\n" \
 "Prompts the user for a passphrase and inserts it into the specified\n" \
 "keyring.  If no keyring is specified, e4crypt will use the session\n" \
 "keyring if it exists or the user session keyring if it does not.\n\n" \
@@ -667,8 +676,10 @@ static void do_add_key(int argc, char **argv, const struct cmd_desc *cmd)
 			options |= OPT_QUIET;
 			break;
 		default:
-			fprintf(stderr, "Unrecognized option: %c\n", opt);
 		case '?':
+			if (opt != '?')
+				fprintf(stderr, "Unrecognized option: %c\n",
+					opt);
 			fputs("USAGE:\n  ", stderr);
 			fputs(cmd->cmd_help, stderr);
 			exit(1);
@@ -699,7 +710,7 @@ static void do_add_key(int argc, char **argv, const struct cmd_desc *cmd)
 
 #define set_policy_desc "sets a policy for directories"
 #define set_policy_help \
-"e4crypt set_policy policy path ... \n\n" \
+"e4crypt set_policy [ -p pad ] policy path ... \n\n" \
 "Sets the policy for the directories specified on the command line.\n" \
 "All directories must be empty to set the policy; if the directory\n" \
 "already has a policy established, e4crypt will validate that it the\n" \
@@ -749,7 +760,6 @@ static void do_set_policy(int argc, char **argv, const struct cmd_desc *cmd)
 static void do_get_policy(int argc, char **argv, const struct cmd_desc *cmd)
 {
 	struct ext4_encryption_policy policy;
-	struct stat st;
 	int i, j, fd, rc;
 
 	if (argc < 2) {
@@ -760,12 +770,7 @@ static void do_get_policy(int argc, char **argv, const struct cmd_desc *cmd)
 	}
 
 	for (i = 1; i < argc; i++) {
-		if (stat(argv[i], &st) < 0) {
-			perror(argv[i]);
-			continue;
-		}
-		fd = open(argv[i],
-			  S_ISDIR(st.st_mode) ? O_DIRECTORY : O_RDONLY);
+		fd = open(argv[i], O_RDONLY);
 		if (fd == -1) {
 			perror(argv[i]);
 			exit(1);

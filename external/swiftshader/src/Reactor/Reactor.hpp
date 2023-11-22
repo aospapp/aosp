@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef sw_Reactor_hpp
-#define sw_Reactor_hpp
+#ifndef rr_Reactor_hpp
+#define rr_Reactor_hpp
 
 #include "Nucleus.hpp"
 #include "Routine.hpp"
 
 #include <cassert>
 #include <cstddef>
-#include <cwchar>
+#include <cstdio>
 #undef Bool
 
-namespace sw
+namespace rr
 {
 	class Bool;
 	class Byte;
@@ -49,6 +49,7 @@ namespace sw
 	class Int4;
 	class UInt4;
 	class Long;
+	class Half;
 	class Float;
 	class Float2;
 	class Float4;
@@ -1822,6 +1823,16 @@ namespace sw
 //	RValue<Bool> operator!=(RValue<Int4> lhs, RValue<Int4> rhs);
 //	RValue<Bool> operator==(RValue<Int4> lhs, RValue<Int4> rhs);
 
+	inline RValue<Int4> operator+(RValue<Int> lhs, RValue<Int4> rhs)
+	{
+		return Int4(lhs) + rhs;
+	}
+
+	inline RValue<Int4> operator+(RValue<Int4> lhs, RValue<Int> rhs)
+	{
+		return lhs + Int4(rhs);
+	}
+
 	RValue<Int4> CmpEQ(RValue<Int4> x, RValue<Int4> y);
 	RValue<Int4> CmpLT(RValue<Int4> x, RValue<Int4> y);
 	RValue<Int4> CmpLE(RValue<Int4> x, RValue<Int4> y);
@@ -1913,11 +1924,20 @@ namespace sw
 	RValue<UInt4> Min(RValue<UInt4> x, RValue<UInt4> y);
 //	RValue<UInt4> RoundInt(RValue<Float4> cast);
 
+	class Half : public LValue<Half>
+	{
+	public:
+		explicit Half(RValue<Float> cast);
+
+		static Type *getType();
+	};
+
 	class Float : public LValue<Float>
 	{
 	public:
 		explicit Float(RValue<Int> cast);
 		explicit Float(RValue<UInt> cast);
+		explicit Float(RValue<Half> cast);
 
 		Float() = default;
 		Float(float x);
@@ -2237,7 +2257,7 @@ namespace sw
 			return Argument<typename ArgI<index, Arguments...>::Type>(arg);
 		}
 
-		Routine *operator()(const wchar_t *name, ...);
+		Routine *operator()(const char *name, ...);
 
 	protected:
 		Nucleus *core;
@@ -2258,7 +2278,7 @@ namespace sw
 	RValue<Long> Ticks();
 }
 
-namespace sw
+namespace rr
 {
 	template<class T>
 	LValue<T>::LValue(int arraySize)
@@ -2737,13 +2757,13 @@ namespace sw
 	}
 
 	template<typename Return, typename... Arguments>
-	Routine *Function<Return(Arguments...)>::operator()(const wchar_t *name, ...)
+	Routine *Function<Return(Arguments...)>::operator()(const char *name, ...)
 	{
-		wchar_t fullName[1024 + 1];
+		char fullName[1024 + 1];
 
 		va_list vararg;
 		va_start(vararg, name);
-		vswprintf(fullName, 1024, name, vararg);
+		vsnprintf(fullName, 1024, name, vararg);
 		va_end(vararg);
 
 		return core->acquireRoutine(fullName, true);
@@ -2934,4 +2954,4 @@ namespace sw
 	else   // ELSE_BLOCK__
 }
 
-#endif   // sw_Reactor_hpp
+#endif   // rr_Reactor_hpp

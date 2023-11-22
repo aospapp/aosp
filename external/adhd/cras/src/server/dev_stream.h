@@ -162,13 +162,20 @@ int dev_stream_request_playback_samples(struct dev_stream *dev_stream,
  * Args:
  *   dev_stream[in]: The dev_stream to check wake up time.
  *   curr_level[in]: The current level of device.
+ *   level_tstamp[in]: The time stamp when getting current level of device.
+ *   cap_limit[in]: The number of frames that can be captured across all
+ *                  streams.
+ *   is_cap_limit_stream[in]: 1 if this stream is causing cap_limit.
  *   wake_time_out[out]: A timespec for wake up time.
  * Returns:
  *   0 on success; negative error code on failure.
+ *   A positive value if there is no need to set wake up time for this stream.
  */
 int dev_stream_wake_time(struct dev_stream *dev_stream,
 			 unsigned int curr_level,
 			 struct timespec *level_tstamp,
+			 unsigned int cap_limit,
+			 int is_cap_limit_stream,
 			 struct timespec *wake_time_out);
 
 /*
@@ -191,5 +198,12 @@ dev_stream_sleep_interval_ts(struct dev_stream *dev_stream)
 {
 	return &dev_stream->stream->sleep_interval_ts;
 }
+
+int dev_stream_is_pending_reply(const struct dev_stream *dev_stream);
+
+/*
+ * Reads any pending audio message from the socket.
+ */
+int dev_stream_flush_old_audio_messages(struct dev_stream *dev_stream);
 
 #endif /* DEV_STREAM_H_ */

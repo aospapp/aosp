@@ -47,7 +47,7 @@ class network_WiFi_CSADisconnect(wifi_cell_test_base.WiFiCellTestBase):
         # work around with drivers (Marvell 8897) that disallow reconnecting
         # immediately to the same AP on the same channel after CSA to a
         # different channel.
-        for attempt in range(5):
+        for _ in range(5):
             self._connect_to_ap(self._primary_channel)
             self.context.router.send_management_frame_on_ap(
                 'channel_switch', self._alternate_channel)
@@ -58,9 +58,8 @@ class network_WiFi_CSADisconnect(wifi_cell_test_base.WiFiCellTestBase):
                         self.context.router.get_ssid())
 
             # Wait for client to be disconnected.
-            success, state, elapsed_seconds = \
-                    self.context.client.wait_for_service_states(
-                            self.context.router.get_ssid(), ('idle'), 30)
+            self.context.client.wait_for_service_states(
+                    self.context.router.get_ssid(), ('idle'), 30)
 
             # Swap primary_channel with alternate channel so we don't configure
             # AP using same channel in back-to-back runs.

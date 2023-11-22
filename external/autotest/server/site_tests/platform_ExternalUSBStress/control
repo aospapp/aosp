@@ -12,7 +12,6 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:stress"
 DEPENDENCIES = "servo"
 
 DOC = """

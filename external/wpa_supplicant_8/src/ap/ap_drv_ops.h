@@ -103,6 +103,14 @@ int hostapd_drv_send_action_addr3_ap(struct hostapd_data *hapd,
 				     unsigned int freq,
 				     unsigned int wait, const u8 *dst,
 				     const u8 *data, size_t len);
+static inline void
+hostapd_drv_send_action_cancel_wait(struct hostapd_data *hapd)
+{
+	if (!hapd->driver || !hapd->driver->send_action_cancel_wait ||
+	    !hapd->drv_priv)
+		return;
+	hapd->driver->send_action_cancel_wait(hapd->drv_priv);
+}
 int hostapd_add_sta_node(struct hostapd_data *hapd, const u8 *addr,
 			 u16 auth_alg);
 int hostapd_sta_auth(struct hostapd_data *hapd, const u8 *addr,
@@ -346,6 +354,24 @@ static inline int hostapd_drv_stop_ap(struct hostapd_data *hapd)
 	if (!hapd->driver || !hapd->driver->stop_ap || !hapd->drv_priv)
 		return 0;
 	return hapd->driver->stop_ap(hapd->drv_priv);
+}
+
+static inline int hostapd_drv_channel_info(struct hostapd_data *hapd,
+					   struct wpa_channel_info *ci)
+{
+	if (!hapd->driver || !hapd->driver->channel_info)
+		return -1;
+	return hapd->driver->channel_info(hapd->drv_priv, ci);
+}
+
+static inline int
+hostapd_drv_send_external_auth_status(struct hostapd_data *hapd,
+				      struct external_auth *params)
+{
+	if (!hapd->driver || !hapd->drv_priv ||
+	    !hapd->driver->send_external_auth_status)
+		return -1;
+	return hapd->driver->send_external_auth_status(hapd->drv_priv, params);
 }
 
 #endif /* AP_DRV_OPS */

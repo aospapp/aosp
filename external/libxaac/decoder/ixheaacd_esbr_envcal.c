@@ -22,7 +22,7 @@
 #include <string.h>
 
 #include <ixheaacd_type_def.h>
-
+#include "ixheaacd_error_standards.h"
 #include "ixheaacd_sbr_const.h"
 #include "ixheaacd_sbrdecsettings.h"
 #include "ixheaacd_bitbuffer.h"
@@ -68,11 +68,12 @@ VOID ixheaacd_shellsort(WORD32 *in, WORD32 n) {
   } while (inc > 1);
 }
 
-VOID ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
-                           FLOAT32 input_real[][64], FLOAT32 input_imag[][64],
-                           FLOAT32 input_real1[][64], FLOAT32 input_imag1[][64],
-                           WORD32 x_over_qmf[MAX_NUM_PATCHES],
-                           FLOAT32 *scratch_buff, FLOAT32 *env_out) {
+WORD32 ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
+                             FLOAT32 input_real[][64], FLOAT32 input_imag[][64],
+                             FLOAT32 input_real1[][64],
+                             FLOAT32 input_imag1[][64],
+                             WORD32 x_over_qmf[MAX_NUM_PATCHES],
+                             FLOAT32 *scratch_buff, FLOAT32 *env_out) {
   WORD8 harmonics[64];
   FLOAT32(*env_tmp)[48];
   FLOAT32(*noise_level_pvc)[48];
@@ -166,19 +167,21 @@ VOID ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
     esbr_start_up = 1;
     esbr_start_up_pvc = 1;
     phase_index = 0;
-    ixheaacd_createlimiterbands(
-        (*lim_table), (*gate_mode),
-        frame_data->pstr_sbr_header->pstr_freq_band_data->freq_band_tbl_lo,
-        num_sf_bands[LOW], x_over_qmf, frame_data->sbr_patching_mode,
-        upsamp_4_flag, &frame_data->patch_param);
+    if (ixheaacd_createlimiterbands(
+            (*lim_table), (*gate_mode),
+            frame_data->pstr_sbr_header->pstr_freq_band_data->freq_band_tbl_lo,
+            num_sf_bands[LOW], x_over_qmf, frame_data->sbr_patching_mode,
+            upsamp_4_flag, &frame_data->patch_param))
+      return IA_FATAL_ERROR;
   }
 
   if (frame_data->sbr_patching_mode != frame_data->prev_sbr_patching_mode) {
-    ixheaacd_createlimiterbands(
-        (*lim_table), (*gate_mode),
-        frame_data->pstr_sbr_header->pstr_freq_band_data->freq_band_tbl_lo,
-        num_sf_bands[LOW], x_over_qmf, frame_data->sbr_patching_mode,
-        upsamp_4_flag, &frame_data->patch_param);
+    if (ixheaacd_createlimiterbands(
+            (*lim_table), (*gate_mode),
+            frame_data->pstr_sbr_header->pstr_freq_band_data->freq_band_tbl_lo,
+            num_sf_bands[LOW], x_over_qmf, frame_data->sbr_patching_mode,
+            upsamp_4_flag, &frame_data->patch_param))
+      return IA_FATAL_ERROR;
 
     frame_data->prev_sbr_patching_mode = frame_data->sbr_patching_mode;
   }
@@ -192,6 +195,7 @@ VOID ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
       ui = frame_data->pstr_sbr_header->pstr_freq_band_data
                ->freq_band_tbl_hi[i + 1];
       tmp = ((ui + li) - (sub_band_start << 1)) >> 1;
+      if ((tmp >= 64) || (tmp < 0)) return -1;
 
       harmonics[tmp] = add_harmonics[i];
     }
@@ -559,11 +563,14 @@ VOID ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
       ui = frame_data->pstr_sbr_header->pstr_freq_band_data
                ->freq_band_tbl_hi[i + 1];
       tmp = ((ui + li) - (sub_band_start << 1)) >> 1;
+      if ((tmp >= 64) || (tmp < 0)) return -1;
 
       harmonics[tmp] = add_harmonics[i];
     }
 
     for (i = 0; i < bs_num_env; i++) {
+      if (kk > MAX_NOISE_ENVELOPES) return IA_FATAL_ERROR;
+
       if (p_frame_info->border_vec[i] == p_frame_info->noise_border_vec[kk])
         kk++, next++;
 
@@ -783,14 +790,14 @@ VOID ixheaacd_sbr_env_calc(ia_sbr_frame_info_data_struct *frame_data,
   frame_data->phase_index = phase_index;
   frame_data->pstr_sbr_header->esbr_start_up = esbr_start_up;
   frame_data->pstr_sbr_header->esbr_start_up_pvc = esbr_start_up_pvc;
+  return 0;
 }
 
-VOID ixheaacd_createlimiterbands(WORD32 lim_table[4][12 + 1],
-                                 WORD32 gate_mode[4], WORD16 *freq_band_tbl,
-                                 WORD32 ixheaacd_num_bands,
-                                 WORD32 x_over_qmf[MAX_NUM_PATCHES],
-                                 WORD32 b_patching_mode, WORD32 upsamp_4_flag,
-                                 struct ixheaacd_lpp_trans_patch *patch_param) {
+IA_ERRORCODE ixheaacd_createlimiterbands(
+    WORD32 lim_table[4][12 + 1], WORD32 gate_mode[4], WORD16 *freq_band_tbl,
+    WORD32 ixheaacd_num_bands, WORD32 x_over_qmf[MAX_NUM_PATCHES],
+    WORD32 b_patching_mode, WORD32 upsamp_4_flag,
+    struct ixheaacd_lpp_trans_patch *patch_param) {
   WORD32 i, j, k, is_patch_border[2];
   WORD32 patch_borders[MAX_NUM_PATCHES + 1];
   WORD32 temp_limiter_band_calc[32 + MAX_NUM_PATCHES + 1];
@@ -883,11 +890,12 @@ VOID ixheaacd_createlimiterbands(WORD32 lim_table[4][12 + 1],
         }
       }
     }
-
+    if (gate_mode[i] > 12) return IA_FATAL_ERROR;
     for (k = 0; k <= gate_mode[i]; k++) {
       lim_table[i][k] = temp_limiter_band_calc[k];
     }
   }
+  return IA_NO_ERROR;
 }
 
 VOID ixheaacd_apply_inter_tes(FLOAT32 *qmf_real1, FLOAT32 *qmf_imag1,

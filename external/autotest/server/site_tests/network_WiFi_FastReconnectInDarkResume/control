@@ -7,7 +7,7 @@ NAME = 'network_WiFi_FastReconnectInDarkResume'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'servo, wificell, lucidsleep'
-ATTRIBUTES = 'suite:wifi_correctness_cros_core, suite:wifi_lucidsleep'
+ATTRIBUTES = 'suite:wifi_lucidsleep'
 
 DOC = """
 This test verifies that, during suspend, when a DUT is momentarily disconnected

@@ -29,6 +29,7 @@ typedef enum {
 
 	purge_mode_limit = 2
 } purge_mode_t;
+#if defined(__ANDROID__)
 /* ANDROID change */
 /* Use the decay mode purge method.
  * Setting this value to zero results in performance issues because it
@@ -41,6 +42,11 @@ typedef enum {
 /* Default decay time in seconds. */
 #define	DECAY_TIME_DEFAULT	0
 /* End ANDROID change */
+#else
+#define PURGE_DEFAULT           purge_mode_ratio
+/* Default decay time in seconds. */
+#define DECAY_TIME_DEFAULT      10
+#endif
 /* Number of event ticks between time checks. */
 #define	DECAY_NTICKS_PER_UPDATE	1000
 

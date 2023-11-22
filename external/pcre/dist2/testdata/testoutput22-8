@@ -17,7 +17,7 @@ Subject length lower bound = 0
 # 16-bit modes, but not in 32-bit mode.
 
 /(?<=ab\Cde)X/utf
-Failed: error 136 at offset 10: \C is not allowed in a lookbehind assertion in UTF-8 mode
+Failed: error 136 at offset 0: \C is not allowed in a lookbehind assertion in UTF-8 mode
     ab!deXYZ
 
 # Autopossessification tests
@@ -166,6 +166,19 @@ No match
 /a\Cb/utf
 \= Expect no match in 8-bit mode
     a\x{100}b
+No match
+
+/^ab\C/utf,no_start_optimize
+\= Expect no match - tests \C at end of subject
+    ab
+No match
+
+/\C[^\v]+\x80/utf
+    [AΏBŀC]
+No match
+
+/\C[^\d]+\x80/utf
+    [AΏBŀC]
 No match
 
 # End of testinput22

@@ -34,12 +34,18 @@ import logging
 import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
 from autotest_lib.server.cros.multimedia import bluetooth_le_facade_adapter
 
 
 test_case_log = bluetooth_adapter_tests.test_case_log
 UNSUPPORTED_KERNEL = "3.8.11"
+
+def is_supported_kernel_version(version):
+    """ Check if given kernel version is newer than unsupported version."""
+
+    return utils.compare_versions(version,UNSUPPORTED_KERNEL) == 1
 
 
 class bluetooth_AdapterLEAdvertising(
@@ -1012,7 +1018,7 @@ class bluetooth_AdapterLEAdvertising(
         """
         self.host = host
         self.kernel_version = self.get_kernel_version(self.host)
-        if self.kernel_version == UNSUPPORTED_KERNEL:
+        if not is_supported_kernel_version(self.kernel_version):
             # NOTE: Due to crbug/729648, we cannot set advertising intervals
             # on kernels that are 3.8.11 and below, so we raise TestNAError.
             raise error.TestNAError('Test cannnot proceed on old kernel '

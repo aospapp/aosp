@@ -19,13 +19,13 @@
 %                                  2008.05.07                                 %
 %                                     v 0.9                                   %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -95,7 +95,7 @@ static void increase (void *pixel, int byteType){
   }  
 }
 */
-
+
 /*
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %                                                                             %
@@ -129,7 +129,7 @@ static MagickBooleanType IsIPL(const unsigned char *magick,const size_t length)
     return(MagickTrue);
   return(MagickFalse);
 }
-
+
 /*
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %                                                                             %
@@ -196,6 +196,9 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   QuantumType
     quantum_type;
 
+  size_t
+    extent;
+
   /*
    Open Image
    */
@@ -223,8 +226,9 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
     Determine endianness 
    If we get back "iiii", we have LSB,"mmmm", MSB
    */
-  count=ReadBlob(image,4,magick); 
-  (void) count;
+  count=ReadBlob(image,4,magick);
+  if (count != 4)
+    ThrowReaderException(CorruptImageError, "ImproperImageHeader");
   if((LocaleNCompare((char *) magick,"iiii",4) == 0))  
     image->endian=LSBEndian;
   else{
@@ -240,7 +244,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
    Excellent, now we read the header unimpeded.
    */
   count=ReadBlob(image,4,magick); 
-  if((LocaleNCompare((char *) magick,"data",4) != 0))  
+  if((count != 4) || (LocaleNCompare((char *) magick,"data",4) != 0))
     ThrowReaderException(CorruptImageError, "ImproperImageHeader");
   ipl_info.size=ReadBlobLong(image); 
   ipl_info.width=ReadBlobLong(image); 
@@ -295,11 +299,13 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       quantum_format = UnsignedQuantumFormat;
       break;
   }
+  extent=ipl_info.width*ipl_info.height*ipl_info.z*ipl_info.depth/8;
+  if (extent > GetBlobSize(image))
+    ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
 
   /*
     Set number of scenes of image
   */
-
   SetHeaderFromIPL(image, &ipl_info);
 
   /* Thats all we need if we are pinging. */
@@ -397,16 +403,17 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
                  image->filename);
       break;
     }
-   if(t_count < ipl_info.z * ipl_info.time){
+   if (t_count < ipl_info.z * ipl_info.time)
+     {
       /*
        Proceed to next image.
        */
       AcquireNextImage(image_info,image,exception);
       if (GetNextImageInList(image) == (Image *) NULL)
-      {
-        image=DestroyImageList(image);
-        return((Image *) NULL);
-      }
+        {
+          status=MagickFalse;
+          break;
+        }
       image=SyncNextImageInList(image); 
       status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
         GetBlobSize(image));
@@ -415,9 +422,11 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
     }
   } while (t_count < ipl_info.z*ipl_info.time);
   CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
-
+
 /*
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %                                                                             %
@@ -443,11 +452,12 @@ ModuleExport size_t RegisterIPLImage(void)
   entry->decoder=(DecodeImageHandler *) ReadIPLImage;
   entry->encoder=(EncodeImageHandler *) WriteIPLImage;
   entry->magick=(IsImageFormatHandler *) IsIPL;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags|=CoderEndianSupportFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
-
+
 /*
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %                                                                             %
@@ -517,6 +527,9 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
   QuantumInfo
     *quantum_info;
 
+  size_t
+    imageListLength;
+
   ssize_t
     y;
   
@@ -539,8 +552,9 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
     return(status);
   scene=0;
   
-
   quantum_info=AcquireQuantumInfo(image_info,image);
+  if (quantum_info == (QuantumInfo *) NULL)
+    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
   if ((quantum_info->format == UndefinedQuantumFormat) &&
       (IsHighDynamicRangeImage(image,exception) != MagickFalse))
     SetQuantumFormat(image,quantum_info,FloatingPointQuantumFormat);
@@ -572,7 +586,8 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
     break;
     
   }
-  ipl_info.z = (unsigned int) GetImageListLength(image);
+  imageListLength=GetImageListLength(image);
+  ipl_info.z = (unsigned int) imageListLength;
   /* There is no current method for detecting whether we have T or Z stacks */
   ipl_info.time = 1;
   ipl_info.width = (unsigned int) image->columns;
@@ -625,9 +640,9 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
     p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
-      (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-        GrayQuantum, pixels,exception);
-      (void) WriteBlob(image, image->columns*image->depth/8, pixels);
+    (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
+      GrayQuantum, pixels,exception);
+    (void) WriteBlob(image, image->columns*image->depth/8, pixels);
   }
 
 }
@@ -637,9 +652,9 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
     p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
-      (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-        RedQuantum, pixels,exception);
-      (void) WriteBlob(image, image->columns*image->depth/8, pixels);
+    (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
+      RedQuantum, pixels,exception);
+    (void) WriteBlob(image, image->columns*image->depth/8, pixels);
   }
 
     /* Green frame */
@@ -647,9 +662,9 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
       p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
-        (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-          GreenQuantum, pixels,exception);
-        (void) WriteBlob(image, image->columns*image->depth/8, pixels);
+      (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
+        GreenQuantum, pixels,exception);
+      (void) WriteBlob(image, image->columns*image->depth/8, pixels);
     }
     /* Blue frame */
     for(y = 0; y < (ssize_t) ipl_info.height; y++){
@@ -669,11 +684,10 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
     }
   }
   quantum_info=DestroyQuantumInfo(quantum_info);
-      if (GetNextImageInList(image) == (Image *) NULL)
-  break;
+  if (GetNextImageInList(image) == (Image *) NULL)
+    break;
       image=SyncNextImageInList(image);
-      status=SetImageProgress(image,SaveImagesTag,scene++,
-        GetImageListLength(image));
+      status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
       if (status == MagickFalse)
         break;
     }while (image_info->adjoin != MagickFalse);

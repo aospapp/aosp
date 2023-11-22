@@ -29,6 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/utsname.h>
 
 #include <shared/array.h>
@@ -48,6 +49,7 @@
 static int verbose = DEFAULT_VERBOSE;
 
 static const char CFG_BUILTIN_KEY[] = "built-in";
+static const char CFG_EXTERNAL_KEY[] = "external";
 static const char *default_cfg_paths[] = {
 	"/run/depmod.d",
 	SYSCONFDIR "/depmod.d",
@@ -436,9 +438,21 @@ struct cfg_override {
 	char path[];
 };
 
+enum search_type {
+	SEARCH_PATH,
+	SEARCH_BUILTIN,
+	SEARCH_EXTERNAL
+};
+
 struct cfg_search {
 	struct cfg_search *next;
-	uint8_t builtin;
+	enum search_type type;
+	size_t len;
+	char path[];
+};
+
+struct cfg_external {
+	struct cfg_external *next;
 	size_t len;
 	char path[];
 };
@@ -453,14 +467,27 @@ struct cfg {
 	uint8_t warn_dups;
 	struct cfg_override *overrides;
 	struct cfg_search *searches;
+	struct cfg_external *externals;
 };
 
-static int cfg_search_add(struct cfg *cfg, const char *path, uint8_t builtin)
+static enum search_type cfg_define_search_type(const char *path)
+{
+	if (streq(path, CFG_BUILTIN_KEY))
+		return SEARCH_BUILTIN;
+	if (streq(path, CFG_EXTERNAL_KEY))
+		return SEARCH_EXTERNAL;
+	return SEARCH_PATH;
+}
+
+static int cfg_search_add(struct cfg *cfg, const char *path)
 {
 	struct cfg_search *s;
 	size_t len;
+	enum search_type type;
 
-	if (builtin)
+	type = cfg_define_search_type(path);
+
+	if (type != SEARCH_PATH)
 		len = 0;
 	else
 		len = strlen(path) + 1;
@@ -470,15 +497,15 @@ static int cfg_search_add(struct cfg *cfg, const char *path, uint8_t builtin)
 		ERR("search add: out of memory\n");
 		return -ENOMEM;
 	}
-	s->builtin = builtin;
-	if (builtin)
+	s->type = type;
+	if (type != SEARCH_PATH)
 		s->len = 0;
 	else {
 		s->len = len - 1;
 		memcpy(s->path, path, len);
 	}
 
-	DBG("search add: %s, builtin=%hhu\n", path, builtin);
+	DBG("search add: %s, search type=%hhu\n", path, type);
 
 	s->next = cfg->searches;
 	cfg->searches = s;
@@ -526,6 +553,32 @@ static void cfg_override_free(struct cfg_override *o)
 	free(o);
 }
 
+static int cfg_external_add(struct cfg *cfg, const char *path)
+{
+	struct cfg_external *ext;
+	size_t len = strlen(path);
+
+	ext = malloc(sizeof(struct cfg_external) + len + 1);
+	if (ext == NULL) {
+		ERR("external add: out of memory\n");
+		return -ENOMEM;
+	}
+
+	strcpy(ext->path, path);
+	ext->len = len;
+
+	DBG("external add: %s\n", ext->path);
+
+	ext->next = cfg->externals;
+	cfg->externals = ext;
+	return 0;
+}
+
+static void cfg_external_free(struct cfg_external *ext)
+{
+	free(ext);
+}
+
 static int cfg_kernel_matches(const struct cfg *cfg, const char *pattern)
 {
 	regex_t re;
@@ -571,8 +624,7 @@ static int cfg_file_parse(struct cfg *cfg, const char *filename)
 		if (streq(cmd, "search")) {
 			const char *sp;
 			while ((sp = strtok_r(NULL, "\t ", &saveptr)) != NULL) {
-				uint8_t builtin = streq(sp, CFG_BUILTIN_KEY);
-				cfg_search_add(cfg, sp, builtin);
+				cfg_search_add(cfg, sp);
 			}
 		} else if (streq(cmd, "override")) {
 			const char *modname = strtok_r(NULL, "\t ", &saveptr);
@@ -590,6 +642,20 @@ static int cfg_file_parse(struct cfg *cfg, const char *filename)
 			}
 
 			cfg_override_add(cfg, modname, subdir);
+		} else if (streq(cmd, "external")) {
+			const char *version = strtok_r(NULL, "\t ", &saveptr);
+			const char *dir = strtok_r(NULL, "\t ", &saveptr);
+
+			if (version == NULL || dir == NULL)
+				goto syntax_error;
+
+			if (!cfg_kernel_matches(cfg, version)) {
+				INF("%s:%u: external directory did not match %s\n",
+				    filename, linenum, version);
+				goto done_next;
+			}
+
+			cfg_external_add(cfg, dir);
 		} else if (streq(cmd, "include")
 				|| streq(cmd, "make_map_files")) {
 			INF("%s:%u: command %s not implemented yet\n",
@@ -766,7 +832,7 @@ static int cfg_load(struct cfg *cfg, const char * const *cfg_paths)
 	 * list here. But only if there was no "search" option specified.
 	 */
 	if (cfg->searches == NULL)
-		cfg_search_add(cfg, "updates", 0);
+		cfg_search_add(cfg, "updates");
 
 	return 0;
 }
@@ -783,6 +849,12 @@ static void cfg_free(struct cfg *cfg)
 		struct cfg_search *tmp = cfg->searches;
 		cfg->searches = cfg->searches->next;
 		cfg_search_free(tmp);
+	}
+
+	while (cfg->externals) {
+		struct cfg_external *tmp = cfg->externals;
+		cfg->externals = cfg->externals->next;
+		cfg_external_free(tmp);
 	}
 }
 
@@ -993,6 +1065,33 @@ static int depmod_module_del(struct depmod *depmod, struct mod *mod)
 	return 0;
 }
 
+static const char *search_to_string(const struct cfg_search *s)
+{
+	switch(s->type) {
+	case SEARCH_EXTERNAL:
+		return "external";
+	case SEARCH_BUILTIN:
+		return "built-in";
+	default:
+		return s->path;
+	}
+}
+
+static bool depmod_is_path_starts_with(const char *path,
+				       size_t pathlen,
+				       const char *prefix,
+				       size_t prefix_len)
+{
+	if (pathlen <= prefix_len)
+		return false;
+	if (path[prefix_len] != '/')
+		return false;
+	if (memcmp(path, prefix, prefix_len) != 0)
+		return false;
+
+	return true;
+}
+
 /* returns if existing module @mod is higher priority than newpath.
  * note this is the inverse of module-init-tools is_higher_priority()
  */
@@ -1001,6 +1100,7 @@ static int depmod_module_is_higher_priority(const struct depmod *depmod, const s
 	const struct cfg *cfg = depmod->cfg;
 	const struct cfg_override *ov;
 	const struct cfg_search *se;
+	const struct cfg_external *ext;
 
 	/* baselen includes the last '/' and mod->baselen doesn't. So it's
 	 * actually correct to use modnamelen in the first and modnamesz in
@@ -1009,35 +1109,55 @@ static int depmod_module_is_higher_priority(const struct depmod *depmod, const s
 	size_t oldlen = mod->baselen + mod->modnamesz;
 	const char *oldpath = mod->path;
 	int i, bprio = -1, oldprio = -1, newprio = -1;
-
-	assert(strncmp(newpath, cfg->dirname, cfg->dirnamelen) == 0);
-	assert(strncmp(oldpath, cfg->dirname, cfg->dirnamelen) == 0);
-
-	newpath += cfg->dirnamelen + 1;
-	newlen -= cfg->dirnamelen + 1;
-	oldpath += cfg->dirnamelen + 1;
-	oldlen -= cfg->dirnamelen + 1;
+	size_t relnewlen = 0;
+	size_t reloldlen = 0;
+	const char *relnewpath = NULL;
+	const char *reloldpath = NULL;
 
 	DBG("comparing priorities of %s and %s\n",
 	    oldpath, newpath);
 
+	if (strncmp(newpath, cfg->dirname, cfg->dirnamelen) == 0) {
+		relnewpath = newpath + cfg->dirnamelen + 1;
+		relnewlen = newlen - (cfg->dirnamelen + 1);
+	}
+	if (strncmp(oldpath, cfg->dirname, cfg->dirnamelen) == 0) {
+		reloldpath = oldpath + cfg->dirnamelen + 1;
+		reloldlen = oldlen - (cfg->dirnamelen + 1);
+	}
+
 	for (ov = cfg->overrides; ov != NULL; ov = ov->next) {
 		DBG("override %s\n", ov->path);
-		if (newlen == ov->len && memcmp(ov->path, newpath, newlen) == 0)
+		if (relnewlen == ov->len &&
+		    memcmp(ov->path, relnewpath, relnewlen) == 0)
 			return 0;
-		if (oldlen == ov->len && memcmp(ov->path, oldpath, oldlen) == 0)
+		if (reloldlen == ov->len &&
+		    memcmp(ov->path, reloldpath, reloldlen) == 0)
 			return 1;
 	}
 
 	for (i = 0, se = cfg->searches; se != NULL; se = se->next, i++) {
-		DBG("search %s\n", se->builtin ? "built-in" : se->path);
-		if (se->builtin)
+		DBG("search %s\n", search_to_string(se));
+		if (se->type == SEARCH_BUILTIN)
 			bprio = i;
-		else if (newlen > se->len && newpath[se->len] == '/' &&
-			 memcmp(se->path, newpath, se->len) == 0)
+		else if (se->type == SEARCH_EXTERNAL) {
+			for (ext = cfg->externals; ext != NULL; ext = ext->next, i++) {
+				if (depmod_is_path_starts_with(newpath,
+							       newlen,
+							       ext->path,
+							       ext->len))
+					newprio = i;
+				if (depmod_is_path_starts_with(oldpath,
+							       oldlen,
+							       ext->path,
+							       ext->len))
+					oldprio = i;
+			}
+		} else if (relnewlen > se->len && relnewpath[se->len] == '/' &&
+			 memcmp(se->path, relnewpath, se->len) == 0)
 			newprio = i;
-		else if (oldlen > se->len && oldpath[se->len] == '/' &&
-			 memcmp(se->path, oldpath, se->len) == 0)
+		else if (reloldlen > se->len && reloldpath[se->len] == '/' &&
+			 memcmp(se->path, reloldpath, se->len) == 0)
 			oldprio = i;
 	}
 
@@ -1108,10 +1228,11 @@ add:
 	return 0;
 }
 
-static int depmod_modules_search_dir(struct depmod *depmod, DIR *d, size_t baselen, char *path)
+static int depmod_modules_search_dir(struct depmod *depmod, DIR *d, size_t baselen, struct scratchbuf *s_path)
 {
 	struct dirent *de;
 	int err = 0, dfd = dirfd(d);
+	char *path;
 
 	while ((de = readdir(d)) != NULL) {
 		const char *name = de->d_name;
@@ -1124,11 +1245,13 @@ static int depmod_modules_search_dir(struct depmod *depmod, DIR *d, size_t basel
 		if (streq(name, "build") || streq(name, "source"))
 			continue;
 		namelen = strlen(name);
-		if (baselen + namelen + 2 >= PATH_MAX) {
-			path[baselen] = '\0';
-			ERR("path is too long %s%s\n", path, name);
+		if (scratchbuf_alloc(s_path, baselen + namelen + 2) < 0) {
+			err = -ENOMEM;
+			ERR("No memory\n");
 			continue;
 		}
+
+		path = scratchbuf_str(s_path);
 		memcpy(path + baselen, name, namelen + 1);
 
 		if (de->d_type == DT_REG)
@@ -1154,10 +1277,6 @@ static int depmod_modules_search_dir(struct depmod *depmod, DIR *d, size_t basel
 		if (is_dir) {
 			int fd;
 			DIR *subdir;
-			if (baselen + namelen + 2 + NAME_MAX >= PATH_MAX) {
-				ERR("directory path is too long %s\n", path);
-				continue;
-			}
 			fd = openat(dfd, name, O_RDONLY);
 			if (fd < 0) {
 				ERR("openat(%d, %s, O_RDONLY): %m\n",
@@ -1174,7 +1293,7 @@ static int depmod_modules_search_dir(struct depmod *depmod, DIR *d, size_t basel
 			path[baselen + namelen + 1] = '\0';
 			err = depmod_modules_search_dir(depmod, subdir,
 							baselen + namelen + 1,
-							path);
+							s_path);
 			closedir(subdir);
 		} else {
 			err = depmod_modules_search_file(depmod, baselen,
@@ -1187,31 +1306,63 @@ static int depmod_modules_search_dir(struct depmod *depmod, DIR *d, size_t basel
 			err = 0; /* ignore errors */
 		}
 	}
+	return err;
+}
 
+static int depmod_modules_search_path(struct depmod *depmod,
+				      const char *path)
+{
+	char buf[256];
+	_cleanup_(scratchbuf_release) struct scratchbuf s_path_buf =
+		SCRATCHBUF_INITIALIZER(buf);
+	char *path_buf;
+	DIR *d;
+	size_t baselen;
+	int err;
+
+	d = opendir(path);
+	if (d == NULL) {
+		err = -errno;
+		ERR("could not open directory %s: %m\n", path);
+		return err;
+	}
+
+	baselen = strlen(path);
+
+	if (scratchbuf_alloc(&s_path_buf, baselen + 2) < 0) {
+		err = -ENOMEM;
+		goto out;
+	}
+	path_buf = scratchbuf_str(&s_path_buf);
+
+	memcpy(path_buf, path, baselen);
+	path_buf[baselen] = '/';
+	baselen++;
+	path_buf[baselen] = '\0';
+
+	err = depmod_modules_search_dir(depmod, d, baselen, &s_path_buf);
+out:
+	closedir(d);
 	return err;
 }
 
 static int depmod_modules_search(struct depmod *depmod)
 {
-	char path[PATH_MAX];
-	DIR *d = opendir(depmod->cfg->dirname);
-	size_t baselen;
 	int err;
-	if (d == NULL) {
-		err = -errno;
-		ERR("could not open directory %s: %m\n", depmod->cfg->dirname);
+	struct cfg_external *ext;
+
+	err = depmod_modules_search_path(depmod, depmod->cfg->dirname);
+	if (err < 0)
 		return err;
+
+	for (ext = depmod->cfg->externals; ext != NULL; ext = ext->next) {
+		err = depmod_modules_search_path(depmod, ext->path);
+		if (err < 0 && err == -ENOENT)
+			/* ignore external dir absense */
+			continue;
 	}
 
-	baselen = depmod->cfg->dirnamelen;
-	memcpy(path, depmod->cfg->dirname, baselen);
-	path[baselen] = '/';
-	baselen++;
-	path[baselen] = '\0';
-
-	err = depmod_modules_search_dir(depmod, d, baselen, path);
-	closedir(d);
-	return err;
+	return 0;
 }
 
 static int mod_cmp(const void *pa, const void *pb) {
@@ -1238,19 +1389,45 @@ static int depmod_modules_build_array(struct depmod *depmod)
 	return 0;
 }
 
+static FILE *dfdopen(const char *dname, const char *filename, int flags,
+		     const char *mode)
+{
+	int fd, dfd;
+	FILE *ret;
+
+	dfd = open(dname, O_RDONLY);
+	if (dfd < 0) {
+		WRN("could not open directory %s: %m\n", dname);
+		return NULL;
+	}
+
+	fd = openat(dfd, filename, flags);
+	if (fd < 0) {
+		WRN("could not open %s at %s: %m\n", filename, dname);
+		ret = NULL;
+	} else {
+		ret = fdopen(fd, mode);
+		if (!ret) {
+			WRN("could not associate stream with %s: %m\n", filename);
+			close(fd);
+		}
+	}
+	close(dfd);
+	return ret;
+}
+
+
+
 static void depmod_modules_sort(struct depmod *depmod)
 {
-	char order_file[PATH_MAX], line[PATH_MAX];
+	char line[PATH_MAX];
+	const char *order_file = "modules.order";
 	FILE *fp;
 	unsigned idx = 0, total = 0;
 
-	snprintf(order_file, sizeof(order_file), "%s/modules.order",
-		 depmod->cfg->dirname);
-	fp = fopen(order_file, "r");
-	if (fp == NULL) {
-		WRN("could not open %s: %m\n", order_file);
+	fp = dfdopen(depmod->cfg->dirname, order_file, O_RDONLY, "r");
+	if (fp == NULL)
 		return;
-	}
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
 		size_t len = strlen(line);
@@ -1258,8 +1435,8 @@ static void depmod_modules_sort(struct depmod *depmod)
 		if (len == 0)
 			continue;
 		if (line[len - 1] != '\n') {
-			ERR("%s:%u corrupted line misses '\\n'\n",
-				order_file, idx);
+			ERR("%s/%s:%u corrupted line misses '\\n'\n",
+				depmod->cfg->dirname, order_file, idx);
 			goto corrupted;
 		}
 	}
@@ -1481,10 +1658,10 @@ static void depmod_list_remove_data(struct kmod_list **list, void *data)
 	*list = l;
 }
 
-static void depmod_report_one_cycle(struct depmod *depmod,
-				    struct vertex *vertex,
-				    struct kmod_list **roots,
-				    struct hash *loop_set)
+static int depmod_report_one_cycle(struct depmod *depmod,
+				   struct vertex *vertex,
+				   struct kmod_list **roots,
+				   struct hash *loop_set)
 {
 	const char sep[] = " -> ";
 	size_t sz;
@@ -1493,6 +1670,7 @@ static void depmod_report_one_cycle(struct depmod *depmod,
 	int i;
 	int n;
 	struct vertex *v;
+	int rc;
 
 	array_init(&reverse, 3);
 
@@ -1503,7 +1681,10 @@ static void depmod_report_one_cycle(struct depmod *depmod,
 
 		sz += v->mod->modnamesz - 1;
 		array_append(&reverse, v);
-		hash_add(loop_set, v->mod->modname, NULL);
+		rc = hash_add(loop_set, v->mod->modname, NULL);
+		if (rc != 0)
+			return rc;
+		/* the hash will be freed where created */
 	}
 	sz += vertex->mod->modnamesz - 1;
 
@@ -1528,6 +1709,8 @@ static void depmod_report_one_cycle(struct depmod *depmod,
 
 	free(buf);
 	array_free_array(&reverse);
+
+	return 0;
 }
 
 static int depmod_report_cycles_from_root(struct depmod *depmod,
@@ -1545,17 +1728,18 @@ static int depmod_report_cycles_from_root(struct depmod *depmod,
 	struct mod *m;
 	struct mod **itr, **itr_end;
 	size_t is;
+	int ret = -ENOMEM;
 
 	root = vertex_new(root_mod, NULL);
 	if (root == NULL) {
 		ERR("No memory to report cycles\n");
-		return -ENOMEM;
+		goto out;
 	}
 
 	l = kmod_list_append(free_list, root);
 	if (l == NULL) {
 		ERR("No memory to report cycles\n");
-		return -ENOMEM;
+		goto out;
 	}
 	free_list = l;
 
@@ -1570,8 +1754,13 @@ static int depmod_report_cycles_from_root(struct depmod *depmod,
 		 * from part of a loop or from a branch after a loop
 		 */
 		if (m->visited && m == root->mod) {
-			depmod_report_one_cycle(depmod, vertex,
-						roots, loop_set);
+			int rc;
+			rc = depmod_report_one_cycle(depmod, vertex,
+						     roots, loop_set);
+			if (rc != 0) {
+				ret = rc;
+				goto out;
+			}
 			continue;
 		}
 
@@ -1598,7 +1787,7 @@ static int depmod_report_cycles_from_root(struct depmod *depmod,
 			v = vertex_new(dep, vertex);
 			if (v == NULL) {
 				ERR("No memory to report cycles\n");
-				return -ENOMEM;
+				goto out;
 			}
 			assert(is < stack_size);
 			stack[is++] = v;
@@ -1606,12 +1795,15 @@ static int depmod_report_cycles_from_root(struct depmod *depmod,
 			l = kmod_list_append(free_list, v);
 			if (l == NULL) {
 				ERR("No memory to report cycles\n");
-				return -ENOMEM;
+				goto out;
 			}
 			free_list = l;
 
 		}
 	}
+	ret = 0;
+
+out:
 	while (free_list) {
 		v = free_list->data;
 		l = kmod_list_remove(free_list);
@@ -1619,7 +1811,7 @@ static int depmod_report_cycles_from_root(struct depmod *depmod,
 		free(v);
 	}
 
-	return 0;
+	return ret;
 }
 
 static void depmod_report_cycles(struct depmod *depmod, uint16_t n_mods,
@@ -1643,7 +1835,7 @@ static void depmod_report_cycles(struct depmod *depmod, uint16_t n_mods,
 		l = kmod_list_append(roots, m);
 		if (l == NULL) {
 			ERR("No memory to report cycles\n");
-			return;
+			goto out_list;
 		}
 		roots = l;
 		n_r++;
@@ -1652,13 +1844,13 @@ static void depmod_report_cycles(struct depmod *depmod, uint16_t n_mods,
 	stack = malloc(n_r * sizeof(void *));
 	if (stack == NULL) {
 		ERR("No memory to report cycles\n");
-		return;
+		goto out_list;
 	}
 
 	loop_set = hash_new(16, NULL);
 	if (loop_set == NULL) {
 		ERR("No memory to report cycles\n");
-		return;
+		goto out_list;
 	}
 
 	while (roots != NULL) {
@@ -1670,14 +1862,19 @@ static void depmod_report_cycles(struct depmod *depmod, uint16_t n_mods,
 						     &roots,
 						     stack, n_r, loop_set);
 		if (err < 0)
-			goto err;
+			goto out_hash;
 	}
 
 	num_cyclic = hash_get_count(loop_set);
 	ERR("Found %d modules in dependency cycles!\n", num_cyclic);
 
-err:
+out_hash:
 	hash_free(loop_set);
+out_list:
+	while (roots != NULL) {
+		/* no need to free data, come from outside */
+		roots = kmod_list_remove(roots);
+	}
 }
 
 static int depmod_calculate_dependencies(struct depmod *depmod)
@@ -2116,18 +2313,14 @@ static int output_builtin_bin(struct depmod *depmod, FILE *out)
 {
 	FILE *in;
 	struct index_node *idx;
-	char infile[PATH_MAX], line[PATH_MAX], modname[PATH_MAX];
+	char line[PATH_MAX], modname[PATH_MAX];
 
 	if (out == stdout)
 		return 0;
 
-	snprintf(infile, sizeof(infile), "%s/modules.builtin",
-							depmod->cfg->dirname);
-	in = fopen(infile, "r");
-	if (in == NULL) {
-		WRN("could not open %s: %m\n", infile);
+	in = dfdopen(depmod->cfg->dirname, "modules.builtin", O_RDONLY, "r");
+	if (in == NULL)
 		return 0;
-	}
 
 	idx = index_create();
 	if (idx == NULL) {
@@ -2228,6 +2421,9 @@ static int depmod_output(struct depmod *depmod, FILE *out)
 	};
 	const char *dname = depmod->cfg->dirname;
 	int dfd, err = 0;
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
 
 	if (out != NULL)
 		dfd = -1;
@@ -2246,11 +2442,12 @@ static int depmod_output(struct depmod *depmod, FILE *out)
 		int r, ferr;
 
 		if (fp == NULL) {
-			int flags = O_CREAT | O_TRUNC | O_WRONLY;
+			int flags = O_CREAT | O_EXCL | O_WRONLY;
 			int mode = 0644;
 			int fd;
 
-			snprintf(tmp, sizeof(tmp), "%s.tmp", itr->name);
+			snprintf(tmp, sizeof(tmp), "%s.%i.%li.%li", itr->name, getpid(),
+					tv.tv_usec, tv.tv_sec);
 			fd = openat(dfd, tmp, flags, mode);
 			if (fd < 0) {
 				ERR("openat(%s, %s, %o, %o): %m\n",
@@ -2281,7 +2478,6 @@ static int depmod_output(struct depmod *depmod, FILE *out)
 			break;
 		}
 
-		unlinkat(dfd, itr->name, 0);
 		if (renameat(dfd, tmp, dfd, itr->name) != 0) {
 			err = -errno;
 			CRIT("renameat(%s, %s, %s, %s): %m\n",
@@ -2310,7 +2506,8 @@ static void depmod_add_fake_syms(struct depmod *depmod)
 	/* On S390, this is faked up too */
 	depmod_symbol_add(depmod, "_GLOBAL_OFFSET_TABLE_", true, 0, NULL);
 	/* On PowerPC64 ABIv2, .TOC. is more or less _GLOBAL_OFFSET_TABLE_ */
-	depmod_symbol_add(depmod, "TOC.", true, 0, NULL);
+	if (!depmod_symbol_find(depmod, "TOC."))
+		depmod_symbol_add(depmod, "TOC.", true, 0, NULL);
 }
 
 static int depmod_load_symvers(struct depmod *depmod, const char *filename)

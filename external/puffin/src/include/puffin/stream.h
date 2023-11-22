@@ -40,7 +40,6 @@ class StreamInterface {
 };
 
 using UniqueStreamPtr = std::unique_ptr<StreamInterface>;
-using SharedStreamPtr = std::shared_ptr<StreamInterface>;
 
 }  // namespace puffin
 

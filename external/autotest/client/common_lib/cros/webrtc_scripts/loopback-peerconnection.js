@@ -34,6 +34,7 @@ class PeerConnection {
         'optional': [{'googCpuOveruseDetection': cpuOveruseDetection}]
       };
     }
+    this.rtcConfig = {'sdpSemantics': 'plan-b'};
   }
 
   /**
@@ -124,11 +125,13 @@ class PeerConnection {
   }
 
   onGetUserMediaSuccess_(stream) {
-    this.localConnection = new RTCPeerConnection(null, this.pcConstraints);
+    this.localConnection = new RTCPeerConnection(this.rtcConfig,
+      this.pcConstraints);
     this.localConnection.onicecandidate = (event) => {
       this.onIceCandidate_(this.remoteConnection, event);
     };
-    this.remoteConnection = new RTCPeerConnection(null, this.pcConstraints);
+    this.remoteConnection = new RTCPeerConnection(this.rtcConfig,
+      this.pcConstraints);
     this.remoteConnection.onicecandidate = (event) => {
       this.onIceCandidate_(this.localConnection, event);
     };

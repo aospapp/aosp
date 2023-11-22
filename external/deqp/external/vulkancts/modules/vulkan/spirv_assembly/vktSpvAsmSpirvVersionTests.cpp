@@ -89,7 +89,7 @@ static InstanceContext initGraphicsInstanceContext (const TestParameters& testPa
 	map<string, string>			opSimpleTest;
 
 	opSimpleTest["testfun"]	=
-		"%test_code = OpFunction %v4f32 None %v4f32_function\n"
+		"%test_code = OpFunction %v4f32 None %v4f32_v4f32_function\n"
 		"%param1 = OpFunctionParameter %v4f32\n"
 		"%label_testfun = OpLabel\n"
 		"%a = OpVectorExtractDynamic %f32 %param1 %c_i32_0\n"
@@ -225,7 +225,7 @@ private:
 
 SpvAsmComputeSpirvVersionsInstance::SpvAsmComputeSpirvVersionsInstance (Context& ctx, const TestParameters& testParameters)
 	: ComputeShaderSpec(getComputeShaderSpec(testParameters))
-	, SpvAsmComputeShaderInstance(ctx, *this, COMPUTE_TEST_USES_NONE)
+	, SpvAsmComputeShaderInstance(ctx, *this)
 	, m_testParameters(testParameters)
 {
 	if (m_testParameters.operation != OPERATION_COMPUTE)
@@ -268,7 +268,7 @@ void validateVulkanVersion (const deUint32 usedVulkanVersion, const SpirvVersion
 
 void SpvAsmSpirvVersionsCase::initPrograms (SourceCollections& programCollection) const
 {
-	const SpirVAsmBuildOptions	spirVAsmBuildOptions	(m_testParameters.spirvVersion);
+	const SpirVAsmBuildOptions	spirVAsmBuildOptions	(programCollection.usedVulkanVersion, m_testParameters.spirvVersion);
 
 	validateVulkanVersion(programCollection.usedVulkanVersion, m_testParameters.spirvVersion);
 

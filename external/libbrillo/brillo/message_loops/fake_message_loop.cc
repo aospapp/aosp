@@ -14,7 +14,7 @@ FakeMessageLoop::FakeMessageLoop(base::SimpleTestClock* clock)
 }
 
 MessageLoop::TaskId FakeMessageLoop::PostDelayedTask(
-    const tracked_objects::Location& from_here,
+    const base::Location& from_here,
     const base::Closure& task,
     base::TimeDelta delay) {
   // If no SimpleTestClock was provided, we use the last time we fired a
@@ -34,7 +34,7 @@ MessageLoop::TaskId FakeMessageLoop::PostDelayedTask(
 }
 
 MessageLoop::TaskId FakeMessageLoop::WatchFileDescriptor(
-    const tracked_objects::Location& from_here,
+    const base::Location& from_here,
     int fd,
     WatchMode mode,
     bool persistent,

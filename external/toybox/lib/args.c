@@ -53,17 +53,18 @@
 //
 //   Suffixes specify that this option takes an argument (stored in GLOBALS):
 //       Note that pointer and long are always the same size, even on 64 bit.
-//     : plus a string argument, keep most recent if more than one
-//     * plus a string argument, appended to a list
-//     # plus a signed long argument
+//     : string argument, keep most recent if more than one
+//     * string argument, appended to a struct arg_list linked list.
+//     # signed long argument
 //       <LOW     - die if less than LOW
 //       >HIGH    - die if greater than HIGH
 //       =DEFAULT - value if not specified
-//     - plus a signed long argument defaulting to negative (say + for positive)
-//     . plus a double precision floating point argument (with CFG_TOYBOX_FLOAT)
+//     - signed long argument defaulting to negative (say + for positive)
+//     . double precision floating point argument (with CFG_TOYBOX_FLOAT)
 //       Chop this option out with USE_TOYBOX_FLOAT() in option string
 //       Same <LOW>HIGH=DEFAULT as #
-//     @ plus an occurrence counter (which is a long)
+//     @ occurrence counter (which is a long)
+//     % time offset in milliseconds with optional s/m/h/d suffix
 //     (longopt)
 //     | this is required. If more than one marked, only one required.
 //     ; long option's argument is optional (can only be supplied with --opt=)
@@ -76,14 +77,16 @@
 //     <0 die if less than # leftover arguments (default 0)
 //     >9 die if > # leftover arguments (default MAX_INT)
 //     ? Allow unknown arguments (pass them through to command).
-//     & first argument has imaginary dash (ala tar/ps)
-//       If given twice, all arguments have imaginary dash
+//     & first arg has imaginary dash (ala tar/ps/ar) which sets FLAGS_NODASH
 //
 //   At the end: [groups] of previously seen options
 //     - Only one in group (switch off)    [-abc] means -ab=-b, -ba=-a, -abc=-c
 //     + Synonyms (switch on all)          [+abc] means -ab=-abc, -c=-abc
 //     ! More than one in group is error   [!abc] means -ab calls error_exit()
 //       primarily useful if you can switch things back off again.
+//
+//   You may use octal escapes with the high bit (127) set to use a control
+//   character as an option flag. For example, \300 would be the option -@
 
 // Notes from getopt man page
 //   - and -- cannot be arguments.
@@ -120,7 +123,7 @@ struct longopts {
 // State during argument parsing.
 struct getoptflagstate
 {
-  int argc, minargs, maxargs, nodash;
+  int argc, minargs, maxargs;
   char *arg;
   struct opts *opts;
   struct longopts *longopts;
@@ -128,7 +131,7 @@ struct getoptflagstate
   unsigned excludes, requires;
 };
 
-// Use getoptflagstate to parse parse one command line option from argv
+// Use getoptflagstate to parse one command line option from argv
 static int gotflag(struct getoptflagstate *gof, struct opts *opt)
 {
   int type;
@@ -216,7 +219,7 @@ static int gotflag(struct getoptflagstate *gof, struct opts *opt)
         help_exit("-%c < %lf", opt->c, (double)opt->val[0].f);
       if (opt->val[1].l != LONG_MAX && *f > opt->val[1].f)
         help_exit("-%c > %lf", opt->c, (double)opt->val[1].f);
-    }
+    } else if (type=='%') *(opt->arg) = xparsemillitime(arg);
 
     if (!gof->nodash_now) gof->arg = "";
   }
@@ -244,7 +247,7 @@ void parse_optflaglist(struct getoptflagstate *gof)
     else if (*options == '<') gof->minargs=*(++options)-'0';
     else if (*options == '>') gof->maxargs=*(++options)-'0';
     else if (*options == '?') gof->noerror++;
-    else if (*options == '&') gof->nodash++;
+    else if (*options == '&') gof->nodash_now = 1;
     else break;
     options++;
   }
@@ -292,20 +295,20 @@ void parse_optflaglist(struct getoptflagstate *gof)
 
     // If this is the start of a new option that wasn't a longopt,
 
-    } else if (strchr(":*#@.-", *options)) {
+    } else if (strchr(":*#@.-%", *options)) {
       if (CFG_TOYBOX_DEBUG && new->type)
         error_exit("multiple types %c:%c%c", new->c, new->type, *options);
       new->type = *options;
     } else if (-1 != (idx = stridx("|^ ;", *options))) new->flags |= 1<<idx;
     // bounds checking
     else if (-1 != (idx = stridx("<>=", *options))) {
-      if (new->type == '#') {
+      if (new->type == '#' || new->type == '%') {
         long l = strtol(++options, &temp, 10);
         if (temp != options) new->val[idx].l = l;
       } else if (CFG_TOYBOX_FLOAT && new->type == '.') {
         FLOAT f = strtod(++options, &temp);
         if (temp != options) new->val[idx].f = f;
-      } else if (CFG_TOYBOX_DEBUG) error_exit("<>= only after .#");
+      } else error_exit("<>= only after .#%%");
       options = --temp;
 
     // At this point, we've hit the end of the previous option.  The
@@ -317,7 +320,7 @@ void parse_optflaglist(struct getoptflagstate *gof)
       continue;
 
     // Claim this option, loop to see what's after it.
-    } else new->c = *options;
+    } else new->c = 127&*options;
 
     options++;
   }
@@ -385,12 +388,16 @@ void get_optflags(void)
   // Option parsing is a two stage process: parse the option string into
   // a struct opts list, then use that list to process argv[];
 
+  toys.exitval = toys.which->flags >> 24;
+
   // Allocate memory for optargs
   saveflags = 0;
   while (toys.argv[saveflags++]);
   toys.optargs = xzalloc(sizeof(char *)*saveflags);
 
   parse_optflaglist(&gof);
+
+  if (toys.argv[1] && toys.argv[1][0] == '-') gof.nodash_now = 0;
 
   // Iterate through command line arguments, skipping argv[0]
   for (gof.argc=1; toys.argv[gof.argc]; gof.argc++) {
@@ -400,7 +407,7 @@ void get_optflags(void)
     // Parse this argument
     if (gof.stopearly>1) goto notflag;
 
-    gof.nodash_now = 0;
+    if (gof.argc>1 || *gof.arg=='-') gof.nodash_now = 0;
 
     // Various things with dashes
     if (*gof.arg == '-') {
@@ -444,7 +451,7 @@ void get_optflags(void)
 
     // Handle things that don't start with a dash.
     } else {
-      if (gof.nodash && (gof.nodash>1 || gof.argc == 1)) gof.nodash_now = 1;
+      if (gof.nodash_now) toys.optflags |= FLAGS_NODASH;
       else goto notflag;
     }
 
@@ -489,6 +496,8 @@ notflag:
 
     help_exit("Needs %s-%s", s[1] ? "one of " : "", needs);
   }
+
+  toys.exitval = 0;
 
   if (CFG_TOYBOX_FREE) {
     llist_traverse(gof.opts, free);

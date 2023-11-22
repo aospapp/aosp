@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -315,11 +315,21 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (image_info->ping != MagickFalse)
     {
       (void) CloseBlob(image);
+      colors=(XColor *) RelinquishMagickMemory(colors);
+      XDestroyImage(dps_image);
+      XFreeResources(display,visual_info,map_info,(XPixelInfo *) NULL,
+        (XFontStruct *) NULL,&resource_info,(XWindowInfo *) NULL);
       return(GetFirstImageInList(image));
     }
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
-    return(DestroyImageList(image));
+    {
+      colors=(XColor *) RelinquishMagickMemory(colors);
+      XDestroyImage(dps_image);
+      XFreeResources(display,visual_info,map_info,(XPixelInfo *) NULL,
+        (XFontStruct *) NULL,&resource_info,(XWindowInfo *) NULL);
+      return(DestroyImageList(image));
+    }
   switch (image->storage_class)
   {
     case DirectClass:

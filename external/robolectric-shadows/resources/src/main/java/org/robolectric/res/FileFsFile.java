@@ -3,7 +3,6 @@ package org.robolectric.res;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,12 +46,7 @@ public class FileFsFile implements FsFile {
 
   @Override
   public FsFile[] listFiles(final Filter filter) {
-    return asFsFiles(file.listFiles(new FileFilter() {
-      @Override
-      public boolean accept(File pathname) {
-        return filter.accept(new FileFsFile(pathname));
-      }
-    }));
+    return asFsFiles(file.listFiles(pathname -> filter.accept(new FileFsFile(pathname))));
   }
 
   @Override
@@ -91,7 +85,7 @@ public class FileFsFile implements FsFile {
   public FsFile join(String... pathParts) {
     File f = file;
     for (String pathPart : pathParts) {
-      for (String part : pathPart.split(Pattern.quote(FILE_SEPARATOR))) {
+      for (String part : pathPart.split(Pattern.quote(FILE_SEPARATOR), 0)) {
         if (!part.equals(".")) {
           f = new File(f, part);
         }
@@ -137,6 +131,11 @@ public class FileFsFile implements FsFile {
     return file.getPath();
   }
 
+  @Override
+  public long length() {
+    return file.length();
+  }
+
   private FsFile[] asFsFiles(File[] files) {
     if (files == null) return null;
     FsFile[] fsFiles = new FsFile[files.length];
@@ -158,7 +157,7 @@ public class FileFsFile implements FsFile {
     File file = null;
     for (String path : paths) {
       if (path != null && path.length() > 0) {
-        for (String part : path.split(Pattern.quote(FILE_SEPARATOR))) {
+        for (String part : path.split(Pattern.quote(FILE_SEPARATOR), 0)) {
           if (file != null && part.equals(".")) continue;
           file = (file == null)
               ? new File(part)

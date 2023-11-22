@@ -35,6 +35,7 @@
 #include "vktTestGroupUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkBuilderUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "vktProtectedMemBufferValidator.hpp"
 #include "vktProtectedMemUtils.hpp"
@@ -139,9 +140,10 @@ void static addBufferCopyCmd (const vk::DeviceInterface&	vk,
 		0u,													// VkDeviceSize			offset
 		VK_WHOLE_SIZE,										// VkDeviceSize			size
 	};
+
 	vk.cmdPipelineBarrier(cmdBuffer,
-						  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-						  vk::VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,	// srcStageMask
+						  vk::VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,	// dstStageMask
 						  (vk::VkDependencyFlags)0,
 						  0, (const vk::VkMemoryBarrier*)DE_NULL,
 						  1, &dstWriteStartBarrier,
@@ -159,7 +161,7 @@ void static addBufferCopyCmd (const vk::DeviceInterface&	vk,
 	{
 		vk::VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,		// VkStructureType		sType
 		DE_NULL,											// const void*			pNext
-		vk::VK_ACCESS_TRANSFER_WRITE_BIT,					// VkAccessFlags		srcAccessMask
+		vk::VK_ACCESS_SHADER_WRITE_BIT,						// VkAccessFlags		srcAccessMask
 		vk::VK_ACCESS_SHADER_READ_BIT,						// VkAccessFlags		dstAccessMask
 		queueFamilyIndex,									// uint32_t				srcQueueFamilyIndex
 		queueFamilyIndex,									// uint32_t				dstQueueFamilyIndex
@@ -168,8 +170,8 @@ void static addBufferCopyCmd (const vk::DeviceInterface&	vk,
 		VK_WHOLE_SIZE,										// VkDeviceSize			size
 	};
 	vk.cmdPipelineBarrier(cmdBuffer,
-						  vk::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-						  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+						  vk::VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,		// srcStageMask
+						  vk::VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,	// dstStageMask
 						  (vk::VkDependencyFlags)0,
 						  0, (const vk::VkMemoryBarrier*)DE_NULL,
 						  1, &dstWriteEndBarrier,
@@ -480,32 +482,20 @@ tcu::TestStatus StorageBufferTestInstance<T>::executeFragmentTest(void)
 		};
 
 		vk.cmdPipelineBarrier(*cmdBuffer,
-							  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-							  vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+							  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,				// srcStageMask
+							  vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,	// dstStageMask
 							  (vk::VkDependencyFlags)0,
 							  0, (const vk::VkMemoryBarrier*)DE_NULL,
 							  0, (const vk::VkBufferMemoryBarrier*)DE_NULL,
 							  1, &startImgBarrier);
 	}
 
-	const vk::VkClearValue				clearValue			=	vk::makeClearValueColorF32(0.125f, 0.25f, 0.5f, 1.0f);
-	const vk::VkRenderPassBeginInfo		renderPassBeginInfo	=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,			// VkStructureType		sType;
-		DE_NULL,												// const void*			pNext;
-		*renderPass,											// VkRenderPass			renderPass;
-		*framebuffer,											// VkFramebuffer		framebuffer;
-		{ { 0, 0 }, { RENDER_WIDTH, RENDER_HEIGHT } },			// VkRect2D				renderArea;
-		1u,														// deUint32				attachmentCount;
-		&clearValue												// const VkClearValue*	pAttachmentClearValues;
-	};
-
-	vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, vk::VK_SUBPASS_CONTENTS_INLINE);
+	beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, vk::makeRect2D(0, 0, RENDER_WIDTH, RENDER_HEIGHT), tcu::Vec4(0.125f, 0.25f, 0.5f, 1.0f));
 	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline);
 	vk.cmdBindDescriptorSets(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
 
 	vk.cmdDraw(*cmdBuffer, 4u, 1u, 0u, 0u);
-	vk.cmdEndRenderPass(*cmdBuffer);
+	endRenderPass(vk, *cmdBuffer);
 
 	{
 		const vk::VkImageMemoryBarrier	endImgBarrier		=
@@ -528,15 +518,15 @@ tcu::TestStatus StorageBufferTestInstance<T>::executeFragmentTest(void)
 			}
 		};
 		vk.cmdPipelineBarrier(*cmdBuffer,
-							  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-							  vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+							  vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,	// srcStageMask
+							  vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,				// dstStageMask
 							  (vk::VkDependencyFlags)0,
 							  0, (const vk::VkMemoryBarrier*)DE_NULL,
 							  0, (const vk::VkBufferMemoryBarrier*)DE_NULL,
 							  1, &endImgBarrier);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 
 	// Execute Draw
 	{
@@ -649,7 +639,7 @@ tcu::TestStatus StorageBufferTestInstance<T>::executeComputeTest(void)
 
 		vk.cmdDispatch(*cmdBuffer, dispatchCount, 1u, 1u);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		VK_CHECK(queueSubmit(ctx, PROTECTION_ENABLED, queue, *cmdBuffer, *fence, ~0ull));
 	}
 

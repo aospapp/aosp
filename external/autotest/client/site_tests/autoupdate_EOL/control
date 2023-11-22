@@ -7,7 +7,7 @@ NAME = "autoupdate_EOL"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:au-perbuild"
 PURPOSE = "Tests End of Life (EOL) / Autoupdate Expiration (AUE)"
 TIME = "SHORT"
 

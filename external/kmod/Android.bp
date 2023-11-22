@@ -35,6 +35,7 @@ cc_binary_host {
         "-fdata-sections",
         "-Wall",
         "-Werror",
+        "-Wno-format",
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
         "-Dsecure_getenv=getenv",

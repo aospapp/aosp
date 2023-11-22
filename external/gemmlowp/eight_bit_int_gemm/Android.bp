@@ -19,7 +19,8 @@ cc_defaults {
         "-Werror",
         "-Wno-error=#warnings",
         "-Wno-unused-parameter",
-        "-DGEMMLOWP_USE_META_FASTPATH",
+        // b/130573439, disable the META_FASTPATH.
+        // "-DGEMMLOWP_USE_META_FASTPATH",
     ],
 
     srcs: ["eight_bit_int_gemm.cc"],

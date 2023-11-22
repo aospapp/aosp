@@ -25,11 +25,11 @@
 
 namespace android {
 
-class DrmResources;
+class DrmDevice;
 
 class DrmCrtc {
  public:
-  DrmCrtc(DrmResources *drm, drmModeCrtcPtr c, unsigned pipe);
+  DrmCrtc(DrmDevice *drm, drmModeCrtcPtr c, unsigned pipe);
   DrmCrtc(const DrmCrtc &) = delete;
   DrmCrtc &operator=(const DrmCrtc &) = delete;
 
@@ -45,25 +45,21 @@ class DrmCrtc {
 
   const DrmProperty &active_property() const;
   const DrmProperty &mode_property() const;
+  const DrmProperty &out_fence_ptr_property() const;
 
  private:
-  DrmResources *drm_;
+  DrmDevice *drm_;
 
   uint32_t id_;
   unsigned pipe_;
   int display_;
 
-  uint32_t x_;
-  uint32_t y_;
-  uint32_t width_;
-  uint32_t height_;
-
   DrmMode mode_;
-  bool mode_valid_;
 
   DrmProperty active_property_;
   DrmProperty mode_property_;
+  DrmProperty out_fence_ptr_property_;
 };
-}
+}  // namespace android
 
 #endif  // ANDROID_DRM_CRTC_H_

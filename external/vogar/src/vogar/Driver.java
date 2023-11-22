@@ -89,7 +89,8 @@ public final class Driver {
             Outcome outcome = outcomes.get(action.getName());
             if (outcome != null) {
                 addEarlyResult(outcome);
-            } else if (run.expectationStore.get(action.getName()).getResult() == Result.UNSUPPORTED) {
+            } else if (run.expectationStore.get(action.getName()).getResult()
+                    == Result.UNSUPPORTED) {
                 addEarlyResult(new Outcome(action.getName(), Result.UNSUPPORTED,
                     "Unsupported according to expectations file"));
             } else {

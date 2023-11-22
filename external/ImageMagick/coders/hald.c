@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -103,6 +103,7 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
     level;
 
   ssize_t
+    i,
     y;
 
   /*
@@ -119,7 +120,9 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
   level=0;
   if (*image_info->filename != '\0')
     level=StringToUnsignedLong(image_info->filename);
-  if (level < 2)
+  if (image_info->scene != 0)
+    level=image_info->scene;
+  if ((level < 2) || (level > 256))
     level=8;
   status=MagickTrue;
   cube_size=level*level;
@@ -162,6 +165,12 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
     if (SyncAuthenticPixels(image,exception) == MagickFalse)
       status=MagickFalse;
   }
+  (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
+  if (image_info->scene != 0)
+    for (i=0; i < (ssize_t) image_info->scene; i++)
+      AppendImageToList(&image,CloneImage(image,0,0,MagickTrue,exception));
   return(GetFirstImageInList(image));
 }
 

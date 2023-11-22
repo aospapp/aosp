@@ -8,7 +8,7 @@
 #define N_(a) a
 
 static const char * const text[] = {
-	N_(	"EXT2FS Library version android-7.0.0_r21-1236-gc1b7d19"),
+	N_(	"EXT2FS Library version v1.44.3-rc1-845-g7e9e2ca4"),
 	N_(	"Wrong magic number for ext2_filsys structure"),
 	N_(	"Wrong magic number for badblocks_list structure"),
 	N_(	"Wrong magic number for badblocks_iterate structure"),
@@ -148,7 +148,7 @@ static const char * const text[] = {
 	N_(	"Filesystem too large to use legacy bitmaps"),
 	N_(	"MMP: invalid magic number"),
 	N_(	"MMP: device currently active"),
-	N_(	"MMP: fsck being run"),
+	N_(	"MMP: e2fsck being run"),
 	N_(	"MMP: block number beyond filesystem range"),
 	N_(	"MMP: undergoing an unknown operation"),
 	N_(	"MMP: filesystem still in use"),
@@ -162,7 +162,7 @@ static const char * const text[] = {
 	N_(	"Extended attribute block checksum does not match block"),
 	N_(	"Superblock checksum does not match superblock"),
 	N_(	"Unknown checksum algorithm"),
-	N_(	"MMP block checksum does not match MMP block"),
+	N_(	"MMP block checksum does not match"),
 	N_(	"Ext2 file already exists"),
 	N_(	"Block bitmap checksum does not match bitmap"),
 	N_(	"Cannot iterate data blocks of an inode containing inline data"),
@@ -186,6 +186,7 @@ static const char * const text[] = {
 	N_(	"Bad CRC detected in file system"),
 	N_(	"The journal superblock is corrupt"),
 	N_(	"Inode is corrupted"),
+	N_(	"Inode containing extended attribute value is corrupted"),
     0
 };
 
@@ -200,7 +201,7 @@ struct et_list {
 };
 extern struct et_list *_et_list;
 
-const struct error_table et_ext2_error_table = { text, 2133571328L, 178 };
+const struct error_table et_ext2_error_table = { text, 2133571328L, 179 };
 
 static struct et_list link = { 0, 0 };
 

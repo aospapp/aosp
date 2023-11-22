@@ -305,9 +305,21 @@ def genAndroidTestXml (mustpass):
 	RUNNER_CLASS = "com.drawelements.deqp.runner.DeqpTestRunner"
 	configElement = ElementTree.Element("configuration")
 
+	# have the deqp package installed on the device for us
+	preparerElement = ElementTree.SubElement(configElement, "target_preparer")
+	preparerElement.set("class", "com.android.tradefed.targetprep.suite.SuiteApkInstaller")
+	addOptionElement(preparerElement, "cleanup-apks", "true")
+	addOptionElement(preparerElement, "test-file-name", "com.drawelements.deqp.apk")
+
 	# add in metadata option for component name
 	ElementTree.SubElement(configElement, "option", name="test-suite-tag", value="cts")
 	ElementTree.SubElement(configElement, "option", name="config-descriptor:metadata", key="component", value="deqp")
+	ElementTree.SubElement(configElement, "option", name="config-descriptor:metadata", key="parameter", value="not_instant_app")
+	ElementTree.SubElement(configElement, "option", name="config-descriptor:metadata", key="parameter", value="multi_abi")
+	controllerElement = ElementTree.SubElement(configElement, "object")
+	controllerElement.set("type", "module_controller")
+	controllerElement.set("class", "com.android.tradefed.testtype.suite.module.TestFailureModuleController")
+	addOptionElement(controllerElement, "screenshot-on-failure", "false")
 
 	for package in mustpass.packages:
 		for config in package.configurations:

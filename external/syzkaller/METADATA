@@ -1,0 +1,14 @@
+name: "syzkaller"
+description:
+    "syzkaller is an unsupervised coverage-guided kernel fuzzer. Linux kernel "
+    "fuzzing has the most support, akaros, freebsd, fuchsia, netbsd, windows "
+    "and gvisor are supported to varying degrees."
+
+third_party {
+  url {
+    type: GIT
+    value: "https://github.com/google/syzkaller"
+  }
+  version: "2e0e3130f967984ba51ac1387b67040f0d953942"
+  last_upgrade_date { year: 2018 month: 7 day: 10 }
+}

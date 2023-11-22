@@ -2258,6 +2258,7 @@ public final class UTF16 {
      *
      * @see #FOLD_CASE_DEFAULT
      * @see #FOLD_CASE_EXCLUDE_SPECIAL_I
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class StringComparator implements java.util.Comparator<String> {
         // public constructor ------------------------------------------------

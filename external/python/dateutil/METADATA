@@ -1,0 +1,17 @@
+name: "dateutil"
+description:
+    "The dateutil module provides powerful extensions to the standard datetime "
+    "module, available in Python."
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://dateutil.readthedocs.io/en/stable/#"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/dateutil/dateutil/"
+  }
+  version: "2.7.2"
+  last_upgrade_date { year: 2018 month: 5 day: 30 }
+}

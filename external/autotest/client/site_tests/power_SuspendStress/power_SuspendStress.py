@@ -56,6 +56,20 @@ class power_SuspendStress(test.test):
             return self._iterations < 0
         return time.time() >= self._endtime
 
+    def _get_default_network_interface(self):
+        interface_choices={}
+        with open('/proc/net/route') as fh:
+            for line in fh:
+                fields = line.strip().split()
+                if fields[1] != '00000000' or not int(fields[3], 16) & 2:
+                    continue
+                interface_choices[fields[0]] = int(fields[6])
+        if not interface_choices:
+            return None
+
+        return interface.Interface(min(interface_choices,
+            key=interface_choices.get))
+
     def run_once(self):
         time.sleep(self._init_delay)
         self._suspender = power_suspend.Suspender(
@@ -65,14 +79,10 @@ class power_SuspendStress(test.test):
         # We assume the interface connects to the gateway and has the lowest
         # metric.
         if self._check_connection:
-            interface_choices={}
-            with open('/proc/net/route') as fh:
-                for line in fh:
-                    fields = line.strip().split()
-                    if fields[1] != '00000000' or not int(fields[3], 16) & 2:
-                        continue
-                    interface_choices[fields[0]] = fields[6]
-            iface = interface.Interface(min(interface_choices))
+            iface = utils.poll_for_condition(
+                        self._get_default_network_interface,
+                        desc='Find default network interface')
+            logging.info('Found default network interface: %s', iface.name)
 
         while not self._done():
             time.sleep(self._min_resume +
@@ -86,6 +96,9 @@ class power_SuspendStress(test.test):
                 except utils.TimeoutError:
                     logging.error('Link to the server gone, reboot')
                     utils.system('reboot')
+                    # Reboot may return; raise a TestFail() to abort too, even
+                    # though the server likely won't see this.
+                    raise error.TestFail('Link is gone; rebooting')
 
             self._suspender.suspend(random.randint(0, 3) + self._min_suspend)
 

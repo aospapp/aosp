@@ -29,12 +29,12 @@
 namespace sw
 {
 	class Clipper;
+	struct DrawCall;
 	class PixelShader;
 	class VertexShader;
 	class SwiftConfig;
 	struct Task;
 	class Resource;
-	class Renderer;
 	struct Constants;
 
 	enum TranscendentalPrecision
@@ -89,26 +89,35 @@ namespace sw
 	{
 		enum Type { FRAGMENTS_PASSED, TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN };
 
-		Query(Type type) : building(false), reference(0), data(0), type(type)
-		{
-		}
+		Query(Type type);
 
-		void begin()
+		void addRef();
+		void release();
+
+		inline void begin()
 		{
 			building = true;
 			data = 0;
 		}
 
-		void end()
+		inline void end()
 		{
 			building = false;
 		}
 
+		inline bool isReady() const
+		{
+			return (reference == 1);
+		}
+
 		bool building;
-		AtomicInt reference;
 		AtomicInt data;
 
 		const Type type;
+	private:
+		~Query() {} // Only delete a query within the release() function
+
+		AtomicInt reference;
 	};
 
 	struct DrawData
@@ -200,55 +209,6 @@ namespace sw
 		float4 a2c1;
 		float4 a2c2;
 		float4 a2c3;
-	};
-
-	struct DrawCall
-	{
-		DrawCall();
-
-		~DrawCall();
-
-		AtomicInt drawType;
-		AtomicInt batchSize;
-
-		Routine *vertexRoutine;
-		Routine *setupRoutine;
-		Routine *pixelRoutine;
-
-		VertexProcessor::RoutinePointer vertexPointer;
-		SetupProcessor::RoutinePointer setupPointer;
-		PixelProcessor::RoutinePointer pixelPointer;
-
-		int (Renderer::*setupPrimitives)(int batch, int count);
-		SetupProcessor::State setupState;
-
-		Resource *vertexStream[MAX_VERTEX_INPUTS];
-		Resource *indexBuffer;
-		Surface *renderTarget[RENDERTARGETS];
-		Surface *depthBuffer;
-		Surface *stencilBuffer;
-		Resource *texture[TOTAL_IMAGE_UNITS];
-		Resource* pUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
-		Resource* vUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
-		Resource* transformFeedbackBuffers[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS];
-
-		unsigned int vsDirtyConstF;
-		unsigned int vsDirtyConstI;
-		unsigned int vsDirtyConstB;
-
-		unsigned int psDirtyConstF;
-		unsigned int psDirtyConstI;
-		unsigned int psDirtyConstB;
-
-		std::list<Query*> *queries;
-
-		AtomicInt clipFlags;
-
-		AtomicInt primitive;    // Current primitive to enter pipeline
-		AtomicInt count;        // Number of primitives to render
-		AtomicInt references;   // Remaining references to this draw call, 0 when done drawing, -1 when resources unlocked and slot is free
-
-		DrawData *data;
 	};
 
 	struct Viewport
@@ -353,6 +313,7 @@ namespace sw
 		void setMaxLevel(SamplerType type, int sampler, int maxLevel);
 		void setMinLod(SamplerType type, int sampler, float minLod);
 		void setMaxLod(SamplerType type, int sampler, float maxLod);
+		void setSyncRequired(SamplerType type, int sampler, bool syncRequired);
 
 		void setPointSpriteEnable(bool pointSpriteEnable);
 		void setPointScaleEnable(bool pointScaleEnable);
@@ -501,6 +462,55 @@ namespace sw
 		Routine *vertexRoutine;
 		Routine *setupRoutine;
 		Routine *pixelRoutine;
+	};
+
+	struct DrawCall
+	{
+		DrawCall();
+
+		~DrawCall();
+
+		AtomicInt drawType;
+		AtomicInt batchSize;
+
+		Routine *vertexRoutine;
+		Routine *setupRoutine;
+		Routine *pixelRoutine;
+
+		VertexProcessor::RoutinePointer vertexPointer;
+		SetupProcessor::RoutinePointer setupPointer;
+		PixelProcessor::RoutinePointer pixelPointer;
+
+		int (Renderer::*setupPrimitives)(int batch, int count);
+		SetupProcessor::State setupState;
+
+		Resource *vertexStream[MAX_VERTEX_INPUTS];
+		Resource *indexBuffer;
+		Surface *renderTarget[RENDERTARGETS];
+		Surface *depthBuffer;
+		Surface *stencilBuffer;
+		Resource *texture[TOTAL_IMAGE_UNITS];
+		Resource* pUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
+		Resource* vUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
+		Resource* transformFeedbackBuffers[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS];
+
+		unsigned int vsDirtyConstF;
+		unsigned int vsDirtyConstI;
+		unsigned int vsDirtyConstB;
+
+		unsigned int psDirtyConstF;
+		unsigned int psDirtyConstI;
+		unsigned int psDirtyConstB;
+
+		std::list<Query*> *queries;
+
+		AtomicInt clipFlags;
+
+		AtomicInt primitive;    // Current primitive to enter pipeline
+		AtomicInt count;        // Number of primitives to render
+		AtomicInt references;   // Remaining references to this draw call, 0 when done drawing, -1 when resources unlocked and slot is free
+
+		DrawData *data;
 	};
 }
 

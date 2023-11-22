@@ -6,7 +6,7 @@ AUTHOR = 'pstew, quiche'
 NAME = 'network_WiFi_RegDomain'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
-ATTRIBUTES = "suite:wifi_matfunc_bcm4356"
+ATTRIBUTES = "suite:wifi_flaky"
 DEPENDENCIES = 'wificell'
 
 DOC = """

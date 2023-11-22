@@ -1,0 +1,29 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = "Chrome OS Team"
+NAME = "video_YouTubePage.fullscreen"
+PURPOSE = "Verify that YouTube smoothly cycles between fullscreen modes"
+CRITERIA = """
+This test will fail if the percentage of dropped frames exceeds 1%. The test
+will also fail if playback does not correctly transition between fullscreen
+states.
+"""
+TIME = "MEDIUM"
+TEST_CATEGORY = "General"
+TEST_CLASS = "video"
+TEST_TYPE = "client"
+BUG_TEMPLATE = {
+    'labels': ['VideoTestFailure', 'OS-Chrome'],
+}
+
+DOC = """
+This test verifies YouTube videos can play smoothly while cycling fullscreen.
+"""
+
+_TEST_NAME = 'fullscreen'
+_TEST_PAGE = 'https://www.youtube.com/watch?v=O-XidwKsKAE&html5=1'
+job.run_test('video_YouTubePage', subtest_name=_TEST_NAME,
+             test_page=_TEST_PAGE,
+             subdir_tag=_TEST_NAME)

@@ -13,7 +13,6 @@
 #include <base/location.h>
 #include <base/macros.h>
 #include <brillo/asynchronous_signal_handler.h>
-#include <brillo/daemons/daemon.h>
 
 namespace brillo {
 
@@ -40,7 +39,7 @@ class BRILLO_EXPORT ProcessReaper final {
   // selected process exits or the process terminates for other reason. The
   // |callback| receives the exit status and exit code of the terminated process
   // as a siginfo_t. See wait(2) for details about siginfo_t.
-  bool WatchForChild(const tracked_objects::Location& from_here,
+  bool WatchForChild(const base::Location& from_here,
                      pid_t pid,
                      const ChildCallback& callback);
 
@@ -57,7 +56,7 @@ class BRILLO_EXPORT ProcessReaper final {
   bool HandleSIGCHLD(const signalfd_siginfo& sigfd_info);
 
   struct WatchedProcess {
-    tracked_objects::Location location;
+    base::Location location;
     ChildCallback callback;
   };
   std::map<pid_t, WatchedProcess> watched_processes_;

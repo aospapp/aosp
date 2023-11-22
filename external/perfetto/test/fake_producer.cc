@@ -37,11 +37,13 @@ FakeProducer::~FakeProducer() = default;
 void FakeProducer::Connect(
     const char* socket_name,
     base::TaskRunner* task_runner,
+    std::function<void()> on_setup_data_source_instance,
     std::function<void()> on_create_data_source_instance) {
   PERFETTO_DCHECK_THREAD(thread_checker_);
   task_runner_ = task_runner;
   endpoint_ = ProducerIPCClient::Connect(
       socket_name, this, "android.perfetto.FakeProducer", task_runner);
+  on_setup_data_source_instance_ = std::move(on_setup_data_source_instance);
   on_create_data_source_instance_ = std::move(on_create_data_source_instance);
 }
 
@@ -57,9 +59,13 @@ void FakeProducer::OnDisconnect() {
   FAIL() << "Producer unexpectedly disconnected from the service";
 }
 
-void FakeProducer::CreateDataSourceInstance(
-    DataSourceInstanceID,
-    const DataSourceConfig& source_config) {
+void FakeProducer::SetupDataSource(DataSourceInstanceID,
+                                   const DataSourceConfig&) {
+  task_runner_->PostTask(on_setup_data_source_instance_);
+}
+
+void FakeProducer::StartDataSource(DataSourceInstanceID,
+                                   const DataSourceConfig& source_config) {
   PERFETTO_DCHECK_THREAD(thread_checker_);
   trace_writer_ = endpoint_->CreateTraceWriter(
       static_cast<BufferID>(source_config.target_buffer()));
@@ -75,7 +81,7 @@ void FakeProducer::CreateDataSourceInstance(
   }
 }
 
-void FakeProducer::TearDownDataSourceInstance(DataSourceInstanceID) {
+void FakeProducer::StopDataSource(DataSourceInstanceID) {
   PERFETTO_DCHECK_THREAD(thread_checker_);
   trace_writer_.reset();
 }
@@ -107,11 +113,12 @@ void FakeProducer::ProduceEventBatch(std::function<void()> callback) {
         handle->set_for_testing()->set_str(payload.get(), message_size_);
       }
       messages_to_emit -= messages_in_minibatch;
+      iterations++;
 
       // Pause until the second boundary to make sure that we are adhering to
       // the speed limitation.
       if (max_messages_per_second_ > 0) {
-        int64_t expected_time_taken = ++iterations * 1000;
+        int64_t expected_time_taken = iterations * 1000;
         base::TimeMillis time_taken = base::GetWallTimeMs() - start;
         while (time_taken.count() < expected_time_taken) {
           usleep(static_cast<useconds_t>(
@@ -119,8 +126,8 @@ void FakeProducer::ProduceEventBatch(std::function<void()> callback) {
           time_taken = base::GetWallTimeMs() - start;
         }
       }
+      trace_writer_->Flush(messages_to_emit > 0 ? [] {} : callback);
     }
-    trace_writer_->Flush(callback);
   });
 }
 

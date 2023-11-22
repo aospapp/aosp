@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <base/bind.h>
+#include <base/bind_helpers.h>
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/run_loop.h>
@@ -81,7 +82,7 @@ BaseMessageLoop::~BaseMessageLoop() {
 }
 
 MessageLoop::TaskId BaseMessageLoop::PostDelayedTask(
-    const tracked_objects::Location& from_here,
+    const base::Location& from_here,
     const Closure &task,
     base::TimeDelta delay) {
   TaskId task_id =  NextTaskId();
@@ -102,7 +103,7 @@ MessageLoop::TaskId BaseMessageLoop::PostDelayedTask(
 }
 
 MessageLoop::TaskId BaseMessageLoop::WatchFileDescriptor(
-    const tracked_objects::Location& from_here,
+    const base::Location& from_here,
     int fd,
     WatchMode mode,
     bool persistent,
@@ -111,13 +112,13 @@ MessageLoop::TaskId BaseMessageLoop::WatchFileDescriptor(
   if (fd < 0)
     return MessageLoop::kTaskIdNull;
 
-  base::MessageLoopForIO::Mode base_mode = base::MessageLoopForIO::WATCH_READ;
+  base::MessagePumpForIO::Mode base_mode = base::MessagePumpForIO::WATCH_READ;
   switch (mode) {
     case MessageLoop::kWatchRead:
-      base_mode = base::MessageLoopForIO::WATCH_READ;
+      base_mode = base::MessagePumpForIO::WATCH_READ;
       break;
     case MessageLoop::kWatchWrite:
-      base_mode = base::MessageLoopForIO::WATCH_WRITE;
+      base_mode = base::MessagePumpForIO::WATCH_WRITE;
       break;
     default:
       return MessageLoop::kTaskIdNull;
@@ -227,7 +228,7 @@ void BaseMessageLoop::BreakLoop() {
 
 Closure BaseMessageLoop::QuitClosure() const {
   if (base_run_loop_ == nullptr)
-    return base::Bind(&base::DoNothing);
+    return base::DoNothing();
   return base_run_loop_->QuitClosure();
 }
 
@@ -307,11 +308,11 @@ unsigned int BaseMessageLoop::GetBinderMinor() {
   return binder_minor_;
 }
 
-BaseMessageLoop::IOTask::IOTask(const tracked_objects::Location& location,
+BaseMessageLoop::IOTask::IOTask(const base::Location& location,
                                 BaseMessageLoop* loop,
                                 MessageLoop::TaskId task_id,
                                 int fd,
-                                base::MessageLoopForIO::Mode base_mode,
+                                base::MessagePumpForIO::Mode base_mode,
                                 bool persistent,
                                 const Closure& task)
     : location_(location), loop_(loop), task_id_(task_id),
@@ -319,8 +320,14 @@ BaseMessageLoop::IOTask::IOTask(const tracked_objects::Location& location,
       fd_watcher_(FROM_HERE) {}
 
 bool BaseMessageLoop::IOTask::StartWatching() {
-  return loop_->base_loop_->WatchFileDescriptor(
-      fd_, persistent_, base_mode_, &fd_watcher_, this);
+  // Please see MessagePumpLibevent for definition.
+  static_assert(std::is_same<base::MessagePumpForIO, base::MessagePumpLibevent>::value,
+                "MessagePumpForIO::WatchFileDescriptor is not supported "
+                "when MessagePumpForIO is not a MessagePumpLibevent.");
+
+  return static_cast<base::MessagePumpLibevent*>(
+      loop_->base_loop_->pump_.get())->WatchFileDescriptor(
+          fd_, persistent_, base_mode_, &fd_watcher_, this);
 }
 
 void BaseMessageLoop::IOTask::StopWatching() {
@@ -362,7 +369,7 @@ void BaseMessageLoop::IOTask::OnFileReady() {
   if (base_scheduled) {
     DVLOG_LOC(location_, 1)
         << "Dispatching task_id " << task_id_ << " for "
-        << (base_mode_ == base::MessageLoopForIO::WATCH_READ ?
+        << (base_mode_ == base::MessagePumpForIO::WATCH_READ ?
             "reading" : "writing")
         << " file descriptor " << fd_ << ", scheduled from this location.";
   } else {
@@ -390,7 +397,7 @@ void BaseMessageLoop::IOTask::OnFileReadyPostedTask() {
 
   DVLOG_LOC(location_, 1)
       << "Running task_id " << task_id_ << " for "
-      << (base_mode_ == base::MessageLoopForIO::WATCH_READ ?
+      << (base_mode_ == base::MessagePumpForIO::WATCH_READ ?
           "reading" : "writing")
       << " file descriptor " << fd_ << ", scheduled from this location.";
 

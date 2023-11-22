@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -147,7 +147,7 @@ static Image *ReadSTEGANOImage(const ImageInfo *image_info,
   watermark=ReadImage(read_info,exception);
   read_info=DestroyImageInfo(read_info);
   if (watermark == (Image *) NULL)
-    return((Image *) NULL);
+    return(DestroyImage(image));
   watermark->depth=MAGICKCORE_QUANTUM_DEPTH;
   if (AcquireImageColormap(image,MaxColormapSize,exception) == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");

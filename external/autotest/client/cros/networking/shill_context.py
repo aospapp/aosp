@@ -89,7 +89,11 @@ class AllowedTechnologiesContext(object):
 
         # Re-enable originally enabled technologies as they may have been
         # disabled.
-        for technology in self._originally_enabled:
+        enabled = shill.get_dbus_property(
+                shill.manager,
+                shill_proxy.ShillProxy.MANAGER_PROPERTY_ENABLED_TECHNOLOGIES)
+        to_be_reenabled = self._originally_enabled - set(enabled)
+        for technology in to_be_reenabled:
             shill.manager.EnableTechnology(technology)
 
         return False

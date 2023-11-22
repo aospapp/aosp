@@ -13,4 +13,7 @@ void cras_metrics_log_event(const char *event);
 void cras_metrics_log_histogram(const char *name, int sample, int min,
 				int max, int nbuckets);
 
+/* Sends sparse histogram data. */
+void cras_metrics_log_sparse_histogram(const char *name, int sample);
+
 #endif /* CRAS_METRICS_H_ */

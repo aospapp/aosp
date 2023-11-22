@@ -26,6 +26,37 @@ using dbus::MessageReader;
 using dbus::MessageWriter;
 using dbus::Response;
 
+namespace {
+
+void SuccessCallback(const std::string& expected_result,
+                     int* counter,
+                     const std::string& actual_result) {
+  (*counter)++;
+  EXPECT_EQ(expected_result, actual_result);
+}
+
+void SimpleSuccessCallback(int* counter, const std::string& result) {
+  (*counter)++;
+}
+
+void ErrorCallback(const std::string& domain,
+                   const std::string& code,
+                   const std::string& message,
+                   int* counter,
+                   brillo::Error* error) {
+  (*counter)++;
+  ASSERT_NE(nullptr, error);
+  EXPECT_EQ(domain, error->GetDomain());
+  EXPECT_EQ(code, error->GetCode());
+  EXPECT_EQ(message, error->GetMessage());
+}
+
+void SimpleErrorCallback(int* counter, brillo::Error* error) {
+  (*counter)++;
+}
+
+}  // namespace
+
 namespace brillo {
 namespace dbus_utils {
 
@@ -95,8 +126,7 @@ class DBusMethodInvokerTest : public testing::Test {
         if (reader.PopFileDescriptor(&fd)) {
           auto response = Response::CreateEmpty();
           MessageWriter writer(response.get());
-          fd.CheckValidity();
-          writer.AppendFileDescriptor(fd);
+          writer.AppendFileDescriptor(fd.get());
           return response.release();
         }
       }
@@ -131,19 +161,19 @@ class DBusMethodInvokerTest : public testing::Test {
     return result;
   }
 
-  // Sends a file descriptor received over D-Bus back to the caller.
-  base::ScopedFD EchoFD(const base::ScopedFD& fd_in) {
+  // Sends a file descriptor received over D-Bus back to the caller using the
+  // new types.
+  base::ScopedFD EchoFD(int fd_in) {
     std::unique_ptr<dbus::Response> response =
-        brillo::dbus_utils::CallMethodAndBlock(mock_object_proxy_.get(),
-                                               kTestInterface, kTestMethod4,
-                                               nullptr, fd_in);
+        brillo::dbus_utils::CallMethodAndBlock(
+            mock_object_proxy_.get(), kTestInterface, kTestMethod4,
+            nullptr, brillo::dbus_utils::FileDescriptor{fd_in});
     EXPECT_NE(nullptr, response.get());
     base::ScopedFD fd_out;
     using brillo::dbus_utils::ExtractMethodCallResults;
     EXPECT_TRUE(ExtractMethodCallResults(response.get(), nullptr, &fd_out));
     return fd_out;
   }
-
   scoped_refptr<dbus::MockBus> bus_;
   scoped_refptr<dbus::MockObjectProxy> mock_object_proxy_;
 };
@@ -180,15 +210,18 @@ TEST_F(DBusMethodInvokerTest, TestFileDescriptors) {
   // Passing a file descriptor over D-Bus would effectively duplicate the fd.
   // So the resulting file descriptor value would be different but it still
   // should be valid.
-  base::ScopedFD fd_stdin(0);
-  fd_stdin.CheckValidity();
-  EXPECT_NE(fd_stdin.value(), EchoFD(fd_stdin).value());
-  base::ScopedFD fd_stdout(1);
-  fd_stdout.CheckValidity();
-  EXPECT_NE(fd_stdout.value(), EchoFD(fd_stdout).value());
-  base::ScopedFD fd_stderr(2);
-  fd_stderr.CheckValidity();
-  EXPECT_NE(fd_stderr.value(), EchoFD(fd_stderr).value());
+  int fd_stdin = 0;
+  base::ScopedFD out_fd = EchoFD(fd_stdin);
+  EXPECT_NE(fd_stdin, out_fd.get());
+  EXPECT_TRUE(out_fd.is_valid());
+  int fd_stdout = 1;
+  out_fd = EchoFD(fd_stdout);
+  EXPECT_NE(fd_stdout, out_fd.get());
+  EXPECT_TRUE(out_fd.is_valid());
+  int fd_stderr = 2;
+  out_fd = EchoFD(fd_stderr);
+  EXPECT_NE(fd_stderr, out_fd.get());
+  EXPECT_TRUE(out_fd.is_valid());
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -246,62 +279,6 @@ class AsyncDBusMethodInvokerTest : public testing::Test {
     LOG(FATAL) << "Unexpected method call: " << method_call->ToString();
   }
 
-  base::Callback<void(const std::string&)> SuccessCallback(
-      const std::string& in_result, int* in_counter) {
-    return base::Bind(
-        [](const std::string& result,
-           int* counter,
-           const std::string& actual_result) {
-          (*counter)++;
-          EXPECT_EQ(result, actual_result);
-        },
-        in_result,
-        base::Unretained(in_counter));
-  }
-
-  base::Callback<void(const std::string&)> SuccessCallback(int* in_counter) {
-    return base::Bind(
-        [](int* counter, const std::string& actual_result) {
-          (*counter)++;
-          EXPECT_EQ("", actual_result);
-        },
-        base::Unretained(in_counter));
-  }
-
-  AsyncErrorCallback ErrorCallback(int* in_counter) {
-    return base::Bind(
-        [](int* counter, brillo::Error* error) {
-          (*counter)++;
-          EXPECT_NE(nullptr, error);
-          EXPECT_EQ("", error->GetDomain());
-          EXPECT_EQ("", error->GetCode());
-          EXPECT_EQ("", error->GetMessage());
-        },
-        base::Unretained(in_counter));
-  }
-
-  AsyncErrorCallback ErrorCallback(const std::string& domain,
-                                   const std::string& code,
-                                   const std::string& message,
-                                   int* in_counter) {
-    return base::Bind(
-        [](const std::string& domain,
-           const std::string& code,
-           const std::string& message,
-           int* counter,
-           brillo::Error* error) {
-          (*counter)++;
-          EXPECT_NE(nullptr, error);
-          EXPECT_EQ(domain, error->GetDomain());
-          EXPECT_EQ(code, error->GetCode());
-          EXPECT_EQ(message, error->GetMessage());
-        },
-        domain,
-        code,
-        message,
-        base::Unretained(in_counter));
-  }
-
   scoped_refptr<dbus::MockBus> bus_;
   scoped_refptr<dbus::MockObjectProxy> mock_object_proxy_;
 };
@@ -313,22 +290,22 @@ TEST_F(AsyncDBusMethodInvokerTest, TestSuccess) {
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod1,
-      base::Bind(SuccessCallback("4", &success_count)),
-      base::Bind(ErrorCallback(&error_count)),
+      base::Bind(SuccessCallback, "4", &success_count),
+      base::Bind(SimpleErrorCallback, &error_count),
       2, 2);
   brillo::dbus_utils::CallMethod(
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod1,
-      base::Bind(SuccessCallback("10", &success_count)),
-      base::Bind(ErrorCallback(&error_count)),
+      base::Bind(SuccessCallback, "10", &success_count),
+      base::Bind(SimpleErrorCallback, &error_count),
       3, 7);
   brillo::dbus_utils::CallMethod(
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod1,
-      base::Bind(SuccessCallback("-4", &success_count)),
-      base::Bind(ErrorCallback(&error_count)),
+      base::Bind(SuccessCallback, "-4", &success_count),
+      base::Bind(SimpleErrorCallback, &error_count),
       13, -17);
   EXPECT_EQ(0, error_count);
   EXPECT_EQ(3, success_count);
@@ -341,11 +318,12 @@ TEST_F(AsyncDBusMethodInvokerTest, TestFailure) {
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod2,
-      base::Bind(SuccessCallback(&success_count)),
-      base::Bind(ErrorCallback(brillo::errors::dbus::kDomain,
-                               "org.MyError",
-                               "My error message",
-                               &error_count)),
+      base::Bind(SimpleSuccessCallback, &success_count),
+      base::Bind(ErrorCallback,
+                 brillo::errors::dbus::kDomain,
+                 "org.MyError",
+                 "My error message",
+                 &error_count),
       2, 2);
   EXPECT_EQ(1, error_count);
   EXPECT_EQ(0, success_count);

@@ -17,7 +17,7 @@ package com.android.icu4j.srcgen;
 
 import com.google.common.collect.Lists;
 import com.google.currysrc.Main;
-import com.google.currysrc.api.Rules;
+import com.google.currysrc.api.RuleSet;
 import com.google.currysrc.api.input.InputFileGenerator;
 import com.google.currysrc.api.output.OutputSourceFileGenerator;
 import com.google.currysrc.api.process.Rule;
@@ -26,7 +26,7 @@ import com.google.currysrc.processors.ReplaceTextCommentScanner;
 import java.io.File;
 import java.util.List;
 
-import static com.android.icu4j.srcgen.Icu4jTransformRules.createOptionalRule;
+import static com.google.currysrc.api.process.Rules.createOptionalRule;
 
 /**
  * Applies basic Android's ICU4J source code transformation rules to code and fixes up the
@@ -49,7 +49,7 @@ public class Icu4jBasicTransform {
     new Main(DEBUG).execute(new Icu4jBasicRules(args));
   }
 
-  private static class Icu4jBasicRules implements Rules {
+  private static class Icu4jBasicRules implements RuleSet {
 
     private final InputFileGenerator inputFileGenerator;
 

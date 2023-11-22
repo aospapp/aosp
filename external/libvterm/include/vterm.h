@@ -7,8 +7,9 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
-#include "vterm_input.h"
+#include "vterm_keycodes.h"
 
 typedef struct VTerm VTerm;
 typedef struct VTermState VTermState;
@@ -48,9 +49,151 @@ static inline void vterm_rect_move(VTermRect *rect, int row_delta, int col_delta
   rect->start_col += col_delta; rect->end_col += col_delta;
 }
 
-typedef struct {
-  uint8_t red, green, blue;
+/**
+ * Bit-field describing the content of the tagged union `VTermColor`.
+ */
+typedef enum {
+  /**
+   * If the lower bit of `type` is not set, the colour is 24-bit RGB.
+   */
+  VTERM_COLOR_RGB = 0x00,
+
+  /**
+   * The colour is an index into a palette of 256 colours.
+   */
+  VTERM_COLOR_INDEXED = 0x01,
+
+  /**
+   * Mask that can be used to extract the RGB/Indexed bit.
+   */
+  VTERM_COLOR_TYPE_MASK = 0x01,
+
+  /**
+   * If set, indicates that this colour should be the default foreground
+   * color, i.e. there was no SGR request for another colour. When
+   * rendering this colour it is possible to ignore "idx" and just use a
+   * colour that is not in the palette.
+   */
+  VTERM_COLOR_DEFAULT_FG = 0x02,
+
+  /**
+   * If set, indicates that this colour should be the default background
+   * color, i.e. there was no SGR request for another colour. A common
+   * option when rendering this colour is to not render a background at
+   * all, for example by rendering the window transparently at this spot.
+   */
+  VTERM_COLOR_DEFAULT_BG = 0x04,
+
+  /**
+   * Mask that can be used to extract the default foreground/background bit.
+   */
+  VTERM_COLOR_DEFAULT_MASK = 0x06
+} VTermColorType;
+
+/**
+ * Returns true if the VTERM_COLOR_RGB `type` flag is set, indicating that the
+ * given VTermColor instance is an indexed colour.
+ */
+#define VTERM_COLOR_IS_INDEXED(col) \
+  (((col)->type & VTERM_COLOR_TYPE_MASK) == VTERM_COLOR_INDEXED)
+
+/**
+ * Returns true if the VTERM_COLOR_INDEXED `type` flag is set, indicating that
+ * the given VTermColor instance is an rgb colour.
+ */
+#define VTERM_COLOR_IS_RGB(col) \
+  (((col)->type & VTERM_COLOR_TYPE_MASK) == VTERM_COLOR_RGB)
+
+/**
+ * Returns true if the VTERM_COLOR_DEFAULT_FG `type` flag is set, indicating
+ * that the given VTermColor instance corresponds to the default foreground
+ * color.
+ */
+#define VTERM_COLOR_IS_DEFAULT_FG(col) \
+  (!!((col)->type & VTERM_COLOR_DEFAULT_FG))
+
+/**
+ * Returns true if the VTERM_COLOR_DEFAULT_BG `type` flag is set, indicating
+ * that the given VTermColor instance corresponds to the default background
+ * color.
+ */
+#define VTERM_COLOR_IS_DEFAULT_BG(col) \
+  (!!((col)->type & VTERM_COLOR_DEFAULT_BG))
+
+/**
+ * Tagged union storing either an RGB color or an index into a colour palette.
+ * In order to convert indexed colours to RGB, you may use the
+ * vterm_state_convert_color_to_rgb() or vterm_screen_convert_color_to_rgb()
+ * functions which lookup the RGB colour from the palette maintained by a
+ * VTermState or VTermScreen instance.
+ */
+typedef union {
+  /**
+   * Tag indicating which union member is actually valid. This variable
+   * coincides with the `type` member of the `rgb` and the `indexed` struct
+   * in memory. Please use the `VTERM_COLOR_IS_*` test macros to check whether
+   * a particular type flag is set.
+   */
+  uint8_t type;
+
+  /**
+   * Valid if `VTERM_COLOR_IS_RGB(type)` is true. Holds the RGB colour values.
+   */
+  struct {
+    /**
+     * Same as the top-level `type` member stored in VTermColor.
+     */
+    uint8_t type;
+
+    /**
+     * The actual 8-bit red, green, blue colour values.
+     */
+    uint8_t red, green, blue;
+  } rgb;
+
+  /**
+   * If `VTERM_COLOR_IS_INDEXED(type)` is true, this member holds the index into
+   * the colour palette.
+   */
+  struct {
+    /**
+     * Same as the top-level `type` member stored in VTermColor.
+     */
+    uint8_t type;
+
+    /**
+     * Index into the colour map.
+     */
+    uint8_t idx;
+  } indexed;
 } VTermColor;
+
+/**
+ * Constructs a new VTermColor instance representing the given RGB values.
+ */
+static inline void vterm_color_rgb(VTermColor *col, uint8_t red, uint8_t green,
+                                   uint8_t blue)
+{
+  col->type = VTERM_COLOR_RGB;
+  col->rgb.red   = red;
+  col->rgb.green = green;
+  col->rgb.blue  = blue;
+}
+
+/**
+ * Construct a new VTermColor instance representing an indexed color with the
+ * given index.
+ */
+static inline void vterm_color_indexed(VTermColor *col, uint8_t idx)
+{
+  col->type = VTERM_COLOR_INDEXED;
+  col->indexed.idx = idx;
+}
+
+/**
+ * Compares two colours. Returns true if the colors are equal, false otherwise.
+ */
+int vterm_color_is_equal(const VTermColor *a, const VTermColor *b);
 
 typedef enum {
   /* VTERM_VALUETYPE_NONE = 0 */
@@ -58,6 +201,8 @@ typedef enum {
   VTERM_VALUETYPE_INT,
   VTERM_VALUETYPE_STRING,
   VTERM_VALUETYPE_COLOR,
+
+  VTERM_N_VALUETYPES
 } VTermValueType;
 
 typedef union {
@@ -78,6 +223,8 @@ typedef enum {
   VTERM_ATTR_FONT,       // number: 10-19
   VTERM_ATTR_FOREGROUND, // color:  30-39 90-97
   VTERM_ATTR_BACKGROUND, // color:  40-49 100-107
+
+  VTERM_N_ATTRS
 } VTermAttr;
 
 typedef enum {
@@ -89,15 +236,27 @@ typedef enum {
   VTERM_PROP_ICONNAME,          // string
   VTERM_PROP_REVERSE,           // bool
   VTERM_PROP_CURSORSHAPE,       // number
+  VTERM_PROP_MOUSE,             // number
+
+  VTERM_N_PROPS
 } VTermProp;
 
 enum {
   VTERM_PROP_CURSORSHAPE_BLOCK = 1,
   VTERM_PROP_CURSORSHAPE_UNDERLINE,
   VTERM_PROP_CURSORSHAPE_BAR_LEFT,
+
+  VTERM_N_PROP_CURSORSHAPES
 };
 
-typedef void (*VTermMouseFunc)(int x, int y, int button, int pressed, int modifiers, void *data);
+enum {
+  VTERM_PROP_MOUSE_NONE = 0,
+  VTERM_PROP_MOUSE_CLICK,
+  VTERM_PROP_MOUSE_DRAG,
+  VTERM_PROP_MOUSE_MOVE,
+
+  VTERM_N_PROP_MOUSES
+};
 
 typedef struct {
   const uint32_t *chars;
@@ -126,18 +285,25 @@ void   vterm_free(VTerm* vt);
 void vterm_get_size(const VTerm *vt, int *rowsp, int *colsp);
 void vterm_set_size(VTerm *vt, int rows, int cols);
 
-void vterm_push_bytes(VTerm *vt, const char *bytes, size_t len);
+int  vterm_get_utf8(const VTerm *vt);
+void vterm_set_utf8(VTerm *vt, int is_utf8);
 
-void vterm_input_push_char(VTerm *vt, VTermModifier state, uint32_t c);
-void vterm_input_push_key(VTerm *vt, VTermModifier state, VTermKey key);
-
-size_t vterm_output_bufferlen(VTerm *vt); /* deprecated */
+size_t vterm_input_write(VTerm *vt, const char *bytes, size_t len);
 
 size_t vterm_output_get_buffer_size(const VTerm *vt);
 size_t vterm_output_get_buffer_current(const VTerm *vt);
 size_t vterm_output_get_buffer_remaining(const VTerm *vt);
 
-size_t vterm_output_bufferread(VTerm *vt, char *buffer, size_t len);
+size_t vterm_output_read(VTerm *vt, char *buffer, size_t len);
+
+void vterm_keyboard_unichar(VTerm *vt, uint32_t c, VTermModifier mod);
+void vterm_keyboard_key(VTerm *vt, VTermKey key, VTermModifier mod);
+
+void vterm_keyboard_start_paste(VTerm *vt);
+void vterm_keyboard_end_paste(VTerm *vt);
+
+void vterm_mouse_move(VTerm *vt, int row, int col, VTermModifier mod);
+void vterm_mouse_button(VTerm *vt, int button, bool pressed, VTermModifier mod);
 
 // ------------
 // Parser layer
@@ -151,8 +317,8 @@ size_t vterm_output_bufferread(VTerm *vt, char *buffer, size_t len);
  *
  * Don't confuse this with the final byte of the CSI escape; 'a' in this case.
  */
-#define CSI_ARG_FLAG_MORE (1<<31)
-#define CSI_ARG_MASK      (~(1<<31))
+#define CSI_ARG_FLAG_MORE (1U<<31)
+#define CSI_ARG_MASK      (~(1U<<31))
 
 #define CSI_ARG_HAS_MORE(a) ((a) & CSI_ARG_FLAG_MORE)
 #define CSI_ARG(a)          ((a) & CSI_ARG_MASK)
@@ -174,9 +340,8 @@ typedef struct {
   int (*resize)(int rows, int cols, void *user);
 } VTermParserCallbacks;
 
-void vterm_set_parser_callbacks(VTerm *vt, const VTermParserCallbacks *callbacks, void *user);
-
-void vterm_parser_set_utf8(VTerm *vt, int is_utf8);
+void  vterm_parser_set_callbacks(VTerm *vt, const VTermParserCallbacks *callbacks, void *user);
+void *vterm_parser_get_cbdata(VTerm *vt);
 
 // -----------
 // State layer
@@ -191,7 +356,6 @@ typedef struct {
   int (*initpen)(void *user);
   int (*setpenattr)(VTermAttr attr, VTermValue *val, void *user);
   int (*settermprop)(VTermProp prop, VTermValue *val, void *user);
-  int (*setmousefunc)(VTermMouseFunc func, void *data, void *user);
   int (*bell)(void *user);
   int (*resize)(int rows, int cols, VTermPos *delta, void *user);
   int (*setlineinfo)(int row, const VTermLineInfo *newinfo, const VTermLineInfo *oldinfo, void *user);
@@ -199,8 +363,14 @@ typedef struct {
 
 VTermState *vterm_obtain_state(VTerm *vt);
 
+void  vterm_state_set_callbacks(VTermState *state, const VTermStateCallbacks *callbacks, void *user);
+void *vterm_state_get_cbdata(VTermState *state);
+
+// Only invokes control, csi, osc, dcs
+void  vterm_state_set_unrecognised_fallbacks(VTermState *state, const VTermParserCallbacks *fallbacks, void *user);
+void *vterm_state_get_unrecognised_fbdata(VTermState *state);
+
 void vterm_state_reset(VTermState *state, int hard);
-void vterm_state_set_callbacks(VTermState *state, const VTermStateCallbacks *callbacks, void *user);
 void vterm_state_get_cursorpos(const VTermState *state, VTermPos *cursorpos);
 void vterm_state_get_default_colors(const VTermState *state, VTermColor *default_fg, VTermColor *default_bg);
 void vterm_state_get_palette_color(const VTermState *state, int index, VTermColor *col);
@@ -209,17 +379,27 @@ void vterm_state_set_palette_color(VTermState *state, int index, const VTermColo
 void vterm_state_set_bold_highbright(VTermState *state, int bold_is_highbright);
 int  vterm_state_get_penattr(const VTermState *state, VTermAttr attr, VTermValue *val);
 int  vterm_state_set_termprop(VTermState *state, VTermProp prop, VTermValue *val);
+void vterm_state_focus_in(VTermState *state);
+void vterm_state_focus_out(VTermState *state);
 const VTermLineInfo *vterm_state_get_lineinfo(const VTermState *state, int row);
+
+/**
+ * Makes sure that the given color `col` is indeed an RGB colour. After this
+ * function returns, VTERM_COLOR_IS_RGB(col) will return true, while all other
+ * flags stored in `col->type` will have been reset.
+ *
+ * @param state is the VTermState instance from which the colour palette should
+ * be extracted.
+ * @param col is a pointer at the VTermColor instance that should be converted
+ * to an RGB colour.
+ */
+void vterm_state_convert_color_to_rgb(const VTermState *state, VTermColor *col);
 
 // ------------
 // Screen layer
 // ------------
 
 typedef struct {
-#define VTERM_MAX_CHARS_PER_CELL 6
-  uint32_t chars[VTERM_MAX_CHARS_PER_CELL];
-  char     width;
-  struct {
     unsigned int bold      : 1;
     unsigned int underline : 2;
     unsigned int italic    : 1;
@@ -229,7 +409,13 @@ typedef struct {
     unsigned int font      : 4; /* 0 to 9 */
     unsigned int dwl       : 1; /* On a DECDWL or DECDHL line */
     unsigned int dhl       : 2; /* On a DECDHL line (1=top 2=bottom) */
-  } attrs;
+} VTermScreenCellAttrs;
+
+typedef struct {
+#define VTERM_MAX_CHARS_PER_CELL 6
+  uint32_t chars[VTERM_MAX_CHARS_PER_CELL];
+  char     width;
+  VTermScreenCellAttrs attrs;
   VTermColor fg, bg;
 } VTermScreenCell;
 
@@ -238,7 +424,6 @@ typedef struct {
   int (*moverect)(VTermRect dest, VTermRect src, void *user);
   int (*movecursor)(VTermPos pos, VTermPos oldpos, int visible, void *user);
   int (*settermprop)(VTermProp prop, VTermValue *val, void *user);
-  int (*setmousefunc)(VTermMouseFunc func, void *data, void *user);
   int (*bell)(void *user);
   int (*resize)(int rows, int cols, void *user);
   int (*sb_pushline)(int cols, const VTermScreenCell *cells, void *user);
@@ -247,14 +432,22 @@ typedef struct {
 
 VTermScreen *vterm_obtain_screen(VTerm *vt);
 
+void  vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks *callbacks, void *user);
+void *vterm_screen_get_cbdata(VTermScreen *screen);
+
+// Only invokes control, csi, osc, dcs
+void  vterm_screen_set_unrecognised_fallbacks(VTermScreen *screen, const VTermParserCallbacks *fallbacks, void *user);
+void *vterm_screen_get_unrecognised_fbdata(VTermScreen *screen);
+
 void vterm_screen_enable_altscreen(VTermScreen *screen, int altscreen);
-void vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks *callbacks, void *user);
 
 typedef enum {
   VTERM_DAMAGE_CELL,    /* every cell */
   VTERM_DAMAGE_ROW,     /* entire rows */
   VTERM_DAMAGE_SCREEN,  /* entire screen */
   VTERM_DAMAGE_SCROLL,  /* entire screen + scrollrect */
+
+  VTERM_N_DAMAGES
 } VTermDamageSize;
 
 void vterm_screen_flush_damage(VTermScreen *screen);
@@ -276,6 +469,8 @@ typedef enum {
   VTERM_ATTR_FONT_MASK       = 1 << 6,
   VTERM_ATTR_FOREGROUND_MASK = 1 << 7,
   VTERM_ATTR_BACKGROUND_MASK = 1 << 8,
+
+  VTERM_ALL_ATTRS_MASK = (1 << 9) - 1
 } VTermAttrMask;
 
 int vterm_screen_get_attrs_extent(const VTermScreen *screen, VTermRect *extent, VTermPos pos, VTermAttrMask attrs);
@@ -283,6 +478,12 @@ int vterm_screen_get_attrs_extent(const VTermScreen *screen, VTermRect *extent, 
 int vterm_screen_get_cell(const VTermScreen *screen, VTermPos pos, VTermScreenCell *cell);
 
 int vterm_screen_is_eol(const VTermScreen *screen, VTermPos pos);
+
+/**
+ * Same as vterm_state_convert_color_to_rgb(), but takes a `screen` instead of a `state`
+ * instance.
+ */
+void vterm_screen_convert_color_to_rgb(const VTermScreen *screen, VTermColor *col);
 
 // ---------
 // Utilities

@@ -85,10 +85,8 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
         """
         logging.info('Analyzing packet capture...')
         display_filter = 'udp and ip.src==%s' % self.context.client.wifi_ip
-        frames = tcpdump_analyzer.get_frames(
-                pcap_result.local_pcap_path,
-                display_filter,
-                bad_fcs='include')
+        frames = tcpdump_analyzer.get_frames(pcap_result.local_pcap_path,
+                display_filter, reject_bad_fcs=False)
 
         logging.info('Grouping frames by MCS index')
         counts = {}
@@ -115,19 +113,13 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
 
     def run_once(self):
         """Test body."""
-        if utils.host_could_be_in_afe(self.context.client.host.hostname):
-            # Just abort the test if we're in the lab and not on a
-            # machine known to be conducted. The performance
-            # requirements of this test are hard to meet, without
-            # strong multi-path effects. (Our conducted setups are
-            # designed to provide strong multi-path.)
-            if not self.context.client.conductive:
-                raise error.TestNAError(
-                    'This test requires a great RF environment.')
-        else:
-            logging.error('Unable to determine if DUT has conducted '
-                          'connection to AP. Treat any TestFail with '
-                          'skepticism.')
+        # Just abort the test if we are not on a machine known to be conducted.
+        # The performance requirements of this test are hard to meet, without
+        # strong multi-path effects. (Our conducted setups are designed to
+        # provide strong multi-path.)
+        if not self.context.client.conductive:
+            raise error.TestNAError(
+                'This test requires a great RF environment.')
 
         caps = [hostap_config.HostapConfig.N_CAPABILITY_GREENFIELD,
                 hostap_config.HostapConfig.N_CAPABILITY_HT40]
@@ -136,7 +128,7 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
                 channel=channel, mode=mode_11n, n_capabilities=caps)
         netperf_config = netperf_runner.NetperfConfig(
                 netperf_runner.NetperfConfig.TEST_TYPE_UDP_STREAM)
-        for i, ap_config in enumerate([get_config(1), get_config(157)]):
+        for _, ap_config in enumerate([get_config(1), get_config(157)]):
             # Set up the router and associate the client with it.
             self.context.configure(ap_config)
             self.context.capture_host.start_capture(

@@ -18,19 +18,20 @@
 #ifndef __TRANSLATE_H__
 #define __TRANSLATE_H__
 
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/udp.h>
-#include <netinet/tcp.h>
-#include <netinet/ip6.h>
-#include <netinet/icmp6.h>
 #include <linux/icmp.h>
 #include <linux/if_tun.h>
+#include <netinet/icmp6.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "clatd.h"
+#include "common.h"
 
-#define MAX_TCP_HDR (15 * 4)   // Data offset field is 4 bits and counts in 32-bit words.
+#define MAX_TCP_HDR (15 * 4)  // Data offset field is 4 bits and counts in 32-bit words.
 
 // Calculates the checksum over all the packet components starting from pos.
 uint16_t packet_checksum(uint32_t checksum, clat_packet packet, clat_packet_index pos);
@@ -75,16 +76,15 @@ int icmp6_to_icmp(clat_packet out, clat_packet_index pos, const struct icmp6_hdr
 int generic_packet(clat_packet out, clat_packet_index pos, const uint8_t *payload, size_t len);
 
 // Translate TCP and UDP packets.
-int tcp_packet(clat_packet out, clat_packet_index pos, const struct tcphdr *tcp,
-               uint32_t old_sum, uint32_t new_sum, size_t len);
-int udp_packet(clat_packet out, clat_packet_index pos, const struct udphdr *udp,
-               uint32_t old_sum, uint32_t new_sum, size_t len);
+int tcp_packet(clat_packet out, clat_packet_index pos, const struct tcphdr *tcp, uint32_t old_sum,
+               uint32_t new_sum, size_t len);
+int udp_packet(clat_packet out, clat_packet_index pos, const struct udphdr *udp, uint32_t old_sum,
+               uint32_t new_sum, size_t len);
 
 int tcp_translate(clat_packet out, clat_packet_index pos, const struct tcphdr *tcp,
-                  size_t header_size, uint32_t old_sum, uint32_t new_sum,
-                  const uint8_t *payload, size_t payload_size);
+                  size_t header_size, uint32_t old_sum, uint32_t new_sum, const uint8_t *payload,
+                  size_t payload_size);
 int udp_translate(clat_packet out, clat_packet_index pos, const struct udphdr *udp,
-                  uint32_t old_sum, uint32_t new_sum,
-                  const uint8_t *payload, size_t payload_size);
+                  uint32_t old_sum, uint32_t new_sum, const uint8_t *payload, size_t payload_size);
 
 #endif /* __TRANSLATE_H__ */

@@ -3,22 +3,29 @@
  * Copyright 2007 Rob Landley <rob@landley.net>
  *
  * TODO: udp, ipv6, genericize for telnet/microcom/tail-f
+ * fix -t, xconnect
+ * netcat -L zombies
 
 USE_NETCAT(OLDTOY(nc, netcat, TOYFLAG_USR|TOYFLAG_BIN))
-USE_NETCAT(NEWTOY(netcat, USE_NETCAT_LISTEN("^tlL")"w#W#p#s:q#f:"USE_NETCAT_LISTEN("[!tlL][!Lw]"), TOYFLAG_BIN))
+USE_NETCAT(NEWTOY(netcat, USE_NETCAT_LISTEN("^tlL")"w#<1W#<1p#<1>65535q#<1s:f:46u"USE_NETCAT_LISTEN("[!tlL][!Lw]")"[!46]", TOYFLAG_BIN))
 
 config NETCAT
   bool "netcat"
   default y
   help
-    usage: netcat [-u] [-wpq #] [-s addr] {IPADDR PORTNUM|-f FILENAME}
+    usage: netcat [-46] [-u] [-wpq #] [-s addr] {IPADDR PORTNUM|-f FILENAME}
 
-    -f	use FILENAME (ala /dev/ttyS0) instead of network
-    -p	local port number
-    -q	quit SECONDS after EOF on stdin, even if stdout hasn't closed yet
-    -s	local source address
+    Forward stdin/stdout to a file or network connection.
+
+    -4	Force IPv4
+    -6	Force IPv6
+    -f	Use FILENAME (ala /dev/ttyS0) instead of network
+    -p	Local port number
+    -q	Quit SECONDS after EOF on stdin, even if stdout hasn't closed yet
+    -s	Local source address
+    -u	Use UDP
     -w	SECONDS timeout to establish connection
-    -W	SECONDS timeout for idle connection
+    -W	SECONDS timeout for more data on an idle connection
 
     Use "stty 115200 -F /dev/ttyS0 && stty raw -echo -ctlecho" with
     netcat -f to connect to a serial port.
@@ -30,9 +37,9 @@ config NETCAT_LISTEN
   help
     usage: netcat [-t] [-lL COMMAND...]
 
-    -l	listen for one incoming connection
-    -L	listen for multiple incoming connections (server mode)
-    -t	allocate tty (must come before -l or -L)
+    -l	Listen for one incoming connection
+    -L	Listen for multiple incoming connections (server mode)
+    -t	Allocate tty (must come before -l or -L)
 
     The command line after -l or -L is executed (as a child process) to handle
     each incoming connection. If blank -l waits for a connection and forwards
@@ -47,19 +54,14 @@ config NETCAT_LISTEN
 #include "toys.h"
 
 GLOBALS(
-  char *filename;        // -f read from filename instead of network
-  long quit_delay;       // -q Exit after EOF from stdin after # seconds.
-  char *source_address;  // -s Bind to a specific source address.
-  long port;             // -p Bind to a specific source port.
-  long idle;             // -W Wait # seconds for more data
-  long wait;             // -w Wait # seconds for a connection.
+  char *f, *s;
+  long q, p, W, w;
 )
 
 static void timeout(int signum)
 {
-  if (TT.wait) error_exit("Timeout");
-  // This should be xexit() but would need siglongjmp()...
-  exit(0);
+  if (TT.w) error_exit("Timeout");
+  xexit();
 }
 
 static void set_alarm(int seconds)
@@ -68,79 +70,64 @@ static void set_alarm(int seconds)
   alarm(seconds);
 }
 
-// Translate x.x.x.x numeric IPv4 address, or else DNS lookup an IPv4 name.
-static void lookup_name(char *name, uint32_t *result)
-{
-  struct hostent *hostbyname;
-
-  hostbyname = gethostbyname(name); // getaddrinfo
-  if (!hostbyname) error_exit("no host '%s'", name);
-  *result = *(uint32_t *)*hostbyname->h_addr_list;
-}
-
-// Worry about a fancy lookup later.
-static void lookup_port(char *str, uint16_t *port)
-{
-  *port = SWAP_BE16(atoi(str));
-}
-
 void netcat_main(void)
 {
-  struct sockaddr_in *address = (void *)toybuf;
-  int sockfd=-1, in1 = 0, in2 = 0, out1 = 1, out2 = 1;
+  int sockfd = -1, in1 = 0, in2 = 0, out1 = 1, out2 = 1;
+  int family = AF_UNSPEC, type = SOCK_STREAM;
   pid_t child;
 
-  // Addjust idle and quit_delay to miliseconds or -1 for no timeout
-  TT.idle = TT.idle ? TT.idle*1000 : -1;
-  TT.quit_delay = TT.quit_delay ? TT.quit_delay*1000 : -1;
+  // Addjust idle and quit_delay to ms or -1 for no timeout
+  TT.W = TT.W ? TT.W*1000 : -1;
+  TT.q = TT.q ? TT.q*1000 : -1;
 
-  set_alarm(TT.wait);
+  set_alarm(TT.w);
 
   // The argument parsing logic can't make "<2" conditional on other
-  // arguments like -f and -l, so we do it by hand here.
+  // arguments like -f and -l, so do it by hand here.
   if ((toys.optflags&FLAG_f) ? toys.optc :
       (!(toys.optflags&(FLAG_l|FLAG_L)) && toys.optc!=2))
         help_exit("bad argument count");
 
-  if (TT.filename) in1 = out2 = xopen(TT.filename, O_RDWR);
+  if (toys.optflags&FLAG_4) family = AF_INET;
+  else if (toys.optflags&FLAG_6) family = AF_INET6;
+
+  if (toys.optflags&FLAG_u) type = SOCK_DGRAM;
+
+  if (TT.f) in1 = out2 = xopen(TT.f, O_RDWR);
   else {
     // Setup socket
-    sockfd = xsocket(AF_INET, SOCK_STREAM, 0);
-    fcntl(sockfd, F_SETFD, FD_CLOEXEC);
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &out1, sizeof(out1));
-    address->sin_family = AF_INET;
-    if (TT.source_address || TT.port) {
-      address->sin_port = SWAP_BE16(TT.port);
-      if (TT.source_address)
-        lookup_name(TT.source_address, (uint32_t *)&(address->sin_addr));
-      if (bind(sockfd, (struct sockaddr *)address, sizeof(*address)))
-        perror_exit("bind");
-    }
-
-    // Dial out
-
-    if (!CFG_NETCAT_LISTEN || !(toys.optflags&(FLAG_L|FLAG_l))) {
-      // Figure out where to dial out to.
-      lookup_name(*toys.optargs, (uint32_t *)&(address->sin_addr));
-      lookup_port(toys.optargs[1], &(address->sin_port));
-// TODO xconnect
-      if (connect(sockfd, (struct sockaddr *)address, sizeof(*address))<0)
-        perror_exit("connect");
+    if (!(toys.optflags&(FLAG_L|FLAG_l))) {
+      struct addrinfo *addr = xgetaddrinfo(toys.optargs[0], toys.optargs[1],
+                                           family, type, 0, 0);
+      sockfd = xconnect(addr);
 
       // We have a connection. Disarm timeout.
       set_alarm(0);
 
       in1 = out2 = sockfd;
 
-      pollinate(in1, in2, out1, out2, TT.idle, TT.quit_delay);
+      pollinate(in1, in2, out1, out2, TT.W, TT.q);
     } else {
       // Listen for incoming connections
-      socklen_t len = sizeof(*address);
+      struct sockaddr* address = (void*)toybuf;
+      socklen_t len = sizeof(struct sockaddr_storage);
+
+      sprintf(toybuf, "%ld", TT.p);
+      sockfd = xbind(xgetaddrinfo(TT.s, toybuf, family, type, 0, 0));
 
       if (listen(sockfd, 5)) error_exit("listen");
-      if (!TT.port) {
-        getsockname(sockfd, (struct sockaddr *)address, &len);
-        printf("%d\n", SWAP_BE16(address->sin_port));
+      if (!TT.p) {
+        short port_be;
+
+        getsockname(sockfd, address, &len);
+        if (address->sa_family == AF_INET)
+          port_be = ((struct sockaddr_in*)address)->sin_port;
+        else if (address->sa_family == AF_INET6)
+          port_be = ((struct sockaddr_in6*)address)->sin6_port;
+        else
+          perror_exit("getsockname: bad family");
+
+        printf("%d\n", SWAP_BE16(port_be));
         fflush(stdout);
         // Return immediately if no -p and -Ll has arguments, so wrapper
         // script can use port number.
@@ -149,16 +136,8 @@ void netcat_main(void)
 
       do {
         child = 0;
-        len = sizeof(*address); // gcc's insane optimizer can overwrite this
         in1 = out2 = accept(sockfd, (struct sockaddr *)address, &len);
-
         if (in1<0) perror_exit("accept");
-
-        // We can't exit this loop or the optimizer's "liveness analysis"
-        // combines badly with vfork() to corrupt or local variables
-        // (the child's call stack gets trimmed and the next function call
-        // stops the variables the parent tries to re-use next loop)
-        // So there's a bit of redundancy here
 
         // We have a connection. Disarm timeout.
         set_alarm(0);
@@ -173,25 +152,19 @@ void netcat_main(void)
 
           // Do we need to fork and/or redirect for exec?
 
-          if (toys.optflags&FLAG_L) {
-            toys.stacktop = 0;
-            child = vfork();
+          if (toys.optflags&FLAG_L) NOEXIT(child = XVFORK());
+          if (child) {
+            close(in1);
+            continue;
           }
-          if (child<0) error_msg("vfork failed\n");
-          else {
-            if (child) {
-              close(in1);
-              continue;
-            }
-            dup2(in1, 0);
-            dup2(in1, 1);
-            if (toys.optflags&FLAG_L) dup2(in1, 2);
-            if (in1>2) close(in1);
-            xexec(toys.optargs);
-          }
+          dup2(in1, 0);
+          dup2(in1, 1);
+          if (toys.optflags&FLAG_L) dup2(in1, 2);
+          if (in1>2) close(in1);
+          xexec(toys.optargs);
         }
 
-        pollinate(in1, in2, out1, out2, TT.idle, TT.quit_delay);
+        pollinate(in1, in2, out1, out2, TT.W, TT.q);
         close(in1);
       } while (!(toys.optflags&FLAG_l));
     }

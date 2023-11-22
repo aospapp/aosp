@@ -27,6 +27,7 @@ cc_library {
     name: "libcap",
     host_supported: true,
     vendor_available: true,
+    recovery_available: true,
     vndk: {
         enabled: true,
     },

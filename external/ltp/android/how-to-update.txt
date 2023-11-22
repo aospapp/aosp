@@ -1,7 +1,18 @@
+WARNING
+
+You MUST NOT have the following packages installed before running the
+below instructions, otherwise these dependencies will be picked up by the
+generated makefiles:
+
+glusterfs-common
+libacl1-dev
+libaio-dev
+libcap-dev
+libnuma-dev
+
+INSTRUCTIONS
+
 (1) checkout updated LTP tree under external/ltp
 (2) run the gen_android_build.sh script
         android/tools/gen_android_build.sh
-(3) remove libutil dependency from ltp_cve-2014-0196 in gen.bp
-    delete this line:
-    shared_libs: ["libutil"],
-(4) commit changes to gen.bp, android/Android.ltp.mk, android/ltp_package_list.mk
+(3) commit changes to gen.bp, android/Android.ltp.mk, android/ltp_package_list.mk

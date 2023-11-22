@@ -34,7 +34,7 @@ class DecisionTreeEnsembleResource : public StampedResource {
             protobuf::Arena::CreateMessage<
                 boosted_trees::trees::DecisionTreeEnsembleConfig>(&arena_)) {}
 
-  string DebugString() override {
+  string DebugString() const override {
     return strings::StrCat("GTFlowDecisionTreeEnsemble[size=",
                            decision_tree_ensemble_->trees_size(), "]");
   }
@@ -126,7 +126,8 @@ class DecisionTreeEnsembleResource : public StampedResource {
       return;
     }
     used_ids->Add(handler_id);
-    std::rotate(first, used_ids->end() - 1, used_ids->end());
+    // Keep the list of used handlers sorted.
+    std::sort(used_ids->begin(), used_ids->end());
   }
 
   std::vector<int64> GetUsedHandlers() const {

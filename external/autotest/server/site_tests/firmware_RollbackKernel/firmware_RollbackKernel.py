@@ -35,6 +35,7 @@ class firmware_RollbackKernel(FirmwareTest):
             self.switcher.mode_aware_reboot()
 
     def initialize(self, host, cmdline_args, dev_mode=False):
+        """Initialize the test"""
         super(firmware_RollbackKernel, self).initialize(host, cmdline_args)
         self.backup_kernel()
         self.backup_cgpt_attributes()
@@ -43,6 +44,7 @@ class firmware_RollbackKernel(FirmwareTest):
         self.setup_kernel('a')
 
     def cleanup(self):
+        """Cleanup the test"""
         try:
             self.ensure_kernel_on_non_recovery('a')
             self.restore_cgpt_attributes()
@@ -52,13 +54,9 @@ class firmware_RollbackKernel(FirmwareTest):
         super(firmware_RollbackKernel, self).cleanup()
 
     def run_once(self, dev_mode=False):
-        # Historical reason that the old models use a different value.
-        if self.faft_client.system.get_platform_name() in (
-                'Mario', 'Alex', 'ZGB'):
-            recovery_reason = vboot.RECOVERY_REASON['RW_NO_OS']
-        else:
-            recovery_reason = (vboot.RECOVERY_REASON['DEP_RW_NO_DISK'],
-                               vboot.RECOVERY_REASON['RW_NO_KERNEL'])
+        """Main test logic"""
+        recovery_reason = (vboot.RECOVERY_REASON['DEP_RW_NO_DISK'],
+                           vboot.RECOVERY_REASON['RW_NO_KERNEL'])
 
         if dev_mode:
             logging.info("Rollbacks kernel A.")

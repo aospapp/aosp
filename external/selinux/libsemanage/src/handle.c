@@ -58,6 +58,8 @@ const char * semanage_root(void)
 	return private_semanage_root;
 }
 
+hidden_def(semanage_root);
+
 semanage_handle_t *semanage_handle_create(void)
 {
 	semanage_handle_t *sh = NULL;
@@ -85,6 +87,8 @@ semanage_handle_t *semanage_handle_create(void)
 	/* By default do not rebuild the policy on commit
 	 * If any changes are made, this flag is ignored */
 	sh->do_rebuild = 0;
+
+	sh->commit_err = 0;
 
 	/* By default always reload policy after commit if SELinux is enabled. */
 	sh->do_reload = (is_selinux_enabled() > 0);

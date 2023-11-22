@@ -135,8 +135,9 @@ test_probe: test_probe.in Makefile
 	$(Q) cat $(srcdir)/test_probe.in >> test_probe
 	$(Q) chmod +x test_probe
 
-check:: all tst_cache tst_dev tst_devname tst_devno tst_getsize tst_probe \
- tst_read tst_resolve tst_save tst_tag test_probe tst_types
+fullcheck check:: all tst_cache tst_dev tst_devname tst_devno \
+ tst_getsize tst_probe tst_read tst_resolve tst_save tst_tag \
+ test_probe tst_types
 	./test_probe
 	./tst_types
 
@@ -145,8 +146,8 @@ blkid.pc: $(srcdir)/blkid.pc.in $(top_builddir)/config.status
 	$(Q) cd $(top_builddir); CONFIG_FILES=lib/blkid/blkid.pc ./config.status
 
 installdirs::
-	$(E) "	MKINSTALLDIRS $(libdir) $(includedir)/blkid"
-	$(Q) $(MKINSTALLDIRS) $(DESTDIR)$(libdir) \
+	$(E) "	MKDIR_P $(libdir) $(includedir)/blkid"
+	$(Q) $(MKDIR_P) $(DESTDIR)$(libdir) \
 		$(DESTDIR)$(includedir)/blkid $(DESTDIR)$(pkgconfigdir)
 
 install:: all installdirs 

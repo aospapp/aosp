@@ -8,6 +8,7 @@ import org.bouncycastle.math.ec.endo.ECEndomorphism;
 import org.bouncycastle.math.ec.endo.GLVEndomorphism;
 import org.bouncycastle.math.field.FiniteField;
 import org.bouncycastle.math.field.FiniteFields;
+import org.bouncycastle.math.raw.Nat;
 import org.bouncycastle.util.BigIntegers;
 import org.bouncycastle.util.Integers;
 
@@ -173,15 +174,26 @@ public abstract class ECCurve
     public PreCompInfo getPreCompInfo(ECPoint point, String name)
     {
         checkPoint(point);
+
+        Hashtable table;
         synchronized (point)
         {
-            Hashtable table = point.preCompTable;
-            return table == null ? null : (PreCompInfo)table.get(name);
+            table = point.preCompTable;
+        }
+
+        if (null == table)
+        {
+            return null;
+        }
+
+        synchronized (table)
+        {
+            return (PreCompInfo)table.get(name);
         }
     }
 
     /**
-     * Adds <code>PreCompInfo</code> for a point on this curve, under a given name. Used by
+     * Compute a <code>PreCompInfo</code> for a point on this curve, under a given name. Used by
      * <code>ECMultiplier</code>s to save the precomputation for this <code>ECPoint</code> for use
      * by subsequent multiplication.
      * 
@@ -189,20 +201,34 @@ public abstract class ECCurve
      *            The <code>ECPoint</code> to store precomputations for.
      * @param name
      *            A <code>String</code> used to index precomputations of different types.
-     * @param preCompInfo
-     *            The values precomputed by the <code>ECMultiplier</code>.
+     * @param callback
+     *            Called to calculate the <code>PreCompInfo</code>.
      */
-    public void setPreCompInfo(ECPoint point, String name, PreCompInfo preCompInfo)
+    public PreCompInfo precompute(ECPoint point, String name, PreCompCallback callback)
     {
         checkPoint(point);
+
+        Hashtable table;
         synchronized (point)
         {
-            Hashtable table = point.preCompTable;
+            table = point.preCompTable;
             if (null == table)
             {
                 point.preCompTable = table = new Hashtable(4);
             }
-            table.put(name, preCompInfo);
+        }
+
+        synchronized (table)
+        {
+            PreCompInfo existing = (PreCompInfo)table.get(name);
+            PreCompInfo result = callback.precompute(existing);
+
+            if (result != existing)
+            {
+                table.put(name, result);
+            }
+
+            return result;
         }
     }
 
@@ -220,7 +246,7 @@ public abstract class ECCurve
         // TODO Default behaviour could be improved if the two curves have the same coordinate system by copying any Z coordinates.
         p = p.normalize();
 
-        return validatePoint(p.getXCoord().toBigInteger(), p.getYCoord().toBigInteger(), p.withCompression);
+        return createPoint(p.getXCoord().toBigInteger(), p.getYCoord().toBigInteger(), p.withCompression);
     }
 
     /**
@@ -390,7 +416,7 @@ public abstract class ECCurve
             BigInteger X = BigIntegers.fromUnsignedByteArray(encoded, 1, expectedLength);
 
             p = decompressPoint(yTilde, X);
-            if (!p.satisfiesCofactor())
+            if (!p.implIsValid(true, true))
             {
                 throw new IllegalArgumentException("Invalid point");
             }
@@ -439,6 +465,61 @@ public abstract class ECCurve
         }
 
         return p;
+    }
+
+    /**
+     * Create a cache-safe lookup table for the specified sequence of points. All the points MUST
+     * belong to this {@link ECCurve} instance, and MUST already be normalized.
+     */
+    public ECLookupTable createCacheSafeLookupTable(final ECPoint[] points, int off, final int len)
+    {
+        final int FE_BYTES = (getFieldSize() + 7) >>> 3;
+
+        final byte[] table = new byte[len * FE_BYTES * 2];
+        {
+            int pos = 0;
+            for (int i = 0; i < len; ++i)
+            {
+                ECPoint p = points[off + i];
+                byte[] px = p.getRawXCoord().toBigInteger().toByteArray();
+                byte[] py = p.getRawYCoord().toBigInteger().toByteArray();
+
+                int pxStart = px.length > FE_BYTES ? 1 : 0, pxLen = px.length - pxStart;
+                int pyStart = py.length > FE_BYTES ? 1 : 0, pyLen = py.length - pyStart;
+
+                System.arraycopy(px, pxStart, table, pos + FE_BYTES - pxLen, pxLen); pos += FE_BYTES;
+                System.arraycopy(py, pyStart, table, pos + FE_BYTES - pyLen, pyLen); pos += FE_BYTES;
+            }
+        }
+
+        return new ECLookupTable()
+        {
+            public int getSize()
+            {
+                return len;
+            }
+
+            public ECPoint lookup(int index)
+            {
+                byte[] x = new byte[FE_BYTES], y = new byte[FE_BYTES];
+                int pos = 0;
+
+                for (int i = 0; i < len; ++i)
+                {
+                    int MASK = ((i ^ index) - 1) >> 31;
+
+                    for (int j = 0; j < FE_BYTES; ++j)
+                    {
+                        x[j] ^= table[pos + j] & MASK;
+                        y[j] ^= table[pos + FE_BYTES + j] & MASK;
+                    }
+
+                    pos += (FE_BYTES * 2);
+                }
+
+                return createRawPoint(fromBigInteger(new BigInteger(1, x)), fromBigInteger(new BigInteger(1, y)), false);
+            }
+        };
     }
 
     protected void checkPoint(ECPoint point)
@@ -542,6 +623,9 @@ public abstract class ECCurve
         BigInteger q, r;
         ECPoint.Fp infinity;
 
+        /**
+         * @deprecated use constructor taking order/cofactor
+         */
         public Fp(BigInteger q, BigInteger a, BigInteger b)
         {
             this(q, a, b, null, null);
@@ -553,7 +637,7 @@ public abstract class ECCurve
 
             this.q = q;
             this.r = ECFieldElement.Fp.calculateResidue(q);
-            this.infinity = new ECPoint.Fp(this, null, null);
+            this.infinity = new ECPoint.Fp(this, null, null, false);
 
             this.a = fromBigInteger(a);
             this.b = fromBigInteger(b);
@@ -562,6 +646,9 @@ public abstract class ECCurve
             this.coord = FP_DEFAULT_COORDS;
         }
 
+        /**
+         * @deprecated use constructor taking order/cofactor
+         */
         protected Fp(BigInteger q, BigInteger r, ECFieldElement a, ECFieldElement b)
         {
             this(q, r, a, b, null, null);
@@ -573,7 +660,7 @@ public abstract class ECCurve
 
             this.q = q;
             this.r = r;
-            this.infinity = new ECPoint.Fp(this, null, null);
+            this.infinity = new ECPoint.Fp(this, null, null, false);
 
             this.a = a;
             this.b = b;
@@ -814,7 +901,7 @@ public abstract class ECCurve
          * @return the solution for <code>z<sup>2</sup> + z = beta</code> or
          *         <code>null</code> if no solution exists.
          */
-        private ECFieldElement solveQuadraticEquation(ECFieldElement beta)
+        protected ECFieldElement solveQuadraticEquation(ECFieldElement beta)
         {
             if (beta.isZero())
             {
@@ -928,6 +1015,7 @@ public abstract class ECCurve
          * @param b The coefficient <code>b</code> in the Weierstrass equation
          * for non-supersingular elliptic curves over
          * <code>F<sub>2<sup>m</sup></sub></code>.
+         * @deprecated use constructor taking order/cofactor
          */
         public F2m(
             int m,
@@ -985,6 +1073,7 @@ public abstract class ECCurve
          * @param b The coefficient <code>b</code> in the Weierstrass equation
          * for non-supersingular elliptic curves over
          * <code>F<sub>2<sup>m</sup></sub></code>.
+         * @deprecated use constructor taking order/cofactor
          */
         public F2m(
             int m,
@@ -1039,7 +1128,7 @@ public abstract class ECCurve
             this.order = order;
             this.cofactor = cofactor;
 
-            this.infinity = new ECPoint.F2m(this, null, null);
+            this.infinity = new ECPoint.F2m(this, null, null, false);
             this.a = fromBigInteger(a);
             this.b = fromBigInteger(b);
             this.coord = F2M_DEFAULT_COORDS;
@@ -1056,7 +1145,7 @@ public abstract class ECCurve
             this.order = order;
             this.cofactor = cofactor;
 
-            this.infinity = new ECPoint.F2m(this, null, null);
+            this.infinity = new ECPoint.F2m(this, null, null, false);
             this.a = a;
             this.b = b;
             this.coord = F2M_DEFAULT_COORDS;
@@ -1145,20 +1234,50 @@ public abstract class ECCurve
             return k3;
         }
 
-        /**
-         * @deprecated use {@link #getOrder()} instead
-         */
-        public BigInteger getN()
+        public ECLookupTable createCacheSafeLookupTable(ECPoint[] points, int off, final int len)
         {
-            return this.order;
-        }
+            final int FE_LONGS = (m + 63) >>> 6;
+            final int[] ks = isTrinomial() ? new int[]{ k1 } : new int[]{ k1, k2, k3 }; 
 
-        /**
-         * @deprecated use {@link #getCofactor()} instead
-         */
-        public BigInteger getH()
-        {
-            return this.cofactor;
+            final long[] table = new long[len * FE_LONGS * 2];
+            {
+                int pos = 0;
+                for (int i = 0; i < len; ++i)
+                {
+                    ECPoint p = points[off + i];
+                    ((ECFieldElement.F2m)p.getRawXCoord()).x.copyTo(table, pos); pos += FE_LONGS;
+                    ((ECFieldElement.F2m)p.getRawYCoord()).x.copyTo(table, pos); pos += FE_LONGS;
+                }
+            }
+
+            return new ECLookupTable()
+            {
+                public int getSize()
+                {
+                    return len;
+                }
+
+                public ECPoint lookup(int index)
+                {
+                    long[] x = Nat.create64(FE_LONGS), y = Nat.create64(FE_LONGS);
+                    int pos = 0;
+
+                    for (int i = 0; i < len; ++i)
+                    {
+                        long MASK = ((i ^ index) - 1) >> 31;
+
+                        for (int j = 0; j < FE_LONGS; ++j)
+                        {
+                            x[j] ^= table[pos + j] & MASK;
+                            y[j] ^= table[pos + FE_LONGS + j] & MASK;
+                        }
+
+                        pos += (FE_LONGS * 2);
+                    }
+
+                    return createRawPoint(new ECFieldElement.F2m(m, ks, new LongArray(x)), new ECFieldElement.F2m(m, ks, new LongArray(y)), false);
+                }
+            };
         }
     }
 }

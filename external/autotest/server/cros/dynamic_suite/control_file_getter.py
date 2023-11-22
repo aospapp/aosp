@@ -10,6 +10,7 @@ import re
 import common
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.client.common_lib.cros import gs_cache_client
 
 
 # Relevant CrosDynamicSuiteExceptions are defined in client/common_lib/error.py.
@@ -194,16 +195,18 @@ class FileSystemGetter(CacheingAndFilteringControlFileGetter):
 
         regexp = re.compile(self._CONTROL_PATTERN)
         directories = self._paths
-        # Do not explore site-packages. (crbug.com/771823)
-        # Do not explore venv. (b/67416549)
-        # (Do not pass Go. Do not collect $200.)
-        blacklist = {'site-packages', 'venv'}
+        # Some of our callers are ill-considered and request that we
+        # search all of /usr/local/autotest (crbug.com/771823).
+        # Fixing the callers immediately is somewhere between a
+        # nuisance and hard.  So, we have a blacklist, hoping two
+        # wrongs will somehow make it right.
+        blacklist = {
+            'site-packages', 'venv', 'results', 'logs', 'containers',
+        }
         while len(directories) > 0:
             directory = directories.pop()
             if not os.path.exists(directory):
                 continue
-            # TODO(crbug.com/771827): This traverses everything,
-            # including results and containers.  Make it stop doing that.
             try:
                 for name in os.listdir(directory):
                     if name in blacklist:
@@ -213,7 +216,8 @@ class FileSystemGetter(CacheingAndFilteringControlFileGetter):
                         if regexp.search(name):
                             # if we are a control file
                             self._files.append(fullpath)
-                    elif os.path.isdir(fullpath):
+                    elif (not os.path.islink(fullpath)
+                          and os.path.isdir(fullpath)):
                         directories.append(fullpath)
             except OSError:
                 # Some directories under results/ like the Chrome Crash
@@ -320,11 +324,8 @@ class DevServerGetter(CacheingAndFilteringControlFileGetter,
         @return A dict of paths and contents of all control files.
         @throws NoControlFileList if there is an error while listing.
         """
-        try:
-            return self._dev_server.list_suite_controls(self._build,
-                                                        suite_name=suite_name)
-        except dev_server.DevServerException as e:
-            raise error.SuiteControlFileException(e)
+        cache_client = gs_cache_client.GsCacheClient(self._dev_server)
+        return cache_client.list_suite_controls(self._build, suite_name)
 
 
     def get_suite_info(self, suite_name=''):

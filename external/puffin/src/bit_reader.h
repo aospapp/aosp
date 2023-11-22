@@ -68,6 +68,9 @@ class BitReaderInterface {
 
   // Returns the number of bits read (dropped) till now.
   virtual uint64_t OffsetInBits() const = 0;
+
+  // Returns the number of bits remaining to be cached.
+  virtual uint64_t BitsRemaining() const = 0;
 };
 
 // A raw buffer implementation of |BitReaderInterface|.
@@ -97,6 +100,7 @@ class BufferBitReader : public BitReaderInterface {
       std::function<bool(uint8_t* buffer, size_t count)>* read_fn) override;
   size_t Offset() const override;
   uint64_t OffsetInBits() const override;
+  uint64_t BitsRemaining() const override;
 
  private:
   const uint8_t* in_buf_;  // The input buffer.

@@ -47,10 +47,11 @@ cs{
         ar{"arabština"}
         ar_001{"arabština (moderní standardní)"}
         arc{"aramejština"}
-        arn{"mapudungunština"}
+        arn{"mapudungun"}
         aro{"araonština"}
         arp{"arapažština"}
         arq{"arabština (alžírská)"}
+        ars{"arabština (Nadžd)"}
         arw{"arawacké jazyky"}
         ary{"arabština (marocká)"}
         arz{"arabština (egyptská)"}
@@ -960,7 +961,7 @@ cs{
         SCOTLAND{"angličtina (Skotsko)"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.1.37.11"}
+    Version{"2.1.44.91"}
     characterLabelPattern{
         all{"{0} – vše"}
         category-list{"{0}: {1}"}

@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.Set;
@@ -281,7 +282,7 @@ public final class ICUBinary {
         }
     }
 
-    private static final List<DataFile> icuDataFiles = new ArrayList<DataFile>();
+    private static final List<DataFile> icuDataFiles = new ArrayList<>();
 
     static {
         // Normally android.icu.impl.ICUBinary.dataPath.
@@ -401,6 +402,7 @@ public final class ICUBinary {
 
     /**
      * Special interface for data authentication
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static interface Authenticate
     {
@@ -655,6 +657,15 @@ public final class ICUBinary {
         }
     }
 
+    public static byte[] getBytes(ByteBuffer bytes, int length, int additionalSkipLength) {
+        byte[] dest = new byte[length];
+        bytes.get(dest);
+        if (additionalSkipLength > 0) {
+            skipBytes(bytes, additionalSkipLength);
+        }
+        return dest;
+    }
+
     public static String getString(ByteBuffer bytes, int length, int additionalSkipLength) {
         CharSequence cs = bytes.asCharBuffer();
         String s = cs.subSequence(0, length).toString();
@@ -737,10 +748,7 @@ public final class ICUBinary {
                     } else if (capacity < 0x4000) {
                         capacity *= 2;  // Grow faster until we reach 16kB.
                     }
-                    // TODO Java 6 replace new byte[] and arraycopy(): bytes = Arrays.copyOf(bytes, capacity);
-                    byte[] newBytes = new byte[capacity];
-                    System.arraycopy(bytes, 0, newBytes, 0, length);
-                    bytes = newBytes;
+                    bytes = Arrays.copyOf(bytes, capacity);
                     bytes[length++] = (byte) nextByte;
                 }
             }

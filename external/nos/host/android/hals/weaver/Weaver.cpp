@@ -104,14 +104,16 @@ Return<void> Weaver::read(uint32_t slotId, const hidl_vec<uint8_t>& key, read_cb
                             response.value().size(), false);
         break;
     case ReadResponse::WRONG_KEY:
-        LOG(WARNING) << "Wrong key used when reading slot " << slotId;
         status = WeaverReadStatus::INCORRECT_KEY;
         timeout = response.throttle_msec();
+        LOG(WARNING) << "Wrong key used when reading slot " << slotId
+                     << ", throttling for " << timeout << " ms";
         break;
     case ReadResponse::THROTTLE:
-        LOG(WARNING) << "Attempted to read slot " << slotId << " when throttling is active";
         status = WeaverReadStatus::THROTTLE;
         timeout = response.throttle_msec();
+        LOG(WARNING) << "Attempted to read slot " << slotId << " when throttling is active for "
+                     << timeout << " ms more";
         break;
     default:
         LOG(ERROR) << "Unexpected error code from app (" << response.error() << ")";

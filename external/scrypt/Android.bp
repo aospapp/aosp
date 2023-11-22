@@ -20,7 +20,7 @@ cc_library_static {
     name: "libscrypt_static",
     defaults: ["libscrypt_sources"],
     shared_libs: ["libcrypto"],
-    sdk_version: "9",
+    sdk_version: "17",
     host_supported: true,
     vendor_available: true,
 }

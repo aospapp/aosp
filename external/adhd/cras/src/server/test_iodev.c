@@ -67,13 +67,13 @@ static int close_dev(struct cras_iodev *iodev)
 {
 	struct test_iodev *testio = (struct test_iodev *)iodev;
 
-	byte_buffer_destroy(testio->audbuff);
+	byte_buffer_destroy(&testio->audbuff);
 	testio->audbuff = NULL;
 	cras_iodev_free_audio_area(iodev);
 	return 0;
 }
 
-static int open_dev(struct cras_iodev *iodev)
+static int configure_dev(struct cras_iodev *iodev)
 {
 	struct test_iodev *testio = (struct test_iodev *)iodev;
 
@@ -193,7 +193,7 @@ struct cras_iodev *test_iodev_create(enum CRAS_STREAM_DIRECTION direction,
 	iodev->supported_formats = test_supported_formats;
 	iodev->buffer_size = TEST_BUFFER_SIZE;
 
-	iodev->open_dev = open_dev;
+	iodev->configure_dev = configure_dev;
 	iodev->close_dev = close_dev;
 	iodev->frames_queued = frames_queued;
 	iodev->delay_frames = delay_frames;

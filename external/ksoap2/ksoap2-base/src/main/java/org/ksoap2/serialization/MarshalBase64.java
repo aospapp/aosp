@@ -25,8 +25,8 @@ import org.ksoap2.*;
 import org.ksoap2.kobjects.base64.*;
 import org.xmlpull.v1.*;
 
-/** 
- * Base64 (de)serializer 
+/**
+ * Base64 (de)serializer
  */
 public class MarshalBase64 implements Marshal {
     public static Class BYTE_ARRAY_CLASS = new byte[0].getClass();

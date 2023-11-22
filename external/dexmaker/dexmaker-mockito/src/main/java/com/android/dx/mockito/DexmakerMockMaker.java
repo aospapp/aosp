@@ -16,9 +16,6 @@
 
 package com.android.dx.mockito;
 
-import android.os.Build;
-import android.util.Log;
-
 import com.android.dx.stock.ProxyBuilder;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.exceptions.stacktrace.StackTraceCleaner;
@@ -39,12 +36,19 @@ import java.util.Set;
  * Generates mock instances on Android's runtime.
  */
 public final class DexmakerMockMaker implements MockMaker, StackTraceCleanerProvider {
-    private static final String LOG_TAG = DexmakerMockMaker.class.getSimpleName();
-
     private final UnsafeAllocator unsafeAllocator = UnsafeAllocator.create();
+    private boolean isApi28;
 
-    public DexmakerMockMaker() {
-        if (Build.VERSION.SDK_INT >= 28) {
+    public DexmakerMockMaker() throws Exception {
+        try {
+            Class buildVersion = Class.forName("android.os.Build$VERSION");
+            isApi28 = buildVersion.getDeclaredField("SDK_INT").getInt(null) >= 28;
+        } catch (ClassNotFoundException e) {
+            System.err.println("Could not determine platform API level, assuming >= 28: " + e);
+            isApi28 = true;
+        }
+
+        if (isApi28) {
             // Blacklisted APIs were introduced in Android P:
             //
             // https://android-developers.googleblog.com/2018/02/
@@ -69,8 +73,8 @@ public final class DexmakerMockMaker implements MockMaker, StackTraceCleanerProv
             try {
                 allowHiddenApiReflectionFromMethod.invoke(null, LenientCopyTool.class);
             } catch (InvocationTargetException | IllegalAccessException e) {
-                Log.w(LOG_TAG, "Cannot allow LenientCopyTool to copy spies of blacklisted fields. "
-                        + "This might break spying on system classes.");
+                System.err.println("Cannot allow LenientCopyTool to copy spies of blacklisted "
+                        + "fields. This might break spying on system classes.");
             }
         }
     }
@@ -95,15 +99,19 @@ public final class DexmakerMockMaker implements MockMaker, StackTraceCleanerProv
         } else {
             // support concrete classes via dexmaker's ProxyBuilder
             try {
-                ProxyBuilder b = ProxyBuilder.forClass(typeToMock)
+                ProxyBuilder builder = ProxyBuilder.forClass(typeToMock)
                         .implementing(extraInterfaces);
+
+                if (isApi28) {
+                    builder.markTrusted();
+                }
 
                 if (Boolean.parseBoolean(
                         System.getProperty("dexmaker.share_classloader", "false"))) {
-                    b.withSharedClassLoader();
+                    builder.withSharedClassLoader();
                 }
 
-                Class<? extends T> proxyClass = b.buildProxyClass();
+                Class<? extends T> proxyClass = builder.buildProxyClass();
                 T mock = unsafeAllocator.newInstance(proxyClass);
                 ProxyBuilder.setInvocationHandler(mock, invocationHandler);
                 return mock;

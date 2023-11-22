@@ -17,13 +17,13 @@
 %                              January 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -157,6 +157,9 @@ MagickExport MagickBooleanType AcquireUniqueSymbolicLink(const char *source,
     destination_file,
     source_file;
 
+  MagickBooleanType
+    status;
+
   size_t
     length,
     quantum;
@@ -173,26 +176,38 @@ MagickExport MagickBooleanType AcquireUniqueSymbolicLink(const char *source,
   assert(source != (const char *) NULL);
   assert(destination != (char *) NULL);
 #if defined(MAGICKCORE_HAVE_SYMLINK)
-  (void) AcquireUniqueFilename(destination);
-  (void) RelinquishUniqueFileResource(destination);
-  if (*source == *DirectorySeparator)
-    {
-      if (symlink(source,destination) == 0)
-        return(MagickTrue);
-    }
-  else
-    {
-      char
-        path[MagickPathExtent];
+  {
+    char
+      *passes;
 
-      *path='\0';
-      if (getcwd(path,MagickPathExtent) == (char *) NULL)
-        return(MagickFalse);
-      (void) ConcatenateMagickString(path,DirectorySeparator,MagickPathExtent);
-      (void) ConcatenateMagickString(path,source,MagickPathExtent);
-      if (symlink(path,destination) == 0)
-        return(MagickTrue);
-    }
+    (void) AcquireUniqueFilename(destination);
+    (void) RelinquishUniqueFileResource(destination);
+    passes=GetPolicyValue("system:shred");
+    if (passes != (char *) NULL)
+      passes=DestroyString(passes);
+    else
+      {
+        if (*source == *DirectorySeparator)
+          {
+            if (symlink(source,destination) == 0)
+              return(MagickTrue);
+          }
+        else
+          {
+            char
+              path[MagickPathExtent];
+
+            *path='\0';
+            if (getcwd(path,MagickPathExtent) == (char *) NULL)
+              return(MagickFalse);
+            (void) ConcatenateMagickString(path,DirectorySeparator,
+              MagickPathExtent);
+            (void) ConcatenateMagickString(path,source,MagickPathExtent);
+            if (symlink(path,destination) == 0)
+              return(MagickTrue);
+          }
+      }
+  }
 #endif
   destination_file=AcquireUniqueFileResource(destination);
   if (destination_file == -1)
@@ -215,6 +230,7 @@ MagickExport MagickBooleanType AcquireUniqueSymbolicLink(const char *source,
       (void) RelinquishUniqueFileResource(destination);
       return(MagickFalse);
     }
+  status=MagickTrue;
   for (length=0; ; )
   {
     count=(ssize_t) read(source_file,buffer,quantum);
@@ -224,17 +240,15 @@ MagickExport MagickBooleanType AcquireUniqueSymbolicLink(const char *source,
     count=(ssize_t) write(destination_file,buffer,length);
     if ((size_t) count != length)
       {
-        (void) close(destination_file);
-        (void) close(source_file);
-        buffer=(unsigned char *) RelinquishMagickMemory(buffer);
         (void) RelinquishUniqueFileResource(destination);
-        return(MagickFalse);
+        status=MagickFalse;
+        break;
       }
   }
   (void) close(destination_file);
   (void) close(source_file);
   buffer=(unsigned char *) RelinquishMagickMemory(buffer);
-  return(MagickTrue);
+  return(status);
 }
 
 /*
@@ -899,22 +913,24 @@ MagickExport MagickBooleanType ExpandFilenames(int *number_arguments,
       if (IsPathDirectory(filename) <= 0)
         {
           char
-            path[MagickPathExtent];
+            file_path[MagickPathExtent];
 
-          *path='\0';
+          *file_path='\0';
           if (*magick != '\0')
             {
-              (void) ConcatenateMagickString(path,magick,MagickPathExtent);
-              (void) ConcatenateMagickString(path,":",MagickPathExtent);
+              (void) ConcatenateMagickString(file_path,magick,
+                MagickPathExtent);
+              (void) ConcatenateMagickString(file_path,":",MagickPathExtent);
             }
-          (void) ConcatenateMagickString(path,filename,MagickPathExtent);
+          (void) ConcatenateMagickString(file_path,filename,MagickPathExtent);
           if (*subimage != '\0')
             {
-              (void) ConcatenateMagickString(path,"[",MagickPathExtent);
-              (void) ConcatenateMagickString(path,subimage,MagickPathExtent);
-              (void) ConcatenateMagickString(path,"]",MagickPathExtent);
+              (void) ConcatenateMagickString(file_path,"[",MagickPathExtent);
+              (void) ConcatenateMagickString(file_path,subimage,
+                MagickPathExtent);
+              (void) ConcatenateMagickString(file_path,"]",MagickPathExtent);
             }
-          if (strlen(path) >= (MagickPathExtent-1))
+          if (strlen(file_path) >= (MagickPathExtent-1))
             ThrowFatalException(OptionFatalError,"FilenameTruncated");
           if (destroy != MagickFalse)
             {
@@ -922,7 +938,7 @@ MagickExport MagickBooleanType ExpandFilenames(int *number_arguments,
               vector[count]=DestroyString(vector[count]);
               destroy=MagickFalse;
             }
-          vector[count++]=ConstantString(path);
+          vector[count++]=ConstantString(file_path);
         }
     }
     filelist=(char **) RelinquishMagickMemory(filelist);
@@ -1042,14 +1058,12 @@ MagickPrivate MagickBooleanType GetExecutionPath(char *path,const size_t extent)
 #if defined(__GNU__)
   {
     char
-      *program_name,
-      *execution_path;
+      *program_name;
 
     ssize_t
       count;
 
     count=0;
-    execution_path=(char *) NULL;
     program_name=program_invocation_name;
     if (*program_invocation_name != '/')
       {
@@ -1066,13 +1080,14 @@ MagickPrivate MagickBooleanType GetExecutionPath(char *path,const size_t extent)
       }
     if (count != -1)
       {
-        execution_path=realpath(program_name,NULL);
-        if (execution_path != (char *) NULL)
+        char
+          execution_path[PATH_MAX+1];
+
+        if (realpath(program_name,execution_path) != (char *) NULL)
           (void) CopyMagickString(path,execution_path,extent);
       }
     if (program_name != program_invocation_name)
       program_name=(char *) RelinquishMagickMemory(program_name);
-    execution_path=(char *) RelinquishMagickMemory(execution_path);
   }
 #endif
 #if defined(__OpenBSD__)
@@ -1113,13 +1128,13 @@ MagickPrivate ssize_t GetMagickPageSize(void)
     return(page_size);
 #if defined(MAGICKCORE_HAVE_SYSCONF) && defined(_SC_PAGE_SIZE)
   page_size=(ssize_t) sysconf(_SC_PAGE_SIZE);
-#else
-#if defined(MAGICKCORE_HAVE_GETPAGESIZE)
+#elif defined(MAGICKCORE_HAVE_GETPAGESIZE)
   page_size=(ssize_t) getpagesize();
-#endif
+#elif defined(MAGICKCORE_WINDOWS_SUPPORT)
+  page_size=NTGetPageSize();
 #endif
   if (page_size <= 0)
-    page_size=16384;
+    page_size=4096;
   return(page_size);
 }
 
@@ -1152,13 +1167,13 @@ MagickExport MagickBooleanType GetPathAttributes(const char *path,
 {
   MagickBooleanType
     status;
-  
+
   if (path == (const char *) NULL)
-    { 
+    {
       errno=EINVAL;
       return(MagickFalse);
     }
-  (void) ResetMagickMemory(attributes,0,sizeof(struct stat));
+  (void) memset(attributes,0,sizeof(struct stat));
   status=stat_utf8(path,(struct stat *) attributes) == 0 ? MagickTrue :
     MagickFalse;
   return(status);
@@ -1218,6 +1233,31 @@ MagickExport void GetPathComponent(const char *path,PathType type,
       return;
     }
   (void) CopyMagickString(component,path,MagickPathExtent);
+  subimage_length=0;
+  subimage_offset=0;
+  if (type != SubcanonicalPath)
+    {
+      p=component+strlen(component)-1;
+      q=strrchr(component,'[');
+      if ((strlen(component) > 2) && (*p == ']') && (q != (char *) NULL) &&
+          ((q == component) || (*(q-1) != ']')) &&
+          (IsPathAccessible(path) == MagickFalse))
+        {
+          /*
+            Look for scene specification (e.g. img0001.pcd[4]).
+          */
+          *p='\0';
+          if ((IsSceneGeometry(q+1,MagickFalse) == MagickFalse) &&
+              (IsGeometry(q+1) == MagickFalse))
+            *p=']';
+          else
+            {
+              subimage_length=(size_t) (p-q);
+              subimage_offset=(size_t) (q-component+1);
+              *q='\0';
+            }
+        }
+    }
   magick_length=0;
 #if defined(__OS2__)
   if (path[1] != ":")
@@ -1233,8 +1273,8 @@ MagickExport void GetPathComponent(const char *path,PathType type,
         if (*p == '\0')
           break;
       }
-    if ((*p == ':') && (IsPathDirectory(path) < 0) &&
-        (IsPathAccessible(path) == MagickFalse))
+    if ((p != component) && (*p == ':') && (IsPathDirectory(component) < 0) &&
+        (IsPathAccessible(component) == MagickFalse))
       {
         /*
           Look for image format specification (e.g. ps3:image).
@@ -1252,34 +1292,6 @@ MagickExport void GetPathComponent(const char *path,PathType type,
         break;
       }
   }
-  subimage_length=0;
-  subimage_offset=0;
-  p=component;
-  if (*p != '\0')
-    p=component+strlen(component)-1;
-  if ((*p == ']') && (strchr(component,'[') != (char *) NULL) &&
-      (IsPathAccessible(path) == MagickFalse))
-    {
-      /*
-        Look for scene specification (e.g. img0001.pcd[4]).
-      */
-      for (q=p-1; q > component; q--)
-        if (*q == '[')
-          break;
-      if (*q == '[')
-        {
-          *p='\0';
-          if ((IsSceneGeometry(q+1,MagickFalse) == MagickFalse) &&
-              (IsGeometry(q+1) == MagickFalse))
-            *p=']';
-          else
-            {
-              subimage_length=(size_t) (p-q);
-              subimage_offset=magick_length+1+(size_t) (q-component);
-              *q='\0';
-            }
-        }
-    }
   p=component;
   if (*p != '\0')
     for (p=component+strlen(component)-1; p > component; p--)
@@ -1297,16 +1309,19 @@ MagickExport void GetPathComponent(const char *path,PathType type,
     }
     case RootPath:
     {
-      for (p=component+(strlen(component)-1); p > component; p--)
-      {
-        if (IsBasenameSeparator(*p) != MagickFalse)
+      if (*component != '\0')
+        {
+          for (p=component+(strlen(component)-1); p > component; p--)
+          {
+            if (IsBasenameSeparator(*p) != MagickFalse)
+              break;
+            if (*p == '.')
+              break;
+          }
+          if (*p == '.')
+            *p='\0';
           break;
-        if (*p == '.')
-          break;
-      }
-      if (*p == '.')
-        *p='\0';
-      break;
+        }
     }
     case HeadPath:
     {
@@ -1316,28 +1331,27 @@ MagickExport void GetPathComponent(const char *path,PathType type,
     case TailPath:
     {
       if (IsBasenameSeparator(*p) != MagickFalse)
-        (void) CopyMagickMemory((unsigned char *) component,
-          (const unsigned char *) (p+1),strlen(p+1)+1);
+        (void) CopyMagickString(component,p+1,MagickPathExtent);
       break;
     }
     case BasePath:
     {
       if (IsBasenameSeparator(*p) != MagickFalse)
         (void) CopyMagickString(component,p+1,MagickPathExtent);
-      for (p=component+(strlen(component)-1); p > component; p--)
-        if (*p == '.')
-          {
-            *p='\0';
-            break;
-          }
+      if (*component != '\0')
+        for (p=component+(strlen(component)-1); p > component; p--)
+          if (*p == '.')
+            {
+              *p='\0';
+              break;
+            }
       break;
     }
     case ExtensionPath:
     {
       if (IsBasenameSeparator(*p) != MagickFalse)
         (void) CopyMagickString(component,p+1,MagickPathExtent);
-      p=component;
-      if (*p != '\0')
+      if (*component != '\0')
         for (p=component+strlen(component)-1; p > component; p--)
           if (*p == '.')
             break;
@@ -1348,12 +1362,12 @@ MagickExport void GetPathComponent(const char *path,PathType type,
     }
     case SubimagePath:
     {
-      if (subimage_length != 0)
+      *component='\0';
+      if ((subimage_length != 0) && (magick_length < subimage_offset))
         (void) CopyMagickString(component,path+subimage_offset,subimage_length);
-      else
-        *component = '\0';
       break;
     }
+    case SubcanonicalPath:
     case CanonicalPath:
     case UndefinedPath:
       break;
@@ -1564,19 +1578,6 @@ static int FileCompare(const void *x,const void *y)
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif
-
-static inline int MagickReadDirectory(DIR *directory,struct dirent *entry,
-  struct dirent **result)
-{
-#if defined(MAGICKCORE_HAVE_READDIR_R)
-  return(readdir_r(directory,entry,result));
-#else
-  (void) entry;
-  errno=0;
-  *result=readdir(directory);
-  return(errno);
-#endif
-}
 
 MagickPrivate char **ListFiles(const char *directory,const char *pattern,
   size_t *number_entries)
@@ -1828,7 +1829,9 @@ MagickPrivate MagickBooleanType ShredFile(const char *path)
 
   if ((path == (const char *) NULL) || (*path == '\0'))
     return(MagickFalse);
-  passes=GetEnvironmentValue("MAGICK_SHRED_PASSES");
+  passes=GetPolicyValue("system:shred");
+  if (passes == (char *) NULL)
+    passes=GetEnvironmentValue("MAGICK_SHRED_PASSES");
   if (passes == (char *) NULL)
     {
       /*
@@ -1886,7 +1889,7 @@ MagickPrivate MagickBooleanType ShredFile(const char *path)
       if (i == 0)
         ResetStringInfo(key);  /* zero on first pass */
       count=write(file,GetStringInfoDatum(key),(size_t)
-        MagickMin(quantum,length-j));
+        MagickMin((MagickSizeType) quantum,length-j));
       key=DestroyStringInfo(key);
       if (count <= 0)
         {

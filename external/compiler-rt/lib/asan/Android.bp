@@ -65,6 +65,7 @@ asan_rtl_cflags = [
 cc_library_static {
     name: "libasan",
     host_supported: true,
+    recovery_available: true,
     defaults: ["asan_arch_defaults"],
     include_dirs: [
         "external/compiler-rt/lib",
@@ -74,6 +75,7 @@ cc_library_static {
     target: {
         android: {
             srcs: ["asan_preinit.cc"],
+            system_shared_libs: [],
         },
         host: {
             srcs: asan_rtl_files,
@@ -115,97 +117,6 @@ cc_library_host_static {
     },
 }
 
-cc_defaults {
-    name: "libclang_rt_defaults",
-
-    // TODO:
-    // This library must go on /system partition, even in SANITIZE_TARGET mode (when all libraries are
-    // installed on /data). That's because /data may not be available until vold does some magic and
-    // vold itself depends on this library.
-
-    arch: {
-        arm: {
-            instruction_set: "arm",
-        },
-    },
-    include_dirs: [
-        "external/compiler-rt/lib",
-        "external/compiler-rt/include",
-    ],
-    cflags: asan_rtl_cflags,
-    ldflags: ["-Wl,-z,global"],
-    srcs: asan_rtl_files + asan_rtl_cxx_files,
-    static_libs: [
-        "libinterception",
-        "liblsan",
-        "libsan",
-        "libubsan",
-    ],
-    shared_libs: [
-        "liblog",
-        "libdl",
-    ],
-    sanitize: {
-        never: true,
-    },
-    sdk_version: "19",
-    stl: "none",
-    enabled: false,
-}
-
-// Disable libclang_rt prebuilts in aosp/master until soong has a build option
-// to pick a prebuilt or compile/build a module.
-//
-// cc_library_shared {
-//     name: "libclang_rt.asan-arm-android",
-//     defaults: ["libclang_rt_defaults"],
-//     arch: {
-//         arm: {
-//             enabled: true,
-//         },
-//     },
-// }
-//
-// cc_library_shared {
-//     name: "libclang_rt.asan-aarch64-android",
-//     defaults: ["libclang_rt_defaults"],
-//     arch: {
-//         arm64: {
-//             enabled: true,
-//         },
-//     },
-// }
-//
-// cc_library_shared {
-//     name: "libclang_rt.asan-mips-android",
-//     defaults: ["libclang_rt_defaults"],
-//     arch: {
-//         mips: {
-//             enabled: true,
-//         },
-//     },
-// }
-//
-// cc_library_shared {
-//     name: "libclang_rt.asan-mips64-android",
-//     defaults: ["libclang_rt_defaults"],
-//     arch: {
-//         mips64: {
-//             enabled: true,
-//         },
-//     },
-// }
-//
-// cc_library_shared {
-//     name: "libclang_rt.asan-i686-android",
-//     defaults: ["libclang_rt_defaults"],
-//     arch: {
-//         x86: {
-//             enabled: true,
-//         },
-//     },
-// }
-
 cc_binary {
     name: "asanwrapper",
     defaults: ["asan_arch_defaults"],
@@ -228,7 +139,6 @@ cc_library_static {
     host_supported: true,
     defaults: ["asan_arch_defaults"],
 
-    tags: ["tests"],
     include_dirs: [
         "external/compiler-rt/include",
         "external/compiler-rt/lib",
@@ -266,7 +176,6 @@ cc_test {
     host_supported: true,
     defaults: ["asan_arch_defaults"],
 
-    tags: ["tests"],
     include_dirs: [
         "external/compiler-rt/lib",
         "external/compiler-rt/lib/asan/tests",

@@ -51,9 +51,10 @@ cc_library_static {
     },
 
     sanitize: {
-        cfi: true,
-        diag: {
-            cfi: true,
-        },
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+        // Enable CFI if this is used as a shared library
+        // cfi: true,
+        blacklist: "libFLAC_blacklist.txt",
     },
 }

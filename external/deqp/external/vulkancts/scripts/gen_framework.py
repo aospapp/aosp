@@ -46,6 +46,8 @@ DEFINITIONS			= [
 	("VK_API_VERSION_1_1",					"deUint32"),
 	("VK_MAX_PHYSICAL_DEVICE_NAME_SIZE",	"size_t"),
 	("VK_MAX_EXTENSION_NAME_SIZE",			"size_t"),
+	("VK_MAX_DRIVER_NAME_SIZE_KHR",			"size_t"),
+	("VK_MAX_DRIVER_INFO_SIZE_KHR",			"size_t"),
 	("VK_UUID_SIZE",						"size_t"),
 	("VK_LUID_SIZE",						"size_t"),
 	("VK_MAX_MEMORY_TYPES",					"size_t"),
@@ -126,13 +128,16 @@ def prefixName (prefix, name):
 
 	name = name.replace("YCB_CR_", "YCBCR_")
 	name = name.replace("WIN_32_", "WIN32_")
+	name = name.replace("8_BIT_", "8BIT_")
 	name = name.replace("16_BIT_", "16BIT_")
+	name = name.replace("INT_64_", "INT64_")
 	name = name.replace("D_3_D_12_", "D3D12_")
 	name = name.replace("IOSSURFACE_", "IOS_SURFACE_")
 	name = name.replace("MAC_OS", "MACOS_")
 	name = name.replace("TEXTURE_LOD", "TEXTURE_LOD_")
 	name = name.replace("VIEWPORT_W", "VIEWPORT_W_")
 	name = name.replace("_IDPROPERTIES", "_ID_PROPERTIES")
+	name = name.replace("PHYSICAL_DEVICE_FLOAT_16_INT_8_FEATURES", "PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES")
 
 	return prefix + name
 
@@ -338,8 +343,6 @@ class Function:
 		# Special functions
 		if self.name == "vkGetInstanceProcAddr":
 			return Function.TYPE_PLATFORM
-		elif self.name == "vkGetDeviceProcAddr":
-			return Function.TYPE_INSTANCE
 		assert len(self.arguments) > 0
 		firstArgType = self.arguments[0].getType()
 		if firstArgType in ["VkInstance", "VkPhysicalDevice"]:
@@ -586,6 +589,9 @@ def parseDefinitions (extensionName, src):
 	def skipDefinition (extensionName, definition):
 		if extensionName == None:
 			return True
+		# SPEC_VERSION enums
+		if definition[0].startswith(extensionName.upper()) and definition[1].isdigit():
+			return False
 		if definition[0].startswith(extensionName.upper()):
 			return True
 		if definition[1].isdigit():
@@ -1029,15 +1035,20 @@ def writeStrUtilImpl (api, filename):
 	writeInlFile(filename, INL_HEADER, makeStrUtilImpl())
 
 class ConstructorFunction:
-	def __init__ (self, type, name, objectType, iface, arguments):
+	def __init__ (self, type, name, objectType, ifaceArgs, arguments):
 		self.type		= type
 		self.name		= name
 		self.objectType	= objectType
-		self.iface		= iface
+		self.ifaceArgs	= ifaceArgs
 		self.arguments	= arguments
 
 def getConstructorFunctions (api):
 	funcs = []
+	ifacesDict = {
+		Function.TYPE_PLATFORM: [Variable("const PlatformInterface&", "vk", "")],
+		Function.TYPE_INSTANCE: [Variable("const InstanceInterface&", "vk", "")],
+		Function.TYPE_DEVICE: [Variable("const DeviceInterface&", "vk", "")]
+	}
 	for function in api.functions:
 		if function.isAlias:
 			continue
@@ -1046,19 +1057,15 @@ def getConstructorFunctions (api):
 				continue # No way to delete display modes (bug?)
 
 			# \todo [pyry] Rather hacky
-			iface = None
-			if function.getType() == Function.TYPE_PLATFORM:
-				iface = Variable("const PlatformInterface&", "vk", "")
-			elif function.getType() == Function.TYPE_INSTANCE:
-				iface = Variable("const InstanceInterface&", "vk", "")
-			else:
-				iface = Variable("const DeviceInterface&", "vk", "")
+			ifaceArgs = ifacesDict[function.getType()]
+			if function.name == "vkCreateDevice":
+				ifaceArgs = [Variable("const PlatformInterface&", "vkp", ""), Variable("VkInstance", "instance", "")] + ifaceArgs
 
 			assert (function.arguments[-2].type == ["const", "VkAllocationCallbacks", "*"])
 
 			objectType	= function.arguments[-1].type[0] #not getType() but type[0] on purpose
 			arguments	= function.arguments[:-1]
-			funcs.append(ConstructorFunction(function.getType(), getInterfaceName(function), objectType, iface, arguments))
+			funcs.append(ConstructorFunction(function.getType(), getInterfaceName(function), objectType, ifaceArgs, arguments))
 	return funcs
 
 def addVersionDefines(versionSpectrum):
@@ -1074,7 +1081,7 @@ def writeRefUtilProto (api, filename):
 
 	def makeRefUtilProto ():
 		unindented = []
-		for line in indentLines(["Move<%s>\t%s\t(%s = DE_NULL);" % (function.objectType, function.name, argListToStr([function.iface] + function.arguments)) for function in functions]):
+		for line in indentLines(["Move<%s>\t%s\t(%s = DE_NULL);" % (function.objectType, function.name, argListToStr(function.ifaceArgs + function.arguments)) for function in functions]):
 			yield line
 
 	writeInlFile(filename, INL_HEADER, makeRefUtilProto())
@@ -1103,22 +1110,25 @@ def writeRefUtilImpl (api, filename):
 		yield "} // refdetails"
 		yield ""
 
-		for function in functions:
-			if function.type == Function.TYPE_DEVICE:
-				dtorObj = "device"
-			elif function.type == Function.TYPE_INSTANCE:
-				if function.name == "createDevice":
-					dtorObj = "object"
-				else:
-					dtorObj = "instance"
-			else:
-				dtorObj = "object"
+		dtorDict = {
+			Function.TYPE_PLATFORM: "object",
+			Function.TYPE_INSTANCE: "instance",
+			Function.TYPE_DEVICE: "device"
+		}
 
-			yield "Move<%s> %s (%s)" % (function.objectType, function.name, argListToStr([function.iface] + function.arguments))
+		for function in functions:
+			deleterArgsString = ''
+			if function.name == "createDevice":
+				# createDevice requires two additional parameters to setup VkDevice deleter
+				deleterArgsString = "vkp, instance, object, " +  function.arguments[-1].name
+			else:
+				deleterArgsString = "vk, %s, %s" % (dtorDict[function.type], function.arguments[-1].name)
+
+			yield "Move<%s> %s (%s)" % (function.objectType, function.name, argListToStr(function.ifaceArgs + function.arguments))
 			yield "{"
 			yield "\t%s object = 0;" % function.objectType
 			yield "\tVK_CHECK(vk.%s(%s));" % (function.name, ", ".join([a.name for a in function.arguments] + ["&object"]))
-			yield "\treturn Move<%s>(check<%s>(object), Deleter<%s>(%s));" % (function.objectType, function.objectType, function.objectType, ", ".join(["vk", dtorObj, function.arguments[-1].name]))
+			yield "\treturn Move<%s>(check<%s>(object), Deleter<%s>(%s));" % (function.objectType, function.objectType, function.objectType, deleterArgsString)
 			yield "}"
 			yield ""
 

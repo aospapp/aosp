@@ -48,7 +48,7 @@ static void get_vmstat_proc(struct vmstat_proc *vmstat_proc)
     "MemFree: ", "Buffers: ", "Cached: ", "SwapFree: ", "SwapTotal: ",
     "/proc/vmstat", "pgpgin ", "pgpgout ", "pswpin ", "pswpout " };
   uint64_t *new = (uint64_t *)vmstat_proc;
-  char *p = p, *name = name;
+  char *p = p, *name = name, *file = NULL;
   int i, j;
 
   // We use vmstuff to fill out vmstat_proc as an array of uint64_t:
@@ -56,37 +56,35 @@ static void get_vmstat_proc(struct vmstat_proc *vmstat_proc)
   //   Any other string is a key to search for, with decimal value right after
   //   0 means parse another value on same line as last key
 
-  for (i = 0; i<sizeof(vmstuff)/sizeof(char *); i++) {
+  for (i = 0; i<ARRAY_LEN(vmstuff); i++) {
     if (!vmstuff[i]) p++;
     else if (*vmstuff[i] == '/') {
-      xreadfile(name = vmstuff[i], toybuf, sizeof(toybuf));
+      // /proc/stat for a 48-core machine doesn't fit in toybuf.
+      free(file);
+      file = xreadfile(name = vmstuff[i], 0, 0);
 
       continue;
-    } else if (!(p = strafter(toybuf, vmstuff[i]))) goto error;
-    if (1 != sscanf(p, "%"PRIu64"%n", new++, &j)) goto error;
+    } else p = strafter(file, vmstuff[i]);
+    if (!p || 1!=sscanf(p, "%"PRIu64"%n", new++, &j))
+      error_exit("Bad %sin %s: %s", vmstuff[i], name, p ? p : "");
     p += j;
   }
-
-  return;
-
-error:
-  error_exit("No %sin %s\n", vmstuff[i], name);
+  free(file);
 }
 
 void vmstat_main(void)
 {
   struct vmstat_proc top[2];
   int i, loop_delay = 0, loop_max = 0;
-  unsigned loop, rows = (toys.optflags & FLAG_n) ? 0 : 25,
-           page_kb = sysconf(_SC_PAGESIZE)/1024;
+  unsigned loop, rows = 25, page_kb = sysconf(_SC_PAGESIZE)/1024;
   char *headers="r\0b\0swpd\0free\0buff\0cache\0si\0so\0bi\0bo\0in\0cs\0us\0"
                 "sy\0id\0wa", lengths[] = {2,2,6,6,6,6,4,4,5,5,4,4,2,2,2,2};
 
   memset(top, 0, sizeof(top));
   if (toys.optc) loop_delay = atolx_range(toys.optargs[0], 0, INT_MAX);
-  if (toys.optc > 1) loop_max = atolx_range(toys.optargs[1], 1, INT_MAX) - 1;
+  if (toys.optc > 1) loop_max = atolx_range(toys.optargs[1], 1, INT_MAX);
 
-  for (loop = 0; !loop_max || loop <= loop_max; loop++) {
+  for (loop = 0; !loop_max || loop < loop_max; loop++) {
     unsigned idx = loop&1, offset = 0, expected = 0;
     uint64_t units, total_hz, *ptr = (uint64_t *)(top+idx),
              *oldptr = (uint64_t *)(top+!idx);
@@ -97,7 +95,7 @@ void vmstat_main(void)
     if (rows>3 && !(loop % (rows-3))) {
       char *header = headers;
 
-      if (isatty(1)) terminal_size(0, &rows);
+      if (!(toys.optflags&FLAG_n) && isatty(1)) terminal_size(0, &rows);
       else rows = 0;
 
       printf("procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----\n");

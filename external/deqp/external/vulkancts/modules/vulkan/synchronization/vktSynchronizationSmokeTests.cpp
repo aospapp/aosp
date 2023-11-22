@@ -30,6 +30,7 @@
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
 #include "vkDeviceUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuFormatUtil.hpp"
@@ -40,6 +41,7 @@
 #include "vkQueryUtil.hpp"
 #include "vkPrograms.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include <limits>
 
@@ -85,7 +87,7 @@ void buildShaders (SourceCollections& shaderCollection)
 				"}\n");
 }
 
-Move<VkDevice> createTestDevice (const InstanceInterface& vki, VkPhysicalDevice physicalDevice, deUint32 *outQueueFamilyIndex)
+Move<VkDevice> createTestDevice (const PlatformInterface& vkp, VkInstance instance, const InstanceInterface& vki, VkPhysicalDevice physicalDevice, deUint32 *outQueueFamilyIndex)
 {
 	VkDeviceQueueCreateInfo		queueInfo;
 	VkDeviceCreateInfo			deviceInfo;
@@ -136,7 +138,7 @@ Move<VkDevice> createTestDevice (const InstanceInterface& vki, VkPhysicalDevice 
 
 	*outQueueFamilyIndex					= queueInfo.queueFamilyIndex;
 
-	return createDevice(vki, physicalDevice, &deviceInfo);
+	return createDevice(vkp, instance, vki, physicalDevice, &deviceInfo);
 };
 
 struct BufferParameters
@@ -182,17 +184,9 @@ void createVulkanBuffer (const DeviceInterface& vkd, VkDevice device, Allocator&
 	if (bufferParameters.memory != DE_NULL)
 	{
 		VkMemoryBarrier				barrier;
-		VkMappedMemoryRange			range;
-
-		deMemset(&range, 0xcd, sizeof(range));
-		range.sType		= VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		range.pNext		= DE_NULL;
-		range.memory	= buffer.allocation->getMemory();
-		range.offset	= buffer.allocation->getOffset();
-		range.size		= bufferParameters.size;
 
 		deMemcpy(buffer.allocation->getHostPtr(), bufferParameters.memory, (size_t)bufferParameters.size);
-		VK_CHECK(vkd.flushMappedMemoryRanges(device, 1, &range));
+		flushAlloc(vkd, device, *buffer.allocation);
 
 		deMemset(&barrier, 0xcd, sizeof(barrier));
 		barrier.sType			= VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -461,29 +455,16 @@ struct RenderInfo
 void  recordRenderPass (const DeviceInterface& deviceInterface, const RenderInfo& renderInfo)
 {
 	const VkDeviceSize					bindingOffset			= 0;
-	const VkClearValue					clearValue				= makeClearValueColorF32(0.0, 0.0, 1.0, 1.0);
-	VkRenderPassBeginInfo				renderPassBeginState;
 	VkImageMemoryBarrier				renderBarrier;
-
-	deMemset(&renderPassBeginState, 0xcd, sizeof(renderPassBeginState));
-	renderPassBeginState.sType						= VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginState.pNext						= DE_NULL;
-	renderPassBeginState.renderPass					= renderInfo.renderPass;
-	renderPassBeginState.framebuffer				= renderInfo.framebuffer;
-	renderPassBeginState.renderArea.offset.x		= 0;
-	renderPassBeginState.renderArea.offset.y		= 0;
-	renderPassBeginState.renderArea.extent.width	= renderInfo.width;
-	renderPassBeginState.renderArea.extent.height	= renderInfo.height;
-	renderPassBeginState.clearValueCount			= 1;
-	renderPassBeginState.pClearValues				= &clearValue;
 
 	if (renderInfo.waitEvent)
 		deviceInterface.cmdWaitEvents(renderInfo.commandBuffer, 1, &renderInfo.event, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, DE_NULL, 0, DE_NULL, 0, DE_NULL);
-	deviceInterface.cmdBeginRenderPass(renderInfo.commandBuffer, &renderPassBeginState, VK_SUBPASS_CONTENTS_INLINE);
+
+	beginRenderPass(deviceInterface, renderInfo.commandBuffer, renderInfo.renderPass, renderInfo.framebuffer, makeRect2D(0, 0, renderInfo.width, renderInfo.height), tcu::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
 	deviceInterface.cmdBindPipeline(renderInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderInfo.pipeline);
 	deviceInterface.cmdBindVertexBuffers(renderInfo.commandBuffer, 0u, 1u, &renderInfo.vertexBuffer, &bindingOffset);
 	deviceInterface.cmdDraw(renderInfo.commandBuffer, renderInfo.vertexBufferSize, 1, 0, 0);
-	deviceInterface.cmdEndRenderPass(renderInfo.commandBuffer);
+	endRenderPass(deviceInterface, renderInfo.commandBuffer);
 
 	deMemset(&renderBarrier, 0xcd, sizeof(renderBarrier));
 	renderBarrier.sType								= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -779,7 +760,7 @@ void generateWork (TestContext& testContext)
 	rasterState.sType							= VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterState.pNext							= DE_NULL;
 	rasterState.flags							= 0;
-	rasterState.depthClampEnable				= VK_TRUE;
+	rasterState.depthClampEnable				= VK_FALSE;
 	rasterState.rasterizerDiscardEnable			= VK_FALSE;
 	rasterState.polygonMode						= VK_POLYGON_MODE_FILL;
 	rasterState.cullMode						= VK_CULL_MODE_NONE;
@@ -972,7 +953,7 @@ void generateWork (TestContext& testContext)
 	bufferBarriers.resize(0);
 	imageBarriers.resize(0);
 
-	VK_CHECK(deviceInterface.endCommandBuffer(transferInfo.commandBuffer));
+	endCommandBuffer(deviceInterface, transferInfo.commandBuffer);
 }
 
 static void initSubmitInfo (VkSubmitInfo* submitInfo, deUint32 submitInfoCount)
@@ -1001,7 +982,6 @@ tcu::TestStatus testFences (Context& context)
 	VkResult					fenceStatus;
 	TestContext					testContext			(deviceInterface, device, queueFamilyIdx, context.getBinaryCollection(), context.getDefaultAllocator());
 	VkSubmitInfo				submitInfo;
-	VkMappedMemoryRange			range;
 	void*						resultImage;
 
 	const tcu::Vec4				vertices[]			=
@@ -1080,12 +1060,7 @@ tcu::TestStatus testFences (Context& context)
 		return tcu::TestStatus::fail("Fence in incorrect state");
 	}
 
-	range.sType			= VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	range.pNext			= DE_NULL;
-	range.memory		= testContext.renderReadBuffer->getMemory();
-	range.offset		= 0;
-	range.size			= testContext.renderSize;
-	VK_CHECK(deviceInterface.invalidateMappedMemoryRanges(device, 1, &range));
+	invalidateAlloc(deviceInterface, device, *testContext.renderReadBuffer);
 	resultImage = testContext.renderReadBuffer->getHostPtr();
 
 	log << TestLog::Image(	"result",
@@ -1103,11 +1078,12 @@ tcu::TestStatus testFences (Context& context)
 tcu::TestStatus testSemaphores (Context& context)
 {
 	TestLog&					log					= context.getTestContext().getLog();
+	const PlatformInterface&	platformInterface	= context.getPlatformInterface();
 	const InstanceInterface&	instanceInterface	= context.getInstanceInterface();
 	const VkPhysicalDevice		physicalDevice		= context.getPhysicalDevice();
 	deUint32					queueFamilyIdx;
-	vk::Move<VkDevice>			device				= createTestDevice(instanceInterface, physicalDevice, &queueFamilyIdx);
-	const DeviceDriver			deviceInterface		(instanceInterface, *device);
+	vk::Move<VkDevice>			device				= createTestDevice(platformInterface, context.getInstance(), instanceInterface, physicalDevice, &queueFamilyIdx);
+	const DeviceDriver			deviceInterface		(platformInterface, context.getInstance(), *device);
 	SimpleAllocator				allocator			(deviceInterface,
 													 *device,
 													 getPhysicalDeviceMemoryProperties(instanceInterface, physicalDevice));
@@ -1121,7 +1097,6 @@ tcu::TestStatus testSemaphores (Context& context)
 	TestContext					testContext2		(deviceInterface, device.get(), queueFamilyIdx, context.getBinaryCollection(), allocator);
 	Unique<VkSemaphore>			semaphore			(createSemaphore(deviceInterface, *device));
 	VkSubmitInfo				submitInfo[2];
-	VkMappedMemoryRange			range;
 	void*						resultImage;
 	const VkPipelineStageFlags	waitDstStageMask	= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
@@ -1178,12 +1153,7 @@ tcu::TestStatus testSemaphores (Context& context)
 		return tcu::TestStatus::fail("failed to wait for a set fence");
 	}
 
-	range.sType			= VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	range.pNext			= DE_NULL;
-	range.memory		= testContext1.renderReadBuffer->getMemory();
-	range.offset		= 0;
-	range.size			= testContext1.renderSize;
-	VK_CHECK(deviceInterface.invalidateMappedMemoryRanges(device.get(), 1, &range));
+	invalidateAlloc(deviceInterface, device.get(), *testContext1.renderReadBuffer);
 	resultImage = testContext1.renderReadBuffer->getHostPtr();
 
 	log << TestLog::Image(	"result",
@@ -1204,12 +1174,7 @@ tcu::TestStatus testSemaphores (Context& context)
 		return tcu::TestStatus::fail("failed to wait for a set fence");
 	}
 
-	range.sType			= VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	range.pNext			= DE_NULL;
-	range.memory		= testContext2.renderReadBuffer->getMemory();
-	range.offset		= 0;
-	range.size			= testContext2.renderSize;
-	VK_CHECK(deviceInterface.invalidateMappedMemoryRanges(device.get(), 1, &range));
+	invalidateAlloc(deviceInterface, device.get(), *testContext2.renderReadBuffer);
 	resultImage = testContext2.renderReadBuffer->getHostPtr();
 
 	log << TestLog::Image(	"result",
@@ -1237,7 +1202,6 @@ tcu::TestStatus testEvents (Context& context)
 	TestContext					testContext			(deviceInterface, device, queueFamilyIdx, context.getBinaryCollection(), allocator);
 	Unique<VkEvent>				event				(createEvent(deviceInterface, device));
 	VkSubmitInfo				submitInfo;
-	VkMappedMemoryRange			range;
 	void*						resultImage;
 
 	const tcu::Vec4		vertices1[]			=
@@ -1295,12 +1259,7 @@ tcu::TestStatus testEvents (Context& context)
 		return tcu::TestStatus::fail("failed to proceed after event set from host");
 	}
 
-	range.sType			= VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	range.pNext			= DE_NULL;
-	range.memory		= testContext.renderReadBuffer->getMemory();
-	range.offset		= 0;
-	range.size			= testContext.renderSize;
-	VK_CHECK(deviceInterface.invalidateMappedMemoryRanges(device, 1, &range));
+	invalidateAlloc(deviceInterface, device, *testContext.renderReadBuffer);
 	resultImage = testContext.renderReadBuffer->getHostPtr();
 
 	log << TestLog::Image(	"result",

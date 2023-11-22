@@ -88,8 +88,9 @@ void AArch64Subtarget::initializeProperties() {
 AArch64Subtarget::AArch64Subtarget(const Triple &TT, const std::string &CPU,
                                    const std::string &FS,
                                    const TargetMachine &TM, bool LittleEndian)
-    : AArch64GenSubtargetInfo(TT, CPU, FS), ReserveX18(TT.isOSDarwin()),
-      IsLittle(LittleEndian), CPUString(CPU), TargetTriple(TT), FrameLowering(),
+    : AArch64GenSubtargetInfo(TT, CPU, FS),
+      ReserveX18(TT.isOSDarwin() || TT.isAndroid()), IsLittle(LittleEndian),
+      CPUString(CPU), TargetTriple(TT), FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(FS)), TSInfo(),
       TLInfo(TM, *this), GISel() {}
 

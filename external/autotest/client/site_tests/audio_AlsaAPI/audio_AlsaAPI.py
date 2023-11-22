@@ -54,9 +54,17 @@ class audio_AlsaAPI(test.test):
         self._find_sound_devices()
         method_name = '_test_' + to_test
         method = getattr(self, method_name)
-        for card_index, device_index in self._devices:
-            device = 'hw:%s,%s' % (card_index, device_index)
-            method(device)
+
+        # Stop CRAS to make sure the audio device won't be occupied.
+        utils.stop_service('cras', ignore_status=True)
+
+        try:
+            for card_index, device_index in self._devices:
+                device = 'hw:%s,%s' % (card_index, device_index)
+                method(device)
+        finally:
+            # Restart CRAS.
+            utils.start_service('cras', ignore_status=True)
 
 
     def _skip_device(self, card_device):

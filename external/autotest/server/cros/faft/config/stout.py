@@ -7,9 +7,4 @@
 
 class Values():
     """FAFT config values for Stout."""
-    key_checker = [[0x29, 'press'],
-                   [0x32, 'press'],
-                   [0x32, 'release'],
-                   [0x29, 'release'],
-                   [0x43, 'press'],
-                   [0x43, 'release']]
+    smm_store = False

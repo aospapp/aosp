@@ -25,6 +25,7 @@
 
 #include "vkDefs.hpp"
 #include "gluShaderProgram.hpp"
+#include "vkValidatorOptions.hpp"
 
 #include <string>
 
@@ -41,21 +42,41 @@ struct ShaderBuildOptions
 	enum Flags
 	{
 		FLAG_USE_STORAGE_BUFFER_STORAGE_CLASS	= (1u<<0),
-		FLAG_ALLOW_RELAXED_OFFSETS				= (1u<<1)	// allow block offsets to follow VK_KHR_relaxed_block_layout
+		FLAG_ALLOW_RELAXED_OFFSETS				= (1u<<1),	// allow block offsets to follow VK_KHR_relaxed_block_layout
+		FLAG_ALLOW_SCALAR_OFFSETS				= (1u<<2)	// allow block offsets to follow VK_EXT_scalar_block_layout
 	};
 
+	deUint32		vulkanVersion;
 	SpirvVersion	targetVersion;
 	deUint32		flags;
 
-	ShaderBuildOptions (SpirvVersion targetVersion_, deUint32 flags_)
-		: targetVersion	(targetVersion_)
+	ShaderBuildOptions (deUint32 vulkanVersion_, SpirvVersion targetVersion_, deUint32 flags_)
+		: vulkanVersion	(vulkanVersion_)
+		, targetVersion	(targetVersion_)
 		, flags			(flags_)
 	{}
 
 	ShaderBuildOptions (void)
-		: targetVersion	(SPIRV_VERSION_1_0)
+		: vulkanVersion	(VK_MAKE_VERSION(1, 0, 0))
+		, targetVersion	(SPIRV_VERSION_1_0)
 		, flags			(0u)
 	{}
+
+	SpirvValidatorOptions getSpirvValidatorOptions() const
+	{
+		SpirvValidatorOptions::BlockLayoutRules rules = SpirvValidatorOptions::kDefaultBlockLayout;
+
+		if (flags & FLAG_ALLOW_SCALAR_OFFSETS)
+		{
+			rules = SpirvValidatorOptions::kScalarBlockLayout;
+		}
+		else if (flags & FLAG_ALLOW_RELAXED_OFFSETS)
+		{
+			rules = SpirvValidatorOptions::kRelaxedBlockLayout;
+		}
+
+		return SpirvValidatorOptions(vulkanVersion, rules);
+	}
 };
 
 enum ShaderLanguage

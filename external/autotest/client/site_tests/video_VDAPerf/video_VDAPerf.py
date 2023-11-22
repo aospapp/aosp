@@ -12,6 +12,7 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 from contextlib import closing
@@ -36,8 +37,6 @@ TIME_LOG = 'time.log'
 TIME_BINARY = '/usr/local/bin/time'
 MICROSECONDS_PER_SECOND = 1000000
 
-RENDERING_WARM_UP_ITERS = 30
-
 UNIT_MILLISECOND = 'milliseconds'
 UNIT_MICROSECOND = 'us'
 UNIT_RATIO = 'ratio'
@@ -59,10 +58,10 @@ def _percentile(values, k):
 
 
 def _remove_if_exists(filepath):
-    try:
-        os.remove(filepath)
-    except OSError, e:
-        if e.errno != errno.ENOENT: # no such file
+    if filepath and os.path.exists(filepath):
+        try:
+            os.remove(filepath)
+        except OSError, e:
             raise
 
 
@@ -233,7 +232,7 @@ class video_VDAPerf(chrome_binary_test.ChromeBinaryTest):
         cmd_line_list = [
             '--test_video_data="%s"' % test_video_data,
             '--gtest_filter=DecodeVariations/*/0',
-            '--disable_rendering',
+            '--rendering_fps=0',
             '--output_log="%s"' % test_log_file,
             '--ozone-platform=gbm',
             helper_logger.chrome_vmodule_flag(),
@@ -254,7 +253,6 @@ class video_VDAPerf(chrome_binary_test.ChromeBinaryTest):
         cmd_line_list = [
             '--test_video_data="%s"' % test_video_data,
             '--gtest_filter=DecodeVariations/*/0',
-            '--rendering_warm_up=%d' % RENDERING_WARM_UP_ITERS,
             '--rendering_fps=%s' % rendering_fps,
             '--output_log="%s"' % test_log_file,
             '--ozone-platform=gbm',
@@ -290,14 +288,20 @@ class video_VDAPerf(chrome_binary_test.ChromeBinaryTest):
     @chrome_binary_test.nuke_chrome
     def run_once(self, test_cases):
         self._perf_keyvals = {}
+        video_path = None
         last_error = None
+        dc = device_capability.DeviceCapability()
         for (path, width, height, frame_num, frag_num, profile,
-             fps)  in test_cases:
-            name = self._get_test_case_name(path)
-            video_path = os.path.join(self.bindir, '%s.download' % name)
-            test_video_data = '%s:%s:%s:%s:%s:%s:%s:%s' % (
-                video_path, width, height, frame_num, frag_num, 0, 0, profile)
+             fps, required_cap)  in test_cases:
             try:
+                name = self._get_test_case_name(path)
+                if not dc.have_capability(required_cap):
+                    logging.info("%s is unavailable. Skip %s",
+                                 required_cap, name)
+                    continue
+                video_path = os.path.join(self.bindir, '%s.download' % name)
+                test_video_data = '%s:%s:%s:%s:%s:%s:%s:%s' % (video_path,
+                    width, height, frame_num, frag_num, 0, 0, profile)
                 self._download_video(path, video_path)
                 self._run_test_case(name, test_video_data, frame_num, fps)
             except Exception as last_error:
@@ -306,7 +310,7 @@ class video_VDAPerf(chrome_binary_test.ChromeBinaryTest):
             finally:
                 _remove_if_exists(video_path)
 
+        self.write_perf_keyval(self._perf_keyvals)
+
         if last_error:
             raise # the last error
-
-        self.write_perf_keyval(self._perf_keyvals)

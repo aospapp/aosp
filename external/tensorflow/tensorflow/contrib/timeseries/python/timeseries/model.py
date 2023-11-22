@@ -21,18 +21,20 @@ from __future__ import print_function
 import abc
 import collections
 
-from tensorflow.contrib import layers
-from tensorflow.contrib.layers import feature_column
+import six
 
 from tensorflow.contrib.timeseries.python.timeseries import math_utils
 from tensorflow.contrib.timeseries.python.timeseries.feature_keys import PredictionFeatures
 from tensorflow.contrib.timeseries.python.timeseries.feature_keys import TrainEvalFeatures
 
+from tensorflow.python.feature_column import feature_column_lib as feature_column
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
+from tensorflow.python.framework import tensor_shape
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import parsing_ops
 from tensorflow.python.ops import tensor_array_ops
 from tensorflow.python.ops import variable_scope
 
@@ -53,10 +55,9 @@ ModelOutputs = collections.namedtuple(  # pylint: disable=invalid-name
     ])
 
 
+@six.add_metaclass(abc.ABCMeta)
 class TimeSeriesModel(object):
   """Base class for creating generative time series models."""
-
-  __metaclass__ = abc.ABCMeta
 
   def __init__(self,
                num_features,
@@ -66,11 +67,11 @@ class TimeSeriesModel(object):
 
     Args:
       num_features: Number of features for the time series
-      exogenous_feature_columns: A list of tf.contrib.layers.FeatureColumn
-          objects (for example tf.contrib.layers.embedding_column) corresponding
-          to exogenous features which provide extra information to the model but
-          are not part of the series to be predicted. Passed to
-          tf.contrib.layers.input_from_feature_columns.
+      exogenous_feature_columns: A list of `tf.feature_column`s (for example
+           `tf.feature_column.embedding_column`) corresponding to exogenous
+           features which provide extra information to the model but are not
+           part of the series to be predicted. Passed to
+           `tf.feature_column.input_layer`.
       dtype: The floating point datatype to use.
     """
     if exogenous_feature_columns:
@@ -86,7 +87,7 @@ class TimeSeriesModel(object):
 
   @property
   def exogenous_feature_columns(self):
-    """`FeatureColumn` objects for features which are not predicted."""
+    """`tf.feature_colum`s for features which are not predicted."""
     return self._exogenous_feature_columns
 
   # TODO(allenl): Move more of the generic machinery for generating and
@@ -265,11 +266,14 @@ class TimeSeriesModel(object):
     if not self._exogenous_feature_columns:
       return (0,)
     with ops.Graph().as_default():
-      placeholder_features = (
-          feature_column.make_place_holder_tensors_for_base_features(
+      parsed_features = (
+          feature_column.make_parse_example_spec(
               self._exogenous_feature_columns))
-      embedded = layers.input_from_feature_columns(
-          columns_to_tensors=placeholder_features,
+      placeholder_features = parsing_ops.parse_example(
+          serialized=array_ops.placeholder(shape=[None], dtype=dtypes.string),
+          features=parsed_features)
+      embedded = feature_column.input_layer(
+          features=placeholder_features,
           feature_columns=self._exogenous_feature_columns)
       return embedded.get_shape().as_list()[1:]
 
@@ -308,13 +312,13 @@ class TimeSeriesModel(object):
         # Avoid shape warnings when embedding "scalar" exogenous features (those
         # with only batch and window dimensions); input_from_feature_columns
         # expects input ranks to match the embedded rank.
-        if tensor.get_shape().ndims == 1:
+        if tensor.get_shape().ndims == 1 and tensor.dtype != dtypes.string:
           exogenous_features_single_batch_dimension[name] = tensor[:, None]
         else:
           exogenous_features_single_batch_dimension[name] = tensor
       embedded_exogenous_features_single_batch_dimension = (
-          layers.input_from_feature_columns(
-              columns_to_tensors=exogenous_features_single_batch_dimension,
+          feature_column.input_layer(
+              features=exogenous_features_single_batch_dimension,
               feature_columns=self._exogenous_feature_columns,
               trainable=True))
       exogenous_regressors = array_ops.reshape(
@@ -381,8 +385,8 @@ class SequentialTimeSeriesModel(TimeSeriesModel):
           may use _scale_back_data or _scale_back_variance to return predictions
           to the input scale.
       dtype: The floating point datatype to use.
-      exogenous_feature_columns: A list of tf.contrib.layers.FeatureColumn
-          objects. See `TimeSeriesModel`.
+      exogenous_feature_columns: A list of `tf.feature_column`s objects. See
+          `TimeSeriesModel`.
       exogenous_update_condition: A function taking two Tensor arguments `times`
           (shape [batch size]) and `features` (a dictionary mapping exogenous
           feature keys to Tensors with shapes [batch size, ...]) and returning a
@@ -710,7 +714,7 @@ class SequentialTimeSeriesModel(TimeSeriesModel):
         `outputs` and computed in state_update_fn.
     """
     times = ops.convert_to_tensor(times, dtype=dtypes.int64)
-    window_static_shape = times.get_shape()[1].value
+    window_static_shape = tensor_shape.dimension_value(times.shape[1])
     if self._static_unrolling_window_size_threshold is None:
       static_unroll = False
     else:
@@ -787,7 +791,7 @@ class SequentialTimeSeriesModel(TimeSeriesModel):
         [_window_size_tensor_array(self.dtype) for _ in outputs]]
     if static_unroll:
       arguments = initial_loop_arguments
-      for step_number in range(times.get_shape()[1].value):
+      for step_number in range(tensor_shape.dimension_value(times.shape[1])):
         arguments = _state_update_step(
             array_ops.constant(step_number, dtypes.int32), *arguments[1:],
             reuse=(step_number > 0))  # Variable sharing between steps

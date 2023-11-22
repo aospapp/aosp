@@ -8,6 +8,10 @@ cc_binary_host {
         "libLLVMSupport",
     ],
 
+    cflags: [
+        "-Wno-implicit-fallthrough",
+        // NeonEmitter.cpp has several -Wimplicit-fallthrough.
+    ],
     tidy_checks: [
         "-google-runtime-member-string-references",
     ],

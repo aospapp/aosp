@@ -21,7 +21,6 @@ from autotest_lib.server.cros.ap_configurators \
         import ap_configurator_factory
 from autotest_lib.server.cros.network import chaos_clique_utils as utils
 from autotest_lib.server.cros.network import wifi_client
-from autotest_lib.server.hosts import adb_host
 
 # Webdriver master hostname
 MASTERNAME = 'chromeos3-chaosvmmaster.cros.corp.google.com'
@@ -152,9 +151,7 @@ class ChaosRunner(object):
 
             while batch_locker.has_more_aps():
                 # Work around for CrOS devices only:crbug.com/358716
-                # Do not reboot Android devices:b/27977927
-                if self._host.get_os_type() != adb_host.OS_TYPE_ANDROID:
-                    utils.sanitize_client(self._host)
+                utils.sanitize_client(self._host)
                 healthy_dut = True
 
                 with contextlib.closing(wifi_client.WiFiClient(

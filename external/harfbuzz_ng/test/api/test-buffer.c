@@ -92,14 +92,14 @@ fixture_init (fixture_t *fixture, gconstpointer user_data)
 }
 
 static void
-fixture_finish (fixture_t *fixture, gconstpointer user_data)
+fixture_finish (fixture_t *fixture, gconstpointer user_data HB_UNUSED)
 {
   hb_buffer_destroy (fixture->buffer);
 }
 
 
 static void
-test_buffer_properties (fixture_t *fixture, gconstpointer user_data)
+test_buffer_properties (fixture_t *fixture, gconstpointer user_data HB_UNUSED)
 {
   hb_buffer_t *b = fixture->buffer;
   hb_unicode_funcs_t *ufuncs;
@@ -294,7 +294,7 @@ test_buffer_contents (fixture_t *fixture, gconstpointer user_data)
 }
 
 static void
-test_buffer_positions (fixture_t *fixture, gconstpointer user_data)
+test_buffer_positions (fixture_t *fixture, gconstpointer user_data HB_UNUSED)
 {
   hb_buffer_t *b = fixture->buffer;
   unsigned int i, len, len2;
@@ -319,7 +319,7 @@ test_buffer_positions (fixture_t *fixture, gconstpointer user_data)
 }
 
 static void
-test_buffer_allocation (fixture_t *fixture, gconstpointer user_data)
+test_buffer_allocation (fixture_t *fixture, gconstpointer user_data HB_UNUSED)
 {
   hb_buffer_t *b = fixture->buffer;
 
@@ -369,24 +369,25 @@ typedef struct {
 
 /* note: we skip the first and last byte when adding to buffer */
 static const utf8_conversion_test_t utf8_conversion_tests[] = {
-  {"a\303\207", {-1}},
+  {"a\303\207", {(hb_codepoint_t) -1}},
   {"a\303\207b", {0xC7}},
-  {"ab\303cd", {'b', -1, 'c'}},
-  {"ab\303\302\301cd", {'b', -1, -1, -1, 'c'}}
+  {"ab\303cd", {'b', (hb_codepoint_t) -1, 'c'}},
+  {"ab\303\302\301cd", {'b', (hb_codepoint_t) -1, (hb_codepoint_t) -1, (hb_codepoint_t) -1, 'c'}}
 };
 
 static void
 test_buffer_utf8_conversion (void)
 {
   hb_buffer_t *b;
-  hb_glyph_info_t *glyphs;
-  unsigned int bytes, chars, i, j, len;
+  unsigned int chars, i, j, len;
 
   b = hb_buffer_create ();
   hb_buffer_set_replacement_codepoint (b, (hb_codepoint_t) -1);
 
   for (i = 0; i < G_N_ELEMENTS (utf8_conversion_tests); i++)
   {
+    unsigned int bytes;
+    hb_glyph_info_t *glyphs;
     const utf8_conversion_test_t *test = &utf8_conversion_tests[i];
     char *escaped;
 
@@ -445,7 +446,7 @@ static const utf8_validity_test_t utf8_validity_tests[] = {
   { "\xe2\x89\xa0\xe2\x89\xa0",  5, 3, FALSE },
   { "\xe2\x89\xa0\xe2\x89\xa0",  6, 6, TRUE },
 
-  /* examples from http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt */
+  /* examples from https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt */
   /* greek 'kosme' */
   { "\xce\xba\xe1\xbd\xb9\xcf\x83\xce\xbc\xce\xb5", -1, 11, TRUE },
   /* first sequence of each length */
@@ -715,10 +716,10 @@ typedef struct {
 static const utf16_conversion_test_t utf16_conversion_tests[] = {
   {{0x41, 0x004D, 0x0430, 0x4E8C, 0xD800, 0xDF02, 0x61} , {0x004D, 0x0430, 0x4E8C, 0x10302}},
   {{0x41, 0xD800, 0xDF02, 0x61}, {0x10302}},
-  {{0x41, 0xD800, 0xDF02}, {-1}},
-  {{0x41, 0x61, 0xD800, 0xDF02}, {0x61, -1}},
-  {{0x41, 0xD800, 0x61, 0xDF02}, {-1, 0x61}},
-  {{0x41, 0xDF00, 0x61}, {-1}},
+  {{0x41, 0xD800, 0xDF02}, {(hb_codepoint_t) -1}},
+  {{0x41, 0x61, 0xD800, 0xDF02}, {0x61, (hb_codepoint_t) -1}},
+  {{0x41, 0xD800, 0x61, 0xDF02}, {(hb_codepoint_t) -1, 0x61}},
+  {{0x41, 0xDF00, 0x61}, {(hb_codepoint_t) -1}},
   {{0x41, 0x61}, {0}}
 };
 
@@ -764,15 +765,15 @@ typedef struct {
 
 /* note: we skip the first and last item from utf32 when adding to buffer */
 static const utf32_conversion_test_t utf32_conversion_tests[] = {
-  {{0x41, 0x004D, 0x0430, 0x4E8C, 0xD800, 0xDF02, 0x61} , {0x004D, 0x0430, 0x4E8C, -3, -3}},
+  {{0x41, 0x004D, 0x0430, 0x4E8C, 0xD800, 0xDF02, 0x61} , {0x004D, 0x0430, 0x4E8C, (hb_codepoint_t) -3, (hb_codepoint_t) -3}},
   {{0x41, 0x004D, 0x0430, 0x4E8C, 0x10302, 0x61} , {0x004D, 0x0430, 0x4E8C, 0x10302}},
-  {{0x41, 0xD800, 0xDF02, 0x61}, {-3, -3}},
-  {{0x41, 0xD800, 0xDF02}, {-3}},
-  {{0x41, 0x61, 0xD800, 0xDF02}, {0x61, -3}},
-  {{0x41, 0xD800, 0x61, 0xDF02}, {-3, 0x61}},
-  {{0x41, 0xDF00, 0x61}, {-3}},
+  {{0x41, 0xD800, 0xDF02, 0x61}, {(hb_codepoint_t) -3, (hb_codepoint_t) -3}},
+  {{0x41, 0xD800, 0xDF02}, {(hb_codepoint_t) -3}},
+  {{0x41, 0x61, 0xD800, 0xDF02}, {0x61, (hb_codepoint_t) -3}},
+  {{0x41, 0xD800, 0x61, 0xDF02}, {(hb_codepoint_t) -3, 0x61}},
+  {{0x41, 0xDF00, 0x61}, {(hb_codepoint_t) -3}},
   {{0x41, 0x10FFFF, 0x61}, {0x10FFFF}},
-  {{0x41, 0x110000, 0x61}, {-3}},
+  {{0x41, 0x110000, 0x61}, {(hb_codepoint_t) -3}},
   {{0x41, 0x61}, {0}}
 };
 

@@ -150,6 +150,7 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 #define host_to_le32(n) (n)
 #define be_to_host32(n) wpa_swap_32(n)
 #define host_to_be32(n) wpa_swap_32(n)
+#define host_to_le64(n) (n)
 
 #define WPA_BYTE_SWAP_DEFINED
 
@@ -435,6 +436,7 @@ void perror(const char *s);
 #define __bitwise __attribute__((bitwise))
 #else
 #define __force
+#undef __bitwise
 #define __bitwise
 #endif
 
@@ -565,6 +567,7 @@ int is_ctrl_char(char c);
 int str_starts(const char *str, const char *start);
 
 u8 rssi_to_rcpi(int rssi);
+char * get_param(const char *cmd, const char *param);
 
 /*
  * gcc 4.4 ends up generating strict-aliasing warnings about some very common

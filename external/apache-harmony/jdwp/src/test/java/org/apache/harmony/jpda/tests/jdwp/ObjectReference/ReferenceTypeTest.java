@@ -42,11 +42,10 @@ public class ReferenceTypeTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ObjectReference.ReferenceType command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/ReferenceTypeDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.ReferenceTypeDebuggee";
+        return ReferenceTypeDebuggee.class.getName();
     }
 
     /**
@@ -67,7 +66,7 @@ public class ReferenceTypeTest extends JDWPSyncTestCase {
         CommandPacket classesBySignatureCommand = new CommandPacket(
                 JDWPCommands.VirtualMachineCommandSet.CommandSetID,
                 JDWPCommands.VirtualMachineCommandSet.ClassesBySignatureCommand);
-        classesBySignatureCommand.setNextValueAsString(debuggeeSignature);
+        classesBySignatureCommand.setNextValueAsString(getDebuggeeClassSignature());
 
         ReplyPacket classesBySignatureReply = debuggeeWrapper.vmMirror.performCommand(classesBySignatureCommand);
         classesBySignatureCommand = null;
@@ -129,8 +128,8 @@ public class ReferenceTypeTest extends JDWPSyncTestCase {
                 JDWPConstants.Tag.STRING_TAG,
         };
         String expectedSignatures[] = {
-                "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/Class_ReferenceType001;",
-                "[Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/ReferenceTypeDebuggee;",
+                getClassSignature(Class_ReferenceType001.class),
+                "[" + getClassSignature(ReferenceTypeDebuggee.class),
                 "[Ljava/lang/String;",
                 "Ljava/lang/String;",
         };

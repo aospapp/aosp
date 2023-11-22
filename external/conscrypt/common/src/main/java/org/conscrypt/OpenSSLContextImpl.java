@@ -26,6 +26,7 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContextSpi;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSessionContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 
@@ -33,8 +34,6 @@ import javax.net.ssl.TrustManager;
  * OpenSSL-backed SSLContext service provider interface.
  *
  * <p>Public to allow contruction via the provider framework.
- *
- * @hide
  */
 @Internal
 public abstract class OpenSSLContextImpl extends SSLContextSpi {
@@ -58,7 +57,7 @@ public abstract class OpenSSLContextImpl extends SSLContextSpi {
 
     /** Allows outside callers to get the preferred SSLContext. */
     static OpenSSLContextImpl getPreferred() {
-        return new TLSv12();
+        return new TLSv13();
     }
 
     OpenSSLContextImpl(String[] algorithms) {
@@ -78,8 +77,10 @@ public abstract class OpenSSLContextImpl extends SSLContextSpi {
                 serverSessionContext = new ServerSessionContext();
                 defaultSslContextImpl = (DefaultSSLContextImpl) this;
             } else {
-                clientSessionContext = defaultSslContextImpl.engineGetClientSessionContext();
-                serverSessionContext = defaultSslContextImpl.engineGetServerSessionContext();
+                clientSessionContext =
+                    (ClientSessionContext) defaultSslContextImpl.engineGetClientSessionContext();
+                serverSessionContext =
+                    (ServerSessionContext) defaultSslContextImpl.engineGetServerSessionContext();
             }
             sslParameters = new SSLParametersImpl(defaultSslContextImpl.getKeyManagers(),
                     defaultSslContextImpl.getTrustManagers(), null, clientSessionContext,
@@ -141,13 +142,22 @@ public abstract class OpenSSLContextImpl extends SSLContextSpi {
     }
 
     @Override
-    public ServerSessionContext engineGetServerSessionContext() {
+    public SSLSessionContext engineGetServerSessionContext() {
         return serverSessionContext;
     }
 
     @Override
-    public ClientSessionContext engineGetClientSessionContext() {
+    public SSLSessionContext engineGetClientSessionContext() {
         return clientSessionContext;
+    }
+
+    /**
+     * Public to allow construction via the provider framework.
+     */
+    public static final class TLSv13 extends OpenSSLContextImpl {
+        public TLSv13() {
+            super(NativeCrypto.TLSV13_PROTOCOLS);
+        }
     }
 
     /**

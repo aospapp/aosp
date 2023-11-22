@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -64,15 +64,6 @@ and that's a problem since options.h hasn't been included yet. */
 #if (LIBCYASSL_VERSION_HEX < 0x03006006) || \
     defined(HAVE_WOLFSSLV3_CLIENT_METHOD)
 #define WOLFSSL_ALLOW_SSLV3
-#endif
-#endif
-
-/* HAVE_SUPPORTED_CURVES is wolfSSL's build time symbol for enabling the ECC
-   supported curve extension in options.h. Note ECC is enabled separately. */
-#ifndef HAVE_SUPPORTED_CURVES
-#if defined(HAVE_CYASSL_CTX_USESUPPORTEDCURVE) || \
-    defined(HAVE_WOLFSSL_CTX_USESUPPORTEDCURVE)
-#define HAVE_SUPPORTED_CURVES
 #endif
 #endif
 
@@ -187,8 +178,13 @@ cyassl_connect_step1(struct connectdata *conn,
     use_sni(TRUE);
     break;
   case CURL_SSLVERSION_TLSv1_0:
+#ifdef WOLFSSL_ALLOW_TLSV10
     req_method = TLSv1_client_method();
     use_sni(TRUE);
+#else
+    failf(data, "CyaSSL does not support TLS 1.0");
+    return CURLE_NOT_BUILT_IN;
+#endif
     break;
   case CURL_SSLVERSION_TLSv1_1:
     req_method = TLSv1_1_client_method();
@@ -199,8 +195,14 @@ cyassl_connect_step1(struct connectdata *conn,
     use_sni(TRUE);
     break;
   case CURL_SSLVERSION_TLSv1_3:
+#ifdef WOLFSSL_TLS13
+    req_method = wolfTLSv1_3_client_method();
+    use_sni(TRUE);
+    break;
+#else
     failf(data, "CyaSSL: TLS 1.3 is not yet supported");
     return CURLE_SSL_CONNECT_ERROR;
+#endif
   case CURL_SSLVERSION_SSLv3:
 #ifdef WOLFSSL_ALLOW_SSLV3
     req_method = SSLv3_client_method();
@@ -245,7 +247,11 @@ cyassl_connect_step1(struct connectdata *conn,
     */
     if((wolfSSL_CTX_SetMinVersion(BACKEND->ctx, WOLFSSL_TLSV1) != 1) &&
        (wolfSSL_CTX_SetMinVersion(BACKEND->ctx, WOLFSSL_TLSV1_1) != 1) &&
-       (wolfSSL_CTX_SetMinVersion(BACKEND->ctx, WOLFSSL_TLSV1_2) != 1)) {
+       (wolfSSL_CTX_SetMinVersion(BACKEND->ctx, WOLFSSL_TLSV1_2) != 1)
+#ifdef WOLFSSL_TLS13
+       && (wolfSSL_CTX_SetMinVersion(BACKEND->ctx, WOLFSSL_TLSV1_3) != 1)
+#endif
+      ) {
       failf(data, "SSL: couldn't set the minimum protocol version");
       return CURLE_SSL_CONNECT_ERROR;
     }
@@ -347,16 +353,6 @@ cyassl_connect_step1(struct connectdata *conn,
             "TLS extension\n");
     }
   }
-#endif
-
-#ifdef HAVE_SUPPORTED_CURVES
-  /* CyaSSL/wolfSSL does not send the supported ECC curves ext automatically:
-     https://github.com/wolfSSL/wolfssl/issues/366
-     The supported curves below are those also supported by OpenSSL 1.0.2 and
-     in the same order. */
-  CyaSSL_CTX_UseSupportedCurve(BACKEND->ctx, 0x17); /* secp256r1 */
-  CyaSSL_CTX_UseSupportedCurve(BACKEND->ctx, 0x19); /* secp521r1 */
-  CyaSSL_CTX_UseSupportedCurve(BACKEND->ctx, 0x18); /* secp384r1 */
 #endif
 
   /* give application a chance to interfere with SSL set up. */
@@ -554,7 +550,7 @@ cyassl_connect_step2(struct connectdata *conn,
       return CURLE_SSL_PINNEDPUBKEYNOTMATCH;
     }
 
-    memset(&x509_parsed, 0, sizeof x509_parsed);
+    memset(&x509_parsed, 0, sizeof(x509_parsed));
     if(Curl_parseX509(&x509_parsed, x509_der, x509_der + x509_der_len))
       return CURLE_SSL_PINNEDPUBKEYNOTMATCH;
 
@@ -762,13 +758,13 @@ static void Curl_cyassl_session_free(void *ptr)
 static size_t Curl_cyassl_version(char *buffer, size_t size)
 {
 #if LIBCYASSL_VERSION_HEX >= 0x03006000
-  return snprintf(buffer, size, "wolfSSL/%s", wolfSSL_lib_version());
+  return msnprintf(buffer, size, "wolfSSL/%s", wolfSSL_lib_version());
 #elif defined(WOLFSSL_VERSION)
-  return snprintf(buffer, size, "wolfSSL/%s", WOLFSSL_VERSION);
+  return msnprintf(buffer, size, "wolfSSL/%s", WOLFSSL_VERSION);
 #elif defined(CYASSL_VERSION)
-  return snprintf(buffer, size, "CyaSSL/%s", CYASSL_VERSION);
+  return msnprintf(buffer, size, "CyaSSL/%s", CYASSL_VERSION);
 #else
-  return snprintf(buffer, size, "CyaSSL/%s", "<1.8.8");
+  return msnprintf(buffer, size, "CyaSSL/%s", "<1.8.8");
 #endif
 }
 
@@ -776,6 +772,12 @@ static size_t Curl_cyassl_version(char *buffer, size_t size)
 static int Curl_cyassl_init(void)
 {
   return (CyaSSL_Init() == SSL_SUCCESS);
+}
+
+
+static void Curl_cyassl_cleanup(void)
+{
+  CyaSSL_Cleanup();
 }
 
 
@@ -953,10 +955,12 @@ static CURLcode Curl_cyassl_random(struct Curl_easy *data,
     return CURLE_FAILED_INIT;
   if(RNG_GenerateBlock(&rng, entropy, (unsigned)length))
     return CURLE_FAILED_INIT;
+  if(FreeRng(&rng))
+    return CURLE_FAILED_INIT;
   return CURLE_OK;
 }
 
-static void Curl_cyassl_sha256sum(const unsigned char *tmp, /* input */
+static CURLcode Curl_cyassl_sha256sum(const unsigned char *tmp, /* input */
                                   size_t tmplen,
                                   unsigned char *sha256sum /* output */,
                                   size_t unused)
@@ -966,6 +970,7 @@ static void Curl_cyassl_sha256sum(const unsigned char *tmp, /* input */
   InitSha256(&SHA256pw);
   Sha256Update(&SHA256pw, tmp, (word32)tmplen);
   Sha256Final(&SHA256pw, sha256sum);
+  return CURLE_OK;
 }
 
 static void *Curl_cyassl_get_internals(struct ssl_connect_data *connssl,
@@ -978,20 +983,15 @@ static void *Curl_cyassl_get_internals(struct ssl_connect_data *connssl,
 const struct Curl_ssl Curl_ssl_cyassl = {
   { CURLSSLBACKEND_WOLFSSL, "WolfSSL" }, /* info */
 
-  0, /* have_ca_path */
-  0, /* have_certinfo */
 #ifdef KEEP_PEER_CERT
-  1, /* have_pinnedpubkey */
-#else
-  0, /* have_pinnedpubkey */
+  SSLSUPP_PINNEDPUBKEY |
 #endif
-  1, /* have_ssl_ctx */
-  0, /* support_https_proxy */
+  SSLSUPP_SSL_CTX,
 
   sizeof(struct ssl_backend_data),
 
   Curl_cyassl_init,                /* init */
-  Curl_none_cleanup,               /* cleanup */
+  Curl_cyassl_cleanup,             /* cleanup */
   Curl_cyassl_version,             /* version */
   Curl_none_check_cxn,             /* check_cxn */
   Curl_cyassl_shutdown,            /* shutdown */

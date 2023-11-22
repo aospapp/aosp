@@ -992,26 +992,11 @@ IV_API_CALL_STATUS_T impeg2d_api_reset(iv_obj_t *ps_dechdl,
 
     if(ps_dec_state_multi_core != NULL)
     {
-        if(ps_dec_state->aps_ref_pics[1] != NULL)
-            impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg, ps_dec_state->aps_ref_pics[1]->i4_buf_id, BUF_MGR_REF);
-        if(ps_dec_state->aps_ref_pics[0] != NULL)
-            impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg, ps_dec_state->aps_ref_pics[0]->i4_buf_id, BUF_MGR_REF);
-        while(1)
-        {
-            pic_buf_t *ps_disp_pic = impeg2_disp_mgr_get(&ps_dec_state->s_disp_mgr, &ps_dec_state->i4_disp_buf_id);
-            if(NULL == ps_disp_pic)
-                break;
-            if(0 == ps_dec_state->u4_share_disp_buf)
-                impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg, ps_disp_pic->i4_buf_id, BUF_MGR_DISP);
-
-        }
-
-        if((ps_dec_state->u4_deinterlace) && (NULL != ps_dec_state->ps_deint_pic))
-        {
-            impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg,
-                                   ps_dec_state->ps_deint_pic->i4_buf_id,
-                                   MPEG2_BUF_MGR_DEINT);
-        }
+        impeg2_buf_mgr_reset(ps_dec_state->pv_pic_buf_mg);
+        /* Display buffer manager init behaves like a reset
+         * as it doesn't need to preserve picture buffer addresses
+         * like buffer manager */
+        impeg2_disp_mgr_init(&ps_dec_state->s_disp_mgr);
 
         for(i4_num_threads = 0; i4_num_threads < MAX_THREADS; i4_num_threads++)
         {
@@ -1102,18 +1087,7 @@ IV_API_CALL_STATUS_T impeg2d_api_set_params(iv_obj_t *ps_dechdl,void *pv_api_ip,
 
     if(ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd != 0)
     {
-        if(ps_dec_state->u2_header_done == 1)
-        {
-            if (ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd > ps_dec_state->u2_frame_width)
-            {
-                ps_dec_state->u4_frm_buf_stride = ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd;
-            }
-        }
-        else
-        {
-            ps_dec_state->u4_frm_buf_stride = ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd;
-        }
-
+        ps_dec_state->u4_frm_buf_stride = ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd;
     }
     else
     {
@@ -3484,6 +3458,7 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
                 /*************************************************************************/
                 /*                              Frame Decode                             */
                 /*************************************************************************/
+                ps_dec_state->u4_inp_ts = ps_dec_ip->s_ivd_video_decode_ip_t.u4_ts;
 
                 impeg2d_dec_frm(ps_dec_state,ps_dec_ip,ps_dec_op);
 

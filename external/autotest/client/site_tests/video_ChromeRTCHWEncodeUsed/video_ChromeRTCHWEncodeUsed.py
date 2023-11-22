@@ -10,6 +10,7 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 
@@ -88,7 +89,11 @@ class video_ChromeRTCHWEncodeUsed(test.test):
             _histogram_success(histogram, bucket)
 
     @helper_logger.video_log_wrapper
-    def run_once(self, arc_mode=None):
+    def run_once(self, capability, arc_mode=None):
+        if not device_capability.DeviceCapability().have_capability(capability):
+            logging.warning("Missing Capability: %s" % capability)
+            return
+
         # Download test video.
         url = DOWNLOAD_BASE + VIDEO_NAME
         local_path = os.path.join(self.bindir, VIDEO_NAME)

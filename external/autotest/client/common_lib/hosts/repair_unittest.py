@@ -29,7 +29,9 @@ class _StubHost(object):
     def __init__(self):
         self._record_sequence = []
         fake_board_name = constants.Labels.BOARD_PREFIX + 'fubar'
-        self.host_info_store = host_info.HostInfo(labels=[fake_board_name])
+        info = host_info.HostInfo(labels=[fake_board_name])
+        self.host_info_store = host_info.InMemoryHostInfoStore(info)
+        self.hostname = 'unittest_host'
 
 
     def record(self, status_code, subdir, operation, status=''):
@@ -170,8 +172,9 @@ class _StubRepairAction(hosts.RepairAction):
     @property _description  The value of the `description` property.
     """
 
-    def __init__(self, tag, deps, triggers, success):
-        super(_StubRepairAction, self).__init__(tag, deps, triggers)
+    def __init__(self, tag, deps, triggers, host_class, success):
+        super(_StubRepairAction, self).__init__(tag, deps, triggers,
+                                                host_class)
         self.repair_count = 0
         self.message = 'Failed repair for "%s"' % tag
         self._success = success
@@ -253,7 +256,8 @@ class _DependencyNodeTestCase(unittest.TestCase):
         return verifier
 
 
-    def _make_repair_action(self, success, tag, deps, triggers):
+    def _make_repair_action(self, success, tag, deps, triggers,
+                            host_class='unittest'):
         """
         Make a `_StubRepairAction` and remember it in `self.nodes`.
 
@@ -261,8 +265,10 @@ class _DependencyNodeTestCase(unittest.TestCase):
         @param tag        As for the `_StubRepairAction` constructor.
         @param deps       As for the `_StubRepairAction` constructor.
         @param triggers   As for the `_StubRepairAction` constructor.
+        @param host_class As for the `_StubRepairAction` constructor.
         """
-        repair_action = _StubRepairAction(tag, deps, triggers, success)
+        repair_action = _StubRepairAction(tag, deps, triggers, host_class,
+                                          success)
         self.nodes[tag] = repair_action
         return repair_action
 
@@ -281,7 +287,7 @@ class _DependencyNodeTestCase(unittest.TestCase):
 
         @return A set of `_DependencyFailure` objects.
         """
-        failures = [repair._DependencyFailure(v.description, v.message)
+        failures = [repair._DependencyFailure(v.description, v.message, v.tag)
                     for v in verifiers]
         return set(failures)
 
@@ -713,7 +719,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             repair_action._repair_host(self._fake_host, silent)
             self.assertEqual(verifier.verify_count, 1)
             self.assertEqual(repair_action.repair_count, 0)
-            self.assertEqual(repair_action.status, 'untriggered')
+            self.assertEqual(repair_action.status, 'skipped')
             self._check_log_records(silent, ('check', 'GOOD'))
 
 
@@ -742,7 +748,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             self.assertEqual(repair_action.message, str(e.exception))
             self.assertEqual(verifier.verify_count, 1)
             self.assertEqual(repair_action.repair_count, 1)
-            self.assertEqual(repair_action.status, 'failed-action')
+            self.assertEqual(repair_action.status, 'repair_failure')
             self._check_log_records(silent,
                                     ('fail', 'FAIL'),
                                     ('nofix', 'START'),
@@ -801,7 +807,7 @@ class RepairActionTests(_DependencyNodeTestCase):
                 repair_action._repair_host(self._fake_host, silent)
             self.assertEqual(repair_action.repair_count, 1)
             self.assertEqual(verifier.verify_count, 2)
-            self.assertEqual(repair_action.status, 'failed-trigger')
+            self.assertEqual(repair_action.status, 'verify_failure')
             self._check_log_records(silent,
                                     ('fail', 'FAIL'),
                                     ('nofix', 'START'),
@@ -944,7 +950,7 @@ class _RepairStrategyTestCase(_DependencyNodeTestCase):
         """
         verify_data = self._make_verify_data(*verify_input)
         repair_data = self._make_repair_data(*repair_input)
-        return hosts.RepairStrategy(verify_data, repair_data)
+        return hosts.RepairStrategy(verify_data, repair_data, 'unittest')
 
     def _check_silent_records(self, silent):
         """
@@ -988,7 +994,7 @@ class RepairStrategyVerifyTests(_RepairStrategyTestCase):
             Root Node -> Main Node
         """
         verify_data = self._make_verify_data(('main', 0, ()))
-        strategy = hosts.RepairStrategy(verify_data, [])
+        strategy = hosts.RepairStrategy(verify_data, [], 'unittest')
         verifier = self.nodes['main']
         self.assertEqual(
                 strategy._verify_root._dependency_list,
@@ -1007,7 +1013,7 @@ class RepairStrategyVerifyTests(_RepairStrategyTestCase):
         verify_data = self._make_verify_data(
                 ('child', 0, ()),
                 ('parent', 0, ('child',)))
-        strategy = hosts.RepairStrategy(verify_data, [])
+        strategy = hosts.RepairStrategy(verify_data, [], 'unittest')
         parent = self.nodes['parent']
         child = self.nodes['child']
         self.assertEqual(
@@ -1032,7 +1038,7 @@ class RepairStrategyVerifyTests(_RepairStrategyTestCase):
                 ('bottom', 0, ()),
                 ('left', 0, ('bottom',)),
                 ('right', 0, ('bottom',)))
-        strategy = hosts.RepairStrategy(verify_data, [])
+        strategy = hosts.RepairStrategy(verify_data, [], 'unittest')
         bottom = self.nodes['bottom']
         left = self.nodes['left']
         right = self.nodes['right']
@@ -1064,7 +1070,7 @@ class RepairStrategyVerifyTests(_RepairStrategyTestCase):
                 ('one', 0, ()),
                 ('two', 0, ()),
                 ('three', 0, ()))
-        strategy = hosts.RepairStrategy(verify_data, [])
+        strategy = hosts.RepairStrategy(verify_data, [], 'unittest')
         one = self.nodes['one']
         two = self.nodes['two']
         three = self.nodes['three']
@@ -1088,7 +1094,7 @@ class RepairStrategyVerifyTests(_RepairStrategyTestCase):
             cached results are not re-used.
         """
         verify_data = self._make_verify_data(('tester', 0, ()))
-        strategy = hosts.RepairStrategy(verify_data, [])
+        strategy = hosts.RepairStrategy(verify_data, [], 'unittest')
         verifier = self.nodes['tester']
         count = 0
         for silent in self._generate_silent():

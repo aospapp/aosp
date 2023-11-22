@@ -1,10 +1,10 @@
 #!/bin/sh
-# Copyright (C) 1999-2016 ImageMagick Studio LLC
+# Copyright (C) 1999-2019 ImageMagick Studio LLC
 # Copyright (C) 2003 - 2008 GraphicsMagick Group
 #
 # This program is covered by multiple licenses, which are described in
 # LICENSE. You should have received a copy of LICENSE with this
-# package; otherwise see http://www.imagemagick.org/script/license.php.
+# package; otherwise see https://imagemagick.org/script/license.php.
 #
 # Convert the specified POSIX path to a Windows path under MinGW and Cygwin
 # The optional second parameter specifies the level of backslash escaping
@@ -36,7 +36,7 @@ mount | sed -e 's:\\:/:g'  | (
   do
     win_mount_path=`echo "$mount_entry" | sed -e 's: .*::g'`
     unix_mount_path=`echo "$mount_entry" | sed -e 's:.* on ::;s: type .*::'`
-    temp=`echo "$arg" | sed -e "s!^$unix_mount_path!$win_mount_path!"`
+    temp=`echo "$arg" | sed -e "s!^$unix_mount_path!$win_mount_path/!"`
     if test "$temp" != "$arg"
     then
       candidate="$temp"

@@ -1,10 +1,8 @@
 package org.bouncycastle.jcajce.provider.asymmetric.rsa;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OptionalDataException;
 import java.math.BigInteger;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
@@ -137,10 +135,14 @@ public class BCRSAPublicKey
         StringBuffer    buf = new StringBuffer();
         String          nl = Strings.lineSeparator();
 
-        buf.append("RSA Public Key").append(nl);
-        buf.append("            modulus: ").append(this.getModulus().toString(16)).append(nl);
-        buf.append("    public exponent: ").append(this.getPublicExponent().toString(16)).append(nl);
-
+        buf.append("RSA Public Key [").append(RSAUtil.generateKeyFingerprint(this.getModulus())).append("]")
+            .append(",[")
+            .append(RSAUtil.generateExponentFingerprint(this.getPublicExponent()))
+            .append("]")
+            .append(nl);
+        buf.append("        modulus: ").append(this.getModulus().toString(16)).append(nl);
+        buf.append("public exponent: ").append(this.getPublicExponent().toString(16)).append(nl);
+        
         return buf.toString();
     }
 

@@ -41,6 +41,7 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
   blacklist = ''
 
   unit_higher_is_better = {
+      'mbytes_sec': True,
       'mpixels_sec': True,
       'mtexel_sec': True,
       'mtri_sec': True,
@@ -208,12 +209,11 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
       testrating = float(score)
       imagefile = remainder.split(']')[0]
 
-      higher = self.unit_higher_is_better.get(unit)
-      if higher is None:
-        raise error.TestFail('Failed: Unknown test unit "%s" for %s' %
-                             (unit, testname))
-
       if not hasty:
+        higher = self.unit_higher_is_better.get(unit)
+        if higher is None:
+          raise error.TestFail('Failed: Unknown test unit "%s" for %s' %
+                               (unit, testname))
         # Prepend unit to test name to maintain backwards compatibility with
         # existing per data.
         perf_value_name = '%s_%s' % (unit, testname)

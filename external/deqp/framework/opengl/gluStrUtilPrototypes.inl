@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision a3ee0ed08111d44ac3cb863d9e3e81a7c28f9d90.
+ * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
  */
 const char*							getErrorName							(int value);
 const char*							getTypeName								(int value);

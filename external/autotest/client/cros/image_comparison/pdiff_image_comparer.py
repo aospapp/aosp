@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import errno
-import Image
+from PIL import Image
 import logging
 import subprocess
 import tempfile

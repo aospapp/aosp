@@ -11,6 +11,19 @@
 # define INTERNAL
 #endif
 
+#ifdef DEBUG
+# define DEBUG_LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+# define DEBUG_LOG(...)
+#endif
+
+#define ESC_S "\x1b"
+
+#define INTERMED_MAX 16
+
+#define CSI_ARGS_MAX 16
+#define CSI_LEADER_MAX 16
+
 typedef struct VTermEncoding VTermEncoding;
 
 typedef struct {
@@ -33,17 +46,15 @@ struct VTermPen
   unsigned int font:4; /* To store 0-9 */
 };
 
-static inline int vterm_color_equal(VTermColor a, VTermColor b)
-{
-  return a.red == b.red && a.green == b.green && a.blue == b.blue;
-}
-
 struct VTermState
 {
   VTerm *vt;
 
   const VTermStateCallbacks *callbacks;
   void *cbdata;
+
+  const VTermParserCallbacks *fallbacks;
+  void *fbdata;
 
   int rows;
   int cols;
@@ -72,6 +83,10 @@ struct VTermState
   int mouse_col, mouse_row;
   int mouse_buttons;
   int mouse_flags;
+#define MOUSE_WANT_CLICK 0x01
+#define MOUSE_WANT_DRAG  0x02
+#define MOUSE_WANT_MOVE  0x04
+
   enum { MOUSE_X10, MOUSE_UTF8, MOUSE_SGR, MOUSE_RXVT } mouse_protocol;
 
   /* Last glyph output, for Unicode recombining purposes */
@@ -81,18 +96,20 @@ struct VTermState
   VTermPos combine_pos;   // Position before movement
 
   struct {
-    int keypad:1;
-    int cursor:1;
-    int autowrap:1;
-    int insert:1;
-    int newline:1;
-    int cursor_visible:1;
-    int cursor_blink:1;
+    unsigned int keypad:1;
+    unsigned int cursor:1;
+    unsigned int autowrap:1;
+    unsigned int insert:1;
+    unsigned int newline:1;
+    unsigned int cursor_visible:1;
+    unsigned int cursor_blink:1;
     unsigned int cursor_shape:2;
-    int alt_screen:1;
-    int origin:1;
-    int screen:1;
-    int leftrightmargin:1;
+    unsigned int alt_screen:1;
+    unsigned int origin:1;
+    unsigned int screen:1;
+    unsigned int leftrightmargin:1;
+    unsigned int bracketpaste:1;
+    unsigned int report_focus:1;
   } mode;
 
   VTermEncodingInstance encoding[4], encoding_utf8;
@@ -104,8 +121,6 @@ struct VTermState
   VTermColor default_bg;
   VTermColor colors[16]; // Store the 8 ANSI and the 8 ANSI high-brights only
 
-  int fg_index;
-  int bg_index;
   int bold_is_highbright;
 
   unsigned int protected_cell : 1;
@@ -116,12 +131,19 @@ struct VTermState
     struct VTermPen pen;
 
     struct {
-      int cursor_visible:1;
-      int cursor_blink:1;
+      unsigned int cursor_visible:1;
+      unsigned int cursor_blink:1;
       unsigned int cursor_shape:2;
     } mode;
   } saved;
 };
+
+typedef enum {
+  VTERM_PARSER_OSC,
+  VTERM_PARSER_DCS,
+
+  VTERM_N_PARSER_TYPES
+} VTermParserStringType;
 
 struct VTerm
 {
@@ -132,26 +154,41 @@ struct VTerm
   int cols;
 
   struct {
-    int utf8:1;
-    int ctrl8bit:1;
+    unsigned int utf8:1;
+    unsigned int ctrl8bit:1;
   } mode;
 
-  enum VTermParserState {
-    NORMAL,
-    CSI,
-    OSC,
-    DCS,
-    ESC,
-    ESC_IN_OSC,
-    ESC_IN_DCS,
-  } parser_state;
-  const VTermParserCallbacks *parser_callbacks;
-  void *cbdata;
+  struct {
+    enum VTermParserState {
+      NORMAL,
+      CSI_LEADER,
+      CSI_ARGS,
+      CSI_INTERMED,
+      ESC,
+      /* below here are the "string states" */
+      STRING,
+      ESC_IN_STRING,
+    } state;
+
+    int intermedlen;
+    char intermed[INTERMED_MAX];
+
+    int csi_leaderlen;
+    char csi_leader[CSI_LEADER_MAX];
+
+    int csi_argi;
+    long csi_args[CSI_ARGS_MAX];
+
+    const VTermParserCallbacks *callbacks;
+    void *cbdata;
+
+    VTermParserStringType stringtype;
+    char  *strbuffer;
+    size_t strbuffer_len;
+    size_t strbuffer_cur;
+  } parser;
 
   /* len == malloc()ed size; cur == number of valid bytes */
-  char  *strbuffer;
-  size_t strbuffer_len;
-  size_t strbuffer_cur;
 
   char  *outbuffer;
   size_t outbuffer_len;
@@ -203,7 +240,7 @@ void vterm_screen_free(VTermScreen *screen);
 
 VTermEncoding *vterm_lookup_encoding(VTermEncodingType type, char designation);
 
-int vterm_unicode_width(int codepoint);
-int vterm_unicode_is_combining(int codepoint);
+int vterm_unicode_width(uint32_t codepoint);
+int vterm_unicode_is_combining(uint32_t codepoint);
 
 #endif

@@ -7,7 +7,7 @@ magick \- convert between image formats as well as resize an image, blur, crop, 
 .SH OVERVIEW
 The \fBmagickscript\fP program is a member of the ImageMagick(1) suite of tools.  Use it to convert between image formats as well as resize an image, blur, crop, despeckle, dither, draw on, flip, join, re-sample, and much more.  
 
-For more information about the magick command, point your browser to file://@DOCUMENTATION_PATH@/www/magick.html or http://www.imagemagick.org/script/magick.php.
+For more information about the magick command, point your browser to file://@DOCUMENTATION_PATH@/www/magick.html or http://imagemagick.org/script/magick.php.
 .SH DESCRIPTION
 Image Settings:
   \-adjoin              join images into a single multi-image file
@@ -70,6 +70,7 @@ Image Settings:
   \-quiet               suppress all warning messages
   \-red-primary point   chromaticity red primary point
   \-regard-warnings     pay attention to warning messages
+  \-repage geometry     size and location of an image canvas
   \-sampling-factor geometry
                        horizontal and vertical sampling factor
   \-scene value         image scene number
@@ -180,9 +181,10 @@ Image Operators:
   \-raise value         lighten/darken image edges to create a 3-D effect
   \-random-threshold low,high
                        random threshold the image
+  \-range-threshold values
+                       perform either hard or soft thresholding within some range of values in an image
   \-region geometry     apply options to a portion of the image
   \-render              render vector graphics
-  \-repage geometry     size and location of an image canvas
   \-resample geometry   change the resolution of an image
   \-resize geometry     resize the image
   \-roll geometry       roll an image vertically or horizontally
@@ -277,4 +279,4 @@ By default, the image format of `file' is determined by its magic number.  To sp
 ImageMagick(1)
 
 .SH COPYRIGHT
-\fBCopyright (C) 1999-2016 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://www.imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2019 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://imagemagick.org/script/license.php\fP

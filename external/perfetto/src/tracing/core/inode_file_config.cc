@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #include "perfetto/tracing/core/inode_file_config.h"
@@ -37,6 +37,18 @@ InodeFileConfig::InodeFileConfig(const InodeFileConfig&) = default;
 InodeFileConfig& InodeFileConfig::operator=(const InodeFileConfig&) = default;
 InodeFileConfig::InodeFileConfig(InodeFileConfig&&) noexcept = default;
 InodeFileConfig& InodeFileConfig::operator=(InodeFileConfig&&) = default;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool InodeFileConfig::operator==(const InodeFileConfig& other) const {
+  return (scan_interval_ms_ == other.scan_interval_ms_) &&
+         (scan_delay_ms_ == other.scan_delay_ms_) &&
+         (scan_batch_size_ == other.scan_batch_size_) &&
+         (do_not_scan_ == other.do_not_scan_) &&
+         (scan_mount_points_ == other.scan_mount_points_) &&
+         (mount_point_mapping_ == other.mount_point_mapping_);
+}
+#pragma GCC diagnostic pop
 
 void InodeFileConfig::FromProto(
     const perfetto::protos::InodeFileConfig& proto) {
@@ -125,6 +137,15 @@ InodeFileConfig::MountPointMappingEntry::MountPointMappingEntry(
 InodeFileConfig::MountPointMappingEntry&
 InodeFileConfig::MountPointMappingEntry::operator=(
     InodeFileConfig::MountPointMappingEntry&&) = default;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool InodeFileConfig::MountPointMappingEntry::operator==(
+    const InodeFileConfig::MountPointMappingEntry& other) const {
+  return (mountpoint_ == other.mountpoint_) &&
+         (scan_roots_ == other.scan_roots_);
+}
+#pragma GCC diagnostic pop
 
 void InodeFileConfig::MountPointMappingEntry::FromProto(
     const perfetto::protos::InodeFileConfig_MountPointMappingEntry& proto) {

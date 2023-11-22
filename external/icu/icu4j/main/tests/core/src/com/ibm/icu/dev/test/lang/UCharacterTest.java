@@ -25,6 +25,7 @@ import com.ibm.icu.impl.Normalizer2Impl;
 import com.ibm.icu.impl.PatternProps;
 import com.ibm.icu.impl.UCharacterName;
 import com.ibm.icu.impl.Utility;
+import com.ibm.icu.lang.CharacterProperties;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.lang.UCharacterCategory;
 import com.ibm.icu.lang.UCharacterDirection;
@@ -35,6 +36,7 @@ import com.ibm.icu.text.Normalizer2;
 import com.ibm.icu.text.UTF16;
 import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.text.UnicodeSetIterator;
+import com.ibm.icu.util.CodePointMap;
 import com.ibm.icu.util.RangeValueIterator;
 import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.ValueIterator;
@@ -54,7 +56,7 @@ public final class UCharacterTest extends TestFmwk
     /**
      * Expected Unicode version.
      */
-    private final VersionInfo VERSION_ = VersionInfo.getInstance(10);
+    private final VersionInfo VERSION_ = VersionInfo.getInstance(11);
 
     // constructor ===================================================
 
@@ -692,7 +694,7 @@ public final class UCharacterTest extends TestFmwk
         final String TYPE =
             "LuLlLtLmLoMnMeMcNdNlNoZsZlZpCcCfCoCsPdPsPePcPoSmScSkSoPiPf";
 
-        // directorionality types used in the UnicodeData file
+        // directionality types used in the UnicodeData file
         // padded by spaces to make each type size 4
         final String DIR =
             "L   R   EN  ES  ET  AN  CS  B   S   WS  ON  LRE LRO AL  RLE RLO PDF NSM BN  FSI LRI RLI PDI ";
@@ -1556,9 +1558,17 @@ public final class UCharacterTest extends TestFmwk
             { 0xFE00, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },
             { 0xFE70, UCharacterDirection.LEFT_TO_RIGHT },
             { 0xFF00, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },
+
             { 0x10800, UCharacterDirection.LEFT_TO_RIGHT },
+            { 0x10D00, UCharacterDirection.RIGHT_TO_LEFT },  // Unicode 11 changes U+10D00..U+10D3F from R to AL.
+            { 0x10D40, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },
+            { 0x10F30, UCharacterDirection.RIGHT_TO_LEFT },  // Unicode 11 changes U+10F30..U+10F6F from R to AL.
+            { 0x10F70, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },
             { 0x11000, UCharacterDirection.RIGHT_TO_LEFT },
+
             { 0x1E800, UCharacterDirection.LEFT_TO_RIGHT },  /* new default-R range in Unicode 5.2: U+1E800 - U+1EFFF */
+            { 0x1EC70, UCharacterDirection.RIGHT_TO_LEFT },  // Unicode 11 changes U+1EC70..U+1ECBF from R to AL.
+            { 0x1ECC0, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },
             { 0x1EE00, UCharacterDirection.RIGHT_TO_LEFT },
             { 0x1EF00, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },  /* Unicode 6.1 changes U+1EE00..U+1EEFF from R to AL */
             { 0x1F000, UCharacterDirection.RIGHT_TO_LEFT },
@@ -1922,7 +1932,7 @@ public final class UCharacterTest extends TestFmwk
             { 0x155A, UProperty.BLOCK, UCharacter.UnicodeBlock.UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS.getID() },
             { 0x1717, UProperty.BLOCK, UCharacter.UnicodeBlock.TAGALOG.getID() },
             { 0x1900, UProperty.BLOCK, UCharacter.UnicodeBlock.LIMBU.getID() },
-            { 0x1CBF, UProperty.BLOCK, UCharacter.UnicodeBlock.NO_BLOCK.getID()},
+            { 0x0870, UProperty.BLOCK, UCharacter.UnicodeBlock.NO_BLOCK.getID()},
             { 0x3040, UProperty.BLOCK, UCharacter.UnicodeBlock.HIRAGANA.getID()},
             { 0x1D0FF, UProperty.BLOCK, UCharacter.UnicodeBlock.BYZANTINE_MUSICAL_SYMBOLS.getID()},
             { 0x50000, UProperty.BLOCK, UCharacter.UnicodeBlock.NO_BLOCK.getID() },
@@ -2517,6 +2527,52 @@ public final class UCharacterTest extends TestFmwk
                 UCharacter.hasBinaryProperty(0x1F64B, UProperty.EMOJI_MODIFIER_BASE));
         assertTrue("asterisk is Emoji_Component",
                 UCharacter.hasBinaryProperty(0x2A, UProperty.EMOJI_COMPONENT));
+        assertTrue("copyright is Extended_Pictographic",
+                UCharacter.hasBinaryProperty(0xA9, UProperty.EXTENDED_PICTOGRAPHIC));
+    }
+
+    @Test
+    public void TestIndicPositionalCategory() {
+        UnicodeSet na = new UnicodeSet("[:InPC=NA:]");
+        assertTrue("mostly NA", 1000000 <= na.size() && na.size() <= Character.MAX_CODE_POINT - 500);
+        UnicodeSet vol = new UnicodeSet("[:InPC=Visual_Order_Left:]");
+        assertTrue("some Visual_Order_Left", 19 <= vol.size() && vol.size() <= 100);
+        assertEquals("U+08FF: NA", UCharacter.IndicPositionalCategory.NA,
+                UCharacter.getIntPropertyValue(0x08FF, UProperty.INDIC_POSITIONAL_CATEGORY));
+        assertEquals("U+0900: Top", UCharacter.IndicPositionalCategory.TOP,
+                UCharacter.getIntPropertyValue(0x0900, UProperty.INDIC_POSITIONAL_CATEGORY));
+        assertEquals("U+10A06: Overstruck", UCharacter.IndicPositionalCategory.OVERSTRUCK,
+                UCharacter.getIntPropertyValue(0x10A06, UProperty.INDIC_POSITIONAL_CATEGORY));
+    }
+
+    @Test
+    public void TestIndicSyllabicCategory() {
+        UnicodeSet other = new UnicodeSet("[:InSC=Other:]");
+        assertTrue("mostly Other", 1000000 <= other.size() && other.size() <= Character.MAX_CODE_POINT - 500);
+        UnicodeSet ava = new UnicodeSet("[:InSC=Avagraha:]");
+        assertTrue("some Avagraha", 16 <= ava.size() && ava.size() <= 100);
+        assertEquals("U+08FF: Other", UCharacter.IndicSyllabicCategory.OTHER,
+                UCharacter.getIntPropertyValue(0x08FF, UProperty.INDIC_SYLLABIC_CATEGORY));
+        assertEquals("U+0900: Bindu", UCharacter.IndicSyllabicCategory.BINDU,
+                UCharacter.getIntPropertyValue(0x0900, UProperty.INDIC_SYLLABIC_CATEGORY));
+        assertEquals("U+11065: Brahmi_Joining_Number", UCharacter.IndicSyllabicCategory.BRAHMI_JOINING_NUMBER,
+                UCharacter.getIntPropertyValue(0x11065, UProperty.INDIC_SYLLABIC_CATEGORY));
+    }
+
+    @Test
+    public void TestVerticalOrientation() {
+        UnicodeSet r = new UnicodeSet("[:vo=R:]");
+        assertTrue("mostly R", 0xc0000 <= r.size() && r.size() <= 0xd0000);
+        UnicodeSet u = new UnicodeSet("[:vo=U:]");
+        assertTrue("much U", 0x40000 <= u.size() && u.size() <= 0x50000);
+        UnicodeSet tu = new UnicodeSet("[:vo=Tu:]");
+        assertTrue("some Tu", 147 <= tu.size() && tu.size() <= 300);
+        assertEquals("U+0E01: Rotated", UCharacter.VerticalOrientation.ROTATED,
+                UCharacter.getIntPropertyValue(0x0E01, UProperty.VERTICAL_ORIENTATION));
+        assertEquals("U+3008: Transformed_Rotated", UCharacter.VerticalOrientation.TRANSFORMED_ROTATED,
+                UCharacter.getIntPropertyValue(0x3008, UProperty.VERTICAL_ORIENTATION));
+        assertEquals("U+33333: Upright", UCharacter.VerticalOrientation.UPRIGHT,
+                UCharacter.getIntPropertyValue(0x33333, UProperty.VERTICAL_ORIENTATION));
     }
 
     @Test
@@ -3586,5 +3642,68 @@ public final class UCharacterTest extends TestFmwk
         assertEquals("Wrong name alias", "LATIN CAPITAL LETTER GHA", alias);
         int output = UCharacter.getCharFromNameAlias(alias);
         assertEquals("alias for '" + input + "'", input, output);
+    }
+
+    @Test
+    public void TestBinaryCharacterProperties() {
+        try {
+            CharacterProperties.getBinaryPropertySet(-1);
+            fail("getBinaryPropertySet(-1) did not throw an exception");
+            CharacterProperties.getBinaryPropertySet(UProperty.BINARY_LIMIT);
+            fail("getBinaryPropertySet(BINARY_LIMIT) did not throw an exception");
+        } catch(Exception expected) {
+        }
+        // Spot-check getBinaryPropertySet() vs. hasBinaryProperty().
+        for (int prop = 0; prop < UProperty.BINARY_LIMIT; ++prop) {
+            UnicodeSet set = CharacterProperties.getBinaryPropertySet(prop);
+            int size = set.size();
+            if (size == 0) {
+                assertFalse("!hasBinaryProperty(U+0020, " + prop + ')',
+                        UCharacter.hasBinaryProperty(0x20, prop));
+                assertFalse("!hasBinaryProperty(U+0061, " + prop + ')',
+                        UCharacter.hasBinaryProperty(0x61, prop));
+                assertFalse("!hasBinaryProperty(U+4E00, " + prop + ')',
+                        UCharacter.hasBinaryProperty(0x4e00, prop));
+            } else {
+                int c = set.charAt(0);
+                if (c > 0) {
+                    assertFalse("!hasBinaryProperty(" + Utility.hex(c - 1) + ", " + prop + ')',
+                            UCharacter.hasBinaryProperty(c - 1, prop));
+                }
+                assertTrue("hasBinaryProperty(" + Utility.hex(c) + ", " + prop + ')',
+                        UCharacter.hasBinaryProperty(c, prop));
+                c = set.charAt(size - 1);
+                assertTrue("hasBinaryProperty(" + Utility.hex(c) + ", " + prop + ')',
+                        UCharacter.hasBinaryProperty(c, prop));
+                if (c < 0x10ffff) {
+                    assertFalse("!hasBinaryProperty(" + Utility.hex(c + 1) + ", " + prop + ')',
+                            UCharacter.hasBinaryProperty(c + 1, prop));
+                }
+            }
+        }
+    }
+
+    @Test
+    public void TestIntCharacterProperties() {
+        try {
+            CharacterProperties.getIntPropertyMap(UProperty.INT_START - 1);
+            fail("getIntPropertyMap(INT_START-1) did not throw an exception");
+            CharacterProperties.getIntPropertyMap(UProperty.INT_LIMIT);
+            fail("getIntPropertyMap(INT_LIMIT) did not throw an exception");
+        } catch(Exception expected) {
+        }
+        // Spot-check getIntPropertyMap() vs. getIntPropertyValue().
+        CodePointMap.Range range = new CodePointMap.Range();
+        for (int prop = UProperty.INT_START; prop < UProperty.INT_LIMIT; ++prop) {
+            CodePointMap map = CharacterProperties.getIntPropertyMap(prop);
+            assertTrue("int property first range", map.getRange(0, null, range));
+            int c = (range.getStart() + range.getEnd()) / 2;
+            assertEquals("int property first range value at " + Utility.hex(c),
+                    UCharacter.getIntPropertyValue(c, prop), range.getValue());
+            assertTrue("int property later range", map.getRange(0x5000, null, range));
+            int end = range.getEnd();
+            assertEquals("int property later range value at " + Utility.hex(end),
+                    UCharacter.getIntPropertyValue(end, prop), range.getValue());
+        }
     }
 }

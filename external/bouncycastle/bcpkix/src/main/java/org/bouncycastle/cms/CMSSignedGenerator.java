@@ -18,6 +18,8 @@ import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+// Android-removed: Unsupported algorithms
+// import org.bouncycastle.asn1.rosstandart.RosstandartObjectIdentifiers;
 import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
@@ -54,6 +56,8 @@ public class CMSSignedGenerator
     // BEGIN Android-removed: Unsupported algorithms
     // public static final String  ENCRYPTION_GOST3410 = CryptoProObjectIdentifiers.gostR3410_94.getId();
     // public static final String  ENCRYPTION_ECGOST3410 = CryptoProObjectIdentifiers.gostR3410_2001.getId();
+    // public static final String  ENCRYPTION_ECGOST3410_2012_256 = RosstandartObjectIdentifiers.id_tc26_gost_3410_12_256.getId();
+    // public static final String  ENCRYPTION_ECGOST3410_2012_512 = RosstandartObjectIdentifiers.id_tc26_gost_3410_12_512.getId();
     // END Android-removed: Unsupported algorithms
 
     private static final String  ENCRYPTION_ECDSA_WITH_SHA1 = X9ObjectIdentifiers.ecdsa_with_SHA1.getId();

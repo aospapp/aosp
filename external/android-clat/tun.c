@@ -15,26 +15,25 @@
  *
  * tun.c - tun device functions
  */
-#include <fcntl.h>
-#include <string.h>
-#include <unistd.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <string.h>
 #include <sys/ioctl.h>
-#include <sys/uio.h>
+#include <unistd.h>
 
-#include "clatd.h"
+#include "common.h"
 
 /* function: tun_open
- * tries to open the tunnel device
+ * tries to open the tunnel device in non-blocking mode
  */
 int tun_open() {
   int fd;
 
-  fd = open("/dev/tun", O_RDWR);
-  if(fd < 0) {
-    fd = open("/dev/net/tun", O_RDWR);
+  fd = open("/dev/tun", O_RDWR | O_NONBLOCK | O_CLOEXEC);
+  if (fd < 0) {
+    fd = open("/dev/net/tun", O_RDWR | O_NONBLOCK | O_CLOEXEC);
   }
 
   return fd;
@@ -43,47 +42,25 @@ int tun_open() {
 /* function: tun_alloc
  * creates a tun interface and names it
  * dev - the name for the new tun device
+ * fd - an open fd to the tun device node
+ * len - the length of the buffer pointed to by dev
  */
-int tun_alloc(char *dev, int fd) {
+int tun_alloc(char *dev, int fd, size_t len) {
   struct ifreq ifr;
   int err;
 
   memset(&ifr, 0, sizeof(ifr));
 
   ifr.ifr_flags = IFF_TUN;
-  if( *dev ) {
+  if (*dev) {
     strncpy(ifr.ifr_name, dev, IFNAMSIZ);
-    ifr.ifr_name[IFNAMSIZ-1] = '\0';
+    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
   }
 
-  if( (err = ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0 ){
+  if ((err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0) {
     close(fd);
     return err;
   }
-  strcpy(dev, ifr.ifr_name);
+  strlcpy(dev, ifr.ifr_name, len);
   return 0;
-}
-
-/* function: set_nonblocking
- * sets a filedescriptor to non-blocking mode
- * fd - the filedescriptor
- * returns: 0 on success, -1 on failure
- */
-int set_nonblocking(int fd) {
-  int flags = fcntl(fd, F_GETFL);
-  if (flags == -1) {
-    return flags;
-  }
-  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
-/* function: send_tun
- * sends a clat_packet to a tun interface
- * fd      - the tun filedescriptor
- * out     - the packet to send
- * iov_len - the number of entries in the clat_packet
- * returns: number of bytes read on success, -1 on failure
- */
-int send_tun(int fd, clat_packet out, int iov_len) {
-  return writev(fd, out, iov_len);
 }

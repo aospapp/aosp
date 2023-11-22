@@ -25,13 +25,11 @@ performance against routers with various network configurations for 23 hours.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 args_dict['add_experimental'] = True
 args_dict['max_runtime_mins'] = 1440
 args_dict['timeout_mins'] = 1440
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['name'] = NAME
 args_dict['job'] = job
 

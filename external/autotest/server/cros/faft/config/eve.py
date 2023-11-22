@@ -9,7 +9,8 @@ class Values(object):
     chrome_ec = True
     ec_capability = ['battery', 'charging', 'doubleboot',
                      'keyboard', 'lid', 'x86' ]
-    wp_voltage = 'pp3300'
     spi_voltage = 'pp3300'
     servo_prog_state_delay = 10
     dark_resume_capable = True
+    firmware_screen = 15
+    smm_store = False

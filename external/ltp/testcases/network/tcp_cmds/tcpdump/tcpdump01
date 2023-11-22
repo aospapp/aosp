@@ -29,7 +29,7 @@ TST_CLEANUP=do_cleanup
 do_setup()
 {
 	ping_cmd=ping$TST_IPV6
-	tst_check_cmds tcpdump kill $ping_cmd
+	tst_test_cmds tcpdump kill $ping_cmd
 	outfile="tcpdump_out"
 	numloops=20
 	tst_tmpdir
@@ -64,7 +64,8 @@ do_cleanup()
 	tst_rmdir
 }
 
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 do_setup
 do_test

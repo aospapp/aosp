@@ -320,6 +320,7 @@ public abstract class TimeZoneNames implements Serializable {
     /**
      * A <code>MatchInfo</code> represents a time zone name match used by
      * {@link TimeZoneNames#find(CharSequence, int, EnumSet)}.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide draft / provisional / internal are hidden on Android
      */
     public static class MatchInfo {
@@ -450,6 +451,7 @@ public abstract class TimeZoneNames implements Serializable {
      * The super class of <code>TimeZoneNames</code> service factory classes.
      * 
      * @deprecated This API is ICU internal only.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide original deprecated declaration
      * @hide draft / provisional / internal are hidden on Android
      */
@@ -572,8 +574,13 @@ public abstract class TimeZoneNames implements Serializable {
         /**
          * The default <code>TimeZoneNames</code> factory called from {@link TimeZoneNames#getInstance(ULocale)} when
          * the ICU4J tznamedata component is not available.
+         * @hide Only a subset of ICU is exposed in Android
          */
         public static class FactoryImpl extends Factory {
+
+            @dalvik.annotation.compat.UnsupportedAppUsage
+            public FactoryImpl() {
+            }
 
             /*
              * (non-Javadoc)

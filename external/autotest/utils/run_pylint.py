@@ -34,26 +34,6 @@ pylint_version = float("%s.%s" % (major, minor))
 # some files make pylint blow up, so make sure we ignore them
 BLACKLIST = ['/site-packages/*', '/contrib/*', '/frontend/afe/management.py']
 
-# patch up the logilab module lookup tools to understand autotest_lib.* trash
-import logilab.common.modutils
-_ffm = logilab.common.modutils.file_from_modpath
-def file_from_modpath(modpath, path=None, context_file=None):
-    """
-    Wrapper to eliminate autotest_lib from modpath.
-
-    @param modpath: name of module splitted on '.'
-    @param path: optional list of paths where module should be searched for.
-    @param context_file: path to file doing the importing.
-    @return The path to the module as returned by the parent method invocation.
-    @raises: ImportError if these is no such module.
-    """
-    if modpath[0] == "autotest_lib":
-        return _ffm(modpath[1:], path, context_file)
-    else:
-        return _ffm(modpath, path, context_file)
-logilab.common.modutils.file_from_modpath = file_from_modpath
-
-
 import pylint.lint
 from pylint.checkers import base, imports, variables
 
@@ -121,10 +101,10 @@ def patch_consumed_list(to_consume=None, consumed=None):
 
 class CustomImportsChecker(imports.ImportsChecker):
     """Modifies stock imports checker to suit autotest."""
-    def visit_from(self, node):
+    def visit_importfrom(self, node):
         """Patches modnames so pylints understands autotest_lib."""
         node.modname = patch_modname(node.modname)
-        return super(CustomImportsChecker, self).visit_from(node)
+        return super(CustomImportsChecker, self).visit_importfrom(node)
 
 
 class CustomVariablesChecker(variables.VariablesChecker):
@@ -146,10 +126,10 @@ class CustomVariablesChecker(variables.VariablesChecker):
         patch_consumed_list(scoped_names[0],scoped_names[1])
         self._to_consume.append(scoped_names)
 
-    def visit_from(self, node):
+    def visit_importfrom(self, node):
         """Patches modnames so pylints understands autotest_lib."""
         node.modname = patch_modname(node.modname)
-        return super(CustomVariablesChecker, self).visit_from(node)
+        return super(CustomVariablesChecker, self).visit_importfrom(node)
 
 
 class CustomDocStringChecker(base.DocStringChecker):
@@ -164,7 +144,7 @@ class CustomDocStringChecker(base.DocStringChecker):
         pass
 
 
-    def visit_function(self, node):
+    def visit_functiondef(self, node):
         """
         Don't request docstrings for commonly overridden autotest functions.
 
@@ -184,7 +164,7 @@ class CustomDocStringChecker(base.DocStringChecker):
         if _is_test_case_method(node):
             return
 
-        super(CustomDocStringChecker, self).visit_function(node)
+        super(CustomDocStringChecker, self).visit_functiondef(node)
 
 
     @staticmethod
@@ -207,16 +187,17 @@ def batch_check_files(file_paths, base_opts):
     @param file_paths: a list of file paths.
     @param base_opts: a list of pylint config options.
 
+    @returns pylint return code
+
     @raises: pylint_error if pylint finds problems with a file
              in this commit.
     """
     if not file_paths:
-        return
+        return 0
 
     pylint_runner = pylint.lint.Run(list(base_opts) + list(file_paths),
                                     exit=False)
-    if pylint_runner.linter.msg_status:
-        raise pylint_error(pylint_runner.linter.msg_status)
+    return pylint_runner.linter.msg_status
 
 
 def should_check_file(file_path):
@@ -239,6 +220,8 @@ def check_file(file_path, base_opts):
 
     @param base_opts: pylint base options.
     @param file_path: path to the file we need to run pylint on.
+
+    @returns pylint return code
     """
     if not isinstance(file_path, basestring):
         raise TypeError('expected a string as filepath, got %s'%
@@ -246,8 +229,10 @@ def check_file(file_path, base_opts):
 
     if should_check_file(file_path):
         pylint_runner = pylint.lint.Run(base_opts + [file_path], exit=False)
-        if pylint_runner.linter.msg_status:
-            pylint_error(pylint_runner.linter.msg_status)
+
+        return pylint_runner.linter.msg_status
+
+    return 0
 
 
 def visit(arg, dirname, filenames):
@@ -259,7 +244,7 @@ def visit(arg, dirname, filenames):
     @param filenames: files in dir from os.walk.path
     """
     for filename in filenames:
-        check_file(os.path.join(dirname, filename), arg)
+        arg.append(os.path.join(dirname, filename))
 
 
 def check_dir(dir_path, base_opts):
@@ -268,8 +253,14 @@ def check_dir(dir_path, base_opts):
 
     @param base_opts: pylint base options.
     @param dir_path: path to directory.
+
+    @returns pylint return code
     """
-    os.path.walk(dir_path, visit, base_opts)
+    files = []
+
+    os.path.walk(dir_path, visit, files)
+
+    return batch_check_files(files, base_opts)
 
 
 def extend_baseopts(base_opts, new_opt):
@@ -303,13 +294,8 @@ def get_cmdline_options(args_list, pylint_base_opts, rcfile):
     for args in args_list:
         if args.startswith('--'):
             opt_name = args[2:].split('=')[0]
-            if opt_name in rcfile and pylint_version >= 0.21:
-                raise run_pylint_error('The rcfile already contains the %s '
-                                        'option. Please edit pylintrc instead.'
-                                        % opt_name)
-            else:
-                extend_baseopts(pylint_base_opts, args)
-                args_list.remove(args)
+            extend_baseopts(pylint_base_opts, args)
+            args_list.remove(args)
 
 
 def git_show_to_temp_file(commit, original_file, new_temp_file):
@@ -347,6 +333,8 @@ def check_committed_files(work_tree_files, commit, pylint_base_opts):
                             absolute path.
     @param commit: hash of the commit this upload applies to.
     @param pylint_base_opts: a list of pylint config options.
+
+    @returns pylint return code
     """
     files_to_check = filter(should_check_file, work_tree_files)
 
@@ -365,7 +353,7 @@ def check_committed_files(work_tree_files, commit, pylint_base_opts):
         for file_tuple in zip(work_tree_files, temp_files):
             git_show_to_temp_file(commit, *file_tuple)
         # Only check if we successfully git showed all files in the commit.
-        batch_check_files(temp_files, pylint_base_opts)
+        return batch_check_files(temp_files, pylint_base_opts)
     finally:
         if tempdir:
             tempdir.clean()
@@ -435,19 +423,21 @@ def main():
         get_cmdline_options(args_list,
                             pylint_base_opts,
                             open(pylint_rc).read())
-        batch_check_files(args_list, pylint_base_opts)
+        return batch_check_files(args_list, pylint_base_opts)
     elif os.environ.get('PRESUBMIT_FILES') is not None:
-        check_committed_files(
+        return check_committed_files(
                               os.environ.get('PRESUBMIT_FILES').split('\n'),
                               os.environ.get('PRESUBMIT_COMMIT'),
                               pylint_base_opts)
     else:
-        check_dir('.', pylint_base_opts)
+        return check_dir('.', pylint_base_opts)
 
 
 if __name__ == '__main__':
     try:
-        main()
+        ret = main()
+
+        sys.exit(ret)
     except pylint_error as e:
         logging.error(e)
         sys.exit(1)

@@ -22,6 +22,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.turbine.tree.Tree.Anno;
 import com.google.turbine.tree.Tree.ClassLiteral;
+import com.google.turbine.tree.Tree.Ident;
+import com.google.turbine.tree.Tree.ModDecl;
+import com.google.turbine.tree.Tree.ModDirective;
+import com.google.turbine.tree.Tree.ModExports;
+import com.google.turbine.tree.Tree.ModOpens;
+import com.google.turbine.tree.Tree.ModProvides;
+import com.google.turbine.tree.Tree.ModRequires;
+import com.google.turbine.tree.Tree.ModUses;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,6 +81,12 @@ public class Pretty implements Tree.Visitor<Void, Void> {
   }
 
   @Override
+  public Void visitIdent(Ident ident, Void input) {
+    sb.append(ident.value());
+    return null;
+  }
+
+  @Override
   public Void visitWildTy(Tree.WildTy wildTy, Void input) {
     printAnnos(wildTy.annos());
     append('?');
@@ -117,7 +131,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
       append('.');
     }
     printAnnos(classTy.annos());
-    append(classTy.name());
+    append(classTy.name().value());
     if (!classTy.tyargs().isEmpty()) {
       append('<');
       boolean first = true;
@@ -196,7 +210,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
 
   @Override
   public Void visitAssign(Tree.Assign assign, Void input) {
-    append(assign.name()).append(" = ");
+    append(assign.name().value()).append(" = ");
     assign.expr().accept(this, null);
     return null;
   }
@@ -237,6 +251,10 @@ public class Pretty implements Tree.Visitor<Void, Void> {
     for (Tree.ImportDecl i : compUnit.imports()) {
       i.accept(this, null);
     }
+    if (compUnit.mod().isPresent()) {
+      printLine();
+      compUnit.mod().get().accept(this, null);
+    }
     for (Tree.TyDecl decl : compUnit.decls()) {
       printLine();
       decl.accept(this, null);
@@ -269,7 +287,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
     printAnnos(varDecl.annos());
     printModifiers(varDecl.mods());
     varDecl.ty().accept(this, null);
-    append(' ').append(varDecl.name());
+    append(' ').append(varDecl.name().value());
     if (varDecl.init().isPresent()) {
       append(" = ");
       varDecl.init().get().accept(this, null);
@@ -307,7 +325,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
       methDecl.ret().get().accept(this, null);
       append(' ');
     }
-    append(methDecl.name());
+    append(methDecl.name().value());
     append('(');
     boolean first = true;
     for (Tree.VarDecl param : methDecl.params()) {
@@ -382,7 +400,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
         append("@interface");
         break;
     }
-    append(' ').append(tyDecl.name());
+    append(' ').append(tyDecl.name().value());
     if (!tyDecl.typarams().isEmpty()) {
       append('<');
       boolean first = true;
@@ -420,7 +438,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
             if (t instanceof Tree.VarDecl) {
               Tree.VarDecl decl = (Tree.VarDecl) t;
               if (decl.mods().contains(TurbineModifier.ACC_ENUM)) {
-                append(decl.name()).append(',').append('\n');
+                append(decl.name().value()).append(',').append('\n');
                 continue;
               }
             }
@@ -472,6 +490,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
         case NATIVE:
         case TRANSIENT:
         case DEFAULT:
+        case TRANSITIVE:
           append(mod.toString()).append(' ');
           break;
         case ACC_SUPER:
@@ -491,7 +510,7 @@ public class Pretty implements Tree.Visitor<Void, Void> {
   @Override
   public Void visitTyParam(Tree.TyParam tyParam, Void input) {
     printAnnos(tyParam.annos());
-    append(tyParam.name());
+    append(tyParam.name().value());
     if (!tyParam.bounds().isEmpty()) {
       append(" extends ");
       boolean first = true;
@@ -513,6 +532,111 @@ public class Pretty implements Tree.Visitor<Void, Void> {
       printLine();
     }
     append("package ").append(Joiner.on('.').join(pkgDecl.name())).append(';');
+    return null;
+  }
+
+  @Override
+  public Void visitModDecl(ModDecl modDecl, Void input) {
+    for (Tree.Anno anno : modDecl.annos()) {
+      anno.accept(this, null);
+      printLine();
+    }
+    if (modDecl.open()) {
+      append("open ");
+    }
+    append("module ").append(modDecl.moduleName()).append(" {");
+    indent++;
+    append('\n');
+    for (ModDirective directive : modDecl.directives()) {
+      directive.accept(this, null);
+    }
+    indent--;
+    append("}\n");
+    return null;
+  }
+
+  @Override
+  public Void visitModRequires(ModRequires modRequires, Void input) {
+    append("requires ");
+    printModifiers(modRequires.mods());
+    append(modRequires.moduleName());
+    append(";");
+    append('\n');
+    return null;
+  }
+
+  @Override
+  public Void visitModExports(ModExports modExports, Void input) {
+    append("exports ");
+    append(modExports.packageName().replace('/', '.'));
+    if (!modExports.moduleNames().isEmpty()) {
+      append(" to").append('\n');
+      indent += 2;
+      boolean first = true;
+      for (String moduleName : modExports.moduleNames()) {
+        if (!first) {
+          append(',').append('\n');
+        }
+        append(moduleName);
+        first = false;
+      }
+      indent -= 2;
+    }
+    append(";");
+    append('\n');
+    return null;
+  }
+
+  @Override
+  public Void visitModOpens(ModOpens modOpens, Void input) {
+    append("opens ");
+    append(modOpens.packageName().replace('/', '.'));
+    if (!modOpens.moduleNames().isEmpty()) {
+      append(" to").append('\n');
+      indent += 2;
+      boolean first = true;
+      for (String moduleName : modOpens.moduleNames()) {
+        if (!first) {
+          append(',').append('\n');
+        }
+        append(moduleName);
+        first = false;
+      }
+      indent -= 2;
+    }
+    append(";");
+    append('\n');
+    return null;
+  }
+
+  @Override
+  public Void visitModUses(ModUses modUses, Void input) {
+    append("uses ");
+    append(Joiner.on('.').join(modUses.typeName()));
+    append(";");
+    append('\n');
+    return null;
+  }
+
+  @Override
+  public Void visitModProvides(ModProvides modProvides, Void input) {
+    append("provides ");
+    append(Joiner.on('.').join(modProvides.typeName()));
+    if (!modProvides.implNames().isEmpty()) {
+      append(" with").append('\n');
+      indent += 2;
+      boolean first = true;
+      for (ImmutableList<Ident> implName : modProvides.implNames()) {
+        if (!first) {
+          append(',').append('\n');
+        }
+        append(Joiner.on('.').join(implName));
+        first = false;
+      }
+      indent -= 2;
+    }
+    append(";");
+    append('\n');
     return null;
   }
 }

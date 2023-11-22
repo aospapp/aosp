@@ -172,7 +172,7 @@ class network_WiFi_RegDomain(test.test):
             client.claim_wifi_if()  # Stop shill/supplicant scans.
             capturer.start_capture(
                     scan_freq, filename='%d_scan.pcap' % scan_freq)
-            for i in range(0, cls.PASSIVE_SCAN_REPEAT_COUNT):
+            for _ in range(0, cls.PASSIVE_SCAN_REPEAT_COUNT):
                 # We pass in an SSID here, to check that even hidden
                 # SSIDs do not cause probe requests to be sent.
                 client.scan(

@@ -5,25 +5,21 @@
 import contextlib
 import logging
 import math
-import os
 import re
 import time
 
 from contextlib import contextmanager
 from collections import namedtuple
 
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import interface
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.cros import constants
-from autotest_lib.server import adb_utils
 from autotest_lib.server import autotest
-from autotest_lib.server import constants as server_constants
 from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros.network import wpa_cli_proxy
-from autotest_lib.server.hosts import adb_host
 from autotest_lib.server.hosts import cast_os_host
 
 # Wake-on-WiFi feature strings
@@ -47,42 +43,10 @@ ConnectTime = namedtuple('ConnectTime', 'state, time')
 
 XMLRPC_BRINGUP_TIMEOUT_SECONDS = 60
 SHILL_XMLRPC_LOG_PATH = '/var/log/shill_xmlrpc_server.log'
-SHILL_BRILLO_XMLRPC_LOG_PATH = '/data/shill_xmlrpc_server.log'
-ANDROID_XMLRPC_SERVER_AUTOTEST_PATH = (
-        '../../../client/cros/networking/android_xmlrpc_server.py')
-# Log dirs/filenames are suffixed with serial number of the DUT
-ANDROID_XMLRPC_DEBUG_DIR_FMT = '/var/log/acts-%s'
-ANDROID_XMLRPC_LOG_FILE_FMT = '/var/log/android_xmlrpc_server-%s.log'
-# Local debug dir name is suffixed by the test name
-ANDROID_LOCAL_DEBUG_DIR_FMT = 'android_debug_%s'
-
-
-def _is_android_host(host):
-    return host.get_os_type() == adb_host.OS_TYPE_ANDROID
-
-
-def _is_brillo_host(host):
-    return host.get_os_type() == adb_host.OS_TYPE_BRILLO
 
 
 def _is_eureka_host(host):
     return host.get_os_type() == cast_os_host.OS_TYPE_CAST_OS
-
-
-def install_android_xmlrpc_server(host, server_port):
-    """Install Android XMLRPC server script on |host|.
-
-    @param host: host object representing a remote device.
-    @param server_port string of port number to start server on.
-
-    """
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    xmlrpc_server_script = os.path.join(
-            current_dir, ANDROID_XMLRPC_SERVER_AUTOTEST_PATH)
-    script_instance = constants.ANDROID_XMLRPC_SERVER_FMT % server_port
-    target_file = (constants.ANDROID_XMLRPC_SERVER_TARGET_DIR + '/'
-                   + script_instance)
-    host.send_file(xmlrpc_server_script, target_file)
 
 
 def get_xmlrpc_proxy(host):
@@ -104,38 +68,10 @@ def get_xmlrpc_proxy(host):
         client_at.install()
     # This is the default port for shill xmlrpc server.
     server_port = constants.SHILL_XMLRPC_SERVER_PORT
-
-    if _is_brillo_host(host):
-        xmlrpc_server_command = constants.SHILL_BRILLO_XMLRPC_SERVER_COMMAND
-        log_path = SHILL_BRILLO_XMLRPC_LOG_PATH
-        command_name = constants.SHILL_BRILLO_XMLRPC_SERVER_CLEANUP_PATTERN
-        rpc_server_host = host
-    elif _is_android_host(host):
-        if not host.adb_serial:
-            raise error.TestFail('No serial number detected')
-        debug_dir = ANDROID_XMLRPC_DEBUG_DIR_FMT % host.adb_serial
-        log_path = ANDROID_XMLRPC_LOG_FILE_FMT % host.adb_serial
-        teststation = host.teststation
-        hostname = teststation.hostname.split('.')[0]
-        instance = re.search("(\d+)(?!.*\d)", hostname)
-        val = int(instance.group())
-        server_port = constants.SHILL_XMLRPC_SERVER_PORT + val
-        xmlrpc_server_command = constants.ANDROID_XMLRPC_SERVER_COMMAND_FMT % (
-                constants.ANDROID_XMLRPC_SERVER_TARGET_DIR, server_port)
-        command_name = (constants.ANDROID_XMLRPC_SERVER_CLEANUP_PATTERN %
-                       str(server_port))
-        xmlrpc_server_command = (
-                '%s -s %s -l %s -t %s -p %d' % (
-                xmlrpc_server_command, host.adb_serial, debug_dir,
-                hostname, server_port))
-        install_android_xmlrpc_server(teststation, str(server_port))
-        # For android, start the XML RPC server on the accompanying host.
-        rpc_server_host = teststation
-    else:
-        xmlrpc_server_command = constants.SHILL_XMLRPC_SERVER_COMMAND
-        log_path = SHILL_XMLRPC_LOG_PATH
-        command_name = constants.SHILL_XMLRPC_SERVER_CLEANUP_PATTERN
-        rpc_server_host = host
+    xmlrpc_server_command = constants.SHILL_XMLRPC_SERVER_COMMAND
+    log_path = SHILL_XMLRPC_LOG_PATH
+    command_name = constants.SHILL_XMLRPC_SERVER_CLEANUP_PATTERN
+    rpc_server_host = host
 
     # Start up the XMLRPC proxy on the client
     proxy = rpc_server_host.rpc_server_tracker.xmlrpc_connect(
@@ -154,11 +90,9 @@ def _is_conductive(host):
 
     @param host: A Host object.
     """
-    if utils.host_could_be_in_afe(host.hostname):
-        info = host.host_info_store.get()
-        conductive = info.get_label_value('conductive')
-        return conductive.lower() == 'true'
-    return False
+    info = host.host_info_store.get()
+    conductive = info.get_label_value('conductive')
+    return conductive.lower() == 'true'
 
 
 class WiFiClient(site_linux_system.LinuxSystem):
@@ -290,6 +224,17 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
 
     @property
+    def module_name(self):
+        """@return Name of kernel module in use by this interface."""
+        return self._interface.module_name
+
+    @property
+    def parent_device_name(self):
+        """
+        @return Path of the parent device for the net device"""
+        return self._interface.parent_device_name
+
+    @property
     def wifi_if(self):
         """@return string wifi device on machine (e.g. mlan0)."""
         return self._wifi_if
@@ -312,6 +257,11 @@ class WiFiClient(site_linux_system.LinuxSystem):
         """@return string IPv4 subnet prefix of self.wifi_if."""
         return self._interface.ipv4_subnet
 
+
+    @property
+    def wifi_phy_name(self):
+        """@return wiphy name (e.g., 'phy0') or None"""
+        return self._interface.wiphy_name
 
     @property
     def wifi_signal_level(self):
@@ -376,8 +326,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         self._result_dir = result_dir
         self._conductive = None
 
-        if ((_is_android_host(self.host) or _is_eureka_host(self.host)) and
-            use_wpa_cli):
+        if _is_eureka_host(self.host) and use_wpa_cli:
             # Look up the WiFi device (and its MAC) on the client.
             devs = self.iw_runner.list_interfaces(desired_if_type='managed')
             devs = [dev for dev in devs
@@ -394,13 +343,6 @@ class WiFiClient(site_linux_system.LinuxSystem):
                     self.host, self._wifi_if)
             self._wpa_cli_proxy = self._shill_proxy
         else:
-            if _is_android_host(self.host):
-                adb_utils.install_apk_from_build(
-                        self.host,
-                        server_constants.SL4A_APK,
-                        server_constants.SL4A_ARTIFACT,
-                        package_name=server_constants.SL4A_PACKAGE)
-
             self._shill_proxy = get_xmlrpc_proxy(self.host)
             interfaces = self._shill_proxy.list_controlled_wifi_interfaces()
             if not interfaces:
@@ -424,6 +366,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         # to workaround the lazy loading of the capabilities cache and supported
         # frequency list. This is needed for tests that may need access to these
         # when the DUT is unreachable (for ex: suspended).
+        #pylint: disable=pointless-statement
         self.capabilities
 
 
@@ -484,9 +427,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return True if method is available, False otherwise.
 
         """
-        # Make no assertions about ADBHost support.  We don't use an XMLRPC
-        # proxy with those hosts anyway.
-        supported = (_is_android_host(self.host) or _is_eureka_host(self.host)
+        supported = (_is_eureka_host(self.host)
                      or method_name in self._shill_proxy.system.listMethods())
         if not supported:
             logging.warning('%s() is not supported on older images',
@@ -540,23 +481,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         This invokes the |collect_debug_info| RPC method to trigger
         bugreport/logcat collection and then transfers the logs to the
         server.
-        Only implemented for android DUT's for now.
 
         @param local_save_dir_prefix Used as a prefix for local save directory.
         """
-        if _is_android_host(self.host):
-            # First capture the bugreport to the test station
-            self.shill.collect_debug_info(local_save_dir_prefix)
-            # Now copy the file over from test station to the server.
-            debug_dir = ANDROID_XMLRPC_DEBUG_DIR_FMT % self.host.adb_serial
-            log_file = ANDROID_XMLRPC_LOG_FILE_FMT % self.host.adb_serial
-            local_save_dir = ANDROID_LOCAL_DEBUG_DIR_FMT % local_save_dir_prefix
-            result_dir = os.path.join(self._result_dir, local_save_dir);
-            try:
-                self.host.teststation.get_file(debug_dir, result_dir)
-                self.host.teststation.get_file(log_file, result_dir)
-            except Exception as e:
-                logging.error('Failed to fetch debug info from host: %s', e)
+        pass
 
 
     def check_iw_link_value(self, iw_link_key, desired_value):
@@ -618,18 +546,15 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return time in seconds took to complete scan request.
 
         """
-        start_time = time.time()
-        while time.time() - start_time < retry_timeout_seconds:
-            scan_result = self.iw_runner.timed_scan(
-                    self.wifi_if, frequencies=frequencies, ssids=ssids)
-
-            if scan_result is not None:
-                break
-
-            time.sleep(0.5)
-        else:
-            raise error.TestFail('Unable to trigger scan on client.')
-
+        # the poll method returns the result of the func
+        scan_result = utils.poll_for_condition(
+                condition=lambda: self.iw_runner.timed_scan(
+                                          self.wifi_if,
+                                          frequencies=frequencies,
+                                          ssids=ssids),
+                exception=error.TestFail('Unable to trigger scan on client'),
+                timeout=retry_timeout_seconds,
+                sleep_interval=0.5)
         # Verify scan operation completed within given timeout
         if scan_result.time > scan_timeout_seconds:
             raise error.TestFail('Scan time %.2fs exceeds the scan timeout' %
@@ -663,16 +588,14 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @param require_match: bool True if we must find |ssids|.
 
         """
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            bss_list = self.iw_runner.scan(
-                    self.wifi_if, frequencies=frequencies, ssids=ssids)
-            if bss_list is not None:
-                break
-
-            time.sleep(0.5)
-        else:
-            raise error.TestFail('Unable to trigger scan on client.')
+        bss_list = utils.poll_for_condition(
+                condition=lambda: self.iw_runner.scan(
+                        self.wifi_if,
+                        frequencies=frequencies,
+                        ssids=ssids),
+                exception=error.TestFail('Unable to trigger scan on client'),
+                timeout=timeout_seconds,
+                sleep_interval=0.5)
 
         if require_match:
             self.assert_bsses_include_ssids(bss_list, ssids)
@@ -687,26 +610,35 @@ class WiFiClient(site_linux_system.LinuxSystem):
       @param timeout_seconds int seconds to wait for BSSes to be discovered
 
       """
-      start_time = time.time()
-      while time.time() - start_time < timeout_seconds:
-          bss_list = self.iw_runner.scan(
-                  self.wifi_if, frequencies=[], ssids=[ssid])
+      # If the scan returns None, return 0, else return the matching count
+      num_bss_actual = 0
+      def are_all_bsses_discovered():
+          """Determine if all BSSes associated with the SSID from parent
+          function are discovered in the scan
 
-          # Determine number of BSSes found in the scan result.
-          num_bss_found = 0
-          if bss_list is not None:
-              for bss in bss_list:
-                  if bss.ssid == ssid:
-                      num_bss_found += 1
+          @return boolean representing whether the expected bss count matches
+          how many in the scan match the given ssid
+          """
+          self.claim_wifi_if() # Stop shill/supplicant scans
+          try:
+            scan_results = self.iw_runner.scan(
+                    self.wifi_if,
+                    frequencies=[],
+                    ssids=[ssid])
+            if scan_results is None:
+                return False
+            num_bss_actual = sum(ssid == bss.ssid for bss in scan_results)
+            return num_bss_expected == num_bss_actual
+          finally:
+            self.release_wifi_if()
 
-          # Verify all BSSes are found.
-          if num_bss_found == num_bss_expected:
-              break
-
-          time.sleep(0.5)
-      else:
-          raise error.TestFail('Failed to discover all BSSes.')
-
+      utils.poll_for_condition(
+              condition=are_all_bsses_discovered,
+              exception=error.TestFail('Failed to discover all BSSes. Found %d,'
+                                      ' wanted %d with SSID %s' %
+                                      (num_bss_actual, num_bss_expected, ssid)),
+              timeout=timeout_seconds,
+              sleep_interval=0.5)
 
     def wait_for_service_states(self, ssid, states, timeout_seconds):
         """Waits for a WiFi service to achieve one of |states|.
@@ -717,11 +649,11 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         """
         logging.info('Waiting for %s to reach one of %r...', ssid, states)
-        success, state, time  = self._shill_proxy.wait_for_service_states(
+        success, state, duration  = self._shill_proxy.wait_for_service_states(
                 ssid, states, timeout_seconds)
         logging.info('...ended up in state \'%s\' (%s) after %f seconds.',
-                     state, 'success' if success else 'failure', time)
-        return success, state, time
+                     state, 'success' if success else 'failure', duration)
+        return success, state, duration
 
 
     def do_suspend(self, seconds):
@@ -1014,7 +946,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         return True
 
 
-    def request_roam_dbus(self, bssid, interface):
+    def request_roam_dbus(self, bssid, iface):
         """Request that we roam to the specified BSSID through dbus.
 
         Note that this operation assumes that:
@@ -1023,11 +955,11 @@ class WiFiClient(site_linux_system.LinuxSystem):
         2) There is a BSS with an appropriate ID in our scan results.
 
         @param bssid: string MAC address of bss to roam to.
-        @param interface: interface to use
+        @param iface: interface to use
 
         """
         self._assert_method_supported('request_roam_dbus')
-        self._shill_proxy.request_roam_dbus(bssid, interface)
+        self._shill_proxy.request_roam_dbus(bssid, iface)
 
 
     def wait_for_roam(self, bssid, timeout_seconds=10.0):
@@ -1036,22 +968,33 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @param bssid: string bssid to expect a roam to
                 (e.g.  '00:11:22:33:44:55').
         @param timeout_seconds: float number of seconds to wait for a roam.
-        @return True iff we detect an association to the given |bssid| within
+        @return True if we detect an association to the given |bssid| within
                 |timeout_seconds|.
 
         """
-        start_time = time.time()
-        success = False
-        duration = 0.0
-        while time.time() - start_time < timeout_seconds:
-            duration = time.time() - start_time
+        def attempt_roam():
+            """Perform a roam to the given |bssid|
+
+            @return True if there is an assocation between the given |bssid|
+                    and that association is detected within the timeout frame
+            """
             current_bssid = self.iw_runner.get_current_bssid(self.wifi_if)
             logging.debug('Current BSSID is %s.', current_bssid)
-            if current_bssid == bssid:
-                success = True
-                break
-            time.sleep(0.5)
+            return current_bssid == bssid
 
+        start_time = time.time()
+        duration = 0.0
+        try:
+            success = utils.poll_for_condition(
+                    condition=attempt_roam,
+                    timeout=timeout_seconds,
+                    sleep_interval=0.5,
+                    desc='Wait for a roam to the given bssid')
+        # wait_for_roam should return False on timeout
+        except utils.TimeoutError:
+            success = False
+
+        duration = time.time() - start_time
         logging.debug('%s to %s in %f seconds.',
                       'Roamed ' if success else 'Failed to roam ',
                       bssid,
@@ -1067,17 +1010,22 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @param ssid: string SSID of the network to require be missing.
 
         """
-        start_time = time.time()
-        while time.time() - start_time < self.MAX_SERVICE_GONE_TIMEOUT_SECONDS:
+        def is_missing_yet():
+            """Determine if the ssid is removed from the service list yet
+
+            @return True if the ssid is not found in the service list
+            """
             visible_ssids = self.get_active_wifi_SSIDs()
             logging.info('Got service list: %r', visible_ssids)
             if ssid not in visible_ssids:
-                return
-
+                return True
             self.scan(frequencies=[], ssids=[], timeout_seconds=30)
-        else:
-            raise error.TestFail('shill should mark the BSS as not present')
 
+        utils.poll_for_condition(
+                condition=is_missing_yet, # func
+                exception=error.TestFail('shill should mark BSS not present'),
+                timeout=self.MAX_SERVICE_GONE_TIMEOUT_SECONDS,
+                sleep_interval=0)
 
     def reassociate(self, timeout_seconds=10):
         """Reassociate to the connected network.
@@ -1121,46 +1069,63 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         @returns a named tuple of (state, time)
         """
-        POLLING_INTERVAL_SECONDS = 1.0
         start_time = time.time()
         duration = lambda: time.time() - start_time
-        success = False
-        while duration() < timeout_seconds:
-            success, state, conn_time  = self.wait_for_service_states(
-                    ssid, self.CONNECTED_STATES,
+        state = [None] # need mutability for the nested method to save state
+
+        def verify_connection():
+            """Verify the connection and perform optional operations
+            as defined in the parent function
+
+            @return False if there is a failure in the connection or
+                    the prescribed verification steps
+                    The named tuple ConnectTime otherwise, with the state
+                    and connection time from waiting for service states
+            """
+            success, state[0], conn_time = self.wait_for_service_states(
+                    ssid,
+                    self.CONNECTED_STATES,
                     int(math.ceil(timeout_seconds - duration())))
             if not success:
-                time.sleep(POLLING_INTERVAL_SECONDS)
-                continue
+                return False
 
             if freq:
                 actual_freq = self.get_iw_link_value(
                         iw_runner.IW_LINK_KEY_FREQUENCY)
                 if str(freq) != actual_freq:
-                    logging.debug('Waiting for desired frequency %s (got %s).',
-                                  freq, actual_freq)
-                    time.sleep(POLLING_INTERVAL_SECONDS)
-                    continue
+                    logging.debug(
+                            'Waiting for desired frequency %s (got %s).',
+                            freq,
+                            actual_freq)
+                    return False
 
             if desired_subnet:
                 actual_subnet = self.wifi_ip_subnet
                 if actual_subnet != desired_subnet:
-                    logging.debug('Waiting for desired subnet %s (got %s).',
-                                  desired_subnet, actual_subnet)
-                    time.sleep(POLLING_INTERVAL_SECONDS)
-                    continue
+                    logging.debug(
+                            'Waiting for desired subnet %s (got %s).',
+                            desired_subnet,
+                            actual_subnet)
+                    return False
 
             if ping_ip:
                 ping_config = ping_runner.PingConfig(ping_ip)
                 self.ping(ping_config)
 
-            return ConnectTime(state, conn_time)
+            return ConnectTime(state[0], conn_time)
 
         freq_error_str = (' on frequency %d Mhz' % freq) if freq else ''
-        raise error.TestFail(
-                'Failed to connect to "%s"%s in %f seconds (state=%s)' %
-                (ssid, freq_error_str, duration(), state))
 
+        return utils.poll_for_condition(
+                condition=verify_connection,
+                exception=error.TestFail(
+                        'Failed to connect to "%s"%s in %f seconds (state=%s)' %
+                        (ssid,
+                        freq_error_str,
+                        duration(),
+                        state[0])),
+                timeout=timeout_seconds,
+                sleep_interval=0)
 
     @contextmanager
     def assert_disconnect_count(self, count):
@@ -1216,8 +1181,8 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
     def get_disconnect_reasons(self):
         """Get disconnect reason codes."""
-        disconnect_reason_msg = "updated DisconnectReason to ";
-        disconnect_reason_cleared = "clearing DisconnectReason for ";
+        disconnect_reason_msg = "updated DisconnectReason "
+        disconnect_reason_cleared = "clearing DisconnectReason for "
         result = self.host.run('grep -E "(%s|%s)" /var/log/net.log' %
                                (disconnect_reason_msg,
                                disconnect_reason_cleared),
@@ -1366,16 +1331,11 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         """
         logging.info(message)
-
-        # Skip this command if running on Android, since Android does not
-        # have a /usr/bin/logger (or an equivalent that takes the same
-        # parameters as the Linux logger does.)
-        if not isinstance(self.host, adb_host.ADBHost):
-            logger_command = ('/usr/bin/logger'
-                              ' --tag shill'
-                              ' --priority daemon.debug'
-                              ' "%s"' % utils.sh_escape(message))
-            self.host.run(logger_command)
+        logger_command = ('/usr/bin/logger'
+                          ' --tag shill'
+                          ' --priority daemon.debug'
+                          ' "%s"' % utils.sh_escape(message))
+        self.host.run(logger_command)
 
 
     def is_wake_on_wifi_supported(self):
@@ -1388,17 +1348,17 @@ class WiFiClient(site_linux_system.LinuxSystem):
         return True
 
 
-    def set_dhcp_property(self, dhcp_prop_name, dhcp_prop_value):
-        """Sets the given DHCP_Property to the value provided.
+    def set_manager_property(self, prop_name, prop_value):
+        """Sets the given manager property to the value provided.
 
-        @param dhcp_prop_name: the dhcp_property to be set
-        @param dhcp_prop_value: value to assign to the dhcp_prop_name
+        @param prop_name: the property to be set
+        @param prop_value: value to assign to the prop_name
         @return a context manager for the setting
 
         """
         return TemporaryManagerDBusProperty(self._shill_proxy,
-                                            dhcp_prop_name,
-                                            dhcp_prop_value)
+                                            prop_name,
+                                            prop_value)
 
 
 class TemporaryDeviceDBusProperty:
@@ -1410,18 +1370,18 @@ class TemporaryDeviceDBusProperty:
 
     """
 
-    def __init__(self, shill_proxy, interface, prop_name, value):
+    def __init__(self, shill_proxy, iface, prop_name, value):
         """Construct a TemporaryDeviceDBusProperty context manager.
 
 
         @param shill_proxy: the shill proxy to use to communicate via dbus
-        @param interface: device whose property to change (e.g. 'wlan0')
+        @param iface: device whose property to change (e.g. 'wlan0')
         @param prop_name: the name of the property we want to set
         @param value: the desired value of the property
 
         """
         self._shill = shill_proxy
-        self._interface = interface
+        self._interface = iface
         self._prop_name = prop_name
         self._value = value
         self._saved_value = None
@@ -1489,7 +1449,9 @@ class TemporaryManagerDBusProperty:
                                                              self._value):
                 raise error.TestFail('Could not set optional manager property.')
         else:
-            if not self._shill.set_manager_property(self._prop_name, self._value):
+            setprop_result = self._shill.set_manager_property(self._prop_name,
+                                                              self._value)
+            if not setprop_result:
                 raise error.TestFail('Could not set manager property')
 
         logging.info('- Changed value from [%s] to [%s]',

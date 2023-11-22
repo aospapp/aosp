@@ -27,6 +27,8 @@ Requirements for a test to be in this suite:
     release on any channel.
  3. A test failure must reliably indicate a bug in the product, and
     not a bug in the test.
+ 4. The test must be hermetic.  That is, the test should have no
+    dependencies on external network resources.
 
 @param build: The name of the image to test.
               Ex: x86-mario-release/R17-1412.33.0-a1-b29
@@ -38,7 +40,6 @@ Requirements for a test to be in this suite:
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 
@@ -57,7 +58,6 @@ args_dict['max_runtime_mins'] = 30
 args_dict['name'] = 'bvt-cq'
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['bug_template'] = _BUG_TEMPLATE
 
 dynamic_suite.reimage_and_run(**args_dict)

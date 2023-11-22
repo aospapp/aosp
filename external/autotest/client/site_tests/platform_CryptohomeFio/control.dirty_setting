@@ -14,7 +14,7 @@ NAME = 'platform_CryptohomeFio.dirty_setting'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'
-ATTRIBUTES = "suite:experimental"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 sysctls_list = [
     { 'vm/dirty_background_ratio': 1 },

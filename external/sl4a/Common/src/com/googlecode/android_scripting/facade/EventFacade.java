@@ -16,16 +16,6 @@
 
 package com.googlecode.android_scripting.facade;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-
-import org.json.JSONException;
-
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -38,7 +28,6 @@ import com.google.common.collect.Multimaps;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.event.Event;
 import com.googlecode.android_scripting.event.EventObserver;
-import com.googlecode.android_scripting.event.EventServer;
 import com.googlecode.android_scripting.future.FutureResult;
 import com.googlecode.android_scripting.jsonrpc.JsonBuilder;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
@@ -48,6 +37,16 @@ import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcName;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
+
+import org.json.JSONException;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manage the event queue. <br>
@@ -61,7 +60,6 @@ import com.googlecode.android_scripting.rpc.RpcParameter;
  * Queue.<br>
  * The Event Queue provides a useful means of recording background events (such as sensor data) when
  * the phone is busy with foreground activities.
- *
  */
 public class EventFacade extends RpcReceiver {
     /**
@@ -73,18 +71,15 @@ public class EventFacade extends RpcReceiver {
     private final CopyOnWriteArrayList<EventObserver> mGlobalEventObservers =
             new CopyOnWriteArrayList<EventObserver>();
     private final Multimap<String, EventObserver> mNamedEventObservers = Multimaps
-            .synchronizedListMultimap(ArrayListMultimap.<String, EventObserver> create());
-    private EventServer mEventServer = null;
+            .synchronizedListMultimap(ArrayListMultimap.<String, EventObserver>create());
     private final HashMap<String, BroadcastListener> mBroadcastListeners =
             new HashMap<String, BroadcastListener>();
     private final Context mContext;
-    private boolean bEventServerRunning;
 
     public EventFacade(FacadeManager manager) {
         super(manager);
         mContext = manager.getService().getApplicationContext();
         Log.v("Creating new EventFacade Instance()");
-        bEventServerRunning = false;
     }
 
     /**
@@ -133,7 +128,7 @@ public class EventFacade extends RpcReceiver {
 
     /**
      * Actual data returned in the map will depend on the type of event.
-     *
+     * <p>
      * <pre>
      * Example (python):
      *     import android, time
@@ -146,7 +141,7 @@ public class EventFacade extends RpcReceiver {
      *     event_entry_number = 0
      *     x = e[event_entry_ number]['data']['xforce']
      * </pre>
-     *
+     * <p>
      * e has the format:<br>
      * [{u'data': {u'accuracy': 0, u'pitch': -0.48766891956329345, u'xmag': -5.6875, u'azimuth':
      * 0.3312483489513397, u'zforce': 8.3492730000000002, u'yforce': 4.5628165999999997, u'time':
@@ -174,10 +169,8 @@ public class EventFacade extends RpcReceiver {
     @Rpc(description = "Blocks until an event with the supplied name occurs. Event is removed from the buffer if removeEvent is True.",
             returns = "Map of event properties.")
     public Event eventWaitFor(
-            @RpcParameter(name = "eventName")
-            final String eventName,
-            @RpcParameter(name = "removeEvent")
-            final Boolean removeEvent,
+            @RpcParameter(name = "eventName") final String eventName,
+            @RpcParameter(name = "removeEvent") final Boolean removeEvent,
             @RpcParameter(name = "timeout", description = "the maximum time to wait (in ms)") @RpcOptional Integer timeout)
             throws InterruptedException {
         Event result = null;
@@ -295,24 +288,57 @@ public class EventFacade extends RpcReceiver {
      */
     public void postEvent(String name, Object data, boolean enqueue) {
         Event event = new Event(name, data);
-        if (enqueue != false) {
+        if (enqueue) {
+            Log.v(String.format("postEvent(%s)", name));
             synchronized (mEventQueue) {
                 while (mEventQueue.size() >= MAX_QUEUE_SIZE) {
                     mEventQueue.remove();
                 }
                 mEventQueue.add(event);
+                // b/77306870: Posting to the EventObservers when enqueuing an event must be
+                // done when mEventQueue is locked. Otherwise, we can run into the following
+                // race condition:
+                // 1) postEvent() adds the event to the event queue, and releases mEventQueue.
+                //                Here, the thread is put to sleep.
+                // 2) eventWait() is called when an event is queued, and exits immediately.
+                // 3) eventWait() is called a second time, finds no event and creates a
+                //                GlobalEventObserver.
+                // 4) postEvent() wakes back up, and continues to post the event to the observers.
+                //                The same event sent to the first eventWait call is sent to the
+                //                second eventWait call's observer, causing a duplicated received
+                //                event.
+                postEventToNamedObservers(event);
+                postEventToGlobalObservers(event);
             }
-            Log.v(String.format("postEvent(%s)", name));
+        } else {
+            postEventToNamedObservers(event);
+            postEventToGlobalObservers(event);
         }
+    }
+
+    /**
+     * Posts the event to all applicable Named Observers.
+     */
+    private void postEventToNamedObservers(Event event) {
         synchronized (mNamedEventObservers) {
-            for (EventObserver observer : mNamedEventObservers.get(name)) {
+            for (EventObserver observer : mNamedEventObservers.get(event.getName())) {
+                Log.d(String.format("namedEventObserver %s received event %s",
+                        observer,
+                        event.getName()));
                 observer.onEventReceived(event);
             }
         }
+    }
+
+    /**
+     * Posts the event to the Global Observers list.
+     */
+    private void postEventToGlobalObservers(Event event) {
         synchronized (mGlobalEventObservers) {
-            // TODO: Remove log.
-            Log.v(String.format("mGlobalEventObservers size (%s)", mGlobalEventObservers.size()));
             for (EventObserver observer : mGlobalEventObservers) {
+                Log.d(String.format("globalEventObserver %s received event %s",
+                        observer,
+                        event.getName()));
                 observer.onEventReceived(event);
             }
         }
@@ -338,70 +364,52 @@ public class EventFacade extends RpcReceiver {
     @Rpc(description = "Blocks until an event with the supplied name occurs. Event is removed from the buffer if removeEvent is True.",
             returns = "Map of event properties.")
     public Event waitForEvent(
-            @RpcParameter(name = "eventName")
-            final String eventName,
-            @RpcOptional
-            final Boolean removeEvent,
+            @RpcParameter(name = "eventName") final String eventName,
+            @RpcOptional final Boolean removeEvent,
             @RpcParameter(name = "timeout", description = "the maximum time to wait") @RpcOptional Integer timeout)
             throws InterruptedException {
         return eventWaitFor(eventName, removeEvent, timeout);
     }
 
-    @Rpc(description = "Opens up a socket where you can read for events posted")
-    public int startEventDispatcher(
-            @RpcParameter(name = "port", description = "Port to use") @RpcDefault("0") @RpcOptional() Integer port) {
-        if (mEventServer == null) {
-            if (port == null) {
-                port = 0;
-            }
-            mEventServer = new EventServer(port);
-            addGlobalEventObserver(mEventServer);
-            bEventServerRunning = true;
-        }
-        return mEventServer.getAddress().getPort();
-    }
-
+    /**
+     * Closes this SL4A session, and sends a terminating signal to the event observers.
+     */
     @Rpc(description = "sl4a session is shutting down, send terminate event to client.")
     public void closeSl4aSession() {
         eventClearBuffer();
         postEvent("EventDispatcherShutdown", null);
     }
 
-    @Rpc(description = "Stops the event server, you can't read in the port anymore")
-    public void stopEventDispatcher() throws RuntimeException {
-        if (bEventServerRunning == true) {
-            if (mEventServer == null) {
-                throw new RuntimeException("Not running");
-            }
-            bEventServerRunning = false;
-            mEventServer.shutdown();
-            Log.v(String.format("stopEventDispatcher   (%s)", mEventServer));
-            removeEventObserver(mEventServer);
-            mEventServer = null;
-        }
-        return;
-    }
-
+    /**
+     * Shuts down the RPC server.
+     */
     @Override
     public void shutdown() {
-
-        try {
-            stopEventDispatcher();
-        } catch (Exception e) {
-            Log.e("Exception tearing down event dispatcher", e);
-        }
         mGlobalEventObservers.clear();
         mEventQueue.clear();
     }
 
+    /**
+     * Adds a named observer to the event listening queue.
+     * @param eventName the name of the event to listen to
+     * @param observer  the observer object
+     */
     public void addNamedEventObserver(String eventName, EventObserver observer) {
         mNamedEventObservers.put(eventName, observer);
     }
 
+    /**
+     * Adds a global event listener ot the listening queue.
+     * @param observer the observer object
+     */
     public void addGlobalEventObserver(EventObserver observer) {
         mGlobalEventObservers.add(observer);
     }
 
+    /**
+     * Removes an observer from the event listening queue.
+     * @param observer the observer to remove
+     */
     public void removeEventObserver(EventObserver observer) {
         mNamedEventObservers.removeAll(observer);
         mGlobalEventObservers.remove(observer);

@@ -17,13 +17,13 @@
 %                              July 1992                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -117,7 +117,6 @@ static MagickBooleanType ImportUsage(void)
       "-help                print program options",
       "-monochrome          transform image to black and white",
       "-negate              replace every pixel with its complementary color ",
-      "-repage geometry     size and location of an image canvas",
       "-quantize colorspace reduce colors in this colorspace",
       "-resize geometry     resize the image",
       "-rotate degrees      apply Paeth rotation to the image",
@@ -164,6 +163,7 @@ static MagickBooleanType ImportUsage(void)
       "-quality value       JPEG/MIFF/PNG compression level",
       "-quiet               suppress all warning messages",
       "-regard-warnings     pay attention to warning messages",
+      "-repage geometry     size and location of an image canvas",
       "-respect-parentheses settings remain in effect until parenthesis boundary",
       "-sampling-factor geometry",
       "                     horizontal and vertical sampling factor",
@@ -183,6 +183,7 @@ static MagickBooleanType ImportUsage(void)
       "-virtual-pixel method",
       "                     Constant, Edge, Mirror, or Tile",
       "-window id           select window with this id or name",
+      "                     root selects whole screen",
       (char *) NULL
     };
 
@@ -314,7 +315,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
   pend=MagickFalse;
   resource_database=(XrmDatabase) NULL;
   respect_parenthesis=MagickFalse;
-  (void) ResetMagickMemory(&resource_info,0,sizeof(resource_info));
+  (void) memset(&resource_info,0,sizeof(resource_info));
   server_name=(char *) NULL;
   status=MagickTrue;
   SetNotifyHandlers;
@@ -333,6 +334,8 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
       Check command line for server name.
     */
     option=argv[i];
+    if (IsCommandOption(option) == MagickFalse)
+      continue;
     if (LocaleCompare("display",option+1) == 0)
       {
         /*
@@ -954,7 +957,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
             status=MogrifyImageInfo(image_info,(int) (i-j+1),(const char **)
               argv+j,exception);
             DestroyImport();
-            return(status == 0 ? MagickTrue : MagickFalse);
+            return(status == 0 ? MagickFalse : MagickTrue);
           }
         if (LocaleCompare("log",option+1) == 0)
           {
@@ -1288,8 +1291,9 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
   DestroyImport();
   return(status != 0 ? MagickTrue : MagickFalse);
 #else
-  (void) argc;
-  (void) argv;
+  wand_unreferenced(argc);
+  wand_unreferenced(argv);
+  wand_unreferenced(metadata);
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
     "DelegateLibrarySupportNotBuiltIn","'%s' (X11)",image_info->filename);
   return(ImportUsage());

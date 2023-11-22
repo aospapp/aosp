@@ -142,6 +142,28 @@ class test_gather_presentation_info(unittest.TestCase):
         }
     }
 
+    _PRESENT_INFO_REGEX = {
+        'test_name.*': {
+            'master_name': 'new_master_name',
+            'dashboard_test_name': 'new_test_name',
+        }
+    }
+
+    def test_test_name_regex_specified(self):
+        """Verifies gathers presentation info for regex search correctly"""
+        for test_name in ['test_name.arm.7.1', 'test_name.x86.7.1']:
+            result = perf_uploader._gather_presentation_info(
+                    self._PRESENT_INFO, 'test_name_P')
+            self.assertTrue(
+                    all([key in result for key in
+                         ['test_name', 'master_name']]),
+                    msg='Unexpected keys in resulting dictionary: %s' % result)
+            self.assertEqual(result['master_name'], 'new_master_name',
+                             msg='Unexpected "master_name" value: %s' %
+                                 result['master_name'])
+            self.assertEqual(result['test_name'], 'new_test_name',
+                             msg='Unexpected "test_name" value: %s' %
+                                 result['test_name'])
 
     def test_test_name_specified(self):
         """Verifies gathers presentation info correctly."""

@@ -16,6 +16,8 @@ CF_VERSION="$3"
 JAR_REPO="https://oss.sonatype.org/service/local/repositories/releases/content/com/google/errorprone"
 EP_JAR_URL="${JAR_REPO}/error_prone_core/${EP_VERSION}/error_prone_core-${EP_VERSION}-with-dependencies.jar"
 EP_ANNO_JAR_URL="${JAR_REPO}/error_prone_annotations/${EP_VERSION}/error_prone_annotations-${EP_VERSION}.jar"
+EP_TYPE_ANNO_JAR_URL="${JAR_REPO}/error_prone_type_annotations/${EP_VERSION}/error_prone_type_annotations-${EP_VERSION}.jar"
+EP_TEST_HELPERS_JAR_URL="${JAR_REPO}/error_prone_test_helpers/${EP_VERSION}/error_prone_test_helpers-${EP_VERSION}.jar"
 JAVAC_JAR_URL="${JAR_REPO}/javac/${JAVAC_VERSION}/javac-${JAVAC_VERSION}.jar"
 JAVAC_SOURCES_JAR_URL="${JAR_REPO}/javac/${JAVAC_VERSION}/javac-${JAVAC_VERSION}-sources.jar"
 CF_DATAFLOW_JAR_URL="http://repo1.maven.org/maven2/org/checkerframework/dataflow/${CF_VERSION}/dataflow-${CF_VERSION}.jar"
@@ -45,6 +47,8 @@ rm -f javac/*.jar*
 
 update_jar "${EP_VERSION}" "${EP_JAR_URL}" "${TOOLS_DIR}/error_prone"
 update_jar "${EP_VERSION}" "${EP_ANNO_JAR_URL}" "${TOOLS_DIR}/error_prone"
+update_jar "${EP_VERSION}" "${EP_TYPE_ANNO_JAR_URL}" "${TOOLS_DIR}/error_prone"
+update_jar "${EP_VERSION}" "${EP_TEST_HELPERS_JAR_URL}" "${TOOLS_DIR}/error_prone"
 update_jar "${JAVAC_VERSION}" "${JAVAC_SOURCES_JAR_URL}" "${TOOLS_DIR}/javac"
 update_jar "${JAVAC_VERSION}" "${JAVAC_JAR_URL}" "${TOOLS_DIR}/javac"
 
@@ -53,6 +57,8 @@ perl -pi -e "\
     s|\"(external/error_prone/javac/javac).*\"|\"\\1-${JAVAC_VERSION}.jar\"|;\
     s|\"(external/error_prone/error_prone/error_prone_core).*\"|\"\\1-${EP_VERSION}-with-dependencies.jar\"|;\
     s|\"(external/error_prone/error_prone/error_prone_annotations).*\"|\"\\1-${EP_VERSION}.jar\"|;\
+    s|\"(external/error_prone/error_prone/error_prone_type_annotations).*\"|\"\\1-${EP_VERSION}.jar\"|;\
+    s|\"(external/error_prone/error_prone/error_prone_test_helpers).*\"|\"\\1-${EP_VERSION}.jar\"|;\
 " "$TOOLS_DIR/soong/error_prone.go"
 
 if [ "${CF_VERSION}" != '' ]; then

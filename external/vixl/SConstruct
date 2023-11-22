@@ -110,6 +110,10 @@ options = {
       },
     'code_buffer_allocator:malloc' : {
       'CCFLAGS' : ['-DVIXL_CODE_BUFFER_MALLOC']
+      },
+    'ubsan:on' : {
+      'CCFLAGS': ['-fsanitize=undefined'],
+      'LINKFLAGS': ['-fsanitize=undefined']
       }
     }
 
@@ -235,6 +239,8 @@ vars.AddVariables(
                          'aarch64' : ['a64'], 'a64' : ['a64']}),
     EnumVariable('mode', 'Build mode',
                  'release', allowed_values=config.build_options_modes),
+    EnumVariable('ubsan', 'Enable undefined behavior checks',
+                 'off', allowed_values=['on', 'off']),
     EnumVariable('negative_testing',
                   'Enable negative testing (needs exceptions)',
                  'off', allowed_values=['on', 'off']),
@@ -364,6 +370,9 @@ def ConfigureEnvironmentForCompiler(env):
     if compiler != 'clang-3.4':
       env.Append(CPPFLAGS = ['-Wunreachable-code'])
 
+    if env['ubsan'] == 'on':
+      env.Append(LINKFLAGS = ['-fuse-ld=lld'])
+
   # GCC 4.8 has a bug which produces a warning saying that an anonymous Operand
   # object might be used uninitialized:
   #   http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57045
@@ -386,6 +395,7 @@ def ConfigureEnvironmentForCompiler(env):
   # When compiling with c++98 (the default), allow long long constants.
   if 'std' not in env or env['std'] == 'c++98':
     env.Append(CPPFLAGS = ['-Wno-long-long'])
+    env.Append(CPPFLAGS = ['-Wno-variadic-macros'])
   # When compiling with c++11, suggest missing override keywords on methods.
   if 'std' in env and env['std'] in ['c++11', 'c++14']:
     if compiler >= 'gcc-5':
@@ -535,7 +545,7 @@ if CanTargetAArch64(env):
   test_aarch64_examples_vdir = join(TargetBuildDir(env), 'test', 'aarch64', 'test_examples')
   VariantDir(test_aarch64_examples_vdir, '.')
   test_aarch64_examples_obj = env.Object(
-      [Glob(join(test_aarch64_examples_vdir, join('test', 'aarch64', 'examples/aarch64', '*.cc'))),
+      [Glob(join(test_aarch64_examples_vdir, join('test', 'aarch64', 'examples', '*.cc'))),
        Glob(join(test_aarch64_examples_vdir, join('examples/aarch64', '*.cc')))],
       CCFLAGS = env['CCFLAGS'] + ['-DTEST_EXAMPLES'],
       CPPPATH = env['CPPPATH'] + [config.dir_aarch64_examples] + [config.dir_tests])

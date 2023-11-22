@@ -1,6 +1,0 @@
-package annotator.tests;
-
-class ConstructorReturn {
-   public @java.lang.Tainted ConstructorReturn() { }
-}
-

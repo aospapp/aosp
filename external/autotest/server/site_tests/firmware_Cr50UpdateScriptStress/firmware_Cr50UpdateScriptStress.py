@@ -3,10 +3,10 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.common_lib.cros import cr50_utils
-from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
-class firmware_Cr50UpdateScriptStress(FirmwareTest):
+class firmware_Cr50UpdateScriptStress(Cr50Test):
     """
     Stress the Cr50 Update Script.
 
@@ -20,7 +20,7 @@ class firmware_Cr50UpdateScriptStress(FirmwareTest):
     """
     version = 1
 
-    def run_once(self, host, cmdline_args):
+    def run_once(self, host):
         """Run the cr50 update script and make sure there aren't errors"""
         # Find the last cr50 update message already in /var/log/messages
         last_message = cr50_utils.CheckForFailures(host, '')

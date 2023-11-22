@@ -33,6 +33,9 @@
 #include "vkBuilderUtil.hpp"
 #include "vkImageUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
+#include "vkBarrierUtil.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deStringUtil.hpp"
@@ -62,12 +65,11 @@ struct CaseDefinition
 bool lessThanOneInnerLevelsDefined (const CaseDefinition& caseDef)
 {
 	// From Vulkan API specification:
-	// >> When tessellating triangles or quads in point mode with fractional odd spacing, the tessellator
+	// >> When tessellating triangles or quads (with/without point mode) with fractional odd spacing, the tessellator
 	// >> ***may*** produce interior vertices that are positioned on the edge of the patch if an inner
 	// >> tessellation level is less than or equal to one.
 	return !((caseDef.primitiveType == vkt::tessellation::TESSPRIMITIVETYPE_QUADS      ||
 			  caseDef.primitiveType == vkt::tessellation::TESSPRIMITIVETYPE_TRIANGLES) &&
-			 caseDef.usePointMode                                                     &&
 			 caseDef.spacingMode == vkt::tessellation::SPACINGMODE_FRACTIONAL_ODD);
 }
 
@@ -497,17 +499,14 @@ tcu::TestStatus test (Context& context, const CaseDefinition caseDef)
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			*colorAttachmentImage, colorImageSubresourceRange);
 
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0u,
+		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0u,
 			0u, DE_NULL, 0u, DE_NULL, 1u, &colorAttachmentLayoutBarrier);
 	}
 
 	// Begin render pass
 	{
-		const VkRect2D renderArea = {
-			makeOffset2D(0, 0),
-			makeExtent2D(renderSize.x(), renderSize.y()),
-		};
-		const tcu::Vec4 clearColor = tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		const VkRect2D	renderArea	= makeRect2D(renderSize);
+		const tcu::Vec4	clearColor	= tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 		beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, renderArea, clearColor);
 	}
@@ -523,26 +522,7 @@ tcu::TestStatus test (Context& context, const CaseDefinition caseDef)
 	endRenderPass(vk, *cmdBuffer);
 
 	// Copy render result to a host-visible buffer
-	{
-		const VkImageMemoryBarrier colorAttachmentPreCopyBarrier = makeImageMemoryBarrier(
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			*colorAttachmentImage, colorImageSubresourceRange);
-
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
-			0u, DE_NULL, 0u, DE_NULL, 1u, &colorAttachmentPreCopyBarrier);
-	}
-	{
-		const VkBufferImageCopy copyRegion = makeBufferImageCopy(makeExtent3D(renderSize.x(), renderSize.y(), 1), makeImageSubresourceLayers(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u));
-		vk.cmdCopyImageToBuffer(*cmdBuffer, *colorAttachmentImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *colorBuffer, 1u, &copyRegion);
-	}
-	{
-		const VkBufferMemoryBarrier postCopyBarrier = makeBufferMemoryBarrier(
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT, *colorBuffer, 0ull, colorBufferSizeBytes);
-
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u,
-			0u, DE_NULL, 1u, &postCopyBarrier, 0u, DE_NULL);
-	}
+	copyImageToBuffer(vk, *cmdBuffer, *colorAttachmentImage, *colorBuffer, renderSize);
 	{
 		const VkBufferMemoryBarrier shaderWriteBarrier = makeBufferMemoryBarrier(
 			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT, *resultBuffer, 0ull, resultBufferSizeBytes);

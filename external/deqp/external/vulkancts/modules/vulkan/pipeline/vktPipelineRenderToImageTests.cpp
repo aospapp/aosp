@@ -35,6 +35,7 @@
 #include "vkBuilderUtil.hpp"
 #include "vkPrograms.hpp"
 #include "vkImageUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuImageCompare.hpp"
@@ -280,16 +281,8 @@ Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&		vk,
 		VK_FALSE,														// VkBool32									primitiveRestartEnable;
 	};
 
-	const VkViewport viewport = makeViewport(
-		0.0f, 0.0f,
-		static_cast<float>(renderSize.x()), static_cast<float>(renderSize.y()),
-		0.0f, 1.0f);
-
-	const VkRect2D scissor =
-	{
-		makeOffset2D(0, 0),
-		makeExtent2D(renderSize.x(), renderSize.y()),
-	};
+	const VkViewport	viewport	= makeViewport(renderSize);
+	const VkRect2D		scissor		= makeRect2D(renderSize);
 
 	const VkPipelineViewportStateCreateInfo pipelineViewportStateInfo =
 	{
@@ -986,7 +979,7 @@ tcu::TestStatus testWithSizeReduction (Context& context, const CaseDef& caseDef)
 
 	{
 		deMemset(colorBufferAlloc->getHostPtr(), 0, static_cast<std::size_t>(colorBufferSize));
-		flushMappedMemoryRange(vk, device, colorBufferAlloc->getMemory(), colorBufferAlloc->getOffset(), VK_WHOLE_SIZE);
+		flushAlloc(vk, device, *colorBufferAlloc);
 	}
 
 	const Unique<VkShaderModule>	vertexModule	(createShaderModule			(vk, device, context.getBinaryCollection().get("vert"), 0u));
@@ -1036,7 +1029,7 @@ tcu::TestStatus testWithSizeReduction (Context& context, const CaseDef& caseDef)
 		vertexBufferAlloc	= bindBuffer(vki, vk, physDevice, device, *vertexBuffer, MemoryRequirement::HostVisible, allocator, caseDef.allocationKind);
 
 		deMemcpy(vertexBufferAlloc->getHostPtr(), &vertices[0], static_cast<std::size_t>(vertexBufferSize));
-		flushMappedMemoryRange(vk, device, vertexBufferAlloc->getMemory(), vertexBufferAlloc->getOffset(), vertexBufferSize);
+		flushAlloc(vk, device, *vertexBufferAlloc);
 	}
 
 	// Prepare color image upfront for rendering to individual slices.  3D slices aren't separate subresources, so they shouldn't be transitioned
@@ -1068,10 +1061,10 @@ tcu::TestStatus testWithSizeReduction (Context& context, const CaseDef& caseDef)
 			}
 		};
 
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0u,
+		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0u,
 								0u, DE_NULL, 0u, DE_NULL, 1u, &imageBarrier);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 
@@ -1120,24 +1113,9 @@ tcu::TestStatus testWithSizeReduction (Context& context, const CaseDef& caseDef)
 			if (useDepthStencil)
 				clearValues.insert(clearValues.end(), numSlices, makeClearValueDepthStencil(REFERENCE_DEPTH_VALUE, REFERENCE_STENCIL_VALUE));
 
-			const VkRect2D			renderArea	=
-			{
-				makeOffset2D(0, 0),
-				makeExtent2D(imageSize.x(), imageSize.y()),
-			};
-			const VkRenderPassBeginInfo	renderPassBeginInfo	=
-			{
-				VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,	// VkStructureType         sType;
-				DE_NULL,									// const void*             pNext;
-				*renderPass,								// VkRenderPass            renderPass;
-				*framebuffer,								// VkFramebuffer           framebuffer;
-				renderArea,									// VkRect2D                renderArea;
-				static_cast<deUint32>(clearValues.size()),	// uint32_t                clearValueCount;
-				&clearValues[0],							// const VkClearValue*     pClearValues;
-			};
 			const VkDeviceSize		vertexBufferOffset	= 0ull;
 
-			vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, imageSize.x(), imageSize.y()), (deUint32)clearValues.size(), &clearValues[0]);
 			vk.cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, &vertexBuffer.get(), &vertexBufferOffset);
 		}
 
@@ -1151,7 +1129,7 @@ tcu::TestStatus testWithSizeReduction (Context& context, const CaseDef& caseDef)
 			vk.cmdDraw(*cmdBuffer, 4u, 1u, subpassNdx*4u, 0u);
 		}
 
-		vk.cmdEndRenderPass(*cmdBuffer);
+		endRenderPass(vk, *cmdBuffer);
 
 		// Copy colorImage -> host visible colorBuffer
 		{
@@ -1214,13 +1192,13 @@ tcu::TestStatus testWithSizeReduction (Context& context, const CaseDef& caseDef)
 								  0u, DE_NULL, DE_LENGTH_OF_ARRAY(bufferBarriers), bufferBarriers, 0u, DE_NULL);
 		}
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 
 	// Verify results
 	{
-		invalidateMappedMemoryRange(vk, device, colorBufferAlloc->getMemory(), colorBufferAlloc->getOffset(), VK_WHOLE_SIZE);
+		invalidateAlloc(vk, device, *colorBufferAlloc);
 
 		const tcu::TextureFormat			format			= mapVkFormat(caseDef.colorFormat);
 		const int							checkDepth		= maxLayersOrDepth(checkSize);
@@ -1368,24 +1346,9 @@ void drawToMipLevel (const Context&				context,
 			if (useDepth || useStencil)
 				clearValues.insert(clearValues.end(), numSlices, makeClearValueDepthStencil(REFERENCE_DEPTH_VALUE, REFERENCE_STENCIL_VALUE));
 
-			const VkRect2D			renderArea	=
-			{
-				makeOffset2D(0, 0),
-				makeExtent2D(mipSize.x(), mipSize.y()),
-			};
-			const VkRenderPassBeginInfo	renderPassBeginInfo	=
-			{
-				VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,	// VkStructureType         sType;
-				DE_NULL,									// const void*             pNext;
-				*renderPass,								// VkRenderPass            renderPass;
-				*framebuffer,								// VkFramebuffer           framebuffer;
-				renderArea,									// VkRect2D                renderArea;
-				static_cast<deUint32>(clearValues.size()),	// uint32_t                clearValueCount;
-				&clearValues[0],							// const VkClearValue*     pClearValues;
-			};
 			const VkDeviceSize		vertexBufferOffset	= 0ull;
 
-			vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, mipSize.x(), mipSize.y()), (deUint32)clearValues.size(), &clearValues[0]);
 			vk.cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, &vertexBuffer, &vertexBufferOffset);
 		}
 
@@ -1399,9 +1362,9 @@ void drawToMipLevel (const Context&				context,
 			vk.cmdDraw(*cmdBuffer, 4u, 1u, subpassNdx*4u, 0u);
 		}
 
-		vk.cmdEndRenderPass(*cmdBuffer);
+		endRenderPass(vk, *cmdBuffer);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 }
@@ -1442,7 +1405,7 @@ tcu::TestStatus testRenderToMipMaps (Context& context, const CaseDef caseDef)
 
 	{
 		deMemset(colorBufferAlloc->getHostPtr(), 0, static_cast<std::size_t>(colorBufferSize));
-		flushMappedMemoryRange(vk, device, colorBufferAlloc->getMemory(), colorBufferAlloc->getOffset(), VK_WHOLE_SIZE);
+		flushAlloc(vk, device, *colorBufferAlloc);
 	}
 
 	const Unique<VkShaderModule>	vertexModule		(createShaderModule	(vk, device, context.getBinaryCollection().get("vert"), 0u));
@@ -1484,7 +1447,7 @@ tcu::TestStatus testRenderToMipMaps (Context& context, const CaseDef caseDef)
 		vertexBufferAlloc	= bindBuffer(vki, vk, physDevice, device, *vertexBuffer, MemoryRequirement::HostVisible, allocator, caseDef.allocationKind);
 
 		deMemcpy(vertexBufferAlloc->getHostPtr(), &vertices[0], static_cast<std::size_t>(vertexBufferSize));
-		flushMappedMemoryRange(vk, device, vertexBufferAlloc->getMemory(), vertexBufferAlloc->getOffset(), vertexBufferSize);
+		flushAlloc(vk, device, *vertexBufferAlloc);
 	}
 
 	// Prepare images
@@ -1536,10 +1499,10 @@ tcu::TestStatus testRenderToMipMaps (Context& context, const CaseDef caseDef)
 
 		const deUint32	numImageBarriers = static_cast<deUint32>(DE_LENGTH_OF_ARRAY(imageBarriers) - (useDepthStencil ? 0 : 1));
 
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0u,
+		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0u,
 								0u, DE_NULL, 0u, DE_NULL, numImageBarriers, imageBarriers);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 
@@ -1632,13 +1595,13 @@ tcu::TestStatus testRenderToMipMaps (Context& context, const CaseDef caseDef)
 									0u, DE_NULL, DE_LENGTH_OF_ARRAY(bufferBarriers), bufferBarriers, 0u, DE_NULL);
 		}
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 
 	// Verify results (per mip level)
 	{
-		invalidateMappedMemoryRange(vk, device, colorBufferAlloc->getMemory(), colorBufferAlloc->getOffset(), VK_WHOLE_SIZE);
+		invalidateAlloc(vk, device, *colorBufferAlloc);
 
 		const tcu::TextureFormat			format			= mapVkFormat(caseDef.colorFormat);
 

@@ -30,7 +30,48 @@ import vogar.tasks.Task;
  * A target runtime environment such as a remote device or the local host
  */
 public abstract class Target {
+
+    /**
+     * Return the process prefix for this target.
+     * <p>
+     * A process prefix is a list of tokens added in front of a script (VM command) to be run on
+     * this target.
+     *
+     * @see AdbTarget#targetProcessPrefix()
+     * @see AdbChrootTarget#targetProcessPrefix()
+     * @see SshTarget#targetProcessPrefix()
+     *
+     * @see Target#targetProcessWrapper()
+     * @see ScriptBuilder#commandLine()
+     */
+
     protected abstract ImmutableList<String> targetProcessPrefix();
+
+    /**
+     * Return the process wrapper for this target if there is one, or {@code null} otherwise.
+     * <p>
+     * A process wrapper is a command that is used to execute a script (VM command) to be run on
+     * this target. The script, preceded by the process prefix, is surrounded with double quotes
+     * and passed as an argument to the process wrapper:
+     * <ul>
+     *   <li>{@code <process-wrapper> "<process-prefix> <script>"}
+     * </ul>
+     * A {@code null} process wrapper means that the script will be executed as-is (but still
+     * preceded by the process prefix):
+     * <ul>
+     *   <li>{@code <process-prefix> <script>}
+     * </ul>
+     *
+     * @see AdbChrootTarget#targetProcessWrapper()
+     *
+     * @see Target#targetProcessPrefix()
+     * @see ScriptBuilder#commandLine()
+     */
+    protected String targetProcessWrapper() {
+        // By default, targets don't have a process wrapper.
+        return null;
+    };
+
     public abstract String getDeviceUserName();
 
     public abstract List<File> ls(File directory) throws FileNotFoundException;
@@ -63,7 +104,7 @@ public abstract class Target {
      * Create a {@link ScriptBuilder} appropriate for this target.
      */
     public ScriptBuilder newScriptBuilder() {
-        return new ScriptBuilder(targetProcessPrefix());
+        return new ScriptBuilder(targetProcessPrefix(), targetProcessWrapper());
     }
 
     /**
@@ -108,13 +149,20 @@ public abstract class Target {
         private final ImmutableList<String> commandLinePrefix;
 
         /**
+         * An optional wrapper of the command line. This can be used e.g. to wrap 'COMMAND' into
+         * 'sh -c "COMMAND"' before execution.
+         */
+        private final String commandLineWrapper;
+
+        /**
          * The list of tokens making up the script, they were escaped where necessary before they
          * were added to the list.
          */
         private final List<String> escapedTokens;
 
-        private ScriptBuilder(ImmutableList<String> commandLinePrefix) {
+        private ScriptBuilder(ImmutableList<String> commandLinePrefix, String commandLineWrapper) {
             this.commandLinePrefix = commandLinePrefix;
+            this.commandLineWrapper = commandLineWrapper;
             escapedTokens = new ArrayList<>();
         }
 
@@ -175,6 +223,10 @@ public abstract class Target {
             // adb or ssh shells as they both concatenate all their arguments into one single
             // string before parsing.
             String grouped = SCRIPT_JOINER.join(escapedTokens);
+            // Honor a wrapper if there is one.
+            if (commandLineWrapper != null) {
+                grouped = commandLineWrapper + " \"" + grouped + "\"";
+            }
             return new ImmutableList.Builder<String>()
                     .addAll(commandLinePrefix)
                     .add(grouped)

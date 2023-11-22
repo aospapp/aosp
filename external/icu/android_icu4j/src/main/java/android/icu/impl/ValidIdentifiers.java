@@ -28,6 +28,9 @@ import android.icu.util.UResourceBundleIterator;
  */
 public class ValidIdentifiers {
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public enum Datatype {
         currency,
         language,
@@ -42,6 +45,9 @@ public class ValidIdentifiers {
         illegal
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public enum Datasubtype {
         deprecated,
         private_use,
@@ -51,6 +57,9 @@ public class ValidIdentifiers {
         macroregion,
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static class ValiditySet {
         public final Set<String> regularData;
         public final Map<String,Set<String>> subdivisionData;

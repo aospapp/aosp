@@ -13,9 +13,6 @@ package android.icu.util;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.security.AccessControlException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.text.ParseException;
 import java.util.Iterator;
 import java.util.List;
@@ -158,8 +155,8 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
     // JRE 6 or older does not. JDK's Locale.SIMPLIFIED_CHINESE is actually
     // zh_CN, not zh_Hans. This is same in Java 7 or later versions.
     //
-    // ULocale#toLocale() implementation uses Java reflection to create a Locale
-    // with a script tag. When a new ULocale is constructed with the single arg
+    // ULocale#toLocale() implementation create a Locale with a script tag.
+    // When a new ULocale is constructed with the single arg
     // constructor, the volatile field 'Locale locale' is initialized by
     // #toLocale() method.
     //
@@ -509,14 +506,6 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
     static {
         defaultULocale = forLocale(defaultLocale);
 
-        // For Java 6 or older JRE, ICU initializes the default script from
-        // "user.script" system property. The system property was added
-        // in Java 7. On JRE 7, Locale.getDefault() should reflect the
-        // property value to the Locale's default. So ICU just relies on
-        // Locale.getDefault().
-
-        // Note: The "user.script" property is only used by initialization.
-        //
         if (JDKLocaleHelper.hasLocaleCategories()) {
             for (Category cat: Category.values()) {
                 int idx = cat.ordinal();
@@ -524,25 +513,8 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 defaultCategoryULocales[idx] = forLocale(defaultCategoryLocales[idx]);
             }
         } else {
-            // Make sure the current default Locale is original.
-            // If not, it means that someone updated the default Locale.
-            // In this case, user.XXX properties are already out of date
-            // and we should not use user.script.
-            if (JDKLocaleHelper.isOriginalDefaultLocale(defaultLocale)) {
-                // Use "user.script" if available
-                String userScript = JDKLocaleHelper.getSystemProperty("user.script");
-                if (userScript != null && LanguageTag.isScript(userScript)) {
-                    // Note: Builder or forLanguageTag cannot be used here
-                    // when one of Locale fields is not well-formed.
-                    BaseLocale base = defaultULocale.base();
-                    BaseLocale newBase = BaseLocale.getInstance(base.getLanguage(), userScript,
-                            base.getRegion(), base.getVariant());
-                    defaultULocale = getInstance(newBase, defaultULocale.extensions());
-                }
-            }
-
-            // Java 6 or older does not have separated category locales,
-            // use the non-category default for all
+            // Android API level 21..23 does not have separate category locales,
+            // use the non-category default for all.
             for (Category cat: Category.values()) {
                 int idx = cat.ordinal();
                 defaultCategoryLocales[idx] = defaultLocale;
@@ -579,15 +551,14 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
                 if (!JDKLocaleHelper.hasLocaleCategories()) {
                     // Detected Java default Locale change.
-                    // We need to update category defaults to match the
-                    // Java 7's behavior on Java 6 or older environment.
+                    // We need to update category defaults to match
+                    // Java 7's behavior on Android API level 21..23.
                     for (Category cat : Category.values()) {
                         int idx = cat.ordinal();
                         defaultCategoryLocales[idx] = currentDefault;
                         defaultCategoryULocales[idx] = forLocale(currentDefault);
                     }
-                }
-            }
+                }            }
             return defaultULocale;
         }
     }
@@ -642,15 +613,15 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 }
             } else {
                 // java.util.Locale.setDefault(Locale) in Java 7 updates
-                // category locale defaults. On Java 6 or older environment,
+                // category locale defaults. On Android API level 21..23
                 // ICU4J checks if the default locale has changed and update
                 // category ULocales here if necessary.
 
                 // Note: When java.util.Locale.setDefault(Locale) is called
                 // with a Locale same with the previous one, Java 7 still
-                // updates category locale defaults. On Java 6 or older env,
+                // updates category locale defaults. On Android API level 21..23
                 // there is no good way to detect the event, ICU4J simply
-                // check if the default Java Locale has changed since last
+                // checks if the default Java Locale has changed since last
                 // time.
 
                 Locale currentDefault = Locale.getDefault();
@@ -666,7 +637,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 }
 
                 // No synchronization with JDK Locale, because category default
-                // is not supported in Java 6 or older versions
+                // is not supported in Android API level 21..23.
             }
             return defaultCategoryULocales[idx];
         }
@@ -704,6 +675,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
     /**
      * Returns the hashCode.
+     * @return a hash code value for this object.
      */
     @Override
     public int hashCode() {
@@ -1077,6 +1049,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
     /**
      * Returns a string representation of this object.
+     * @return a string representation of the object.
      */
     @Override
     public String toString() {
@@ -1868,6 +1841,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * @see android.icu.util.ULocale
      * @see android.icu.util.ULocale#ACTUAL_LOCALE
      * @see android.icu.util.ULocale#VALID_LOCALE
+     * @hide Only a subset of ICU is exposed in Android
      * @hide draft / provisional / internal are hidden on Android
      */
     public static final class Type {
@@ -2040,7 +2014,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
         // parse out the acceptLanguage into an array
         TreeMap<ULocaleAcceptLanguageQ, ULocale> map =
-                new TreeMap<ULocaleAcceptLanguageQ, ULocale>();
+                new TreeMap<>();
         StringBuilder languageRangeBuf = new StringBuilder();
         StringBuilder qvalBuf = new StringBuilder();
         int state = 0;
@@ -2352,6 +2326,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
     /**
      * Options for minimizeSubtags.
      * @deprecated This API is ICU internal only.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide original deprecated declaration
      * @hide draft / provisional / internal are hidden on Android
      */
@@ -3735,7 +3710,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             // other extensions are at the same level.
             // e.g. @a=ext-for-aa;calendar=japanese;m=ext-for-mm;x=priv-use
 
-            TreeMap<String, String> kwds = new TreeMap<String, String>();
+            TreeMap<String, String> kwds = new TreeMap<>();
             for (Character key : extKeys) {
                 Extension ext = exts.getExtension(key);
                 if (ext instanceof UnicodeLocaleExtension) {
@@ -3856,58 +3831,18 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * JDK Locale Helper
      */
     private static final class JDKLocaleHelper {
-        private static boolean hasScriptsAndUnicodeExtensions = false;
+        // Java 7 has java.util.Locale.Category.
+        // Android API level 21..23 do not yet have it; only API level 24 (Nougat) adds it.
+        // https://developer.android.com/reference/java/util/Locale.Category
         private static boolean hasLocaleCategories = false;
-
-        /*
-         * New methods in Java 7 Locale class
-         */
-        private static Method mGetScript;
-        private static Method mGetExtensionKeys;
-        private static Method mGetExtension;
-        private static Method mGetUnicodeLocaleKeys;
-        private static Method mGetUnicodeLocaleAttributes;
-        private static Method mGetUnicodeLocaleType;
-        private static Method mForLanguageTag;
 
         private static Method mGetDefault;
         private static Method mSetDefault;
         private static Object eDISPLAY;
         private static Object eFORMAT;
 
-        /*
-         * This table is used for mapping between ICU and special Java
-         * 6 locales.  When an ICU locale matches <minumum base> with
-         * <keyword>/<value>, the ICU locale is mapped to <Java> locale.
-         * For example, both ja_JP@calendar=japanese and ja@calendar=japanese
-         * are mapped to Java locale "ja_JP_JP".  ICU locale "nn" is mapped
-         * to Java locale "no_NO_NY".
-         */
-        private static final String[][] JAVA6_MAPDATA = {
-            //  { <Java>,       <ICU base>, <keyword>,  <value>,    <minimum base>
-            { "ja_JP_JP",   "ja_JP",    "calendar", "japanese", "ja"},
-            { "no_NO_NY",   "nn_NO",    null,       null,       "nn"},
-            { "th_TH_TH",   "th_TH",    "numbers",  "thai",     "th"},
-        };
-
         static {
             do {
-                try {
-                    mGetScript = Locale.class.getMethod("getScript", (Class[]) null);
-                    mGetExtensionKeys = Locale.class.getMethod("getExtensionKeys", (Class[]) null);
-                    mGetExtension = Locale.class.getMethod("getExtension", char.class);
-                    mGetUnicodeLocaleKeys = Locale.class.getMethod("getUnicodeLocaleKeys", (Class[]) null);
-                    mGetUnicodeLocaleAttributes = Locale.class.getMethod("getUnicodeLocaleAttributes", (Class[]) null);
-                    mGetUnicodeLocaleType = Locale.class.getMethod("getUnicodeLocaleType", String.class);
-                    mForLanguageTag = Locale.class.getMethod("forLanguageTag", String.class);
-
-                    hasScriptsAndUnicodeExtensions = true;
-                } catch (NoSuchMethodException e) {
-                } catch (IllegalArgumentException e) {
-                } catch (SecurityException e) {
-                    // TODO : report?
-                }
-
                 try {
                     Class<?> cCategory = null;
                     Class<?>[] classes = Locale.class.getDeclaredClasses();
@@ -3956,14 +3891,6 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
         }
 
         public static ULocale toULocale(Locale loc) {
-            return hasScriptsAndUnicodeExtensions ? toULocale7(loc) : toULocale6(loc);
-        }
-
-        public static Locale toLocale(ULocale uloc) {
-            return hasScriptsAndUnicodeExtensions ? toLocale7(uloc) : toLocale6(uloc);
-        }
-
-        private static ULocale toULocale7(Locale loc) {
             String language = loc.getLanguage();
             String script = "";
             String country = loc.getCountry();
@@ -3972,57 +3899,49 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             Set<String> attributes = null;
             Map<String, String> keywords = null;
 
-            try {
-                script = (String) mGetScript.invoke(loc, (Object[]) null);
-                @SuppressWarnings("unchecked")
-                Set<Character> extKeys = (Set<Character>) mGetExtensionKeys.invoke(loc, (Object[]) null);
-                if (!extKeys.isEmpty()) {
-                    for (Character extKey : extKeys) {
-                        if (extKey.charValue() == 'u') {
-                            // Found Unicode locale extension
+            script = loc.getScript();
+            Set<Character> extKeys = loc.getExtensionKeys();
+            if (!extKeys.isEmpty()) {
+                for (Character extKey : extKeys) {
+                    if (extKey.charValue() == 'u') {
+                        // Found Unicode locale extension
 
-                            // attributes
-                            @SuppressWarnings("unchecked")
-                            Set<String> uAttributes = (Set<String>) mGetUnicodeLocaleAttributes.invoke(loc, (Object[]) null);
-                            if (!uAttributes.isEmpty()) {
-                                attributes = new TreeSet<String>();
-                                for (String attr : uAttributes) {
-                                    attributes.add(attr);
-                                }
+                        // attributes
+                        @SuppressWarnings("unchecked")
+                        Set<String> uAttributes = loc.getUnicodeLocaleAttributes();
+                        if (!uAttributes.isEmpty()) {
+                            attributes = new TreeSet<>();
+                            for (String attr : uAttributes) {
+                                attributes.add(attr);
                             }
+                        }
 
-                            // keywords
-                            @SuppressWarnings("unchecked")
-                            Set<String> uKeys = (Set<String>) mGetUnicodeLocaleKeys.invoke(loc, (Object[]) null);
-                            for (String kwKey : uKeys) {
-                                String kwVal = (String) mGetUnicodeLocaleType.invoke(loc, kwKey);
-                                if (kwVal != null) {
-                                    if (kwKey.equals("va")) {
-                                        // va-* is interpreted as a variant
-                                        variant = (variant.length() == 0) ? kwVal : kwVal + "_" + variant;
-                                    } else {
-                                        if (keywords == null) {
-                                            keywords = new TreeMap<String, String>();
-                                        }
-                                        keywords.put(kwKey, kwVal);
+                        // keywords
+                        Set<String> uKeys = loc.getUnicodeLocaleKeys();
+                        for (String kwKey : uKeys) {
+                            String kwVal = loc.getUnicodeLocaleType(kwKey);
+                            if (kwVal != null) {
+                                if (kwKey.equals("va")) {
+                                    // va-* is interpreted as a variant
+                                    variant = (variant.length() == 0) ? kwVal : kwVal + "_" + variant;
+                                } else {
+                                    if (keywords == null) {
+                                        keywords = new TreeMap<>();
                                     }
+                                    keywords.put(kwKey, kwVal);
                                 }
                             }
-                        } else {
-                            String extVal = (String) mGetExtension.invoke(loc, extKey);
-                            if (extVal != null) {
-                                if (keywords == null) {
-                                    keywords = new TreeMap<String, String>();
-                                }
-                                keywords.put(String.valueOf(extKey), extVal);
+                        }
+                    } else {
+                        String extVal = loc.getExtension(extKey);
+                        if (extVal != null) {
+                            if (keywords == null) {
+                                keywords = new TreeMap<>();
                             }
+                            keywords.put(String.valueOf(extKey), extVal);
                         }
                     }
                 }
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            } catch (InvocationTargetException e) {
-                throw new RuntimeException(e);
             }
 
             // JDK locale no_NO_NY is not interpreted as Nynorsk by ICU,
@@ -4067,7 +3986,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                     attrBuf.append(attr);
                 }
                 if (keywords == null) {
-                    keywords = new TreeMap<String, String>();
+                    keywords = new TreeMap<>();
                 }
                 keywords.put(LOCALE_ATTRIBUTE_KEY, attrBuf.toString());
             }
@@ -4100,26 +4019,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             return new ULocale(getName(buf.toString()), loc);
         }
 
-        private static ULocale toULocale6(Locale loc) {
-            ULocale uloc = null;
-            String locStr = loc.toString();
-            if (locStr.length() == 0) {
-                uloc = ULocale.ROOT;
-            } else {
-                for (int i = 0; i < JAVA6_MAPDATA.length; i++) {
-                    if (JAVA6_MAPDATA[i][0].equals(locStr)) {
-                        LocaleIDParser p = new LocaleIDParser(JAVA6_MAPDATA[i][1]);
-                        p.setKeywordValue(JAVA6_MAPDATA[i][2], JAVA6_MAPDATA[i][3]);
-                        locStr = p.getName();
-                        break;
-                    }
-                }
-                uloc = new ULocale(getName(locStr), loc);
-            }
-            return uloc;
-        }
-
-        private static Locale toLocale7(ULocale uloc) {
+        public static Locale toLocale(ULocale uloc) {
             Locale loc = null;
             String ulocStr = uloc.getName();
             if (uloc.getScript().length() > 0 || ulocStr.contains("@")) {
@@ -4143,14 +4043,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 // for variant. Because ICU always normalizes variant to
                 // upper case, we convert language tag to upper case here.
                 tag = AsciiUtil.toUpperString(tag);
-
-                try {
-                    loc = (Locale)mForLanguageTag.invoke(null, tag);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                } catch (InvocationTargetException e) {
-                    throw new RuntimeException(e);
-                }
+                loc = Locale.forLanguageTag(tag);
             }
             if (loc == null) {
                 // Without script or keywords, use a Locale constructor,
@@ -4160,29 +4053,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             return loc;
         }
 
-        private static Locale toLocale6(ULocale uloc) {
-            String locstr = uloc.getBaseName();
-            for (int i = 0; i < JAVA6_MAPDATA.length; i++) {
-                if (locstr.equals(JAVA6_MAPDATA[i][1]) || locstr.equals(JAVA6_MAPDATA[i][4])) {
-                    if (JAVA6_MAPDATA[i][2] != null) {
-                        String val = uloc.getKeywordValue(JAVA6_MAPDATA[i][2]);
-                        if (val != null && val.equals(JAVA6_MAPDATA[i][3])) {
-                            locstr = JAVA6_MAPDATA[i][0];
-                            break;
-                        }
-                    } else {
-                        locstr = JAVA6_MAPDATA[i][0];
-                        break;
-                    }
-                }
-            }
-            LocaleIDParser p = new LocaleIDParser(locstr);
-            String[] names = p.getLanguageScriptCountryVariant();
-            return new Locale(names[0], names[2], names[3]);
-        }
-
         public static Locale getDefault(Category category) {
-            Locale loc = Locale.getDefault();
             if (hasLocaleCategories) {
                 Object cat = null;
                 switch (category) {
@@ -4195,7 +4066,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 }
                 if (cat != null) {
                     try {
-                        loc = (Locale)mGetDefault.invoke(null, cat);
+                        return (Locale)mGetDefault.invoke(null, cat);
                     } catch (InvocationTargetException e) {
                         // fall through - use the base default
                     } catch (IllegalArgumentException e) {
@@ -4205,7 +4076,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                     }
                 }
             }
-            return loc;
+            return Locale.getDefault();
         }
 
         public static void setDefault(Category category, Locale newLocale) {
@@ -4231,49 +4102,6 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                     }
                 }
             }
-        }
-
-        // Returns true if the given Locale matches the original
-        // default locale initialized by JVM by checking user.XXX
-        // system properties. When the system properties are not accessible,
-        // this method returns false.
-        public static boolean isOriginalDefaultLocale(Locale loc) {
-            if (hasScriptsAndUnicodeExtensions) {
-                String script = "";
-                try {
-                    script = (String) mGetScript.invoke(loc, (Object[]) null);
-                } catch (Exception e) {
-                    return false;
-                }
-
-                return loc.getLanguage().equals(getSystemProperty("user.language"))
-                        && loc.getCountry().equals(getSystemProperty("user.country"))
-                        && loc.getVariant().equals(getSystemProperty("user.variant"))
-                        && script.equals(getSystemProperty("user.script"));
-            }
-            return loc.getLanguage().equals(getSystemProperty("user.language"))
-                    && loc.getCountry().equals(getSystemProperty("user.country"))
-                    && loc.getVariant().equals(getSystemProperty("user.variant"));
-        }
-
-        public static String getSystemProperty(String key) {
-            String val = null;
-            final String fkey = key;
-            if (System.getSecurityManager() != null) {
-                try {
-                    val = AccessController.doPrivileged(new PrivilegedAction<String>() {
-                        @Override
-                        public String run() {
-                            return System.getProperty(fkey);
-                        }
-                    });
-                } catch (AccessControlException e) {
-                    // ignore
-                }
-            } else {
-                val = System.getProperty(fkey);
-            }
-            return val;
         }
     }
 }
